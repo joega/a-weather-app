@@ -1,6 +1,7 @@
 #!/usr/bin/bash
 # Run inside the pinned build container; never installs anything on the desktop.
 set -euo pipefail
+umask 077
 export LC_ALL=C.UTF-8 TZ=UTC PYTHONHASHSEED=0
 SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
 export SOURCE_DATE_EPOCH
