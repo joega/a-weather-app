@@ -44,9 +44,6 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: a-weather-app-linux-x86_64
-          path: |
-            dist/a-weather-app-linux-x86_64.tar
-            dist/SHA256SUMS
-            ${{ steps.attest.outputs.bundle-path }}
+          path: dist/
           if-no-files-found: error
           retention-days: 90

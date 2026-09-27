@@ -37,4 +37,4 @@ python3 -I -B packaging/release.py verify
 # Stable paths, order, ownership and timestamps make the transport reproducible.
 tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
   -cf dist/a-weather-app-linux-x86_64.tar "${artifacts[@]}" packaging/runtime.json
-sha256sum dist/a-weather-app-linux-x86_64.tar > dist/SHA256SUMS
+(cd dist && sha256sum a-weather-app-linux-x86_64.tar > SHA256SUMS)
