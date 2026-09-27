@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <title>A Weather App</title>
+  <desc>A golden sun behind a luminous cloud, with three cyan rain streaks over a deep blue sky.</desc>
+  <defs>
+    <linearGradient id="sky" x1="88" y1="32" x2="426" y2="492" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3E92C7"/><stop offset=".48" stop-color="#24618D"/><stop offset="1" stop-color="#102D4C"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0" cy="0" r="1" gradientTransform="translate(178 148) rotate(65) scale(280)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B9E8EE" stop-opacity=".38"/><stop offset="1" stop-color="#8FDDF0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sun" x1="173" y1="105" x2="253" y2="253" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF4B2"/><stop offset="1" stop-color="#F6BA55"/>
+    </linearGradient>
+    <linearGradient id="cloud" x1="239" y1="187" x2="283" y2="333" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF"/><stop offset=".5" stop-color="#ECF7FC"/><stop offset="1" stop-color="#BCDCEA"/>
+    </linearGradient>
+    <linearGradient id="rain" x1="236" y1="351" x2="214" y2="422" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A3F1FF"/><stop offset="1" stop-color="#43B7EB"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#sky)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#light)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" stroke="#D3F1FF" stroke-opacity=".22" stroke-width="2"/>
+  <circle cx="201" cy="178" r="93" fill="#FFE39A" fill-opacity=".07"/>
+  <circle cx="201" cy="178" r="75" fill="url(#sun)"/>
+  <path d="M127 323C99 323 79 303 79 277C79 252 98 231 124 230C135 201 169 187 197 199C211 172 240 156 270 160C309 165 336 195 338 230C367 227 394 248 397 277C400 303 381 323 354 323Z" fill="#102B46" fill-opacity=".24" transform="translate(11 17)"/>
+  <path d="M132 316C105 316 85 296 85 271C85 246 104 226 130 225C141 198 172 184 200 196C214 169 242 154 272 159C309 164 335 194 337 228C365 225 391 246 394 274C397 298 378 316 353 316Z" fill="url(#cloud)"/>
+  <path d="M133 227C144 201 173 188 201 200C216 174 242 160 271 164" stroke="white" stroke-opacity=".65" stroke-width="5" stroke-linecap="round"/>
+  <path d="M185 357L168 391M256 357L227 415M327 357L310 391" stroke="#0C2C4B" stroke-opacity=".25" stroke-width="19" stroke-linecap="round" transform="translate(3 7)"/>
+  <path d="M185 352L168 386M256 352L227 410M327 352L310 386" stroke="url(#rain)" stroke-width="18" stroke-linecap="round"/>
+</svg>

@@ -56,11 +56,18 @@ artifact provenance and the release pipeline.
 
 ### Optional launcher
 
-From the repository root, for a new user installation:
+The application-menu launcher is separate from the bar widget and opens the same
+forecast window. After plugin installation, its repository is normally at
+`~/.config/omarchy/plugins/a-weather-app.weather` (or under your custom
+`XDG_CONFIG_HOME`). A standalone checkout works too.
+
+From that repository directory, for a new launcher installation:
 
 ```sh
-mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications" \
+  "$HOME/.local/share/icons/hicolor/scalable/apps"
 ln -s "$PWD/a-weather-app" "$HOME/.local/bin/a-weather-app"
+install -m 644 packaging/icons/a-weather-app.svg "$HOME/.local/share/icons/hicolor/scalable/apps/a-weather-app.svg"
 install -m 644 packaging/a-weather-app.desktop "$HOME/.local/share/applications/a-weather-app.desktop"
 ```
 
@@ -149,8 +156,9 @@ omarchy plugin remove a-weather-app.weather
 
 Removal disables the widget and removes the installed source/builds, preserving
 private settings and separately managed checkouts. Installed dependency packages
-also remain. Remove any separately created `~/.local/bin/a-weather-app` symlink
-and `~/.local/share/applications/a-weather-app.desktop` individually. To erase
+also remain. Remove any separately created `~/.local/bin/a-weather-app` symlink,
+`~/.local/share/applications/a-weather-app.desktop`, and
+`~/.local/share/icons/hicolor/scalable/apps/a-weather-app.svg` individually. To erase
 saved data, stop the app first and remove only its configured state directory,
 any standalone CLI cache/output files you selected, and any retained effects
 diagnostic directory after inspecting its exact path.
