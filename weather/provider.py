@@ -6,7 +6,7 @@ Daily records describe the requested location's calendar days.
 from datetime import datetime, timezone
 import math
 from urllib.parse import urlencode
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 # Last fallback only: saved automatic locations and explicit overrides take priority.
 DEFAULT_LOCATION = {"name": "New York, NY", "latitude": 40.7128,
@@ -27,7 +27,11 @@ class ForecastError(ValueError):
 def _number(value, label, minimum=None, maximum=None, optional=False):
     if value is None and optional:
         return None
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+    try:
+        finite = not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+    except OverflowError:
+        finite = False
+    if not finite:
         raise ForecastError(f"{label}: expected finite number")
     if minimum is not None and value < minimum or maximum is not None and value > maximum:
         raise ForecastError(f"{label}: out of range")
@@ -47,7 +51,7 @@ def _location(location):
     _number(location.get("longitude"), "longitude", -180, 180)
     try:
         ZoneInfo(location["timezone"])
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, TypeError, ValueError, ZoneInfoNotFoundError) as error:
         raise ForecastError("location: invalid timezone") from error
     return {key: location[key] for key in DEFAULT_LOCATION}
 
@@ -87,6 +91,8 @@ def _records(payload, section, fields):
     if not isinstance(data, dict) or not isinstance(data.get("time"), list):
         raise ForecastError(f"{section}: missing time array")
     count = len(data["time"])
+    if not 1 <= count <= (240 if section == "hourly" else 10):
+        raise ForecastError(f"{section}: unexpected record count")
     for key in fields:
         if not isinstance(data.get(key), list) or len(data[key]) != count:
             raise ForecastError(f"{section}.{key}: inconsistent array")

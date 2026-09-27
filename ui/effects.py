@@ -628,7 +628,11 @@ class EffectsSupervisor:
             effects["reduced_motion"] = flags["reduced_motion"]
             effects["lightning_enabled"] = bool(flags["lightning_enabled"] and effects.get("lightning_enabled") is True
                                                   and not flags["reduced_motion"])
-            envelope = dict(selected_weather, effects=effects)
+            # The sky consumes only this envelope, never the forecast/alerts.
+            # The production proxy already strips forecast/location fields;
+            # also omit worker provenance and selection metadata unused here.
+            envelope = {"schema_version": selected_weather["schema_version"],
+                        "selected_at": selected_weather["selected_at"], "effects": effects}
             self.backend.publish(self.directory / "selected.json", envelope)
             if flags["fps"] != self.host_fps:
                 # A live host gets a complete finite lease, while preview

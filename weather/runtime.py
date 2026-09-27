@@ -5,7 +5,6 @@ import json
 import math
 from .files import read_file, write_file
 from urllib.parse import urlencode, urlsplit
-from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 UTC = timezone.utc
 MAX_BYTES = 2 * 1024 * 1024
@@ -24,9 +23,48 @@ def instant(value):
     return result.astimezone(UTC)
 
 
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise ValueError("weather provider redirect refused")
+def decode_json(raw):
+    """Bound provider/cache nesting before decoding; refuse ambiguous numbers/keys."""
+    if len(raw) > MAX_BYTES:
+        raise ValueError("weather response exceeds size limit")
+    text = raw.decode("utf-8")
+    depth, quoted, escaped = 0, False, False
+    for char in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+        elif char in "[{":
+            depth += 1
+            if depth > 16:
+                raise ValueError("weather JSON nesting limit")
+        elif char in "]}":
+            depth -= 1
+
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("duplicate weather field")
+            result[key] = value
+        return result
+
+    def number(value):
+        result = float(value)
+        if not math.isfinite(result):
+            raise ValueError("non-finite weather number")
+        return result
+
+    data = json.loads(text, object_pairs_hook=pairs, parse_float=number,
+                      parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))
+    if not isinstance(data, dict):
+        raise ValueError("weather response must be an object")
+    return data
 
 
 def fetch_json(url):
@@ -35,16 +73,13 @@ def fetch_json(url):
             {"api.open-meteo.com", "api.weather.gov", "geocoding-api.open-meteo.com"}
             or parsed.port not in (None, 443) or parsed.username or parsed.password):
         raise ValueError("unsupported weather endpoint")
+    from urllib.request import Request, build_opener
+    from .network import NoRedirect
     request = Request(url, headers={"User-Agent": USER_AGENT,
                                   "Accept": "application/geo+json, application/json"})
     with build_opener(NoRedirect()).open(request, timeout=10) as response:
         raw = response.read(MAX_BYTES + 1)
-    if len(raw) > MAX_BYTES:
-        raise ValueError("weather response exceeds size limit")
-    data = json.loads(raw, parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))
-    if not isinstance(data, dict):
-        raise ValueError("weather response must be an object")
-    return data
+    return decode_json(raw)
 
 
 def alerts_url(location):
@@ -101,16 +136,26 @@ def fetch_snapshot(location, now=None, fetcher=fetch_json):
 
 
 def validate_snapshot(snapshot, location):
-    if (not isinstance(snapshot, dict) or snapshot.get("schema_version") != 1
+    if (not isinstance(snapshot, dict) or type(snapshot.get("schema_version")) is not int
+            or snapshot["schema_version"] != 1
             or snapshot.get("location") != location):
         raise ValueError("cache schema or location mismatch")
     instant(snapshot["fetched_at"])
     instant(snapshot["current"]["time"])
     from .mapping import visual_targets
     visual_targets(snapshot["current"])
-    for key in ("hourly", "daily"):
-        if not isinstance(snapshot.get(key), list) or len(snapshot[key]) > 1000:
+    for key, limit in (("hourly", 240), ("daily", 10)):
+        if (not isinstance(snapshot.get(key), list) or len(snapshot[key]) > limit
+                or any(not isinstance(record, dict) for record in snapshot[key])):
             raise ValueError("invalid cached forecast")
+    alerts = snapshot.get("alerts", {})
+    if (not isinstance(alerts, dict) or not isinstance(alerts.get("items", []), list)
+            or len(alerts.get("items", [])) > 256):
+        raise ValueError("invalid cached alerts")
+    for alert in alerts.get("items", []):
+        if not isinstance(alert, dict):
+            raise ValueError("invalid cached alert")
+        instant(alert["expires"])
     # A cache is data, not trusted executable markup. UI must render strings as text.
     return snapshot
 
@@ -118,7 +163,7 @@ def validate_snapshot(snapshot, location):
 def read_cache(path, location):
     try:
         raw = read_file(path, MAX_BYTES)
-        value = json.loads(raw, parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))
+        value = decode_json(raw)
         return validate_snapshot(value, location)
     except (OSError, ValueError, TypeError, KeyError):
         return None

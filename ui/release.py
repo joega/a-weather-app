@@ -22,8 +22,16 @@ def manifest(root=ROOT):
         raw = read_file(Path(root) / MANIFEST, 128 * 1024)
     except FileNotFoundError:
         return None
-    value = json.loads(raw)
-    if (not isinstance(value, dict) or value.get("schema_version") != 1
+    def pairs(items):
+        result = {}
+        for key, child in items:
+            if key in result:
+                raise ValueError("duplicate packaged runtime field")
+            result[key] = child
+        return result
+    value = json.loads(raw, object_pairs_hook=pairs)
+    if (not isinstance(value, dict) or type(value.get("schema_version")) is not int
+            or value["schema_version"] != 1
             or value.get("architecture") != "x86_64"
             or not isinstance(value.get("source_commit"), str)
             or not re.fullmatch(r"[0-9a-f]{40}", value.get("source_commit", ""))

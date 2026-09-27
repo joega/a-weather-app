@@ -14,7 +14,7 @@ for copy in first second; do
   git archive HEAD | tar --no-same-owner --no-same-permissions -x -C "$build_root/$copy"
   (
     cd "$build_root/$copy"
-    rm -f -- "${artifacts[@]}" packaging/runtime.json LICENSE THIRD_PARTY_NOTICES.md licenses/hyprland-dependencies.txt
+    rm -f -- "${artifacts[@]}" packaging/runtime.json
     export CFLAGS="-O2 -ffile-prefix-map=$PWD=."
     export CXXFLAGS="-O2 -ffile-prefix-map=$PWD=."
     python3 -I -B packaging/build_shaders.py
@@ -22,6 +22,9 @@ for copy in first second; do
     make -C native/atmosphere
     strip --strip-unneeded native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere
     python3 -I -B scripts/check_plugin_symbols.py native/frame-alignment/a-weather-app-frame-alignment.so
+    python3 -I -B packaging/check_hardening.py native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere
+    native/atmosphere/a-weather-app-atmosphere --self-test
+    python3 -I -B tests/check_native_inputs.py native/atmosphere/a-weather-app-atmosphere
     ldd native/atmosphere/a-weather-app-atmosphere > atmosphere-dependencies.txt
     if grep -q 'not found' atmosphere-dependencies.txt; then exit 1; fi
   )

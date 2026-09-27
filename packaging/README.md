@@ -50,6 +50,28 @@ artifact commit contains identical source bytes plus the generated artifacts.
 
 ## Local source builds
 
+For an isolated audit of the current checkout (including uncommitted changes),
+run from a Docker-enabled terminal:
+
+```sh
+bash scripts/run_docker_audit.sh
+```
+
+The wrapper resolves this checkout's absolute path, requests sudo only if needed,
+and prints an exit status and private `/tmp` log path. The audit installs
+signed build dependencies from the pinned Arch snapshot inside the disposable
+container, copies sources to temporary storage, runs offline regressions and
+sanitizers, and builds/checks native artifacts and shaders twice, requiring
+byte-identical pairs. It does not mount
+desktop sockets or replace checkout artifacts. It does not provide release
+provenance or verification against the final committed release source inventory.
+Docker access may require sudo; this procedure does not change account groups.
+
+With development dependencies already installed,
+`bash packaging/check_reproducibility.sh` performs only the temporary two-build
+comparison locally. It does not install packages, replace checkout artifacts or
+activate effects. It prints the retained temporary build directory for inspection.
+
 Use a separate development checkout. Install Python 3, Quickshell, Qt 6 Shader
 Tools, a C++23 compiler, make, pkg-config, GTK4, gtk4-layer-shell, JSON-GLib,
 libepoxy, EGL/GLES and matching Hyprland development headers. On Arch these come

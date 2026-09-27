@@ -8,10 +8,9 @@ import json
 import math
 import re
 from urllib.parse import urlencode
-from urllib.request import Request, ProxyHandler, build_opener
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .runtime import fetch_json, NoRedirect, USER_AGENT
+from .runtime import fetch_json, USER_AGENT
 
 GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 MAX_RESULTS = 10
@@ -202,6 +201,8 @@ def fetch_local_json(url):
     """
     if url != LOCAL_LOCATION_URL:
         raise LocationError("unsupported local location endpoint", "lookup_failed")
+    from urllib.request import Request, ProxyHandler, build_opener
+    from .network import NoRedirect
     request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
         with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=10) as response:

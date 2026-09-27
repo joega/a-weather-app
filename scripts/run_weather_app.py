@@ -457,6 +457,7 @@ def guarded_supervise(command, env, duration=None, *, cleanup_grace=BRIDGE_CLEAN
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="a-weather-app", description=__doc__)
     parser.add_argument("--version", action="version", version="A Weather App 1.0.0-rc.1")
+    parser.add_argument("--toggle-window", action="store_true", help="toggle the running forecast window")
     state_home = os.environ.get("XDG_STATE_HOME") or str(Path.home() / ".local/state")
     parser.add_argument("--state-dir", help="private state directory (overrides use separate location caches by default)")
     location = parser.add_mutually_exclusive_group()
@@ -466,6 +467,15 @@ def main(argv=None):
     parser.add_argument("--output", help="explicit monitor connector for effect activation")
     parser.add_argument("--duration", type=int, help="finite UI development run, 1..3600 seconds")
     args = parser.parse_args(argv)
+    if args.toggle_window:
+        # ROOT resolves installed symlinks, matching command_environment's path.
+        try:
+            return subprocess.run(["/usr/bin/quickshell", "ipc", "--path",
+                                   str(ROOT / "ui/qml"), "call",
+                                   "a-weather-app-ui", "toggleWindow"],
+                                  timeout=2, check=False).returncode
+        except (OSError, subprocess.TimeoutExpired):
+            return 1
     if args.duration is not None and not 1 <= args.duration <= 3600:
         parser.error("duration must be between 1 and 3600 seconds")
     try:

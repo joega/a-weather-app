@@ -25,6 +25,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Verify security and idle-resource regression checks
+        run: python3 -B -m unittest discover -s tests -v
+      - name: Check native simulations and input parsers with sanitizers
+        run: bash packaging/check_native_sanitizers.sh
       - name: Build twice and require byte-identical artifacts
         shell: bash
         run: |

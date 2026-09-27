@@ -23,7 +23,6 @@ from weather.mapping import CONDITIONS, STRENGTHS
 from weather.location import validate_location, validate_zip_code, LocationError
 from weather.provider import DEFAULT_LOCATION
 from weather.solar import solar_position
-from ui.effects_setup import EffectsSetup
 from ui.notifications import PrecipitationWatcher
 from scripts.run_weather_app import EFFECTS_ACTION_BUDGET, FORECAST_TERM_GRACE, FORECAST_KILL_GRACE
 
@@ -536,7 +535,12 @@ class Bridge:
         self.supervisor = None
         self.instance, self.output = instance, output
         self.explicit_instance = instance
-        self.setup = effects_setup if effects_setup is not None else EffectsSetup()
+        # Bar snapshots only read forecast data; avoid importing native-effects
+        # compatibility machinery for each short-lived polling helper.
+        if effects_setup is None:
+            from ui.effects_setup import EffectsSetup
+            effects_setup = EffectsSetup()
+        self.setup = effects_setup
         self.close_attempted = False
         self.close_failed = False
         self.effect_request_deadline = None
@@ -599,6 +603,13 @@ class Bridge:
         # Only an explicitly started owned session receives background ticks.
         if self.supervisor is not None and self.supervisor.status().get("state") == "running":
             self.supervisor.tick(self.selected(), self.controls)
+
+    def heartbeat_interval(self):
+        # Keep supervision responsive while work is active. A forecast-only
+        # idle bridge can sleep between the UI's five-second snapshot requests.
+        return .5 if (self.worker is not None or self.location_worker is not None
+                       or self.supervisor is not None or self.notifications.enabled
+                       or self.notifications.notifier.process is not None) else 5.
 
     def close(self):
         # serve() and main() both have finally cleanup. A failed bounded attempt
@@ -768,8 +779,8 @@ class Bridge:
                     reduced_motion=self.controls["reduced_motion"],
                     lightning_enabled=self.controls["lightning_enabled"])
         preview = self.selected()
-        # Atmosphere consumes the established weather envelope independently of UI.
-        self.state.write("selected.json", preview, CACHE_BYTES)
+        # EffectsSupervisor publishes its own envelope in its private runtime
+        # directory. UI polling needs no persistent copy or synchronous fsync.
         if self.supervisor is not None and (not hasattr(self.supervisor, "action_time_available") or
                                             self.supervisor.action_time_available()):
             self.supervisor.tick(preview, self.controls)
@@ -957,10 +968,13 @@ def read_requests(bridge, incoming):
     pending = bytearray()
     next_tick = time.monotonic()
     while True:
+        # A just-handled request may have started a worker or effects session.
+        # Shorten an existing idle deadline before waiting for more input.
+        next_tick = min(next_tick, time.monotonic() + bridge.heartbeat_interval())
         ready, _, _ = select.select([fd], [], [], max(0., next_tick - time.monotonic()))
         if time.monotonic() >= next_tick:
             bridge.heartbeat()
-            next_tick = time.monotonic() + .5
+            next_tick = time.monotonic() + bridge.heartbeat_interval()
         if not ready:
             continue
         chunk = os.read(fd, min(4096, REQUEST_BYTES + 1 - len(pending)))

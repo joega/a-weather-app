@@ -77,8 +77,8 @@ static gboolean bounded_json(const char *text, gsize length) {
 }
 static gboolean parse_weather(const char *text, gsize length, Weather *out, GError **error) {
   if (!bounded_json(text, length)) return invalid(error, "weather size, NUL or nesting limit");
-  g_autoptr(JsonParser) parser = json_parser_new();
-  if (!json_parser_load_from_data(parser, text, (gssize)length, error)) return FALSE;
+  g_autoptr(JsonParser) parser = weather_json_new();
+  if (!weather_json_load(parser, text, length, error)) return FALSE;
   JsonNode *root = json_parser_get_root(parser);
   if (!root || !JSON_NODE_HOLDS_OBJECT(root)) return invalid(error, "weather must be an object");
   JsonObject *object = json_node_get_object(root);
@@ -109,23 +109,29 @@ static gboolean parse_weather(const char *text, gsize length, Weather *out, GErr
   return TRUE;
 }
 static gboolean read_json_file(const char *path, gsize limit, char **out, gsize *out_length, GError **error) {
-  int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+  int fd = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0) { g_set_error(error, G_IO_ERROR, g_io_error_from_errno(errno), "file open: %s", g_strerror(errno)); return FALSE; }
   struct stat info;
-  if (fstat(fd, &info) || !S_ISREG(info.st_mode) || info.st_size < 1 || (guint64)info.st_size > limit) {
-    close(fd); return invalid(error, "input must be a bounded regular file");
+  if (fstat(fd, &info) || !S_ISREG(info.st_mode) || info.st_uid != geteuid() ||
+      info.st_nlink != 1 || (info.st_mode & 0022) || info.st_size < 1 || (guint64)info.st_size > limit) {
+    close(fd); return invalid(error, "input must be an owned, non-writable-by-others bounded regular file");
   }
-  g_autofree char *text = g_malloc(limit + 1);
+  // Atomic publishers replace the inode, so a checked file should not grow.
+  // Allocate for its actual size, plus one byte to detect concurrent growth,
+  // rather than reserving the maximum weather payload on every heartbeat.
+  gsize expected = (gsize)info.st_size;
+  g_autofree char *text = g_malloc(expected + 1);
   gsize length = 0;
-  while (length < limit + 1) {
-    ssize_t got = read(fd, text + length, limit + 1 - length);
+  while (length < expected + 1) {
+    ssize_t got = read(fd, text + length, expected + 1 - length);
     if (got == 0) break;
     if (got < 0 && errno == EINTR) continue;
     if (got < 0) { close(fd); return invalid(error, "weather read failed"); }
     length += (gsize)got;
   }
   close(fd);
-  if (length > limit) return invalid(error, "input grew beyond file limit");
+  if (length > expected) return invalid(error, "input grew during read");
+  text[length] = '\0';
   *out = g_steal_pointer(&text); *out_length = length;
   return TRUE;
 }

@@ -18,6 +18,7 @@ import re
 from ui.effects import NativeBackend, child_environment, bounded_run
 from ui.effects_worker import REQUEST_LIMIT, REPLY_LIMIT
 from scripts.run_weather_app import EFFECTS_ACTION_BUDGET, cleanup_group
+from weather.runtime import decode_json
 
 ACTION_BUDGET = EFFECTS_ACTION_BUDGET
 RPC_BUDGET = 28.0
@@ -102,8 +103,8 @@ class OwnedEffectsSupervisor:
                 raise ValueError("effects owner reply limit")
         line, _, remaining = self.buffer.partition(b"\n")
         self.buffer = bytearray(remaining)
-        response = json.loads(line)
-        if not isinstance(response, dict) or response.get("id") != self.request_id or type(response.get("ok")) is not bool:
+        response = decode_json(line)
+        if type(response.get("id")) is not int or response["id"] != self.request_id or type(response.get("ok")) is not bool:
             raise RuntimeError("effects owner reply identity")
         if not isinstance(response.get("status"), dict):
             raise RuntimeError("effects owner status missing")

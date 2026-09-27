@@ -88,7 +88,8 @@ OmarchyUi.BarWidget {
     Timer { id: toggleDeadline; interval: 3000; onTriggered: { if (windowToggle.running) windowToggle.signal(9); } }
     Process {
         id: windowToggle
-        command: ["/usr/bin/quickshell", "ipc", "--path", root.projectPath + "/ui/qml", "call", "a-weather-app-ui", "toggleWindow"]
+        // Let the launcher resolve symlinks just as it does when starting Qt.
+        command: ["/usr/bin/python3", "-I", "-S", "-B", root.projectPath + "/a-weather-app", "--toggle-window"]
         onExited: (code, status) => toggleDeadline.stop()
     }
     Process {

@@ -120,6 +120,26 @@ rotated/mirrored outputs and configured HDR are refused. Other GPUs/ABIs, genera
 dynamic output recreation, arbitrary fractional scales and multi-day stability
 are unverified. Short isolated tests do not establish broad hardware support.
 
+## Resource use and security boundaries
+
+The bar reads cached weather every 30 seconds; it does not start a network
+refresh or desktop effects. Forecast animation runs only while the window is
+visible and not minimized. Enable Reduced motion to stop that animation and
+disable precipitation/lightning effects. Closing a forecast-only window quits
+its UI/bridge; explicitly enabled watching or live effects keep the app running
+while hidden. No autostart service is installed.
+
+Qt rendering uses CPU, GPU and memory even without desktop effects. Native
+effects also consume compositor resources; Reduced motion is not a guarantee
+that all background work stops. Performance varies by system.
+
+Native effects run with your compositor's privileges and share its failure
+domain. Input validation, ownership checks, artifact hashes and compiler
+hardening reduce risk but do not make native code sandboxed or prove it free
+of vulnerabilities. Stop effects before replacing their binaries. Artifact
+checksums detect mismatches; release provenance is verified separately as
+described in the [release instructions](packaging/README.md).
+
 ## Notifications
 
 Enable precipitation watching in Settings → Notifications. Choose a probability

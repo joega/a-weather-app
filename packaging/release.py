@@ -18,12 +18,15 @@ SNAPSHOT = "2026/09/26"
 
 
 def command(*args):
-    return subprocess.check_output(args, cwd=ROOT, text=True, timeout=30).strip()
+    output = subprocess.check_output(args, cwd=ROOT, text=True, timeout=30)
+    # NUL-delimited Git paths are data: leading whitespace can be part of a
+    # filename, and must not be silently stripped from the first entry.
+    return output if "-z" in args else output.strip()
 
 
 def source_files():
-    paths = command("/usr/bin/git", "ls-files", "-z").split("\0")
-    return sorted(p for p in paths if p and p not in ARTIFACTS and (
+    paths = command("/usr/bin/git", "ls-files", "--cached", "--others", "--exclude-standard", "-z").split("\0")
+    return sorted(p for p in set(paths) if p and p not in ARTIFACTS and (
         Path(p).suffix in {".py", ".qml", ".js", ".c", ".cpp", ".h", ".hpp", ".gdshader", ".frag", ".sh", ".yml", ".svg", ".desktop"}
         or Path(p).name in {"Makefile", "qmldir", "a-weather-app", "manifest.json"}))
 
@@ -35,6 +38,9 @@ def digest(path):
 
 def create():
     files = source_files()
+    untracked = set(command("/usr/bin/git", "ls-files", "--others", "--exclude-standard", "-z").split("\0"))
+    if untracked.intersection(files):
+        raise RuntimeError("commit untracked release sources before building")
     if command("/usr/bin/git", "diff", "HEAD", "--", *files):
         raise RuntimeError("commit release sources before building")
     header = Path('/usr/include/hyprland/src/version.h').read_text()

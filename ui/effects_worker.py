@@ -18,6 +18,7 @@ import time
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ui.effects import EffectsSupervisor
+from weather.runtime import decode_json
 
 REQUEST_LIMIT = 8192
 REPLY_LIMIT = 32768
@@ -92,7 +93,7 @@ def serve(supervisor_factory=EffectsSupervisor, input_fd=0, output_fd=1, *, owne
             while b"\n" in pending:
                 line, _, remainder = pending.partition(b"\n")
                 pending = bytearray(remainder)
-                request = json.loads(line)
+                request = decode_json(line)
                 if not isinstance(request, dict) or type(request.get("id")) is not int:
                     raise ValueError("effects request schema")
                 operation = request.get("op")

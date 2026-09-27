@@ -3,6 +3,7 @@
 #include <gio/gio.h>
 #include <math.h>
 #include <string.h>
+#include "strict_json.h"
 
 #define POLICY_LIMIT (64 * 1024)
 #define POLICY_MAX_AGE_MS 1500
@@ -53,8 +54,8 @@ static inline gboolean policy_parse(const char *text, gsize length, const char *
     else if (c == '}' || c == ']') { if (!depth) return policy_invalid(error, "policy nesting mismatch"); --depth; }
   }
   if (quoted || depth) return policy_invalid(error, "policy incomplete JSON");
-  g_autoptr(JsonParser) parser = json_parser_new();
-  if (!json_parser_load_from_data(parser, text, (gssize)length, error)) return FALSE;
+  g_autoptr(JsonParser) parser = weather_json_new();
+  if (!weather_json_load(parser, text, length, error)) return FALSE;
   JsonNode *root = json_parser_get_root(parser);
   if (!root || !JSON_NODE_HOLDS_OBJECT(root)) return policy_invalid(error, "policy object required");
   JsonObject *object = json_node_get_object(root);

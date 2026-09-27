@@ -2,7 +2,8 @@ CXX ?= c++
 PKG_CONFIG ?= pkg-config
 CPPFLAGS += $(shell $(PKG_CONFIG) --cflags hyprland)
 CXXFLAGS ?= -O2
-CXXFLAGS += -std=c++23 -fPIC -fno-gnu-unique -Wall -Wextra
+CXXFLAGS += -std=c++23 -fPIC -fno-gnu-unique -Wall -Wextra -fstack-protector-strong -D_FORTIFY_SOURCE=3
+LDFLAGS += -Wl,-z,relro,-z,now,-z,noexecstack
 LDLIBS += $(shell $(PKG_CONFIG) --libs hyprland glesv2)
 SOURCES = plugin.cpp rain_controller.cpp geometry.cpp segment_pass.cpp ../physics/simulation.cpp ../snow/simulation.cpp
 .PHONY: all clean check-symbols
