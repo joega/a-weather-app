@@ -362,8 +362,8 @@
     "zstd 1.5.7-3"
   ],
   "schema_version": 1,
-  "source_commit": "7df4aef7d2d553c1bf64787c5059102d8df5e0d2",
-  "source_date_epoch": 1790523947,
+  "source_commit": "9e049f052b5664b930ca30dde2dc2d86776a9005",
+  "source_date_epoch": 1790527762,
   "sources": {
     ".github/workflows/package.yml": "867abbdd4cbd37241bf6470c710df2f5e83095a5b985ae7b07ac95223be3baa4",
     "a-weather-app": "27e9040b8fdc3eedd47284cd092175e5cd0005ce490a14dce971e326f1b9ca7e",
@@ -403,7 +403,7 @@
     "scripts/run_weather_app.py": "dc10120f9928d76891f21cd1e09e66cb011ac2677d4e4208bed5cbb41585945b",
     "scripts/weather_app_guardian.py": "78e9818079628fca64e14a1a682f6ab69996e044542e2d09a6db0a736f07e08b",
     "ui/__init__.py": "3e5871c9674b555949ab7f90744ce2d2a2325ccab094fde636c863a9b60d0585",
-    "ui/bridge.py": "048f7a28a3ace3c9846f0d8e92d795b1a557de96b7c3994049a5559a9994e34b",
+    "ui/bridge.py": "7c95911d50d81955fdc5013265f08144265eaa130dd064805251fede67a986ab",
     "ui/effects.py": "eac224bc49a7e9b59da99b9f09cb4190a34a7faa42b3e4b0c373a3f043fefc8d",
     "ui/effects_proxy.py": "6a76effcf63705248056c79cb8d281b0c3c7f240d39912d627aef7f122efda3e",
     "ui/effects_setup.py": "696df94ac2ce16fe953db83678e0ffac09f9fddaf9330c15f029a00355a2402b",
@@ -430,7 +430,7 @@
     "ui/qml/WeatherIcon.qml": "64ee10bf885079e18a80ca97e71039c17d3b1a674d90491d8e968d2c75c76244",
     "ui/qml/backend/Bridge.qml": "15eaecce0bf7f37113a40142cd59ec15d73e796cf19ff003690fa7ec2554b49d",
     "ui/qml/qmldir": "ca3edcc368907b069bcefa3decba72015b15ab92b4b356cd46cf105ea3523e25",
-    "ui/qml/shell.qml": "71773da18ee3314cc0a3afba816fcbe581c9b2dee7b848baa1dfef455659ec18",
+    "ui/qml/shell.qml": "4e5396959214109e3de281c4a068e8244bf387ca7b06cd04d317e560fc265d94",
     "ui/release.py": "940b6f203874b0e2a48f44949b97005c014af8cfc9aabdf43cb3016ea1f3638d",
     "ui/shaders/atmosphere.frag": "f1ef87fd53b4fecd4c3bf490f9266f2aad620d4b9adeaae70ad5884a054587bd",
     "ui/shaders/generate.py": "591e8b6bb5b31fbc02634db1919ac216e5ef775b8ab42ee0a4dad22cb90fdba2",
