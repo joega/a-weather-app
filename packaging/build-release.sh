@@ -11,7 +11,7 @@ trap 'rm -rf -- "$build_root"' EXIT
 artifacts=(ui/shaders/atmosphere.frag.qsb native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere)
 for copy in first second; do
   mkdir "$build_root/$copy"
-  git archive HEAD | tar -x -C "$build_root/$copy"
+  git archive HEAD | tar --no-same-owner --no-same-permissions -x -C "$build_root/$copy"
   (
     cd "$build_root/$copy"
     rm -f -- "${artifacts[@]}" packaging/runtime.json
