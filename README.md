@@ -15,6 +15,18 @@ Recorded weather is illustrative, not a current forecast.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
 - Optional desktop rain, runoff and pooling; snow accumulation and melting.
 
+## Screenshots
+
+Captured from the packaged app with synthetic Boston weather, labeled in the
+window. These illustrate the interface, not current conditions.
+
+| Forecast and animated sky | Hourly forecast details | Desktop effects controls |
+| --- | --- | --- |
+| [![Forecast](preview.png)](preview.png) | [![Hourly wind chart](media/forecast-details.png)](media/forecast-details.png) | [![Desktop effects settings](media/desktop-effects.png)](media/desktop-effects.png) |
+
+Select an image for full size. **Live desktop** keeps weather effects on until
+you stop them; the separate preview runs for five minutes.
+
 ## Install on Omarchy
 
 On a current **x86_64 Omarchy** installation:
