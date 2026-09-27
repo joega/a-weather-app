@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from .mapping import STRENGTHS
+from .files import read_file
 from .provider import DEFAULT_LOCATION
 from .runtime import MAX_BYTES, load_live, read_cache, select_weather
 
@@ -32,10 +33,7 @@ def main():
         snapshot, error = load_live(args.cache, DEFAULT_LOCATION, now=now, force=args.refresh)
     manual = None
     if args.manual:
-        with args.manual.open("rb") as stream:
-            raw = stream.read(MAX_BYTES + 1)
-        if len(raw) > MAX_BYTES:
-            raise ValueError("manual input exceeds size limit")
+        raw = read_file(args.manual, MAX_BYTES)
         manual = json.loads(raw)
     value = select_weather(snapshot, now=now, mode=args.mode, manual=manual, strength=args.strength, error=error)
     value["location"] = dict(DEFAULT_LOCATION)

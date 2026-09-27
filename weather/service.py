@@ -9,6 +9,7 @@ import signal
 import time
 
 from . import native, runtime
+from .files import read_file
 from .mapping import visual_targets
 from .provider import DEFAULT_LOCATION
 
@@ -38,12 +39,10 @@ class Service:
 
     def read_controls(self):
         try:
-            if not self.controls.exists():
+            try:
+                raw = read_file(self.controls, 65536)
+            except FileNotFoundError:
                 return None
-            with self.controls.open("rb") as stream:
-                raw = stream.read(65537)
-            if len(raw) > 65536:
-                raise ValueError("controls too large")
             value = json.loads(raw, parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))
             if not isinstance(value, dict):
                 raise ValueError("controls must be an object")

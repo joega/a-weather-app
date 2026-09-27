@@ -2,14 +2,15 @@
 import json
 import math
 import re
-import subprocess
+from ui.effects import bounded_run
 
 
 def request(instance, argument):
     if not re.fullmatch(r"[a-f0-9]+_[0-9]+_[0-9]+", instance):
         raise ValueError("explicit Hyprland instance required")
-    value = json.loads(subprocess.check_output(
-        ["hyprctl", "-i", instance, "a-weather-app:rain", argument], text=True, timeout=3))
+    value = json.loads(bounded_run(
+        ["/usr/bin/hyprctl", "-i", instance, "a-weather-app:rain", argument],
+        timeout=3, stdout_limit=262144, stderr_limit=8192))
     if not isinstance(value, dict) or value.get("error"):
         raise RuntimeError(f"native weather control failed: {value}")
     return value

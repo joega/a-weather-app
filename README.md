@@ -128,8 +128,16 @@ store an IP-address response field. Normal refresh is limited to once per
 Private settings, locations, forecasts and bounded notification reservations
 live in `$XDG_STATE_HOME/a-weather-app`, or `~/.local/state/a-weather-app`.
 The app does not store notification body history; your desktop daemon may.
-Effects use a private temporary directory with bounded logs; failed cleanup
-retains diagnostics for inspection.
+Effects use a private `a-weather-app-effects-*` directory under the system
+temporary directory (`$TMPDIR` when configured, normally `/tmp`), with bounded
+logs. Failed cleanup retains that directory for inspection. Launcher failures
+may retain `guardian-last-error.log` in the state directory.
+
+The optional `python3 -m weather` command uses
+`~/.cache/a-weather-app/weather.json` by default; its `--cache` option and
+`python3 -m weather.service` file options select separate explicit paths.
+Output directories must be owned by you with mode `0700`; input files must be
+regular, owned by you, and not writable by other users. Symlinks are refused.
 
 Stop effects and quit the app before uninstalling:
 
@@ -138,9 +146,12 @@ omarchy plugin remove a-weather-app.weather
 ```
 
 Removal disables the widget and removes the installed source/builds, preserving
-private settings and separately managed checkouts. Remove any separately created
-launcher symlink and desktop entry individually. To erase saved data, stop the
-app first and remove only its configured state directory.
+private settings and separately managed checkouts. Installed dependency packages
+also remain. Remove any separately created `~/.local/bin/a-weather-app` symlink
+and `~/.local/share/applications/a-weather-app.desktop` individually. To erase
+saved data, stop the app first and remove only its configured state directory,
+any standalone CLI cache/output files you selected, and any retained effects
+diagnostic directory after inspecting its exact path.
 
 ## Troubleshooting
 

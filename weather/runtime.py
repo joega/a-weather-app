@@ -3,9 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 import math
-import os
-from pathlib import Path
-import tempfile
+from .files import read_file, write_file
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
@@ -119,10 +117,7 @@ def validate_snapshot(snapshot, location):
 
 def read_cache(path, location):
     try:
-        with Path(path).open("rb") as stream:
-            raw = stream.read(MAX_BYTES + 1)
-        if len(raw) > MAX_BYTES:
-            return None
+        raw = read_file(path, MAX_BYTES)
         value = json.loads(raw, parse_constant=lambda s: (_ for _ in ()).throw(ValueError(s)))
         return validate_snapshot(value, location)
     except (OSError, ValueError, TypeError, KeyError):
@@ -130,21 +125,10 @@ def read_cache(path, location):
 
 
 def write_cache(path, snapshot):
-    path = Path(path)
     encoded = json.dumps(snapshot, allow_nan=False, separators=(",", ":")).encode()
     if len(encoded) > MAX_BYTES:
         raise ValueError("snapshot exceeds cache size limit")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".weather-", dir=path.parent)
-    try:
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(encoded)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    write_file(path, encoded)
 
 
 def select_weather(snapshot, *, now=None, mode="live", manual=None, strength="subtle", error=None,
