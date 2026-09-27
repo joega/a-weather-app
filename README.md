@@ -3,7 +3,10 @@
 A native Qt Quick weather app for Linux, with an animated sky and optional
 weather effects across your Hyprland desktop. Designed for Omarchy.
 
-![Synthetic forecast preview](preview.png)
+![A Weather App with animated sky and live desktop rain](media/demo.gif)
+
+[Watch the five-second demo in full quality](media/demo.mp4).
+Recorded weather is illustrative, not a current forecast.
 
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
@@ -58,11 +61,10 @@ replacing an unrelated command.
 ## Omarchy bar widget
 
 The entire repository is the plugin; its root `manifest.json` declares
-`a-weather-app.weather`. Once this repository is hosted on GitHub, install it
-using its actual repository URL:
+`a-weather-app.weather`. Install it from GitHub:
 
 ```sh
-omarchy plugin add <repository-git-url>
+omarchy plugin add https://github.com/joega/a-weather-app.git
 python3 -I -B "$HOME/.config/omarchy/plugins/a-weather-app.weather/packaging/build_shaders.py"
 omarchy plugin enable a-weather-app.weather
 ```
