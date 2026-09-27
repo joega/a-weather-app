@@ -15,34 +15,32 @@ Recorded weather is illustrative, not a current forecast.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
 - Optional desktop rain, runoff and pooling; snow accumulation and melting.
 
-**Source builds only for now.** Prebuilt binaries and automated release builds
-are not available yet. Native desktop effects are experimental and require
-headers matching the supported Hyprland version. Forecast viewing works without
-the native effects plugin.
+## Install on Omarchy
 
-## Build and run
-
-Use an installed Python 3, Quickshell with Qt Quick, Qt 6 Shader Tools (`qsb`),
-and a graphical Wayland session. On Omarchy/Arch, the relevant packages are
-`python`, `quickshell` and `qt6-shadertools`. No pip installation is needed.
-Optional notifications use `notify-send` from `libnotify`.
-
-From the repository root:
+On a current **x86_64 Omarchy** installation:
 
 ```sh
-python3 -I -B packaging/build_shaders.py
-./a-weather-app
+omarchy plugin add https://github.com/joega/a-weather-app.git --enable
 ```
 
-Shader compilation is offline and must be repeated after shader or Qt upgrades.
-The canonical shader is in `godot/shaders/`; running Godot is not required.
-The launcher uses `/usr/bin/python3` and `/usr/bin/quickshell`; shader compilation
-uses `/usr/lib/qt6/bin/qsb`.
+Click the weather widget to open the app. The repository includes the compiled
+forecast shader and native effects components: no compiler, shader build, binary
+download or extra setup command is needed. Effects remain off until you enable
+them in the app.
 
 On first launch, open Settings and choose a five-digit US ZIP, or explicitly
 choose approximate local detection. New York is the fallback location. Refresh
 failures retain cached weather with freshness indicators; unavailable alerts
 are never treated as an all-clear.
+
+The packaged runtime targets Omarchy's Python 3, Quickshell/Qt 6, GTK4,
+gtk4-layer-shell, JSON-GLib, libepoxy and Mesa libraries. Omarchy supplies these
+through its standard packages and dependencies. Notifications use `notify-send`
+from `libnotify`. Other Linux distributions may need to install these dependencies.
+
+For a standalone checkout on the same supported system, run `./a-weather-app`.
+See [building and verifying releases](packaging/README.md) for source builds,
+artifact provenance and the release pipeline.
 
 ### Optional launcher
 
@@ -61,37 +59,29 @@ replacing an unrelated command.
 ## Omarchy bar widget
 
 The entire repository is the plugin; its root `manifest.json` declares
-`a-weather-app.weather`. Install it from GitHub:
+`a-weather-app.weather`. The bar reads cached conditions without fetching weather
+or loading native code. Clicking it opens or hides the app.
+
+Before updating, stop desktop effects and quit the app, then run:
 
 ```sh
-omarchy plugin add https://github.com/joega/a-weather-app.git
-python3 -I -B "$HOME/.config/omarchy/plugins/a-weather-app.weather/packaging/build_shaders.py"
-omarchy plugin enable a-weather-app.weather
+omarchy plugin update a-weather-app.weather
 ```
 
-The bar reads cached conditions without fetching weather or loading native
-code. Clicking it opens or hides the app. No marketplace approval is implied.
-
-Before an update, stop desktop effects and quit the app. Then run
-`omarchy plugin update a-weather-app.weather` and rebuild the shader. Rebuild
-optional native effects too; old local binaries may survive a source update.
+The update includes the matching compiled artifacts. No rebuild is needed.
+Do not replace binaries while effects are running. No marketplace approval is
+implied by installation.
 
 ## Desktop effects
 
-Effects additionally require a C++23 compiler, make, pkg-config, GTK4,
-gtk4-layer-shell, JSON-GLib, libepoxy, EGL/GLES development libraries, and
-Hyprland 0.56.2 development headers matching the running compositor. On Arch,
-these include `base-devel`, `gtk4`, `gtk4-layer-shell`, `json-glib`, `libepoxy`,
-`mesa`, `libglvnd`, and the matching `hyprland` package and dependencies.
+The bundled effects target **Hyprland 0.56.2** (the exact source build is
+recorded in `packaging/runtime.json`). Settings checks compatibility before
+activation, and incompatible compositor builds are refused before loading the
+plugin. After a Hyprland update, effects may remain unavailable until a matching
+A Weather App release is available; forecast viewing continues to work.
 
-```sh
-make -C native/frame-alignment
-make -C native/atmosphere
-```
-
-Never replace a loaded native library: stop effects and quit the app before
-rebuilding. Building does not activate effects. In Settings, check compatibility
-and select the current output.
+In Settings, check compatibility and select the current output. No build step
+is required for the supported packaged runtime.
 
 - **Live desktop**, in the main window header, follows actual weather until you
   stop it. Closing the window keeps it running; reopen through the bar to stop it.
@@ -155,9 +145,10 @@ diagnostic directory after inspecting its exact path.
 
 ## Troubleshooting
 
-- **Missing shader:** rerun `packaging/build_shaders.py` and reopen the app.
+- **Missing or changed packaged files:** quit the app, then update or reinstall it.
+  Source builders should follow [the build instructions](packaging/README.md).
 - **Effects unavailable:** use the compatibility check; verify the running
-  compositor version, current monitor and freshly built native binaries.
+  compositor version, current monitor and a matching app release.
 - **Old manual bar setup:** clear stale overrides with
   `omarchy bar set a-weather-app.weather projectPath null --json`, and similarly
   clear `instance` and `output`. Retain a custom `statePath` if needed.

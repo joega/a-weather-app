@@ -21,3 +21,8 @@ docs/
 
 # Original recording; publish only the trimmed media exports.
 /demo.mp4
+
+# Reviewed CI release artifacts are intentionally shipped for one-command install.
+!ui/shaders/atmosphere.frag.qsb
+!native/frame-alignment/a-weather-app-frame-alignment.so
+!native/atmosphere/a-weather-app-atmosphere
