@@ -879,6 +879,13 @@ class Bridge:
             if op in ("start_effects", "start_live_effects"):
                 if op == "start_effects" and (type(request["duration"]) is not int or not 1 <= request["duration"] <= 300):
                     raise ValueError("duration")
+                if op == "start_live_effects" and (not self.instance or not self.output) and self.effects_status()["state"] == "stopped":
+                    setup = self.setup.check(self.explicit_instance, self.output)
+                    self.instance = self.setup.instance
+                    self.output = setup["selected_output"]
+                    if setup["status"] != "ready":
+                        return {"request_id": request_id, "ok": False, "error": "effects_not_configured",
+                                "snapshot": self.snapshot(poll=False)}, False
                 if not self.instance or not self.output or self.location is None:
                     return {"request_id": request_id, "ok": False, "error": "effects_not_configured"}, False
                 try:

@@ -114,7 +114,7 @@ ShellRoot {
                     ActionButton { objectName:"unitsC";text:"°C";selected:root.units==="C";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"C"}) }
                     ActionButton { objectName:"refreshForecast";iconName:"refresh";accessibleLabel:"Refresh forecast";enabled:!bridge.busy;onClicked:bridge.send("refresh") }
                     ActionButton { objectName:"openEffects";iconName:"sliders";text:"Settings";onClicked:root.effectsOpen=true }
-                    ActionButton { objectName:"liveDesktop";text:root.liveDesktop?"Live desktop · On":"Live desktop";selected:root.liveDesktop;enabled:bridge.available&&!bridge.busy;onClicked:{if(root.liveDesktop)bridge.send("stop_effects");else if(effects.canStart)bridge.send("start_live_effects");else root.effectsOpen=true} }
+                    ActionButton { objectName:"liveDesktop";text:root.liveDesktop?"Live desktop · On":"Live desktop";selected:root.liveDesktop;enabled:bridge.available&&!bridge.busy;onClicked:{if(root.liveDesktop)bridge.send("stop_effects");else bridge.send("start_live_effects")} }
                     }
                     Column {
                         id:conditions;spacing:3;width:parent.width

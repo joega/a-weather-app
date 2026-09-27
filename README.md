@@ -24,7 +24,7 @@ window. These illustrate the interface, not current conditions.
 | --- | --- | --- |
 | [![Forecast](preview.png)](preview.png) | [![Hourly wind chart](media/forecast-details.png)](media/forecast-details.png) | [![Desktop effects settings](media/desktop-effects.png)](media/desktop-effects.png) |
 
-Select an image for full size. **Live desktop** keeps weather effects on until
+Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
 you stop them; the separate preview runs for five minutes.
 
 ## Install on Omarchy
