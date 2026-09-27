@@ -14,7 +14,7 @@ for copy in first second; do
   git archive HEAD | tar --no-same-owner --no-same-permissions -x -C "$build_root/$copy"
   (
     cd "$build_root/$copy"
-    rm -f -- "${artifacts[@]}" packaging/runtime.json
+    rm -f -- "${artifacts[@]}" packaging/runtime.json LICENSE THIRD_PARTY_NOTICES.md licenses/hyprland-dependencies.txt
     export CFLAGS="-O2 -ffile-prefix-map=$PWD=."
     export CXXFLAGS="-O2 -ffile-prefix-map=$PWD=."
     python3 -I -B packaging/build_shaders.py
@@ -36,5 +36,5 @@ python3 -I -B packaging/release.py create
 python3 -I -B packaging/release.py verify
 # Stable paths, order, ownership and timestamps make the transport reproducible.
 tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
-  -cf dist/a-weather-app-linux-x86_64.tar "${artifacts[@]}" packaging/runtime.json
+  -cf dist/a-weather-app-linux-x86_64.tar "${artifacts[@]}" packaging/runtime.json LICENSE THIRD_PARTY_NOTICES.md licenses/hyprland-dependencies.txt
 (cd dist && sha256sum a-weather-app-linux-x86_64.tar > SHA256SUMS)

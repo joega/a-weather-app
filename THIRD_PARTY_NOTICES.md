@@ -46,3 +46,15 @@ use. These services and their responses are not bundled as application source.
 The application uses procedural atmosphere shaders and code-drawn weather icons.
 It does not bundle Apple Weather artwork. The preview is a synthetic forecast
 screenshot, not a capture of a user's location or current weather.
+
+## Native effects headers and libraries
+
+The native effects build uses Hyprland, Aquamarine, Hyprcursor, Hyprgraphics,
+Hyprlang and Hyprutils headers and system libraries. Their BSD notices are
+retained in [the dependency notices](licenses/hyprland-dependencies.txt),
+including for header code compiled into the distributed plugin. Exact build
+package versions are recorded in `packaging/runtime.json`.
+
+GTK4, gtk4-layer-shell, GLib/JSON-GLib, libepoxy, Qt and the graphics drivers
+remain separately installed system dependencies; their shared libraries are
+not bundled in this repository's runtime artifacts.
