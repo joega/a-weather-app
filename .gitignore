@@ -1,0 +1,20 @@
+# Build products and local state
+__pycache__/
+*.py[cod]
+*.qsb
+*.so
+native/atmosphere/a-weather-app-atmosphere
+build/
+dist/
+*.log
+.env
+.env.*
+*.pem
+*.key
+# Keep personal tooling and development records out of releases.
+.agents/
+.codex/
+.idea/
+.vscode/
+artifacts/
+docs/

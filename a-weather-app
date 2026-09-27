@@ -1,0 +1,12 @@
+#!/usr/bin/python3 -I
+"""A Weather App: launch the forecast window and its opt-in desktop effects."""
+from pathlib import Path
+import sys
+
+sys.dont_write_bytecode = True
+# Resolve the checkout, including when launched through an installed symlink.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from scripts.run_weather_app import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

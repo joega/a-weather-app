@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=A Weather App
+Comment=Live animated weather for Hyprland, with forecasts and interactive desktop weather effects
+Exec=a-weather-app
+TryExec=a-weather-app
+Icon=weather-showers
+Terminal=false
+Categories=Utility;
+Keywords=Linux;weather;weather app;Hyprland;Omarchy;Wayland;animated weather;live weather;desktop weather;weather effects;
+StartupNotify=false
+StartupWMClass=a-weather-app

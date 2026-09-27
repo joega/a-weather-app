@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "a-weather-app.weather",
+  "name": "A Weather App",
+  "version": "1.0.0-rc.1",
+  "author": "Joe Gaetano",
+  "license": "MIT",
+  "description": "Cached weather status and an atmospheric native forecast window",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "quickshell/a-weather-app.weather/WeatherWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "A Weather App",
+    "description": "Cached local conditions; click to toggle the native forecast window",
+    "category": "Info",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}
