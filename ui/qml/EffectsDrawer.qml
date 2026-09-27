@@ -41,8 +41,8 @@ GlassPanel {
         unsupported_output:"Desktop effects require an unrotated SDR monitor within the supported size limits. The forecast app remains available.",
         multiple_outputs:"Desktop effects currently support one configured monitor. Your multi-monitor forecast app remains fully usable.",
         plugin_conflict:"Another native Hyprland plugin is loaded. Effects require an otherwise empty native plugin list; no plugins will be removed by this check.",
-        native_missing:"Optional native effects components are not built. Follow the README’s native-effects setup, then check again.",
-        native_incompatible:"Native effects do not match this desktop or a compatibility check failed. Rebuild using the running Hyprland version and check again.",
+        native_missing:"Desktop effects components are missing. Update or reinstall A Weather App, then check again.",
+        native_incompatible:"Desktop effects do not match this Hyprland build or the compatibility check failed. Update A Weather App for a matching release. Forecasts remain available.",
         activation_failed:"The desktop changed or effects could not start. Check compatibility again before retrying."
     })[setup.reason]||"Desktop effects unavailable."
     function revealFocus(item) {

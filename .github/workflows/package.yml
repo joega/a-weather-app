@@ -1,0 +1,44 @@
+name: Build installable runtime
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    container:
+      image: archlinux@sha256:917e543c9d0f1f495d70907bdf05bf53607e791b351e1b01ccd3aec2442303ed
+    steps:
+      - name: Install signed packages from the fixed Arch snapshot
+        shell: bash
+        run: |
+          printf 'Server = https://archive.archlinux.org/repos/2026/09/26/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm --needed base-devel git python hyprland qt6-shadertools gtk4 gtk4-layer-shell json-glib libepoxy
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build twice and require byte-identical artifacts
+        shell: bash
+        run: bash packaging/build-release.sh
+      - name: Attest the release bundle
+        id: attest
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a
+        with:
+          subject-path: dist/a-weather-app-linux-x86_64.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: a-weather-app-linux-x86_64
+          path: |
+            dist/a-weather-app-linux-x86_64.tar
+            dist/SHA256SUMS
+            ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90

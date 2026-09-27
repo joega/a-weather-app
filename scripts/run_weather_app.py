@@ -49,6 +49,8 @@ def guardian_wait_budget(cleanup_grace, force_grace):
 
 
 def require_shader():
+    from ui.release import ARTIFACTS, verify_artifacts
+    verify_artifacts(ARTIFACTS[:1])
     try:
         info = (ROOT / "ui/shaders/atmosphere.frag.qsb").lstat()
         ready = stat.S_ISREG(info.st_mode) and 0 < info.st_size <= 512 * 1024

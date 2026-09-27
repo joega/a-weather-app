@@ -304,6 +304,8 @@ class NativeBackend:
         validate_native_output(monitor)
         if not PLUGIN.is_file() or not HOST.is_file() or not os.access(HOST, os.X_OK):
             raise RuntimeError("prebuilt native effects unavailable")
+        from ui.release import verify_effects
+        verify_effects(lambda: self.ctl("version"))
         bounded_run(["/usr/bin/prlimit", "--as=268435456", "--core=0", "--",
                      "/usr/bin/python3", "-I", "-B", str(ROOT / "scripts/check_plugin_symbols.py"), str(PLUGIN)], timeout=10, env=self.env)
         # PLUGIN_INIT independently rejects server/client hash mismatch before registration.
