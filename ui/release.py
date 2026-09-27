@@ -25,6 +25,7 @@ def manifest(root=ROOT):
     value = json.loads(raw)
     if (not isinstance(value, dict) or value.get("schema_version") != 1
             or value.get("architecture") != "x86_64"
+            or not isinstance(value.get("source_commit"), str)
             or not re.fullmatch(r"[0-9a-f]{40}", value.get("source_commit", ""))
             or not isinstance(value.get("artifacts"), dict)
             or set(value["artifacts"]) != set(ARTIFACTS)):

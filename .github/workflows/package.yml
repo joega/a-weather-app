@@ -27,7 +27,9 @@ jobs:
           persist-credentials: false
       - name: Build twice and require byte-identical artifacts
         shell: bash
-        run: bash packaging/build-release.sh
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          bash packaging/build-release.sh
       - name: Attest the release bundle
         id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a

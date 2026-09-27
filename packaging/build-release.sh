@@ -2,7 +2,8 @@
 # Run inside the pinned build container; never installs anything on the desktop.
 set -euo pipefail
 export LC_ALL=C.UTF-8 TZ=UTC PYTHONHASHSEED=0
-export SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)"
+export SOURCE_DATE_EPOCH
 source_root="$PWD"
 build_root=$(mktemp -d)
 trap 'rm -rf -- "$build_root"' EXIT
