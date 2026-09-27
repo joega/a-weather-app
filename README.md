@@ -56,7 +56,13 @@ artifact provenance and the release pipeline.
 
 ### Optional launcher
 
-The application-menu launcher is separate from the bar widget and opens the same
+Open **Settings → Application → Install application launcher** to add the app
+and its custom icon to your application menu. No build, administrator password, or
+terminal command is needed. Reopen the menu after installation. This is optional
+and runs only when you click the button; plugin installation does not add it
+automatically. Existing unrelated launcher files are never overwritten.
+
+For manual installation, the application-menu launcher is separate from the bar widget and opens the same
 forecast window. After plugin installation, its repository is normally at
 `~/.config/omarchy/plugins/a-weather-app.weather` (or under your custom
 `XDG_CONFIG_HOME`). A standalone checkout works too.

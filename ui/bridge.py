@@ -529,6 +529,7 @@ class Bridge:
         cached = self.profile["forecast"] if self.profile else read_legacy_forecast(state, self.location, fallback=self.location_mode == "default")
         self.forecast = validate_forecast(cached, self.location) if cached is not None else None
         self.error = None
+        self.launcher_status = "ready"
         age = (self.now() - runtime.instant(cached["fetched_at"])).total_seconds() if cached else 900
         self.next_fetch = self.monotonic() + max(0, 900 - max(0, age))
         self.effects_factory = effects_factory
@@ -822,7 +823,7 @@ class Bridge:
                 "atmosphere": live["effects"],
                 "preview": {"current": preview["current"], "effects": preview["effects"],
                             "freshness": preview["freshness"]},
-                "effect_status": self.effects_status(), "effects_setup": self.setup.snapshot()}
+                "effect_status": self.effects_status(), "effects_setup": self.setup.snapshot(), "launcher_status": self.launcher_status}
 
     def request(self, request):
         # Preview->live transition and its result snapshot share one absolute
@@ -854,11 +855,14 @@ class Bridge:
                        {"request_id", "op", "location"} if op == "set_location" else
                        {"request_id", "op", "output"} if op == "select_output" else
                        {"request_id", "op", "duration"} if op == "start_effects" else {"request_id", "op"})
-            if set(request) != allowed or op not in ("snapshot", "set_controls", "set_location", "refresh", "quit", "check_effects", "select_output", "start_effects", "start_live_effects", "stop_effects", "set_notifications", "snooze_notifications", "resume_notifications"):
+            if set(request) != allowed or op not in ("install_launcher", "snapshot", "set_controls", "set_location", "refresh", "quit", "check_effects", "select_output", "start_effects", "start_live_effects", "stop_effects", "set_notifications", "snooze_notifications", "resume_notifications"):
                 raise ValueError("operation")
             if self.close_attempted:
                 return ({"request_id": request_id, "ok": not self.close_failed}, True) if op == "quit" else (
                     {"request_id": request_id, "ok": False, "error": "service_closed"}, False)
+            if op == "install_launcher":
+                from ui.launcher import install
+                self.launcher_status = install()
             if op == "quit":
                 self.close()
                 return {"request_id": request_id, "ok": True}, True

@@ -24,7 +24,7 @@ def command(*args):
 def source_files():
     paths = command("/usr/bin/git", "ls-files", "-z").split("\0")
     return sorted(p for p in paths if p and p not in ARTIFACTS and (
-        Path(p).suffix in {".py", ".qml", ".js", ".c", ".cpp", ".h", ".hpp", ".gdshader", ".frag", ".sh", ".yml"}
+        Path(p).suffix in {".py", ".qml", ".js", ".c", ".cpp", ".h", ".hpp", ".gdshader", ".frag", ".sh", ".yml", ".svg", ".desktop"}
         or Path(p).name in {"Makefile", "qmldir", "a-weather-app", "manifest.json"}))
 
 

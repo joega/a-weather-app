@@ -189,6 +189,8 @@ ShellRoot {
             onNotificationsPatch:values=>bridge.send("set_notifications",values)
             onNotificationPauseRequested:bridge.send("snooze_notifications")
             onNotificationResumeRequested:bridge.send("resume_notifications")
+            launcherStatus:bridge.snapshot?bridge.snapshot.launcher_status:"ready"
+            onInstallLauncherRequested:bridge.send("install_launcher")
             onQuitRequested:bridge.shutdown()
         }
     }
