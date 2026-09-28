@@ -5,9 +5,6 @@ weather effects across your Hyprland desktop. Designed for Omarchy.
 
 ![A Weather App with animated sky and live desktop rain](media/demo.gif)
 
-[Watch the five-second demo in full quality](media/demo.mp4).
-Recorded weather is illustrative, not a current forecast.
-
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
 - Modeled air quality with separate US/European AQI scales and PM2.5 concentration.
