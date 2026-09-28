@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "a-weather-app.weather",
   "name": "A Weather App",
-  "version": "1.0.0-go-qt-dev",
+  "version": "0.50.0",
   "author": "Joe Gaetano",
   "license": "MIT",
   "description": "Cached weather status and an atmospheric native forecast window",

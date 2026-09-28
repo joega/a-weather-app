@@ -1,26 +1,91 @@
-name: Build weather package
+name: Build and release weather package
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
+
 permissions:
-  contents: read
+  contents: write
+
+# A version is assigned only after the previous release has published its tag.
 concurrency:
-  group: go-package-${{ github.ref }}
-  cancel-in-progress: false
+  group: weather-release-main
+  queue: max
+
 jobs:
-  build:
+  release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Freeze source and build inside pinned container
+      - name: Select release version
+        id: version
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          bash scripts/run_go_migration_build.sh
+          set -euo pipefail
+          git fetch --force --tags origin
+          bash scripts/next_release_version.sh "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          tag="v$(sed -n 's/^version=//p' "$GITHUB_OUTPUT")"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            printf 'published=true\n' >> "$GITHUB_OUTPUT"
+            printf '%s is already published.\n' "$tag"
+          else
+            printf 'published=false\n' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Freeze source and build inside pinned container
+        if: steps.version.outputs.published != 'true'
+        shell: bash
+        env:
+          WEATHER_RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: bash scripts/run_go_migration_build.sh
+      - name: Check and name release assets
+        if: steps.version.outputs.published != 'true'
+        id: assets
+        shell: bash
+        env:
+          WEATHER_RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          outputs=(dist/go-migration.*)
+          [[ ${#outputs[@]} -eq 1 && -d ${outputs[0]} ]]
+          cd "${outputs[0]}"
+          sha256sum --check SHA256SUMS
+          jq -e --arg sha "$GITHUB_SHA" \
+            '.source_commit == $sha and .source_dirty == false and .source_status == [] and .runtime == "go-qt" and .architecture == "x86_64"' \
+            go-runtime.json
+          tar -xOf a-weather-app-go-qt-linux-x86_64.tar ./manifest.json |
+            jq -e --arg version "$WEATHER_RELEASE_VERSION" '.version == $version'
+          archive="a-weather-app-v${WEATHER_RELEASE_VERSION}-linux-x86_64.tar"
+          mv a-weather-app-go-qt-linux-x86_64.tar "$archive"
+          sha256sum "$archive" > SHA256SUMS
+          printf 'directory=%s\narchive=%s\n' "$PWD" "$archive" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: steps.version.outputs.published != 'true'
         with:
-          name: a-weather-app-go-qt-linux-x86_64
-          path: dist/go-migration.*/
+          name: a-weather-app-v${{ steps.version.outputs.version }}-linux-x86_64
+          path: ${{ steps.assets.outputs.directory }}/
           if-no-files-found: error
           retention-days: 30
+      - name: Publish GitHub release
+        if: steps.version.outputs.published != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_DIRECTORY: ${{ steps.assets.outputs.directory }}
+          RELEASE_ARCHIVE: ${{ steps.assets.outputs.archive }}
+        run: |
+          set -euo pipefail
+          cd "$RELEASE_DIRECTORY"
+          gh release create "v${RELEASE_VERSION}" \
+            "$RELEASE_ARCHIVE" SHA256SUMS go-runtime.json \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "v${RELEASE_VERSION}" --latest --generate-notes \
+            --notes "Linux x86_64 package for Omarchy. Verify the archive with SHA256SUMS before extracting."

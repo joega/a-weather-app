@@ -38,7 +38,15 @@ cleanup_audit() {
 }
 trap cleanup_audit EXIT
 mkdir "$audit_root/state" "$audit_root/service-state" "$audit_root/xdg"
-"$runtime_root/a-weather-app" --version
+release_version=${WEATHER_RELEASE_VERSION:-}
+if [[ -n "$release_version" ]]; then
+  [[ $("$runtime_root/a-weather-app" --version) == "A Weather App $release_version" ]] || {
+    printf 'Binary version differs from release version %s.\n' "$release_version" >&2; exit 1;
+  }
+  [[ $(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)",?$/\1/p' "$runtime_root/manifest.json") == "$release_version" ]] || {
+    printf 'Runtime manifest version differs from release version %s.\n' "$release_version" >&2; exit 1;
+  }
+fi
 "$runtime_root/a-weather-app" --bar --state-dir "$audit_root/state" > "$audit_root/bar.json"
 # A new private offline instance exercises Go supervisor + Qt startup/shutdown.
 env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software XDG_RUNTIME_DIR="$audit_root/xdg" \

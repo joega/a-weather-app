@@ -1,10 +1,11 @@
 GO ?= go
 APP_MODE ?= development
+APP_VERSION ?= 0.50.0
 .PHONY: all go qt test native shaders native-tools
 all: go qt
 go:
 	mkdir -p build
-	CGO_ENABLED=1 $(GO) build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid= -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-z,noexecstack -X main.buildMode=$(APP_MODE)' -o build/a-weather-app ./cmd/a-weather-app
+	CGO_ENABLED=1 $(GO) build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid= -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-z,noexecstack -X main.buildMode=$(APP_MODE) -X main.appVersion=$(APP_VERSION)' -o build/a-weather-app ./cmd/a-weather-app
 qt:
 	$(MAKE) -C native/qt
 test:

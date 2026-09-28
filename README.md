@@ -33,7 +33,15 @@ you stop them; the separate preview runs for five minutes.
 
 ## Build and install
 
-The package targets **x86_64 Omarchy**. Build it in an isolated container:
+The package targets **x86_64 Omarchy**. Download the newest version from
+[GitHub Releases (Latest)](https://github.com/joega/a-weather-app/releases/latest).
+Each release has a versioned `a-weather-app-v0.MINOR.0-linux-x86_64.tar`, a
+`SHA256SUMS` file, and `go-runtime.json` with the source commit and build details.
+Check the archive against `SHA256SUMS` before extracting it. Releases begin at
+`v0.50.0`; each successful build of a new main commit advances the minor version
+(`v0.51.0`, `v0.52.0`, and so on). The release marked **Latest** is the one to download.
+
+To build the same package locally in an isolated container:
 
 ```sh
 bash scripts/run_go_migration_build.sh
@@ -43,7 +51,7 @@ The script prints a private full log and an archive under `dist/go-migration.*`.
 It installs build dependencies only inside Docker. Extract the archive into a new
 owned directory and run its compiled `./a-weather-app`. Keep the existing
 installation and a backup of saved data for rollback; do not replace artifacts
-while native effects are loaded. Nothing is published or installed automatically.
+while native effects are loaded. Local builds are not published or installed automatically.
 
 On first launch, open Settings and search for a city, choose a five-digit US ZIP, or explicitly
 choose approximate local detection. New York is the fallback location. Refresh

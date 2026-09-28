@@ -12,6 +12,12 @@ if [[ "$output_root" != /output || ! -d "$output_root" ]]; then
   printf 'Build output must be the isolated /output bind mount.\n' >&2
   exit 2
 fi
+source_version=$(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)",?$/\1/p' "$source_root/manifest.json")
+release_version=${WEATHER_RELEASE_VERSION:-$source_version}
+if [[ ! "$source_version" =~ ^0\.[1-9][0-9]*\.0$ || ! "$release_version" =~ ^0\.[1-9][0-9]*\.0$ ]]; then
+  printf 'Expected a 0.MINOR.0 source and release version.\n' >&2; exit 2
+fi
+export WEATHER_RELEASE_VERSION="$release_version"
 export LC_ALL=C.UTF-8 TZ=UTC
 export SOURCE_DATE_EPOCH
 SOURCE_DATE_EPOCH=$(git -c safe.directory=/source -C /source show -s --format=%ct HEAD)
@@ -44,7 +50,7 @@ for copy in first second; do
       bash packaging/check_native_sanitizers.sh
     fi
     build/weather-native-check shaders --root "$checkout"
-    make go APP_MODE=package
+    make go APP_MODE=package APP_VERSION="$release_version"
     (
       cd native/qt
       qmake6 a-weather-app-qt.pro -o .build.mk \
@@ -93,6 +99,7 @@ done
 for asset in LICENSE THIRD_PARTY_NOTICES.md manifest.json packaging/a-weather-app.desktop packaging/icons/a-weather-app.svg quickshell/a-weather-app.weather/WeatherWidget.qml packaging/go-README.md; do
   install -D -m 644 "$build_root/first/$asset" "$runtime_root/$asset"
 done
+sed -i "s/\"version\": \"$source_version\"/\"version\": \"$release_version\"/" "$runtime_root/manifest.json"
 cp -a --no-preserve=ownership "$build_root/first/licenses" "$runtime_root/licenses"
 install -m 644 "$build_root/first/packaging/go-README.md" "$runtime_root/README.md"
 git -c safe.directory=/source -C /source status --porcelain --untracked-files=all
