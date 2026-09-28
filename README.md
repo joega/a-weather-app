@@ -8,7 +8,7 @@ weather effects across your Hyprland desktop. Designed for Omarchy.
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
 - Modeled air quality with separate US/European AQI scales and PM2.5 concentration.
-- An on-demand local map for temperature, wind and forecast precipitation.
+- Local map modules for temperature, wind and precipitation on the forecast screen.
 - Official US weather alerts with individual instructions and expiry times.
 - Worldwide city search, saved US ZIP locations and optional approximate local detection.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
@@ -181,11 +181,12 @@ by Open-Meteo; values are rounded for display.
 
 ## Local weather map
 
-Click **Map** in the forecast header for a fixed 10-mile radius around the saved
-location. Temperature shading, static wind arrows with speeds, and modeled hourly
-precipitation share one discrete timeline. Previous/Next and the slider switch
-hours locally; the panel shows the selected local time and timezone, units,
-legend, model, approximate native grid resolution, fetch time and attribution.
+Scroll to **Local weather maps** on the main forecast screen for three modules
+centered on the saved location, each showing a fixed 10-mile radius. Temperature
+shading, static wind arrows with speeds, and modeled hourly precipitation share
+one discrete timeline. Previous/Next and the slider switch hours locally; the
+section shows the selected local time and timezone, units, legends, model,
+approximate native grid resolution, fetch time and attribution.
 Precipitation is the model total for the hour ending at the selected time, not
 radar or a live measurement. Zero precipitation has no shading.
 
@@ -199,18 +200,18 @@ not resolve conditions on a particular street. A shorter available horizon
 shortens the timeline. The current provider request may fail or be delayed;
 the rest of the weather app remains available.
 
-No map requests occur until the panel opens. An unchanged location reuses its
+No map requests occur until the map section nears the visible scroll area. An unchanged location reuses its
 forecast for 20 minutes, limits new attempts to two per 20 minutes (a second
 attempt is allowed only after an opening is canceled), and can
 show a matching saved map for up to six hours with a stale label. Offline mode
-uses only saved forecast and geographic tiles. The fixed view loads at most 16
-visible [OpenStreetMap tiles](https://operations.osmfoundation.org/policies/tiles/)
-with a 32 MiB HTTP cache; the tile server is best effort. The on-map
+uses only saved forecast and geographic tiles. Each visible module loads at most
+16 [OpenStreetMap tiles](https://operations.osmfoundation.org/policies/tiles/),
+shared across modules through a 32 MiB HTTP cache; the tile server is best effort. The on-map
 OpenStreetMap credit opens its [ODbL information](https://www.openstreetmap.org/copyright).
 One map forecast HTTP request represents 25 provider location equivalents; a
 regional-coverage fallback can add a second request and 25 more equivalents.
 The provider does not expose billed-call counts in the response. Map requests
-do not run in the background while the map is closed.
+do not run in the background while the map section is out of view or the window is hidden.
 
 ## Privacy and removal
 

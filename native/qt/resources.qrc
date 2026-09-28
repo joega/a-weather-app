@@ -23,5 +23,6 @@
 <file alias="qml/UiIcon.qml">../../ui/qml/UiIcon.qml</file>
 <file alias="qml/WeatherIcon.qml">../../ui/qml/WeatherIcon.qml</file>
 <file alias="qml/WeatherMap.qml">../../ui/qml/WeatherMap.qml</file>
+<file alias="qml/WeatherMapCard.qml">../../ui/qml/WeatherMapCard.qml</file>
 <file alias="shaders/atmosphere.frag.qsb">../../ui/shaders/atmosphere.frag.qsb</file>
 </qresource></RCC>

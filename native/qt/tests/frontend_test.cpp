@@ -52,6 +52,11 @@ class FrontendTest:public QObject {
         auto v=QJsonDocument::fromJson(raw).object();v["snapshot_revision"]=revision;
         auto location=v["location"].toObject();location["name"]=name;v["location"]=location;return v;
     }
+    QJsonObject selectedSnapshot(qint64 revision,const QString &name){
+        auto value=snapshot(revision,name);
+        value["location_settings"]=QJsonObject{{"mode","custom"},{"zip_code",QJsonValue::Null},{"busy",false},{"error",QJsonValue::Null},{"country_code","US"},{"place",QJsonValue::Null}};
+        return value;
+    }
     QJsonObject metricSnapshot(qint64 revision){
         auto v=snapshot(revision,"Metric fixture");
         auto source=v["source"].toObject();source["fetched_at"]="2026-09-28T12:00:00Z";source["freshness"]="stale";v["source"]=source;
@@ -82,46 +87,65 @@ private slots:
         engine.rootContext()->setContextProperty("weatherTransport",&transport);
         engine.rootContext()->setContextProperty("mapTiles",&tiles);
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
-        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshot(1,"New York, NY")}});
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",selectedSnapshot(1,"New York, NY")}});
         root->setProperty("effectsOpen",false);
         QQuickWindow *window=nullptr;for(auto *candidate:QGuiApplication::allWindows())if(candidate->objectName()=="weatherWindow")window=qobject_cast<QQuickWindow*>(candidate);
         QVERIFY(window);QTRY_VERIFY(window->isExposed());
-        root->setProperty("mapOpen",true);evaluate(engine,root,"backend.mapWanted=true");
+        auto *panel=qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));QVERIFY(panel);
+        auto *scroll=root->findChild<QObject*>("forecastScroll");QVERIFY(scroll);
+        auto *flick=qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>());QVERIFY(flick);
+        flick->setProperty("contentY",panel->y()+20);
+        QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine,root,"backend.mapWanted").toBool(),3000);
         QSignalSpy received(&tiles,&MapTiles::tileReady);
         QSignalSpy started(&tiles,&MapTiles::tileStarted);
         QSignalSpy replies(&tiles,&MapTiles::tileReply);
         QObject::connect(&tiles,&MapTiles::tileFailed,&tiles,[](const QString &key,const QString &reason){qInfo().noquote()<<"Map tile failure"<<key<<reason;});
         deliver(transport,{{"version",1},{"event","map"},{"map",QJsonObject{{"status","fresh"},{"offline",false},{"error",""},{"fetched_at",data.value("fetched_at")},{"fetched_label",fetched},{"hour_labels",labels},{"data",data}}}});
         QTRY_VERIFY_WITH_TIMEOUT(started.size()>0,3000);
-        QTRY_VERIFY_WITH_TIMEOUT(received.size()>=4,15000);
+        QTRY_VERIFY_WITH_TIMEOUT(received.size()>=2,15000);
         QTest::qWait(400);
         QVERIFY(window->grabWindow().save(output));
-        auto *panel=root->findChild<QObject*>("weatherMap");QVERIFY(panel);
-        panel->setProperty("mapLayer","wind");panel->setProperty("hourIndex",1);QTest::qWait(150);
+        panel->setProperty("hourIndex",1);QTest::qWait(150);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png","-wind.png")));
-        panel->setProperty("mapLayer","precipitation");panel->setProperty("hourIndex",data.value("hours").toArray().size()-1);QTest::qWait(150);
+        panel->setProperty("hourIndex",data.value("hours").toArray().size()-1);
+        auto *precipitation=qobject_cast<QQuickItem*>(root->findChild<QObject*>("mapPrecipitationModule"));QVERIFY(precipitation);
+        flick->setProperty("contentY",panel->y()+precipitation->parentItem()->y()+precipitation->y()-24);QTest::qWait(250);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png","-precipitation.png")));
         int onlineNetwork=0;for(const auto &reply:replies)if(!reply.at(1).toBool())++onlineNetwork;
         qInfo()<<"Map tiles on first view:"<<replies.size()<<"valid replies,"<<onlineNetwork<<"network replies";
-        root->setProperty("mapOpen",false);
-        QTRY_VERIFY(!root->findChild<QObject*>("weatherMap"));
-        root->setProperty("mapOpen",true);
+        deliver(transport,{{"version",1},{"request_id",0},{"ok",true}});
+        window->hide();QTRY_VERIFY_WITH_TIMEOUT(!evaluate(engine,root,"backend.mapWanted").toBool(),3000);
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
+        window->show();QTRY_VERIFY(window->isExposed());
+        flick->setProperty("contentY",panel->y()+20);
+        QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine,root,"backend.mapWanted").toBool(),3000);
         QSignalSpy offlineTiles(&tiles,&MapTiles::tileReady);
         QSignalSpy offlineReplies(&tiles,&MapTiles::tileReply);
         deliver(transport,{{"version",1},{"event","map"},{"map",QJsonObject{{"status","stale"},{"offline",true},{"error",""},{"fetched_at",data.value("fetched_at")},{"fetched_label",fetched},{"hour_labels",labels},{"data",data}}}});
-        QTRY_VERIFY_WITH_TIMEOUT(offlineTiles.size()>=4,3000);
+        QTRY_VERIFY_WITH_TIMEOUT(offlineTiles.size()>=2,3000);
         for(const auto &reply:offlineReplies)QVERIFY(reply.at(1).toBool());
-        root->setProperty("mapOpen",false);
+        window->hide();
     }
     void mapOnDemandAndTimeline(){
         FakeTransport transport;FakeMapTiles tiles;QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport",&transport);
         engine.rootContext()->setContextProperty("mapTiles",&tiles);
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
-        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshot(1,"New York, NY")}});
-        QCOMPARE(tiles.requests,0);
-        root->setProperty("mapOpen",true);
-        auto *panel=root->findChild<QObject*>("weatherMap");QTRY_VERIFY(panel);
+        root->setProperty("effectsOpen",true);
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",selectedSnapshot(1,"New York, NY")}});
+        auto *panel=root->findChild<QObject*>("weatherMaps");QVERIFY(panel);
+        auto *temperature=root->findChild<QObject*>("mapTemperatureModule");QVERIFY(temperature);
+        auto *wind=root->findChild<QObject*>("mapWindModule");QVERIFY(wind);
+        auto *precipitation=root->findChild<QObject*>("mapPrecipitationModule");QVERIFY(precipitation);
+        QVERIFY(!root->findChild<QObject*>("openWeatherMap"));
+        QCOMPARE(precipitation->findChild<QObject*>("mapModuleTitle")->property("text").toString(),QString("Precipitation"));
+        QCOMPARE(tiles.requests,0);QCOMPARE(transport.requests.size(),0);
+        root->setProperty("effectsOpen",false);
+        auto *scroll=root->findChild<QObject*>("forecastScroll");QVERIFY(scroll);
+        auto *flick=scroll->property("contentItem").value<QObject*>();QVERIFY(flick);
+        flick->setProperty("contentY",panel->property("y").toReal()+40);
+        QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine,root,"backend.mapWanted").toBool(),3000);
+        QCOMPARE(transport.requests.size(),1);QCOMPARE(transport.requests.last()["op"].toString(),QString("map_open"));
         QJsonArray hours{1790596800,1790600400,1790604000},cells;
         for(int row=0;row<5;row++)for(int col=0;col<5;col++) {
             cells.append(QJsonObject{{"latitude",40.7128+(2-row)*0.07},{"longitude",-74.006+(col-2)*0.09},
@@ -131,16 +155,19 @@ private slots:
         QJsonObject data{{"latitude",40.7128},{"longitude",-74.006},{"radius_miles",10},{"model_id","ncep_nbm_conus"},
             {"model_name","NOAA NBM CONUS"},{"resolution_km",2.5},{"fetched_at","2026-09-28T12:00:00Z"},
             {"hours",hours},{"cells",cells},{"attribution","Model forecast via Open-Meteo (CC BY 4.0)"}};
-        evaluate(engine,root,"backend.mapWanted=true");
         deliver(transport,{{"version",1},{"event","map"},{"map",QJsonObject{{"status","fresh"},{"offline",false},{"error",""},{"fetched_at","2026-09-28T12:00:00Z"},{"fetched_label","Mon Sep 28, 8:00 AM EDT"},{"hour_labels",QJsonArray{"Mon Sep 28, 8:00 AM EDT","Mon Sep 28, 9:00 AM EDT","Mon Sep 28, 10:00 AM EDT"}},{"data",data}}}});
-        QTRY_VERIFY(tiles.requests>0);QVERIFY(tiles.requests<=16);
+        QTRY_VERIFY_WITH_TIMEOUT(tiles.requests>0,3000);QVERIFY(tiles.requests<=16);
         QCOMPARE(panel->property("hourIndex").toInt(),0);
-        for(int i=0;i<100;i++){panel->setProperty("hourIndex",i%3);panel->setProperty("mapLayer",i%2?"wind":"precipitation");}
+        for(int i=0;i<100;i++)panel->setProperty("hourIndex",i%3);
         panel->setProperty("hourIndex",2);QCOMPARE(panel->property("hourIndex").toInt(),2);
-        QCOMPARE(tiles.requests,tiles.active.size());QCOMPARE(transport.requests.size(),0);
-        QCOMPARE(evaluate(engine,panel,"mapX(-73.9)>mapX(-74.0)").toBool(),true);
-        QCOMPARE(evaluate(engine,panel,"mapY(40.8)<mapY(40.7)").toBool(),true);
-        root->setProperty("mapOpen",false);QTRY_VERIFY(tiles.closes>0);
+        QCOMPARE(temperature->property("hourIndex").toInt(),2);
+        QCOMPARE(wind->property("hourIndex").toInt(),2);
+        QCOMPARE(precipitation->property("hourIndex").toInt(),2);
+        QCOMPARE(tiles.requests,tiles.active.size());QCOMPARE(transport.requests.size(),1);
+        QCOMPARE(evaluate(engine,temperature,"mapX(-73.9)>mapX(-74.0)").toBool(),true);
+        QCOMPARE(evaluate(engine,temperature,"mapY(40.8)<mapY(40.7)").toBool(),true);
+        auto *window=root->property("weatherWindow").value<QObject*>();QVERIFY(window);window->setProperty("visible",false);
+        QTRY_VERIFY(tiles.closes>0);QVERIFY(!evaluate(engine,root,"backend.mapWanted").toBool());
     }
     void mapRapidToggleKeepsLatestIntent(){
         FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);

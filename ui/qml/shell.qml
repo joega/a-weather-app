@@ -7,12 +7,14 @@ QtObject {
     id:root
     property string units:bridge.snapshot?bridge.snapshot.controls.units:"F"
     property bool effectsOpen:false
-    property bool mapOpen:false
     property bool initialLocationChecked:false
+    readonly property bool hasMapLocation:bridge.snapshot!==null&&bridge.snapshot.location_settings.mode!=="default"
+    readonly property bool mapsNearViewport:mapSection.height>100&&mapSection.y+mapSection.height+18>forecastScroll.contentItem.contentY-64&&mapSection.y+18<forecastScroll.contentItem.contentY+forecastScroll.height+64
+    readonly property bool mapActive:window.visible&&!root.effectsOpen&&bridge.available&&root.hasMapLocation&&!bridge.snapshot.location_settings.busy&&root.mapsNearViewport
+    onMapActiveChanged: {if(mapActive&&!bridge.mapWanted)bridge.openMap();else if(!mapActive&&bridge.mapWanted)bridge.closeMap()}
     readonly property bool liveDesktop:bridge.snapshot!==null&&bridge.snapshot.effect_persistent&&bridge.snapshot.effect_status!=="stopped"
     readonly property bool watchingPrecipitation:bridge.snapshot!==null&&bridge.snapshot.notifications.settings.enabled
     function dismissWindow() {
-        if(root.mapOpen){root.mapOpen=false;bridge.closeMap()}
         if((root.liveDesktop||root.watchingPrecipitation)&&bridge.available) { root.effectsOpen=false;window.hide() }
         else bridge.shutdown();
     }
@@ -37,7 +39,7 @@ QtObject {
     }
     property var days:forecast?forecast.daily:[]
     property var hours:forecast?forecast.hourly.slice(0,24):[]
-    onLocationChanged:{if(details)details.close();if(mapOpen){mapOpen=false;bridge.closeMap()}}
+    onLocationChanged:{if(details)details.close();if(mapActive&&bridge.mapWanted){bridge.closeMap();bridge.openMap()}}
     property var controls:bridge.snapshot?bridge.snapshot.controls:({mode:"live",strength:"normal",manual:{condition:"rain"},fps:30,window_physics:true,accumulation:true,lightning_enabled:false,reduced_motion:false,pause_fullscreen:true})
     property string freshness: {
         if(bridge.error)return bridge.error;
@@ -80,10 +82,9 @@ QtObject {
             else if(point.y+item.height>next+flick.height-16)next=point.y+item.height-flick.height+16;
             flick.contentY=Math.max(0,Math.min(next,Math.max(0,flick.contentHeight-flick.height)));
         })
-        onVisibleChanged:{if(!visible&&root.mapOpen){root.mapOpen=false;bridge.closeMap()}if(visible)Qt.callLater(()=>{ if(forecastScroll.contentItem)forecastScroll.contentItem.contentY=0 })}
+        onVisibleChanged:if(visible)Qt.callLater(()=>{ if(forecastScroll.contentItem)forecastScroll.contentItem.contentY=0 })
         onClosing:event=>{event.accepted=false;root.dismissWindow()}
         Shortcut { sequence:"Escape";enabled:root.effectsOpen;onActivated:root.effectsOpen=false }
-        Shortcut { sequence:"Escape";enabled:root.mapOpen;onActivated:{root.mapOpen=false;bridge.closeMap()} }
         Atmosphere {
             anchors.fill:parent
             presentationActive:bridge.available&&window.visible
@@ -115,7 +116,6 @@ QtObject {
                     ActionButton { objectName:"unitsF";text:"°F";selected:root.units==="F";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"F"}) }
                     ActionButton { objectName:"unitsC";text:"°C";selected:root.units==="C";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"C"}) }
                     ActionButton { objectName:"refreshForecast";iconName:"refresh";accessibleLabel:"Refresh forecast";enabled:!bridge.busy;onClicked:bridge.send("refresh") }
-                    ActionButton { objectName:"openWeatherMap";text:"Map";enabled:bridge.available&&!bridge.busy;onClicked:{root.mapOpen=true;bridge.openMap()} }
                     ActionButton { objectName:"openEffects";iconName:"sliders";text:"Settings";onClicked:root.effectsOpen=true }
                     ActionButton { objectName:"liveDesktop";text:root.liveDesktop?"Live desktop · On":"Live desktop";selected:root.liveDesktop;enabled:bridge.available&&!bridge.busy;onClicked:{if(root.liveDesktop)bridge.send("stop_effects");else bridge.send("start_live_effects")} }
                     }
@@ -143,6 +143,7 @@ QtObject {
                 }
                 PlainLabel { objectName:"forecastOutlook";visible:root.hours.length>0;Layout.fillWidth:true;text:Forecast.outlook(root.hours,root.units);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 HourlyPanel { Layout.fillWidth:true;hours:root.hours;units:root.units;timezone:root.timezone;onHourSelected:hour=>details.showHour(hour) }
+                WeatherMap {id:mapSection;Layout.fillWidth:true;mapState:bridge.weatherMap;location:root.city;units:root.units;hasLocation:root.hasMapLocation;active:root.mapActive;viewportTop:forecastScroll.contentItem.contentY-(mapSection.y+18);viewportHeight:forecastScroll.height}
                 GridLayout {
                     Layout.fillWidth:true;columns:window.width<950?1:2;columnSpacing:16;rowSpacing:16
                     DailyPanel { id:daily;Layout.fillWidth:true;Layout.preferredWidth:window.width<950?window.width:window.width*0.54;days:root.days;units:root.units;onDaySelected:day=>details.showDay(day) }
@@ -154,10 +155,6 @@ QtObject {
             }
         }
         ForecastDetails { id:details;forecast:root.forecast;units:root.units;freshness:root.freshness }
-        Rectangle {anchors.fill:parent;visible:root.mapOpen;color:"#8b0b1c29";MouseArea{anchors.fill:parent;onClicked:{root.mapOpen=false;bridge.closeMap()}}}
-        Loader {id:mapLoader;active:root.mapOpen;anchors.centerIn:parent;width:Math.min(window.width-32,760);height:Math.min(window.height-32,760)
-            sourceComponent:WeatherMap {mapState:bridge.weatherMap;location:root.city;timezone:root.timezone;units:root.units;onCloseRequested:{root.mapOpen=false;bridge.closeMap()}}
-        }
         Rectangle { anchors.fill:parent;visible:root.effectsOpen;color:"#650b1c29";MouseArea{anchors.fill:parent;onClicked:root.effectsOpen=false} }
         EffectsDrawer {
             enabled: !bridge.closing

@@ -58,6 +58,10 @@ public:
         forecast["location"]=location;
         save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","DE"},{"place",QJsonObject{{"provider","open-meteo"},{"id",2950159}}}});
     }
+    void savedNewYorkPlace(){
+        const auto forecast=saved("forecast.json");const auto location=forecast["location"].toObject();
+        save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","US"},{"place",QJsonObject{{"provider","open-meteo"},{"id",5128581}}}});
+    }
     void airQualityCache(int fetchedAge,int validAge){
         const auto now=QDateTime::currentDateTimeUtc();
         auto location=saved("forecast.json")["location"].toObject();
@@ -125,22 +129,28 @@ private slots:
         QFile file(capture);QVERIFY(file.open(QIODevice::ReadOnly));auto map=QJsonDocument::fromJson(file.readAll()).object();QVERIFY(!map.isEmpty());
         // Reuse geographic tiles from the reviewed visual capture, cache-only.
         QCoreApplication::setApplicationName("frontend-test");
-        ServiceFixture fixture;fixture.cache(60);fixture.save("weather-map.json",map);
+        ServiceFixture fixture;fixture.cache(60);fixture.savedNewYorkPlace();fixture.save("weather-map.json",map);
         QElapsedTimer startup;startup.start();QVERIFY(fixture.start());QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(window->isExposed()&&eval("backend.snapshot!==null").toBool(),5000);
         const auto startupMs=startup.elapsed();root->setProperty("effectsOpen",false);
+        window->hide();QTRY_VERIFY_WITH_TIMEOUT(!eval("backend.mapWanted").toBool(),3000);
         QTest::qWait(1000);auto closed=measure("closed",fixture.service.processId());
         QSignalSpy tiles(mapTiles.get(),&MapTiles::tileReady);
         QSignalSpy tileReplies(mapTiles.get(),&MapTiles::tileReply);
-        root->setProperty("mapOpen",true);eval("backend.openMap()");
+        window->show();QTRY_VERIFY(window->isExposed());
+        auto *section=root->findChild<QObject*>("weatherMaps");QVERIFY(section);
+        auto *scroll=root->findChild<QObject*>("forecastScroll");QVERIFY(scroll);
+        auto *flick=scroll->property("contentItem").value<QObject*>();QVERIFY(flick);
+        flick->setProperty("contentY",section->property("y").toReal()+40);
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.mapWanted").toBool(),5000);
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.weatherMap.data!==null").toBool(),5000);
-        QTRY_VERIFY_WITH_TIMEOUT(tiles.size()>=4,3000);
+        QTRY_VERIFY_WITH_TIMEOUT(tiles.size()>=2,3000);
         QTest::qWait(1000);auto opened=measure("open",fixture.service.processId());
         int networkTiles=0;for(const auto &reply:tileReplies)if(!reply.at(1).toBool())++networkTiles;
         QCOMPARE(networkTiles,0);
         QJsonObject result{{"startup_to_exposed_snapshot_ms",startupMs},{"closed",closed},{"open",opened},{"cached_tile_replies",tileReplies.size()},{"tile_network_replies",networkTiles}};
         qInfo().noquote()<<"MAP_PERF"<<QJsonDocument(result).toJson(QJsonDocument::Compact);
-        root->setProperty("mapOpen",false);eval("backend.closeMap()");
+        window->hide();QTRY_VERIFY_WITH_TIMEOUT(!eval("backend.mapWanted").toBool(),3000);
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("backend.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
         QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
     }

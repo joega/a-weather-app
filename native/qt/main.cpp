@@ -22,7 +22,7 @@
 namespace {volatile std::sig_atomic_t signalWrite=-1;void termination(int){const int savedErrno=errno;const int descriptor=signalWrite;char byte=1;if(descriptor>=0){auto ignored=write(descriptor,&byte,1);(void)ignored;}errno=savedErrno;}}
 int main(int argc,char **argv){
     QGuiApplication app(argc,argv);app.setApplicationName("a-weather-app");app.setDesktopFileName("a-weather-app");app.setQuitOnLastWindowClosed(false);
-    QCommandLineParser args;args.addHelpOption();args.addOption({"socket","Owned weather service socket","path"});args.addOption({"diagnostic","Log frontend diagnostics"});args.addOption({"measure-frames","Report bounded frameSwapped callback intervals at exit (not GPU time)"});args.addOption({"measure-map-open","Development measurement: open the map after the first snapshot"});args.process(app);
+    QCommandLineParser args;args.addHelpOption();args.addOption({"socket","Owned weather service socket","path"});args.addOption({"diagnostic","Log frontend diagnostics"});args.addOption({"measure-frames","Report bounded frameSwapped callback intervals at exit (not GPU time)"});args.addOption({"measure-map-open","Development measurement: scroll to the maps after the first snapshot"});args.process(app);
     if(!args.isSet("socket")||!args.value("socket").startsWith('/'))return 2;
     if(args.isSet("diagnostic"))qInstallMessageHandler([](QtMsgType,const QMessageLogContext &,const QString &message){const auto bytes=message.left(4096).toUtf8();fprintf(stderr,"%s\n",bytes.constData());});
     WeatherTransport transport(args.value("socket"),args.isSet("diagnostic"));
@@ -39,8 +39,13 @@ int main(int argc,char **argv){
         auto *opener=new QTimer(&app);opener->setInterval(30);
         QObject::connect(opener,&QTimer::timeout,&app,[root,bridge,opener]{
             if(!bridge->property("snapshot").isValid()||bridge->property("snapshot").isNull())return;
-            root->setProperty("mapOpen",true);
-            if(!QMetaObject::invokeMethod(bridge,"openMap")){QCoreApplication::exit(3);return;}
+            auto *section=root->findChild<QObject*>("weatherMaps");
+            auto *scroll=root->findChild<QObject*>("forecastScroll");
+            auto *flick=scroll?scroll->property("contentItem").value<QObject*>():nullptr;
+            if(!section||!flick)return;
+            root->setProperty("effectsOpen",false);
+            flick->setProperty("contentY",section->property("y").toReal()+40);
+            if(!bridge->property("mapWanted").toBool())return;
             fprintf(stderr,"Weather map measurement opened\n");opener->stop();
         });
         opener->start();
