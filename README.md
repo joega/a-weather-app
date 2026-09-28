@@ -16,12 +16,17 @@ weather effects across your Hyprland desktop. Designed for Omarchy.
 
 ## Screenshots
 
-Captured from the packaged app with synthetic Boston weather, labeled in the
-window. These illustrate the interface, not current conditions.
+The first three images use synthetic Boston weather. The map images use a Boston
+forecast captured on September 28, 2026. These illustrate the interface, not
+current conditions.
 
 | Forecast and animated sky | Hourly forecast details | Desktop effects controls |
 | --- | --- | --- |
 | [![Forecast](preview.png)](preview.png) | [![Hourly wind chart](media/forecast-details.png)](media/forecast-details.png) | [![Desktop effects settings](media/desktop-effects.png)](media/desktop-effects.png) |
+
+| Temperature and wind maps | Precipitation map |
+| --- | --- |
+| [![Temperature and wind map modules for Boston](media/local-maps-boston.png)](media/local-maps-boston.png) | [![Precipitation map module for Boston](media/precipitation-map-boston.png)](media/precipitation-map-boston.png) |
 
 Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
 you stop them; the separate preview runs for five minutes.

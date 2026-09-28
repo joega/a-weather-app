@@ -80,14 +80,22 @@ private slots:
         if(capture.isEmpty()||output.isEmpty())QSKIP("Set WEATHER_QT_MAP_CAPTURE and WEATHER_QT_MAP_SCREENSHOT for private map render validation");
         QFile file(capture);QVERIFY(file.open(QIODevice::ReadOnly));
         const auto data=QJsonDocument::fromJson(file.readAll()).object();QVERIFY(!data.isEmpty());
-        const auto zone=QTimeZone("America/New_York");QJsonArray labels;
+        const auto zone=QTimeZone(qEnvironmentVariable("WEATHER_QT_MAP_TIMEZONE","America/New_York").toUtf8());QVERIFY(zone.isValid());QJsonArray labels;
         for(const auto value:data.value("hours").toArray())labels.append(QDateTime::fromSecsSinceEpoch(value.toInteger(),zone).toString("ddd MMM d, h:mm AP t"));
         const auto fetched=QDateTime::fromString(data.value("fetched_at").toString(),Qt::ISODate).toTimeZone(zone).toString("ddd MMM d, h:mm AP t");
         FakeTransport transport;MapTiles tiles;QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport",&transport);
         engine.rootContext()->setContextProperty("mapTiles",&tiles);
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
-        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",selectedSnapshot(1,"New York, NY")}});
+        const auto location=qEnvironmentVariable("WEATHER_QT_MAP_LOCATION","New York, NY");
+        auto snapshotState=selectedSnapshot(1,location);
+        const auto snapshotPath=qEnvironmentVariable("WEATHER_QT_MAP_SNAPSHOT");
+        if(!snapshotPath.isEmpty()){
+            QFile snapshotFile(snapshotPath);QVERIFY(snapshotFile.open(QIODevice::ReadOnly));
+            snapshotState=QJsonDocument::fromJson(snapshotFile.readAll()).object();
+            QCOMPARE(snapshotState.value("location").toObject().value("name").toString(),location);
+        }
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshotState}});
         root->setProperty("effectsOpen",false);
         QQuickWindow *window=nullptr;for(auto *candidate:QGuiApplication::allWindows())if(candidate->objectName()=="weatherWindow")window=qobject_cast<QQuickWindow*>(candidate);
         QVERIFY(window);QTRY_VERIFY(window->isExposed());
@@ -107,7 +115,7 @@ private slots:
         QVERIFY(window->grabWindow().save(output));
         panel->setProperty("hourIndex",1);QTest::qWait(150);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png","-wind.png")));
-        panel->setProperty("hourIndex",data.value("hours").toArray().size()-1);
+        panel->setProperty("hourIndex",1);
         auto *precipitation=qobject_cast<QQuickItem*>(root->findChild<QObject*>("mapPrecipitationModule"));QVERIFY(precipitation);
         flick->setProperty("contentY",panel->y()+precipitation->parentItem()->y()+precipitation->y()-24);QTest::qWait(250);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png","-precipitation.png")));

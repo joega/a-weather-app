@@ -21,7 +21,7 @@ GlassPanel {
     readonly property real centerLat: mapData ? mapData.latitude : 0
     readonly property real centerLon: mapData ? mapData.longitude : 0
     readonly property real desiredScale: Math.min(mapArea.width,mapArea.height)*0.43/16093.44
-    readonly property int zoom: Math.max(1,Math.min(15,Math.floor(Math.log(40075016.686*Math.cos(centerLat*Math.PI/180)*desiredScale/256)/Math.log(2))))
+    readonly property int zoom: Math.max(1,Math.min(15,Math.ceil(Math.log(40075016.686*Math.cos(centerLat*Math.PI/180)*desiredScale/256)/Math.log(2))))
     readonly property real tileScale: desiredScale*40075016.686*Math.cos(centerLat*Math.PI/180)/(256*Math.pow(2,zoom))
     readonly property real centerX: worldX(centerLon)
     readonly property real centerY: worldY(centerLat)
@@ -53,11 +53,13 @@ GlassPanel {
                 ctx.fillStyle=shade(vals[i],root.fieldMin,root.fieldMax);ctx.fillRect(Math.min(xl,xr),Math.min(yt,yb),Math.abs(xr-xl)+1,Math.abs(yb-yt)+1);
             }
         } else {
-            let seen={};for(let i=0;i<cells.length;i++){let cell=cells[i],x=mapX(cell.longitude),y=mapY(cell.latitude),key=Math.round(x/4)+":"+Math.round(y/4);if(seen[key])continue;seen[key]=true;
-                let radians=(cell.wind_from_deg[hourIndex]+90)*Math.PI/180,dx=Math.cos(radians)*15,dy=Math.sin(radians)*15;
-                ctx.strokeStyle="#11334a";ctx.fillStyle="#11334a";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x-dx,y-dy);ctx.lineTo(x+dx,y+dy);ctx.stroke();
-                ctx.beginPath();ctx.moveTo(x+dx,y+dy);ctx.lineTo(x+dx-Math.cos(radians-0.6)*8,y+dy-Math.sin(radians-0.6)*8);ctx.lineTo(x+dx-Math.cos(radians+0.6)*8,y+dy-Math.sin(radians+0.6)*8);ctx.closePath();ctx.fill();
-                ctx.font="bold 12px sans-serif";ctx.fillStyle="#102d42";ctx.fillText(windSpeed(cell.wind_speed_m_s[hourIndex]),x-19,y-19);
+            let placed=[];for(let i=0;i<cells.length;i++){let cell=cells[i],x=mapX(cell.longitude),y=mapY(cell.latitude);
+                if(placed.some(p=>Math.abs(x-p.x)<44&&Math.abs(y-p.y)<34))continue;placed.push({x:x,y:y});
+                let radians=(cell.wind_from_deg[hourIndex]+90)*Math.PI/180,dx=Math.cos(radians)*9,dy=Math.sin(radians)*9;
+                ctx.strokeStyle="#11334a";ctx.fillStyle="#11334a";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x-dx,y-dy);ctx.lineTo(x+dx,y+dy);ctx.stroke();
+                ctx.beginPath();ctx.moveTo(x+dx,y+dy);ctx.lineTo(x+dx-Math.cos(radians-0.6)*5,y+dy-Math.sin(radians-0.6)*5);ctx.lineTo(x+dx-Math.cos(radians+0.6)*5,y+dy-Math.sin(radians+0.6)*5);ctx.closePath();ctx.fill();
+                ctx.font="bold 12px sans-serif";ctx.fillStyle="#102d42";
+                let label=windSpeed(cell.wind_speed_m_s[hourIndex]);ctx.fillText(label,x-ctx.measureText(label).width/2,y-14);
             }
         }
     }
