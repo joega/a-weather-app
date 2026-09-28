@@ -102,6 +102,8 @@ func testSession(t *testing.T) (*session, *fakeNative) {
 	t.Helper()
 	s := newSession(t.TempDir(), "abc_1_2", "DP-1")
 	f := newFake()
+	f.monitors = []any{object{"id": float64(0), "name": "DP-1", "disabled": false, "dpmsStatus": true, "activeWorkspace": object{"id": float64(1)}}}
+	f.clients = []any{}
 	s.b = f
 	s.spawn = func(int, int) error { return nil }
 	s.alive = func() bool { return true }
@@ -333,6 +335,36 @@ func TestPolicyMetadataRefreshedOnEveryHeartbeat(t *testing.T) {
 	}
 	if f.ctlCalls != 6 {
 		t.Fatal("policy metadata not refreshed on third heartbeat", f.ctlCalls)
+	}
+}
+
+func TestSelectedOutputTopologyChanges(t *testing.T) {
+	selected := object{"id": float64(0), "name": "DP-1", "disabled": false, "dpmsStatus": true, "activeWorkspace": object{"id": float64(1)}}
+	laptop := object{"id": float64(1), "name": "eDP-1", "disabled": false, "dpmsStatus": true, "activeWorkspace": object{"id": float64(2)}}
+	s, f := testSession(t)
+	if e := s.start(context.Background(), 30, false, object{}); e != nil {
+		t.Fatal(e)
+	}
+	f.monitors = []any{laptop, selected}
+	if e := s.tick(context.Background(), nil, object{}); e != nil || s.state != "running" {
+		t.Fatal("adding another display stopped selected effects", e, s.status())
+	}
+	f.monitors = []any{selected, laptop}
+	if e := s.tick(context.Background(), nil, object{}); e != nil || s.state != "running" {
+		t.Fatal("display reorder stopped selected effects", e, s.status())
+	}
+	f.monitors = []any{laptop}
+	if e := s.tick(context.Background(), nil, object{}); e != nil || s.state != "stopped" || !f.unloaded || s.directory != nil {
+		t.Fatal("selected monitor disconnect did not cleanly stop owned effects", e, s.status())
+	}
+
+	s, f = testSession(t)
+	if e := s.start(context.Background(), 30, false, object{}); e != nil {
+		t.Fatal(e)
+	}
+	f.monitors = []any{laptop, object{"id": float64(0), "name": "DP-1", "disabled": true, "dpmsStatus": false, "activeWorkspace": object{"id": float64(1)}}}
+	if e := s.tick(context.Background(), nil, object{}); e != nil || s.state != "stopped" || !f.unloaded {
+		t.Fatal("disabled selected monitor did not cleanly stop owned effects", e, s.status())
 	}
 }
 

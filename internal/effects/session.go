@@ -372,7 +372,18 @@ func (s *session) tick(ctx context.Context, selected, value object) (err error) 
 	if metadataObservedAt.Before(policyObservedAt) {
 		policyObservedAt = metadataObservedAt
 	}
-	return s.directory.publish("policy.json", policyEnvelope(s.instance, s.output, s.sequence, reason, policyObservedAt.UnixMilli()))
+	if e = s.directory.publish("policy.json", policyEnvelope(s.instance, s.output, s.sequence, reason, policyObservedAt.UnixMilli())); e != nil {
+		return e
+	}
+	// A disconnected or disabled selected output cannot be rebound safely to a
+	// newly created monitor object. Stop the owned generation; a later explicit
+	// compatibility check can start a fresh session after reconnection.
+	if reason == "output_missing" || reason == "output_disabled" || reason == "output_ambiguous" {
+		cleanup, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+		return s.stop(cleanup)
+	}
+	return nil
 }
 func (s *session) stop(ctx context.Context) error {
 	var errs []error

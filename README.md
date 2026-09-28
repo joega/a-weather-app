@@ -115,6 +115,8 @@ A Weather App release is available; forecast viewing continues to work.
 In Settings, check compatibility and choose one enabled monitor for desktop
 effects. Other connected monitors remain usable but do not show those effects.
 No build step is required for the supported packaged runtime.
+If the selected monitor disconnects or is disabled, the app stops its owned
+effects; check compatibility and start them again after reconnecting it.
 
 - **Live desktop**, in the main window header, follows actual weather until you
   stop it. Closing the window keeps it running; reopen through the bar to stop it.
