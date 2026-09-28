@@ -39,6 +39,8 @@ func run(args []string) (result error) {
 	outputFlag := flags.String("output", "", "selected enabled Hyprland output; required when more than one is connected")
 	activate := flags.Bool("activate-native", false, "explicitly allow finite desktop-effects activation")
 	crashWorker := flags.Bool("crash-worker", false, "instead audit one proven-owned worker crash and fresh-service restart")
+	previewOnly := flags.Bool("preview-only", false, "stress finite preview expiry without starting a live session")
+	previewRounds := flags.Int("preview-rounds", 2, "number of finite preview cycles (1..20)")
 	parent := flags.String("evidence-parent", os.TempDir(), "absolute parent for a fresh private evidence directory")
 	if e := flags.Parse(args); e != nil {
 		if errors.Is(e, flag.ErrHelp) {
@@ -46,7 +48,8 @@ func run(args []string) (result error) {
 		}
 		return e
 	}
-	if flags.NArg() != 0 || !*activate || !filepath.IsAbs(*rootFlag) || !filepath.IsAbs(*parent) {
+	if flags.NArg() != 0 || !*activate || !filepath.IsAbs(*rootFlag) || !filepath.IsAbs(*parent) ||
+		*previewRounds < 1 || *previewRounds > 20 || (*crashWorker && *previewOnly) {
 		return errors.New("require explicit --root /absolute/path --activate-native; no effects were activated")
 	}
 	root, e := filepath.EvalSymlinks(*rootFlag)
@@ -63,7 +66,7 @@ func run(args []string) (result error) {
 		return e
 	}
 	defer directory.Close()
-	a := &audit{root: root, output: *outputFlag, evidence: directory, state: filepath.Join(evidencePath, "state"), crashWorker: *crashWorker, processes: map[string]processIdentity{}, runtimeDirs: map[string]bool{}, retainedDirs: map[string]directoryEvidence{}}
+	a := &audit{root: root, output: *outputFlag, evidence: directory, state: filepath.Join(evidencePath, "state"), crashWorker: *crashWorker, previewOnly: *previewOnly, previewRounds: *previewRounds, processes: map[string]processIdentity{}, runtimeDirs: map[string]bool{}, retainedDirs: map[string]directoryEvidence{}}
 	a.states = []string{a.state}
 	defer func() {
 		cleanup := a.cleanup()
@@ -73,8 +76,11 @@ func run(args []string) (result error) {
 		if a.crashWorker {
 			liveSeconds = 0
 			mode = "fail_closed_recovery"
+		} else if a.previewOnly {
+			liveSeconds = 0
+			mode = "finite_preview_stress"
 		}
-		summary := object{"schema_version": 1, "finished_at": time.Now().UTC().Format(time.RFC3339Nano), "ok": result == nil, "cleanup_ok": cleanup == nil, "root": root, "state": a.state, "states": a.states, "evidence": evidencePath, "native_activation_requested": true, "live_seconds_required": liveSeconds, "mode": mode, "crash_tests_requested": a.crashWorker, "crash_tests_exercised": a.crashInjected, "fail_closed_recovery_verified": a.crashRecoveryVerified, "fresh_service_restart_verified": a.crashRestartVerified, "retained_diagnostics": a.retainedDirs, "rendering_performance_measured": false}
+		summary := object{"schema_version": 1, "finished_at": time.Now().UTC().Format(time.RFC3339Nano), "ok": result == nil, "cleanup_ok": cleanup == nil, "root": root, "state": a.state, "states": a.states, "evidence": evidencePath, "native_activation_requested": true, "live_seconds_required": liveSeconds, "mode": mode, "preview_rounds_requested": a.previewRounds, "crash_tests_requested": a.crashWorker, "crash_tests_exercised": a.crashInjected, "fail_closed_recovery_verified": a.crashRecoveryVerified, "fresh_service_restart_verified": a.crashRestartVerified, "retained_diagnostics": a.retainedDirs, "rendering_performance_measured": false}
 		summary["full_clean_stopped"] = !a.crashWorker && result == nil
 		if result != nil {
 			summary["error"] = result.Error()

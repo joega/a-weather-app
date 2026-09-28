@@ -18,11 +18,17 @@ func policyMetadataDecision(monitors, clients any, output string) string {
 		return "invalid_metadata"
 	}
 	var selected []object
+	ids := map[int64]bool{}
 	for _, v := range ms {
 		m, ok := v.(map[string]any)
 		if !ok {
 			return "invalid_metadata"
 		}
+		id, valid := integer(m["id"])
+		if !valid || id > 2147483647 || ids[id] {
+			return "invalid_metadata"
+		}
+		ids[id] = true
 		if m["name"] == output {
 			selected = append(selected, m)
 		}

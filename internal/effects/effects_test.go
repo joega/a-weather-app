@@ -19,15 +19,16 @@ import (
 )
 
 type fakeNative struct {
-	status   object
-	commands []string
-	ctlCalls int
-	unloaded bool
-	reject   string
-	monitors any
-	clients  any
-	advance  func(time.Duration)
-	ctlDelay time.Duration
+	status                    object
+	commands                  []string
+	ctlCalls                  int
+	unloaded                  bool
+	reject                    string
+	expireOnOff, replaceOnOff bool
+	monitors                  any
+	clients                   any
+	advance                   func(time.Duration)
+	ctlDelay                  time.Duration
 }
 
 func newFake() *fakeNative {
@@ -54,6 +55,16 @@ func (f *fakeNative) native(ctx context.Context, command string) (object, error)
 		return nil, ctx.Err()
 	}
 	f.commands = append(f.commands, command)
+	if strings.HasPrefix(command, "guard ") && strings.HasSuffix(command, " off") {
+		if f.expireOnOff {
+			f.status["enabled"] = false
+			return nil, errors.New("native lease expired")
+		}
+		if f.replaceOnOff {
+			f.status["session_generation"] = float64(8)
+			return nil, errors.New("foreign generation")
+		}
+	}
 	if command == f.reject {
 		return nil, errors.New("injected failure")
 	}
@@ -138,6 +149,25 @@ func TestForeignGenerationRefusesStopAndRecovery(t *testing.T) {
 				t.Fatal("foreign generation stopped", c)
 			}
 		}
+	}
+}
+func TestStopAcceptsOnlyOwnedGenerationAfterExpiryRace(t *testing.T) {
+	s, f := testSession(t)
+	if e := s.start(context.Background(), 30, false, object{}); e != nil {
+		t.Fatal(e)
+	}
+	f.expireOnOff = true
+	if e := s.stop(context.Background()); e != nil || s.state != "stopped" || !f.unloaded {
+		t.Fatal("owned native expiry was not accepted as stopped", e, s.status())
+	}
+
+	s, f = testSession(t)
+	if e := s.start(context.Background(), 30, false, object{}); e != nil {
+		t.Fatal(e)
+	}
+	f.replaceOnOff = true
+	if e := s.stop(context.Background()); e == nil || f.unloaded || s.state != "cleanup_failed" {
+		t.Fatal("foreign replacement was adopted during expiry race", e, s.status())
 	}
 }
 func TestCleanupFailureRetainsEvidence(t *testing.T) {
@@ -559,6 +589,11 @@ func TestPolicyFailsClosed(t *testing.T) {
 	if reason := policyDecision([]any{monitor, laptop}, []any{}, "DP-1", lock); reason != "none" {
 		t.Fatal("monitor reorder blocked effects", reason)
 	}
+	laptop["id"] = float64(0)
+	if reason := policyDecision([]any{monitor, laptop}, []any{}, "DP-1", lock); reason != "invalid_metadata" {
+		t.Fatal("duplicate monitor ids did not suppress effects", reason)
+	}
+	laptop["id"] = float64(1)
 	if reason := policyDecision([]any{laptop}, []any{}, "DP-1", lock); reason != "output_missing" {
 		t.Fatal("selected monitor disconnect was not suppressed", reason)
 	}

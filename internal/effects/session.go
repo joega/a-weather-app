@@ -417,7 +417,14 @@ func (s *session) stop(ctx context.Context) error {
 				}
 				stopped, e := s.b.native(ctx, s.guard("off"))
 				if e != nil {
-					return e
+					// The finite native lease may expire after the status read but
+					// before the guarded off reaches Hyprland. Re-observe instead
+					// of treating that already-stopped owned generation as a
+					// failed cleanup. A replacement generation still fails closed.
+					stopped, e = s.b.native(ctx, "status")
+					if e != nil {
+						return e
+					}
 				}
 				sg, ok := integer(stopped["session_generation"])
 				if !ok || sg != s.generation || stopped["enabled"] != false {

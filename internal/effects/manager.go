@@ -252,7 +252,7 @@ func (m *Manager) Start(ctx context.Context, duration int, persistent bool, flag
 		return e
 	}
 	env := append(childEnvironment(), "WAYLAND_DISPLAY="+os.Getenv("WAYLAND_DISPLAY"))
-	p, e := supervision.Start([]string{exe, "--effects-worker", "--root", m.root, "--instance", m.instance, "--output", m.output}, env, m.root, inputR, replyW, nil)
+	p, e := supervision.Start([]string{exe, "--effects-worker", "--root", m.root, "--instance", m.instance, "--output", m.output}, env, m.root, inputR, replyW, os.Stderr)
 	inputR.Close()
 	replyW.Close()
 	if e != nil {

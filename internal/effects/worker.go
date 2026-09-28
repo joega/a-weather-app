@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"io"
 	"os"
@@ -114,6 +115,7 @@ func serveWorkerObservedWithTimeout(s *session, input, output *os.File, ownerLos
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
 		if e := s.stop(ctx); e != nil {
+			fmt.Fprintln(os.Stderr, "Effects worker cleanup:", bounded(e.Error(), 1024))
 			result = 1
 		}
 	}()
@@ -157,6 +159,9 @@ func serveWorkerObservedWithTimeout(s *session, input, output *os.File, ownerLos
 				e := s.stop(ctx)
 				cancel()
 				if e != nil && s.state != "stopped" || s.state == "cleanup_failed" {
+					if e != nil {
+						fmt.Fprintln(os.Stderr, "Effects worker cleanup:", bounded(e.Error(), 1024))
+					}
 					return 1
 				}
 				// A clean expiry remains alive to acknowledge stopped on the

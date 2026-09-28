@@ -290,6 +290,14 @@ func (b *nativeBackend) preflight(ctx context.Context, instance, output string) 
 	if e != nil {
 		return 0, e
 	}
+	ids := map[int64]bool{}
+	for _, row := range v.([]any) {
+		value, valid := integer(obj(row)["id"])
+		if !valid || value > 2147483647 || ids[value] {
+			return 0, errors.New("monitor ids invalid or ambiguous")
+		}
+		ids[value] = true
+	}
 	id, ok := integer(monitor["id"])
 	if !ok || id > 2147483647 {
 		return 0, errors.New("selected output id invalid")

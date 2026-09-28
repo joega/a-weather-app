@@ -35,6 +35,8 @@ type audit struct {
 	runtimeDirs                                       map[string]bool
 	retainedDirs                                      map[string]directoryEvidence
 	crashWorker, crashInjected                        bool
+	previewOnly                                       bool
+	previewRounds                                     int
 	crashRecoveryVerified, crashRestartVerified       bool
 	expectedGuardianFailure                           bool
 	guardCancel                                       context.CancelFunc
@@ -347,7 +349,7 @@ func (a *audit) exercise(ctx context.Context) error {
 	if e := a.controls(ctx, initial); e != nil {
 		return e
 	}
-	for round := 1; round <= 2; round++ {
+	for round := 1; round <= a.previewRounds; round++ {
 		if e := a.check(ctx); e != nil {
 			return e
 		}
@@ -365,6 +367,9 @@ func (a *audit) exercise(ctx context.Context) error {
 		if e = a.stopped(ctx, fmt.Sprintf("finite-preview-%d", round)); e != nil {
 			return e
 		}
+	}
+	if a.previewOnly {
+		return nil
 	}
 	if e := a.check(ctx); e != nil {
 		return e
