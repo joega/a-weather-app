@@ -112,8 +112,9 @@ activation, and incompatible compositor builds are refused before loading the
 plugin. After a Hyprland update, effects may remain unavailable until a matching
 A Weather App release is available; forecast viewing continues to work.
 
-In Settings, check compatibility and select the current output. No build step
-is required for the supported packaged runtime.
+In Settings, check compatibility and choose one enabled monitor for desktop
+effects. Other connected monitors remain usable but do not show those effects.
+No build step is required for the supported packaged runtime.
 
 - **Live desktop**, in the main window header, follows actual weather until you
   stop it. Closing the window keeps it running; reopen through the bar to stop it.
@@ -121,9 +122,9 @@ is required for the supported packaged runtime.
 - **Stop** turns effects off. Live mode does not automatically resume after login.
 - Reduced motion disables precipitation and lightning; lightning is off by default.
 
-Native plugins run inside the compositor. Multiple configured monitors,
-rotated/mirrored outputs and configured HDR are refused. Other GPUs/ABIs, general
-dynamic output recreation, arbitrary fractional scales and multi-day stability
+Native plugins run inside the compositor. A rotated/mirrored selected output,
+configured HDR or a virtual headless output is refused. Other GPUs/ABIs,
+selected-output recreation, arbitrary fractional scales and multi-day stability
 are unverified. Short isolated tests do not establish broad hardware support.
 
 ## Resource use and security boundaries

@@ -485,6 +485,11 @@ func TestControlAndOutputParsing(t *testing.T) {
 	if e := validateOutput(monitor); e != nil {
 		t.Fatal(e)
 	}
+	monitor["name"] = "HEADLESS-2"
+	if e := validateOutput(monitor); e == nil {
+		t.Fatal("accepted virtual headless output")
+	}
+	monitor["name"] = "DP-1"
 	monitor["transform"] = false
 	if e := validateOutput(monitor); e == nil {
 		t.Fatal("accepted boolean transform")
@@ -492,10 +497,44 @@ func TestControlAndOutputParsing(t *testing.T) {
 	if _, e := monitorRecords([]any{monitor, monitor}); e == nil {
 		t.Fatal("duplicate output accepted")
 	}
+	monitor["transform"] = float64(0)
+	laptop := object{"name": "eDP-1", "disabled": false, "width": 1920., "height": 1200., "scale": 1.25}
+	rows := []any{laptop, monitor}
+	if selected, e := selectedOutput(rows, "DP-1"); e != nil || selected["name"] != "DP-1" {
+		t.Fatal("external output not selected from two enabled monitors", e)
+	}
+	if selected, e := selectedOutput([]any{monitor, laptop}, "DP-1"); e != nil || selected["name"] != "DP-1" {
+		t.Fatal("monitor reorder changed the selected output", e)
+	}
+	if _, e := selectedOutput([]any{laptop}, "DP-1"); e == nil {
+		t.Fatal("disconnected output accepted")
+	}
+	if _, e := selectedOutput([]any{laptop, monitor, monitor}, "DP-1"); e == nil {
+		t.Fatal("duplicate selected output accepted")
+	}
+	monitor["disabled"] = true
+	if _, e := selectedOutput(rows, "DP-1"); e == nil {
+		t.Fatal("disabled selected output accepted")
+	}
 }
 func TestPolicyFailsClosed(t *testing.T) {
 	monitor := object{"id": float64(0), "name": "DP-1", "disabled": false, "dpmsStatus": true, "activeWorkspace": object{"id": float64(1)}}
+	laptop := object{"id": float64(1), "name": "eDP-1", "disabled": false, "dpmsStatus": true, "activeWorkspace": object{"id": float64(2)}}
 	lock := object{"enabled": true, "lock_state_known": true, "session_locked": false}
+	if reason := policyDecision([]any{laptop, monitor}, []any{}, "DP-1", lock); reason != "none" {
+		t.Fatal("unselected connected monitor blocked effects", reason)
+	}
+	if reason := policyDecision([]any{monitor, laptop}, []any{}, "DP-1", lock); reason != "none" {
+		t.Fatal("monitor reorder blocked effects", reason)
+	}
+	if reason := policyDecision([]any{laptop}, []any{}, "DP-1", lock); reason != "output_missing" {
+		t.Fatal("selected monitor disconnect was not suppressed", reason)
+	}
+	monitor["disabled"] = true
+	if reason := policyDecision([]any{laptop, monitor}, []any{}, "DP-1", lock); reason != "output_disabled" {
+		t.Fatal("selected monitor disable was not suppressed", reason)
+	}
+	monitor["disabled"] = false
 	if reason := policyDecision([]any{monitor}, []any{}, "DP-1", lock); reason != "none" {
 		t.Fatal(reason)
 	}

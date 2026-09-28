@@ -36,6 +36,7 @@ func main() {
 func run(args []string) (result error) {
 	flags := flag.NewFlagSet("weather-desktop-audit", flag.ContinueOnError)
 	rootFlag := flags.String("root", "", "absolute verified development checkout or installed package")
+	outputFlag := flags.String("output", "", "selected enabled Hyprland output; required when more than one is connected")
 	activate := flags.Bool("activate-native", false, "explicitly allow finite desktop-effects activation")
 	crashWorker := flags.Bool("crash-worker", false, "instead audit one proven-owned worker crash and fresh-service restart")
 	parent := flags.String("evidence-parent", os.TempDir(), "absolute parent for a fresh private evidence directory")
@@ -62,7 +63,7 @@ func run(args []string) (result error) {
 		return e
 	}
 	defer directory.Close()
-	a := &audit{root: root, evidence: directory, state: filepath.Join(evidencePath, "state"), crashWorker: *crashWorker, processes: map[string]processIdentity{}, runtimeDirs: map[string]bool{}, retainedDirs: map[string]directoryEvidence{}}
+	a := &audit{root: root, output: *outputFlag, evidence: directory, state: filepath.Join(evidencePath, "state"), crashWorker: *crashWorker, processes: map[string]processIdentity{}, runtimeDirs: map[string]bool{}, retainedDirs: map[string]directoryEvidence{}}
 	a.states = []string{a.state}
 	defer func() {
 		cleanup := a.cleanup()

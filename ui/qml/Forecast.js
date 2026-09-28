@@ -50,7 +50,7 @@ function forecast(v) {
 }
 function effectsSetup(v) {
     if(v===undefined)return {status:"unchecked",reason:"not_checked",outputs:[],selected_output:null};
-    const reasons=["not_checked","ready","wayland_required","session_unavailable","output_unavailable","unsupported_output","multiple_outputs","plugin_conflict","native_missing","native_incompatible","activation_failed"];
+    const reasons=["not_checked","ready","wayland_required","session_unavailable","output_unavailable","output_selection_required","unsupported_output","plugin_conflict","native_missing","native_incompatible","activation_failed"];
     if(!object(v)||Object.keys(v).length!==4||["unchecked","ready","unavailable"].indexOf(v.status)<0||reasons.indexOf(v.reason)<0||!Array.isArray(v.outputs)||v.outputs.length>32)throw Error("Invalid effects setup");
     let outputs=[],names=[];
     for(let row of v.outputs) {
@@ -60,7 +60,7 @@ function effectsSetup(v) {
         outputs.push({name:row.name,width:width,height:height,scale:number(row.scale,.25,8),enabled:row.enabled});names.push(row.name);
     }
     if(v.selected_output!==null&&!outputs.some(row=>row.name===v.selected_output&&row.enabled))throw Error("Invalid output selection");
-    if((v.status==="ready")!==(v.reason==="ready")||(v.status==="unchecked")!==(v.reason==="not_checked")||(v.status==="ready"&&(outputs.length!==1||v.selected_output===null)))throw Error("Invalid compatibility state");
+    if((v.status==="ready")!==(v.reason==="ready")||(v.status==="unchecked")!==(v.reason==="not_checked")||(v.status==="ready"&&v.selected_output===null))throw Error("Invalid compatibility state");
     return {status:v.status,reason:v.reason,outputs:outputs,selected_output:v.selected_output};
 }
 function notifications(v) {

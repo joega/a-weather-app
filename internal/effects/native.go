@@ -286,14 +286,13 @@ func (b *nativeBackend) preflight(ctx context.Context, instance, output string) 
 	if e != nil {
 		return 0, e
 	}
-	rows, ok := v.([]any)
-	if !ok || len(rows) != 1 {
-		return 0, errors.New("effects require one configured output")
+	monitor, e := selectedOutput(v, output)
+	if e != nil {
+		return 0, e
 	}
-	monitor := obj(rows[0])
 	id, ok := integer(monitor["id"])
-	if !ok || id > 2147483647 || monitor["name"] != output || monitor["disabled"] != false {
-		return 0, errors.New("selected output must be unique and enabled")
+	if !ok || id > 2147483647 {
+		return 0, errors.New("selected output id invalid")
 	}
 	if e = validateOutput(monitor); e != nil {
 		return 0, e

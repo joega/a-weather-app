@@ -243,12 +243,21 @@ func (a *audit) check(ctx context.Context) error {
 		return e
 	}
 	setup := objectOf(objectOf(reply["snapshot"])["effects_setup"])
+	if setup["status"] != "ready" && setup["reason"] != "output_selection_required" {
+		return fmt.Errorf("native compatibility unavailable: %v", setup)
+	}
+	// Exercise selection through the public protocol even when the headless
+	// audit service booted with the intended output already set. The selection
+	// acknowledgement must itself contain the refreshed ready state.
+	reply, e = a.request(ctx, 30*time.Second, "select_output", object{"output": a.output})
+	if e != nil {
+		return e
+	}
+	setup = objectOf(objectOf(reply["snapshot"])["effects_setup"])
 	if setup["status"] != "ready" || setup["reason"] != "ready" || setup["selected_output"] != a.output {
 		return fmt.Errorf("native compatibility unavailable: %v", setup)
 	}
-	// Selection is also exercised through the public state protocol.
-	_, e = a.request(ctx, 5*time.Second, "select_output", object{"output": a.output})
-	return e
+	return nil
 }
 
 func (a *audit) controls(ctx context.Context, patch object) error {

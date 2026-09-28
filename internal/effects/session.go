@@ -462,7 +462,7 @@ func (s *session) spawnHost(duration, fps int) error {
 	if b, ok := s.b.(*nativeBackend); ok {
 		env = b.env
 	}
-	command := []string{"/usr/bin/prlimit", "--fsize=1048576", "--core=0", "--", filepath.Join(s.root, hostRelative), "--monitor", "0", "--duration", strconv.Itoa(duration), "--fps", strconv.Itoa(fps), "--weather", filepath.Join(s.directory.path, "selected.json"), "--policy", filepath.Join(s.directory.path, "policy.json"), "--policy-session", s.instance, "--output", s.output}
+	command := []string{"/usr/bin/prlimit", "--fsize=1048576", "--core=0", "--", filepath.Join(s.root, hostRelative), "--duration", strconv.Itoa(duration), "--fps", strconv.Itoa(fps), "--weather", filepath.Join(s.directory.path, "selected.json"), "--policy", filepath.Join(s.directory.path, "policy.json"), "--policy-session", s.instance, "--output", s.output}
 	if s.persistent {
 		command = append(command, "--renewable-lease")
 	}

@@ -29,7 +29,8 @@ typedef struct {
   gboolean policy_received, render_allowed, presented, clear_flash;
   char policy_reason[65];
   Weather weather, target;
-  guint monitor, duration, fps, tick, poll, policy_poll, expiry, term, interrupt, renew;
+  gint monitor;
+  guint duration, fps, tick, poll, policy_poll, expiry, term, interrupt, renew;
   guint frames, updates, errors;
   gboolean failed, input_empty, reduced_override, renewable_lease;
   gint64 started, last_weather_step, lease_deadline;
@@ -373,6 +374,17 @@ static gboolean connector_matches(State *state) {
   }
   return matches == 1;
 }
+static gint connector_index(const char *const *connectors, guint count, const char *output) {
+  if (!output || !*output || !count || count > 64) return -1;
+  gint selected = -1;
+  for (guint i = 0; i < count; ++i) {
+    if (connectors[i] && !strcmp(connectors[i], output)) {
+      if (selected >= 0) return -1;
+      selected = (gint)i;
+    }
+  }
+  return selected;
+}
 static gboolean poll_policy(gpointer data) {
   State *state = data;
   SkyPolicy candidate; g_autoptr(GError) error = NULL;
@@ -464,7 +476,24 @@ static void activate(GtkApplication *app, gpointer data) {
     state->failed = TRUE; g_printerr("atmosphere requires Wayland layer-shell\n"); g_application_quit(G_APPLICATION(app)); return;
   }
   GListModel *monitors = gdk_display_get_monitors(display);
-  if (state->monitor >= g_list_model_get_n_items(monitors)) {
+  guint count = g_list_model_get_n_items(monitors);
+  if (!count || count > 64) {
+    state->failed = TRUE; g_printerr("atmosphere monitor list unavailable\n"); g_application_quit(G_APPLICATION(app)); return;
+  }
+  if (state->output_connector) {
+    char *connectors[64] = {0};
+    for (guint i = 0; i < count; ++i) {
+      g_autoptr(GdkMonitor) candidate = g_list_model_get_item(monitors, i);
+      if (candidate && gdk_monitor_is_valid(candidate))
+        connectors[i] = g_strdup(gdk_monitor_get_connector(candidate));
+    }
+    gint index = connector_index((const char *const *)connectors, count, state->output_connector);
+    for (guint i = 0; i < count; ++i) g_free(connectors[i]);
+    if (index < 0 || (state->monitor >= 0 && state->monitor != index)) {
+      state->failed = TRUE; g_printerr("atmosphere selected connector unavailable or ambiguous\n"); g_application_quit(G_APPLICATION(app)); return;
+    }
+    state->monitor = index;
+  } else if (state->monitor < 0 || (guint)state->monitor >= count) {
     state->failed = TRUE; g_printerr("atmosphere monitor index unavailable\n"); g_application_quit(G_APPLICATION(app)); return;
   }
   g_autoptr(GdkMonitor) monitor = g_list_model_get_item(monitors, state->monitor);
@@ -491,7 +520,7 @@ static void activate(GtkApplication *app, gpointer data) {
   if (state->weather_path) { poll_weather(state); state->poll = g_timeout_add_seconds(1, poll_weather, state); }
   sky_schedule_reset(&state->schedule, state->started, state->fps, state->weather.reduced);
   state->expiry = g_timeout_add_seconds(state->duration, stop, state);
-  g_print("{\"component\":\"a-weather-app-atmosphere\",\"event\":\"start\",\"layer\":\"background\",\"keyboard\":\"none\",\"exclusive_zone\":-1,\"monitor_index\":%u,\"fps\":%u,\"duration\":%u}\n", state->monitor, state->fps, state->duration);
+  g_print("{\"component\":\"a-weather-app-atmosphere\",\"event\":\"start\",\"layer\":\"background\",\"keyboard\":\"none\",\"exclusive_zone\":-1,\"monitor_index\":%d,\"fps\":%u,\"duration\":%u}\n", state->monitor, state->fps, state->duration);
   if (state->policy_path) {
     policy_state(state, FALSE, "policy_initial");
     poll_policy(state); state->policy_poll = g_timeout_add(500, poll_policy, state);
@@ -522,6 +551,16 @@ static gboolean renderer_default_test(void) {
 }
 
 static gboolean self_test(void) {
+  const char *connected[] = {"eDP-1", "DP-1"};
+  const char *reordered[] = {"DP-1", "eDP-1"};
+  const char *duplicate[] = {"DP-1", "DP-1"};
+  const char *disconnected[] = {"eDP-1", NULL};
+  if (connector_index(connected, 2, "DP-1") != 1 ||
+      connector_index(reordered, 2, "DP-1") != 0 ||
+      connector_index(duplicate, 2, "DP-1") != -1 ||
+      connector_index(disconnected, 2, "DP-1") != -1 ||
+      connector_index(connected, 2, "HDMI-A-1") != -1 ||
+      connector_index(connected, 65, "DP-1") != -1) return FALSE;
   if (!renderer_default_test()) return FALSE;
   g_autoptr(GDateTime) now = g_date_time_new_now_utc();
   g_autofree char *timestamp = g_date_time_format_iso8601(now);
@@ -577,7 +616,7 @@ int main(int argc, char **argv) {
   char *path = NULL, *preset_name = NULL, *validate_path = NULL;
   char *policy_path = NULL, *policy_session = NULL, *output = NULL, *validate_policy = NULL;
   GOptionEntry entries[] = {
-    {"monitor", 'm', 0, G_OPTION_ARG_INT, &monitor, "Required GDK monitor index", "INDEX"},
+    {"monitor", 'm', 0, G_OPTION_ARG_INT, &monitor, "GDK monitor index for standalone use; checked against --output if provided", "INDEX"},
     {"duration", 'd', 0, G_OPTION_ARG_INT, &duration, "Duration 1..300 seconds", "SECONDS"},
     {"renewable-lease", 0, 0, G_OPTION_ARG_NONE, &renewable_lease, "SIGUSR1 renews finite lease while policy is fresh", NULL},
     {"fps", 0, 0, G_OPTION_ARG_INT, &fps, "Queue cadence 15/30/60", "FPS"},
@@ -625,8 +664,9 @@ int main(int argc, char **argv) {
     g_free(policy_path); g_free(policy_session); g_free(output);
     return ok ? 0 : 1;
   }
-  if (monitor < 0 || duration < 1 || duration > 300 || (fps != 15 && fps != 30 && fps != 60) || (path && preset_name)) {
-    g_printerr("invalid monitor/duration/fps or conflicting weather/preset\n"); return 1;
+  if (monitor < -1 || (!output && monitor < 0) || duration < 1 || duration > 300 ||
+      (fps != 15 && fps != 30 && fps != 60) || (path && preset_name)) {
+    g_printerr("invalid monitor/output/duration/fps or conflicting weather/preset\n"); return 1;
   }
   State state = {.monitor = monitor, .duration = duration, .fps = fps, .weather_path = path,
                  .policy_path = policy_path, .policy_session = policy_session, .output_connector = output,

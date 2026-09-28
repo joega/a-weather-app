@@ -79,6 +79,15 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);QCOMPARE(fixture.service.exitCode(),0);
         QVERIFY(!QFile::exists(fixture.socket));
     }
+    void multiMonitorCompatibilitySnapshot(){
+        ServiceFixture fixture;QVERIFY(fixture.start());QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);
+        const auto ready=eval("Forecast.effectsSetup({status:'ready',reason:'ready',outputs:[{name:'eDP-1',width:1920,height:1200,scale:1.25,enabled:true},{name:'DP-1',width:3840,height:2160,scale:2,enabled:true}],selected_output:'DP-1'}).status");
+        QCOMPARE(ready.toString(),QString("ready"));
+        const auto choose=eval("Forecast.effectsSetup({status:'unavailable',reason:'output_selection_required',outputs:[{name:'eDP-1',width:1920,height:1200,scale:1.25,enabled:true},{name:'DP-1',width:3840,height:2160,scale:2,enabled:true}],selected_output:null}).reason");
+        QCOMPARE(choose.toString(),QString("output_selection_required"));
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
+    }
     void cacheFreshness_data(){QTest::addColumn<int>("age");QTest::addColumn<QString>("prefix");QTest::newRow("fresh-offline")<<60<<QString("Weather data from");QTest::newRow("stale-offline")<<4000<<QString("Stale forecast");}
     void cacheFreshness(){
         QFETCH(int,age);QFETCH(QString,prefix);ServiceFixture fixture;fixture.cache(age);QVERIFY(fixture.start());QVERIFY(attach(fixture));

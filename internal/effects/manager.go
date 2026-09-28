@@ -91,22 +91,17 @@ func (m *Manager) Check(ctx context.Context) object {
 	if selected == "" && len(enabled) == 1 {
 		selected = enabled[0]
 	}
-	valid := false
-	for _, name := range enabled {
-		if name == selected {
-			valid = true
-		}
-	}
-	if valid {
+	monitor, selectedError := selectedOutput(v, selected)
+	if selectedError == nil {
 		m.setup["selected_output"] = selected
 	}
 	reason := "ready"
 	switch {
-	case !valid:
+	case selected == "" && len(enabled) > 1:
+		reason = "output_selection_required"
+	case selectedError != nil:
 		reason = "output_unavailable"
-	case len(outputs) != 1:
-		reason = "multiple_outputs"
-	case validateOutput(obj(v.([]any)[0])) != nil:
+	case validateOutput(monitor) != nil:
 		reason = "unsupported_output"
 	default:
 		inventory, e := b.inventory(ctx)

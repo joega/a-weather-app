@@ -102,13 +102,40 @@ func (a *audit) preflight(ctx context.Context) error {
 		return e
 	}
 	outputs, ok := value.([]any)
-	if !ok || len(outputs) != 1 {
-		return errors.New("audit requires one configured output; it will not reconfigure the desktop")
+	if !ok || len(outputs) == 0 || len(outputs) > 32 {
+		return errors.New("audit requires bounded monitor inventory")
 	}
-	output := objectOf(outputs[0])
-	a.output = stringOf(output["name"])
-	if !outputPattern.MatchString(a.output) || output["disabled"] != false {
-		return errors.New("unique enabled output required")
+	if a.output != "" && !outputPattern.MatchString(a.output) {
+		return errors.New("invalid selected output")
+	}
+	var output object
+	enabled := 0
+	seen := map[string]bool{}
+	for _, row := range outputs {
+		monitor := objectOf(row)
+		name := stringOf(monitor["name"])
+		disabled, valid := monitor["disabled"].(bool)
+		if !valid || !outputPattern.MatchString(name) || seen[name] {
+			return errors.New("invalid or duplicate monitor inventory")
+		}
+		seen[name] = true
+		if !disabled {
+			enabled++
+			if a.output == "" {
+				output = monitor
+			} else if name == a.output {
+				output = monitor
+			}
+		}
+	}
+	if a.output == "" {
+		if enabled != 1 {
+			return errors.New("multiple enabled monitors; pass --output to select one without reconfiguring the desktop")
+		}
+		a.output = stringOf(output["name"])
+	}
+	if output == nil {
+		return errors.New("selected output is not enabled or present")
 	}
 	value, e = a.ctl(ctx, "plugin", "list")
 	if e != nil {

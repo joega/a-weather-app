@@ -236,6 +236,10 @@ func (f *effectsCoordinator) perform(ctx context.Context, a effectAction) effect
 			e = ctx.Err()
 		} else {
 			_, e = f.backend.SelectOutput(ctx, a.output)
+			if e == nil {
+				f.backend.Check(ctx)
+				e = ctx.Err()
+			}
 		}
 	case "start_effects", "start_live_effects":
 		code = "effects_start_failed"

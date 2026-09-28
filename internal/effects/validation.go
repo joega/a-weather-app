@@ -5,6 +5,7 @@ import (
 	"math"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -60,6 +61,11 @@ func controls(value object) (object, error) {
 	return result, nil
 }
 func validateOutput(m object) error {
+	// Hyprland's synthetic headless outputs can appear in the monitor list but
+	// do not provide the same presentation/cleanup lifecycle as a display.
+	if strings.HasPrefix(text(m["name"]), "HEADLESS-") {
+		return errors.New("virtual headless output unsupported")
+	}
 	n, ok := integer(m["transform"])
 	if !ok || n != 0 || m["mirrorOf"] != "none" {
 		return errors.New("unsupported output")
@@ -103,6 +109,24 @@ func monitorRecords(value any) ([]any, error) {
 		result = append(result, object{"name": name, "width": w, "height": h, "scale": s, "enabled": !disabled})
 	}
 	return result, nil
+}
+func selectedOutput(value any, name string) (object, error) {
+	if !outputPattern.MatchString(name) {
+		return nil, errors.New("selected output invalid")
+	}
+	if _, err := monitorRecords(value); err != nil {
+		return nil, err
+	}
+	for _, row := range value.([]any) {
+		monitor := obj(row)
+		if monitor["name"] == name {
+			if monitor["disabled"] != false {
+				return nil, errors.New("selected output disabled")
+			}
+			return monitor, nil
+		}
+	}
+	return nil, errors.New("selected output unavailable")
 }
 func temperatureLease(selected object, now time.Time) (float64, int64, bool) {
 	v, ok := number(obj(selected["current"])["temperature_c"])

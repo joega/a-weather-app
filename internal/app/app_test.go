@@ -368,6 +368,14 @@ func TestAppExplicitEffectsAndPersistentIdempotence(t *testing.T) {
 		t.Fatal("effects did not stop")
 	}
 }
+func TestSelectingEffectsOutputRechecksCompatibility(t *testing.T) {
+	fx := &fakeEffects{}
+	a := newTestApp(t, Options{Offline: true, Effects: fx})
+	reply, _ := a.Handle(context.Background(), request("select_output", M{"output": "DP-1"}))
+	if reply["ok"] != true || fx.checks != 1 {
+		t.Fatal("selection did not refresh compatibility", reply, fx.checks)
+	}
+}
 func TestAppCloseFailureStaysFailure(t *testing.T) {
 	fx := &fakeEffects{state: "running", stopErr: errors.New("cleanup uncertain")}
 	a := newTestApp(t, Options{Offline: true, Effects: fx})
