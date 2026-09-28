@@ -192,7 +192,7 @@ radar or a live measurement. Zero precipitation has no shading.
 The map requests one 5×5 lattice (25 points over a 20-mile diameter) and up to
 24 forecast hours when opened. It prefers explicit NOAA NBM CONUS (~2.5 km),
 DWD ICON-D2 in central Europe (~2 km), or ECCC GEM HRDPS in Canada (~2.5 km).
-Outside those areas, or when the regional model returns no usable first hour,
+Outside those areas, or when the regional model returns no usable coverage,
 it uses explicit NOAA GFS global (~13 km). GFS shows only a broad pattern. The
 display interpolates between sampled model cells; even regional shading does
 not resolve conditions on a particular street. A shorter available horizon

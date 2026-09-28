@@ -3,6 +3,7 @@ package weathermap
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,8 +21,9 @@ func fixture(hours int, missingAt int) []rawCell {
 	start := time.Now().UTC().Truncate(time.Hour).Unix()
 	for i := range cells {
 		c := &cells[i]
-		c.Latitude = lats[i]
-		c.Longitude = lons[i]
+		latitude, longitude := lats[i], lons[i]
+		c.Latitude = &latitude
+		c.Longitude = &longitude
 		c.HourlyUnits = map[string]string{"time": "unixtime", "temperature_2m": "°C", "wind_speed_10m": "m/s", "wind_direction_10m": "°", "precipitation": "mm"}
 		for h := 0; h < hours; h++ {
 			v := float64(i+h) / 10
@@ -110,6 +112,55 @@ func TestRegionalCoverageFallsBackAsOneWholeTimeline(t *testing.T) {
 		t.Fatalf("fallback mixed or missing: %s, calls %d, error %v", data.ModelID, calls.Load(), e)
 	}
 }
+func TestRegionalCoverageHTTPErrorFallsBackOnlyForExactReason(t *testing.T) {
+	global, _ := json.Marshal(fixture(24, 24))
+	for _, tc := range []struct {
+		name, reason string
+		wantCalls    int32
+	}{
+		{"outside coverage", "No data is available for this location", 2},
+		{"other bad request", "Invalid latitude", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls.Add(1)
+				if r.URL.Query().Get("models") == nbm.ID {
+					body, _ := json.Marshal(map[string]any{"error": true, "reason": tc.reason})
+					return &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(string(body))), Header: make(http.Header)}, nil
+				}
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(string(global))), Header: make(http.Header)}, nil
+			})}
+			data, e := Fetch(context.Background(), client, 40.7128, -74.006, "US", time.Now())
+			if calls.Load() != tc.wantCalls {
+				t.Fatalf("made %d requests, want %d", calls.Load(), tc.wantCalls)
+			}
+			if tc.wantCalls == 2 && (e != nil || data.ModelID != gfs.ID || len(data.Hours) != 24) {
+				t.Fatalf("coverage fallback: model %s, hours %d, error %v", data.ModelID, len(data.Hours), e)
+			}
+			if tc.wantCalls == 1 && e == nil {
+				t.Fatal("unrelated bad request triggered fallback")
+			}
+		})
+	}
+}
+func TestRegionalNullGridFallsBack(t *testing.T) {
+	missing, _ := json.Marshal(make([]rawCell, Samples*Samples))
+	global, _ := json.Marshal(fixture(24, 24))
+	var calls atomic.Int32
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		body := global
+		if r.URL.Query().Get("models") == nbm.ID {
+			body = missing
+		}
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(string(body))), Header: make(http.Header)}, nil
+	})}
+	data, e := Fetch(context.Background(), client, 40.7128, -74.006, "US", time.Now())
+	if e != nil || calls.Load() != 2 || data.ModelID != gfs.ID || len(data.Hours) != 24 {
+		t.Fatalf("null regional grid fallback: model %s, hours %d, requests %d, error %v", data.ModelID, len(data.Hours), calls.Load(), e)
+	}
+}
 func TestLiveRegionalAndGlobal(t *testing.T) {
 	if os.Getenv("WEATHER_MAP_LIVE") != "1" {
 		t.Skip("set WEATHER_MAP_LIVE=1 for bounded public provider check")
@@ -143,4 +194,21 @@ func TestLiveRegionalAndGlobal(t *testing.T) {
 			t.Log("model=" + data.ModelID + " hours=" + strconv.Itoa(len(data.Hours)) + " bytes=" + strconv.Itoa(len(raw)) + " http=" + strconv.Itoa(int(requests.Load())) + " quota_equivalents_est=" + strconv.Itoa(int(requests.Load())*Samples*Samples))
 		})
 	}
+}
+func TestLiveRegionalNoCoverage(t *testing.T) {
+	if os.Getenv("WEATHER_MAP_LIVE_COVERAGE") != "1" {
+		t.Skip("set WEATHER_MAP_LIVE_COVERAGE=1 for one bounded public out-of-domain request")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	var requests atomic.Int32
+	client := &http.Client{Timeout: 12 * time.Second, Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		requests.Add(1)
+		return http.DefaultTransport.RoundTrip(r)
+	})}
+	_, e := fetchModel(ctx, client, nbm, 35.68, 139.69, time.Now())
+	if !errors.Is(e, errCoverage) || requests.Load() != 1 {
+		t.Fatalf("expected one explicit regional coverage rejection, requests=%d, error=%v", requests.Load(), e)
+	}
+	t.Logf("regional out-of-domain rejection: http=%d quota_equivalents_est=%d", requests.Load(), requests.Load()*Samples*Samples)
 }

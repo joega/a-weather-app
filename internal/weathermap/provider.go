@@ -56,8 +56,8 @@ type Data struct {
 }
 
 type rawCell struct {
-	Latitude    float64           `json:"latitude"`
-	Longitude   float64           `json:"longitude"`
+	Latitude    *float64          `json:"latitude"`
+	Longitude   *float64          `json:"longitude"`
 	HourlyUnits map[string]string `json:"hourly_units"`
 	Hourly      struct {
 		Time          []int64    `json:"time"`
@@ -162,6 +162,21 @@ func fetchModel(ctx context.Context, client *http.Client, model Model, lat, lon 
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusBadRequest && model.ID != gfs.ID {
+			// The API returns this specific 400 when an explicit regional model
+			// has no coverage. Other 400s (and overloads) must not spend a
+			// second 25-location request on the global fallback.
+			body, readErr := io.ReadAll(io.LimitReader(response.Body, 513))
+			if readErr == nil && len(body) <= 512 {
+				var failure struct {
+					Error  bool   `json:"error"`
+					Reason string `json:"reason"`
+				}
+				if json.Unmarshal(body, &failure) == nil && failure.Error && failure.Reason == "No data is available for this location" {
+					return Data{}, errCoverage
+				}
+			}
+		}
 		return Data{}, fmt.Errorf("map HTTP status %d", response.StatusCode)
 	}
 	body, e := io.ReadAll(io.LimitReader(response.Body, MaxResponseBytes+1))
@@ -182,10 +197,16 @@ func fetchModel(ctx context.Context, client *http.Client, model Model, lat, lon 
 	data := Data{Latitude: lat, Longitude: lon, RadiusMiles: RadiusMiles, ModelID: model.ID, ModelName: model.Name, ResolutionKM: model.ResolutionKM, FetchedAt: now.UTC().Truncate(time.Second), Attribution: "Model forecast via Open-Meteo (CC BY 4.0)"}
 	count := 24
 	for i, cell := range raw {
+		if cell.Latitude == nil || cell.Longitude == nil {
+			if cell.Latitude == nil && cell.Longitude == nil && len(cell.HourlyUnits) == 0 && len(cell.Hourly.Time) == 0 {
+				return Data{}, errCoverage
+			}
+			return Data{}, errors.New("invalid map grid coordinate")
+		}
 		if cell.HourlyUnits["time"] != "unixtime" || cell.HourlyUnits["temperature_2m"] != "°C" || cell.HourlyUnits["wind_speed_10m"] != "m/s" || cell.HourlyUnits["wind_direction_10m"] != "°" || cell.HourlyUnits["precipitation"] != "mm" {
 			return Data{}, errors.New("unexpected map units")
 		}
-		if !finite(cell.Latitude) || !finite(cell.Longitude) || cell.Latitude < -85 || cell.Latitude > 85 || cell.Longitude < -180 || cell.Longitude > 180 || distanceKM(requestedLat[i], requestedLon[i], cell.Latitude, cell.Longitude) > model.ResolutionKM*1.5+2 {
+		if !finite(*cell.Latitude) || !finite(*cell.Longitude) || *cell.Latitude < -85 || *cell.Latitude > 85 || *cell.Longitude < -180 || *cell.Longitude > 180 || distanceKM(requestedLat[i], requestedLon[i], *cell.Latitude, *cell.Longitude) > model.ResolutionKM*1.5+2 {
 			return Data{}, errors.New("invalid map grid coordinate")
 		}
 		h := cell.Hourly
@@ -203,7 +224,7 @@ func fetchModel(ctx context.Context, client *http.Client, model Model, lat, lon 
 				return Data{}, errors.New("invalid map time")
 			}
 		}
-		row := Cell{Latitude: cell.Latitude, Longitude: cell.Longitude}
+		row := Cell{Latitude: *cell.Latitude, Longitude: *cell.Longitude}
 		for j := 0; j < length; j++ {
 			values := []*float64{h.Temperature[j], h.WindSpeed[j], h.WindDirection[j], h.Precipitation[j]}
 			if values[0] == nil || values[1] == nil || values[2] == nil || values[3] == nil {
