@@ -109,6 +109,33 @@ function notifications(v) {
     if(v.state==="paused"&&until===null)throw Error("Missing pause expiry");
     return {settings:{enabled:s.enabled,quiet_enabled:s.quiet_enabled,quiet_start:s.quiet_start,quiet_end:s.quiet_end,probability:s.probability},state:v.state,snoozed_until:until,delivery:v.delivery,supported:v.supported};
 }
+const aqAttribution="CAMS global model data via Open-Meteo (CC BY 4.0)";
+function airQuality(v) {
+    if(v===undefined)return {freshness:"unavailable",refreshing:false,offline:false,error:null,domain:"cams_global",source:"CAMS global model data",attribution:aqAttribution,valid_at:null,fetched_at:null,valid_label:null,fetched_label:null,age_seconds:null,us_aqi:null,european_aqi:null,pm2_5_ug_m3:null};
+    const keys=["freshness","refreshing","offline","error","domain","source","attribution","valid_at","fetched_at","valid_label","fetched_label","age_seconds","us_aqi","european_aqi","pm2_5_ug_m3"];
+    if(!object(v)||Object.keys(v).length!==keys.length||keys.some(k=>!Object.prototype.hasOwnProperty.call(v,k))||
+       ["unavailable","fresh","stale","expired","invalid_future"].indexOf(v.freshness)<0||
+       typeof v.refreshing!=="boolean"||typeof v.offline!=="boolean"||
+       (v.error!==null&&["fetch_failed","timeout","cache_invalid","save_failed"].indexOf(v.error)<0)||
+       v.domain!=="cams_global"||v.source!=="CAMS global model data"||v.attribution!==aqAttribution)throw Error("Invalid air quality state");
+    let valid=v.valid_at===null?null:time(v.valid_at),fetched=v.fetched_at===null?null:time(v.fetched_at);
+    let validLabel=v.valid_label===null?null:string(v.valid_label,80),fetchedLabel=v.fetched_label===null?null:string(v.fetched_label,80);
+    let age=optional(v.age_seconds,0,315360000);
+    let us=optional(v.us_aqi,0,1000),eu=optional(v.european_aqi,0,1000),pm=optional(v.pm2_5_ug_m3,0,5000);
+    if(v.freshness==="unavailable") {
+        if(valid!==null||fetched!==null||validLabel!==null||fetchedLabel!==null||age!==null||us!==null||eu!==null||pm!==null)throw Error("Invalid unavailable air quality");
+    } else {
+        if(valid===null||fetched===null||!validLabel||!fetchedLabel)throw Error("Missing air quality time or label");
+        let validMs=Date.parse(valid),fetchedMs=Date.parse(fetched);
+        if(validMs<fetchedMs-86400000||validMs>fetchedMs+300000)throw Error("Invalid air quality time range");
+        if(v.freshness==="invalid_future") {if(age!==null)throw Error("Invalid future air quality age");}
+        else if(age===null)throw Error("Missing air quality age");
+        if((v.freshness==="fresh"&&age>7200)||(v.freshness==="stale"&&(age<=7200||age>21600))||(v.freshness==="expired"&&age<=21600))throw Error("Invalid air quality freshness age");
+        if((v.freshness==="expired"||v.freshness==="invalid_future")&&(us!==null||eu!==null||pm!==null))throw Error("Expired air quality values");
+        if((v.freshness==="fresh"||v.freshness==="stale")&&us===null&&eu===null&&pm===null)throw Error("Missing air quality values");
+    }
+    return {freshness:v.freshness,refreshing:v.refreshing,offline:v.offline,error:v.error,domain:v.domain,source:v.source,attribution:v.attribution,valid_at:valid,fetched_at:fetched,valid_label:validLabel,fetched_label:fetchedLabel,age_seconds:age,us_aqi:us,european_aqi:eu,pm2_5_ug_m3:pm};
+}
 function snapshot(v) {
     if(!object(v)||v.schema_version!==1||!object(v.controls)||!object(v.alerts)||!object(v.source)||!object(v.location)) throw Error("Invalid snapshot");
     if(!Array.isArray(v.alerts.items)||v.alerts.items.length>8||["available","unavailable","not_supported_here"].indexOf(v.alerts.status)<0)throw Error("Invalid alerts");
@@ -154,7 +181,7 @@ function snapshot(v) {
         settings={mode:s.mode,zip_code:s.zip_code,busy:s.busy,error:s.error,country_code:countryCode(s.country_code),place:place};
     }
     if(v.launcher_status!==undefined&&["ready","installed","conflict","failed","unsupported_path"].indexOf(v.launcher_status)<0)throw Error("Invalid launcher status");
-    return {launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,place_search:placeSearch(v.place_search),effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts,source:alertSource,coverage:coverage,fetched_at:alertsFetchedAt},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
+    return {launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,place_search:placeSearch(v.place_search),air_quality:airQuality(v.air_quality),effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts,source:alertSource,coverage:coverage,fetched_at:alertsFetchedAt},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
 }
 function temp(v,units) { return v===null||v===undefined ? "—" : Math.round(units==="F" ? v*9/5+32:v)+"°"; }
 function uv(v) { return v===null||v===undefined ? "—" : v.toFixed(1); }

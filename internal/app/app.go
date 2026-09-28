@@ -30,10 +30,12 @@ type Options struct {
 	Resolve          func(context.Context, M) (M, error)
 	ResolveSelection func(context.Context, M) (M, error)
 	FetchCountry     func(context.Context, M, time.Time, string) (M, error)
-	SearchPlaces     func(context.Context, M) ([]any, error)
-	Effects          Effects
-	Sender           notifications.Sender
-	Offline          bool
+	// Nil leaves air quality cache-only. The production service supplies Fetch.
+	FetchAirQuality func(context.Context, M, time.Time) (M, error)
+	SearchPlaces    func(context.Context, M) ([]any, error)
+	Effects         Effects
+	Sender          notifications.Sender
+	Offline         bool
 }
 type completion struct {
 	generation                    uint64
@@ -57,6 +59,7 @@ type App struct {
 	country                               any
 	place                                 M
 	search                                placeSearch
+	aq                                    airQualityState
 	errorCode, locationError              any
 	notifications                         *notifications.Watcher
 	nextFetch                             time.Time
@@ -226,6 +229,7 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 	}
 	a.country, a.place = profileIdentity(a.profile, a.mode)
 	a.search.init()
+	a.initAirQuality()
 	saved, e := state.Read("controls.json", 8192)
 	if e != nil {
 		return nil, e
@@ -277,6 +281,7 @@ func (a *App) beginFetch(selection M) {
 	a.nextFetch = a.options.Now().Add(900 * time.Second)
 	if selection != nil {
 		a.locationError = nil
+		a.cancelAirQuality()
 	}
 	location := safeio.Clone(a.location)
 	country, place := a.country, safeio.Clone(a.place)
@@ -334,6 +339,7 @@ func (a *App) beginFetch(selection M) {
 	}()
 }
 func (a *App) poll() {
+	defer a.pollAirQuality()
 	a.pollSearch()
 	for {
 		select {
@@ -429,6 +435,7 @@ func (a *App) poll() {
 	}
 }
 func (a *App) adopt(v M) {
+	oldLocation := a.location
 	a.profile = v
 	a.location = object(v["location"])
 	a.forecast = object(v["forecast"])
@@ -438,6 +445,11 @@ func (a *App) adopt(v M) {
 	a.errorCode = nil
 	a.locationError = nil
 	a.nextFetch = a.options.Now().Add(900 * time.Second)
+	if !reflect.DeepEqual(oldLocation, a.location) {
+		a.cancelAirQuality()
+		a.aq.record, a.aq.errorCode = nil, nil
+		a.aq.nextFetch = a.options.Now()
+	}
 }
 func (a *App) effectsStatus() M {
 	if a.fx == nil {
@@ -703,6 +715,7 @@ func (a *App) Close(ctx context.Context) error {
 	}
 	a.closed = true
 	a.closeDone = make(chan struct{})
+	a.cancelAirQuality()
 	if a.fetchCancel != nil {
 		a.fetchCancel()
 	}

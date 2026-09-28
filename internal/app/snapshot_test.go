@@ -55,6 +55,7 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			}
 			before := safeio.Clone(f)
 			a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
+			a.aq.record = airQualityFixture(a.location, now, now)
 			a.search.init()
 			a.search.status = "ready"
 			for i := 0; i < 10; i++ {
@@ -114,6 +115,9 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			}
 			if len(object(snapshot["place_search"])["results"].([]any)) != 10 {
 				t.Fatal("place results lost at maximum forecast size")
+			}
+			if object(snapshot["air_quality"])["us_aqi"] != 42.0 {
+				t.Fatal("air quality lost at maximum forecast size")
 			}
 			display := object(snapshot["alerts"])["items"].([]any)
 			if len(display) != 8 {

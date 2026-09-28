@@ -239,6 +239,7 @@ func (a *App) snapshot() M {
 		settings["place"] = safeio.Clone(a.place)
 	}
 	result["place_search"] = a.searchSnapshot()
+	result["air_quality"] = a.airQualitySnapshot()
 	result["alerts"] = M{"status": status, "items": display, "source": alertSource, "coverage": coverage, "fetched_at": alertFetched}
 	capSnapshotAlertText(result)
 	return result

@@ -55,6 +55,17 @@ public:
         forecast["location"]=location;
         save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","DE"},{"place",QJsonObject{{"provider","open-meteo"},{"id",2950159}}}});
     }
+    void airQualityCache(int fetchedAge,int validAge){
+        const auto now=QDateTime::currentDateTimeUtc();
+        auto location=saved("forecast.json")["location"].toObject();
+        save("air-quality.json",{{"schema_version",1},{"location",location},
+             {"fetched_at",now.addSecs(-fetchedAge).toString(Qt::ISODate)},
+             {"valid_at",now.addSecs(-validAge).toString(Qt::ISODate)},
+             {"domain","cams_global"},
+             {"source",QJsonObject{{"provider","Open-Meteo"},{"model","CAMS global model data"},{"kind","model_forecast"},{"attribution","CAMS global model data via Open-Meteo (CC BY 4.0)"}}},
+             {"units",QJsonObject{{"us_aqi","USAQI"},{"european_aqi","EAQI"},{"pm2_5_ug_m3",QString::fromUtf8("μg/m³")}}},
+             {"us_aqi",0},{"european_aqi",125},{"pm2_5_ug_m3",12.4}});
+    }
 };
 
 class ServiceFrontendTest:public QObject {
@@ -135,6 +146,52 @@ private slots:
         QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("1013 hPa"));
         eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
         QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(),QString("10°"));
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
+    }
+    void airQualityOfflineCache_data(){
+        QTest::addColumn<int>("fetchedAge");QTest::addColumn<int>("validAge");QTest::addColumn<QString>("freshness");QTest::addColumn<QString>("value");
+        QTest::newRow("fresh")<<60<<120<<QString("fresh")<<QString("0");
+        QTest::newRow("stale-valid-time")<<60<<10800<<QString("stale")<<QString("0");
+        QTest::newRow("expired")<<25200<<25200<<QString("expired")<<QString("—");
+        QTest::newRow("invalid-future")<<-600<<-600<<QString("invalid_future")<<QString("—");
+    }
+    void airQualityOfflineCache(){
+        QFETCH(int,fetchedAge);QFETCH(int,validAge);QFETCH(QString,freshness);QFETCH(QString,value);
+        ServiceFixture fixture;fixture.cache(60,true);fixture.airQualityCache(fetchedAge,validAge);
+        QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);
+        QCOMPARE(eval("bridge.snapshot.air_quality.freshness").toString(),freshness);
+        QVERIFY(eval("bridge.snapshot.air_quality.offline").toBool());
+        QCOMPARE(eval("root.current.temperature_c").toDouble(),15.0);
+        QCOMPARE(named("airQualityValue_us")->property("text").toString(),value);
+        QCOMPARE(named("airQualityValue_eu")->property("text").toString(),value=="—"?QString("—"):QString("125"));
+        QCOMPARE(named("airQualityValue_pm")->property("text").toString(),value=="—"?QString("—"):QString::fromUtf8("12.4 µg/m³"));
+        QVERIFY(named("airQualityStatus")->property("text").toString().contains("Offline"));
+        QVERIFY(named("airQualityAttribution")->property("text").toString().contains("CAMS global model"));
+        const auto validLabel=eval("bridge.snapshot.air_quality.valid_label").toString();
+        const auto fetchedLabel=eval("bridge.snapshot.air_quality.fetched_label").toString();
+        QVERIFY(!validLabel.isEmpty());QVERIFY(!fetchedLabel.isEmpty());
+        QCOMPARE(named("airQualityTimes")->property("text").toString(),QString("Model forecast valid ")+validLabel+" · Fetched "+fetchedLabel);
+        QVERIFY(validLabel.contains("(-04:00)")||validLabel.contains("(-05:00)"));
+        if(freshness=="fresh"){
+            root->setProperty("effectsOpen",false);click("unitsC");QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),QString("C"),3000);
+            QCOMPARE(named("airQualityValue_us")->property("text").toString(),QString("0"));
+            QCOMPARE(named("airQualityValue_eu")->property("text").toString(),QString("125"));
+            QCOMPARE(named("airQualityValue_pm")->property("text").toString(),QString::fromUtf8("12.4 µg/m³"));
+        }
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
+    }
+    void invalidAirQualityCacheKeepsWeather(){
+        ServiceFixture fixture;fixture.cache(60,true);fixture.airQualityCache(60,120);
+        auto bad=fixture.saved("air-quality.json");auto source=bad["source"].toObject();source["model"]="Station";bad["source"]=source;fixture.save("air-quality.json",bad);
+        QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);
+        QCOMPARE(eval("root.current.temperature_c").toDouble(),15.0);
+        QCOMPARE(eval("bridge.snapshot.air_quality.freshness").toString(),QString("unavailable"));
+        QCOMPARE(eval("bridge.snapshot.air_quality.error").toString(),QString("cache_invalid"));
+        QVERIFY(eval("bridge.snapshot.air_quality.valid_label===null&&bridge.snapshot.air_quality.fetched_label===null").toBool());
+        QCOMPARE(named("airQualityValue_us")->property("text").toString(),QString("—"));
+        QVERIFY(named("airQualityStatus")->property("text").toString().contains("Cached data invalid"));
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
     }
     void offlinePlaceAndSearchCoverage(){

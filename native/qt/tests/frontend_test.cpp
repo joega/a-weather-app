@@ -11,6 +11,7 @@
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <functional>
 
 class FakeTransport:public QObject {
     Q_OBJECT
@@ -42,6 +43,13 @@ class FrontendTest:public QObject {
         QJsonObject current{{"time","2026-09-28T12:00:00Z"},{"condition","clear"},{"is_day",true},{"temperature_c",15},{"apparent_temperature_c",14},{"humidity",0.65},{"wind_speed_m_s",2},{"wind_gust_m_s",4},{"wind_direction_deg",90},{"visibility_m",10000},{"uv_index",0},{"pressure_msl_hpa",1013.2},{"dew_point_c",12.5}};
         auto hour=current;hour["local_hour"]="12 PM";hour["time"]="2026-09-28T13:00:00Z";hour["uv_index"]=3.2;
         v["current"]=current;v["hourly"]=QJsonArray{hour};return v;
+    }
+    QJsonObject airQuality(qint64 age=3600){
+        return {{"freshness","fresh"},{"refreshing",false},{"offline",false},{"error",QJsonValue::Null},
+                {"domain","cams_global"},{"source","CAMS global model data"},{"attribution","CAMS global model data via Open-Meteo (CC BY 4.0)"},
+                {"valid_at","2026-09-28T12:00:00Z"},{"fetched_at","2026-09-28T12:20:00Z"},
+                {"valid_label","2026-09-28 12:00 UTC (+00:00)"},{"fetched_label","2026-09-28 12:20 UTC (+00:00)"},{"age_seconds",age},
+                {"us_aqi",0},{"european_aqi",125},{"pm2_5_ug_m3",12.4}};
     }
     void deliver(FakeTransport &transport,const QJsonObject &v){emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));}
     QVariant evaluate(QQmlEngine &engine,QObject *bridge,const QString &expression){QQmlExpression e(engine.rootContext(),bridge,expression);auto v=e.evaluate();if(e.hasError())qFatal("%s",qPrintable(e.error().toString()));return v;}
@@ -206,6 +214,104 @@ private slots:
             auto invalid=valid;auto row=invalid["current"].toObject();row[bad.first]=bad.second;invalid["current"]=row;QVERIFY2(!accepted(invalid),qPrintable(bad.first));
             invalid=valid;auto hourly=invalid["hourly"].toArray();row=hourly.first().toObject();row[bad.first]=bad.second;hourly.replace(0,row);invalid["hourly"]=hourly;QVERIFY2(!accepted(invalid),qPrintable(bad.first));
         }
+    }
+    void airQualityContractValidation(){
+        auto accepted=[this](QJsonObject value){
+            FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+            QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());
+            if(!bridge)return false;
+            deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",value}});
+            return !bridge->property("disconnected").toBool();
+        };
+        auto old=snapshot(1,"Legacy backend");QVERIFY(accepted(old));
+        auto valid=old;valid["air_quality"]=airQuality();QVERIFY(accepted(valid));
+        auto stale=valid;auto aq=airQuality(9000);aq["freshness"]="stale";aq["offline"]=true;aq["error"]="fetch_failed";stale["air_quality"]=aq;QVERIFY(accepted(stale));
+        for(const auto status:{"expired","invalid_future"}){
+            auto hidden=valid;aq=airQuality();aq["freshness"]=status;aq["us_aqi"]=QJsonValue::Null;aq["european_aqi"]=QJsonValue::Null;aq["pm2_5_ug_m3"]=QJsonValue::Null;
+            aq["age_seconds"]=QString(status)=="invalid_future"?QJsonValue::Null:QJsonValue(25000);hidden["air_quality"]=aq;QVERIFY(accepted(hidden));
+        }
+        auto unavailable=valid;aq=airQuality();aq["freshness"]="unavailable";
+        for(const auto key:{"valid_at","fetched_at","valid_label","fetched_label","age_seconds","us_aqi","european_aqi","pm2_5_ug_m3"})aq[key]=QJsonValue::Null;
+        unavailable["air_quality"]=aq;QVERIFY(accepted(unavailable));
+        auto rejects=[&](QJsonObject bad){auto candidate=valid;candidate["air_quality"]=bad;return !accepted(candidate);};
+        for(const auto key:{"freshness","refreshing","offline","error","domain","source","attribution","valid_at","fetched_at","valid_label","fetched_label","age_seconds","us_aqi","european_aqi","pm2_5_ug_m3"}){aq=airQuality();aq.remove(key);QVERIFY2(rejects(aq),key);}
+        aq=airQuality();aq["extra"]=true;QVERIFY(rejects(aq));
+        for(auto bad:QList<QPair<QString,QJsonValue>>{{"domain","cams_europe"},{"source","Station"},{"attribution","Fake"},{"freshness","unknown"},{"error","raw failure"},{"us_aqi",-1},{"us_aqi",1001},{"european_aqi",1001},{"pm2_5_ug_m3",5001},{"pm2_5_ug_m3","12"},{"age_seconds",-1},{"offline",1}}){
+            aq=airQuality();aq[bad.first]=bad.second;QVERIFY2(rejects(aq),qPrintable(bad.first));
+        }
+        aq=airQuality();aq["freshness"]="expired";QVERIFY(rejects(aq));
+        aq=airQuality();aq["freshness"]="invalid_future";aq["age_seconds"]=QJsonValue::Null;QVERIFY(rejects(aq));
+        aq=airQuality();aq["freshness"]="unavailable";QVERIFY(rejects(aq));
+        aq=airQuality(7201);QVERIFY(rejects(aq));
+        aq=airQuality(7200);aq["freshness"]="stale";QVERIFY(rejects(aq));
+        aq=airQuality(21601);aq["freshness"]="stale";QVERIFY(rejects(aq));
+        aq=airQuality();aq["valid_at"]="2026-09-27T11:59:00Z";QVERIFY(rejects(aq));
+        aq=airQuality();aq["valid_at"]="2026-09-28T12:26:00Z";QVERIFY(rejects(aq));
+        aq=airQuality();aq["valid_label"]=QJsonValue::Null;QVERIFY(rejects(aq));
+        aq=airQuality();aq["fetched_label"]="";QVERIFY(rejects(aq));
+        aq=airQuality();aq["valid_label"]=QString(81,'a');QVERIFY(rejects(aq));
+        aq=airQuality();aq["fetched_label"]="bad\nlabel";QVERIFY(rejects(aq));
+    }
+    void airQualityLocationTimeLabels(){
+        FakeTransport transport;QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
+        auto *times=root->findChild<QObject*>("airQualityTimes");QVERIFY(times);
+        auto show=[&](qint64 revision,const QString &zone,const QString &validLabel,const QString &fetchedLabel){
+            auto state=metricSnapshot(revision),location=state["location"].toObject(),aq=airQuality();
+            location["timezone"]=zone;state["location"]=location;
+            aq["valid_label"]=validLabel;aq["fetched_label"]=fetchedLabel;state["air_quality"]=aq;
+            deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",state}});
+            root->setProperty("effectsOpen",false);
+            QCOMPARE(times->property("text").toString(),QString("Model forecast valid ")+validLabel+" · Fetched "+fetchedLabel);
+        };
+        show(1,"UTC","2026-09-28 12:00 UTC (+00:00)","2026-09-28 12:20 UTC (+00:00)");
+        show(2,"Asia/Tokyo","2026-09-28 21:00 JST (+09:00)","2026-09-28 21:20 JST (+09:00)");
+    }
+    void renderAirQualityScreenshots(){
+        const QString prefix=qEnvironmentVariable("WEATHER_QT_AQ_SCREENSHOT_PREFIX");
+        if(prefix.isEmpty())QSKIP("Set WEATHER_QT_AQ_SCREENSHOT_PREFIX for private render capture");
+        FakeTransport transport;QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
+        QQuickWindow *window=nullptr;for(auto *candidate:QGuiApplication::allWindows())if(candidate->objectName()=="weatherWindow")window=qobject_cast<QQuickWindow*>(candidate);
+        QVERIFY(window);QTRY_VERIFY(window->isExposed());
+        auto *panel=qobject_cast<QQuickItem*>(root->findChild<QObject*>("airQualityPanel"));QVERIFY(panel);
+        std::function<QObject*(QQuickItem*,const char*)> visualNamed=[&](QQuickItem *item,const char *name)->QObject*{
+            if(item->objectName()==QLatin1String(name))return item;
+            for(auto *child:item->childItems())if(auto *found=visualNamed(child,name))return found;
+            return nullptr;
+        };
+        auto named=[&](const char *name)->QObject*{auto *found=visualNamed(panel,name);if(!found)QTest::qFail(qPrintable(QString("Missing AQ label %1").arg(name)),__FILE__,__LINE__);return found;};
+        auto *scroll=root->findChild<QObject*>("forecastScroll");QVERIFY(scroll);
+        auto *flick=qvariant_cast<QQuickItem*>(scroll->property("contentItem"));QVERIFY(flick);
+        QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+        auto show=[&](QJsonObject aq,qint64 revision,int width,const QString &suffix){
+            auto state=metricSnapshot(revision),location=state["location"].toObject();
+            location["timezone"]="Asia/Tokyo";state["location"]=location;
+            aq["valid_label"]="2026-09-28 21:00 JST (+09:00)";
+            aq["fetched_label"]="2026-09-28 21:20 JST (+09:00)";
+            state["air_quality"]=aq;
+            deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",state}});
+            root->setProperty("effectsOpen",false);
+            window->resize(width,850);
+            QTRY_VERIFY_WITH_TIMEOUT(flick->property("contentHeight").toDouble()>flick->height(),2000);
+            QTest::qWait(100);
+            flick->setProperty("contentY",qMax(0.0,flick->property("contentHeight").toDouble()-flick->height()));
+            QTest::qWait(100);
+            auto top=panel->mapToScene(QPointF(0,0)).y();
+            QVERIFY2(top>=0&&top+panel->height()<=window->height()+2,qPrintable(QString("AQ panel out of viewport: %1/%2").arg(top).arg(panel->height())));
+            QVERIFY(window->grabWindow().save(prefix+suffix+".png"));
+        };
+        auto aq=airQuality();show(aq,1,1200,"-wide-fresh");show(aq,2,700,"-narrow-fresh");
+        auto *us=named("airQualityValue_us");QVERIFY(us);QCOMPARE(us->property("text").toString(),QString("0"));
+        auto *eu=named("airQualityValue_eu");QVERIFY(eu);QCOMPARE(eu->property("text").toString(),QString("125"));
+        aq=airQuality(9000);aq["freshness"]="stale";aq["offline"]=true;aq["error"]="fetch_failed";show(aq,3,700,"-narrow-stale-offline");
+        aq["freshness"]="expired";aq["age_seconds"]=25000;
+        for(auto key:{"us_aqi","european_aqi","pm2_5_ug_m3"})aq[key]=QJsonValue::Null;
+        show(aq,4,700,"-narrow-expired");
+        us=named("airQualityValue_us");QVERIFY(us);QCOMPARE(us->property("text").toString(),QString("—"));
+        auto unavailable=metricSnapshot(5);deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",unavailable}});
+        us=named("airQualityValue_us");QVERIFY(us);QTRY_COMPARE(us->property("text").toString(),QString("—"));
+        auto *status=named("airQualityStatus");QVERIFY(status);QVERIFY(status->property("text").toString().contains("unavailable"));
     }
     void renderPointMetricsScreenshots(){
         const QString prefix=qEnvironmentVariable("WEATHER_QT_METRICS_SCREENSHOT_PREFIX");

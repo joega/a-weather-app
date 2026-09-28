@@ -10,6 +10,7 @@ Recorded weather is illustrative, not a current forecast.
 
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
+- Modeled air quality with separate US/European AQI scales and PM2.5 concentration.
 - Official US weather alerts with individual instructions and expiry times.
 - Worldwide city search, saved US ZIP locations and optional approximate local detection.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
@@ -160,6 +161,26 @@ Watching continues while the window is hidden. Use Stop watching or Quit app to
 end it. Saved opt-in resumes on your next manual launch; no autostart or service
 is installed. Notifications do not require native desktop effects.
 
+## Air quality
+
+Air quality uses a separate Open-Meteo request and cache for the selected place.
+The card labels the US and European AQI scales separately and shows PM2.5 in
+µg/m³. Values come from CAMS global model data, including for European locations;
+they describe a model forecast, not a nearby monitoring station. AQ indices are
+calculated by the provider and are not reconstructed from the displayed PM2.5.
+
+Air quality updates at most hourly for an unchanged place, independently of
+weather Refresh. Its own forecast and fetch times determine freshness: after
+two hours it is stale, and after six hours its values are hidden. Offline mode
+can show a matching saved AQ forecast within that limit. An AQ update or cache
+failure preserves core weather and any usable last-good AQ values.
+
+Air-quality attribution: Copernicus Atmosphere Monitoring Service (CAMS), ECMWF —
+[CAMS global atmospheric composition forecasts](https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts?tab=overview),
+processed by [Open-Meteo](https://open-meteo.com/en/docs/air-quality-api), under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). AQ indices are calculated
+by Open-Meteo; values are rounded for display.
+
 ## Privacy and removal
 
 Forecasts and city/ZIP geocoding use Open-Meteo; verified US locations use
@@ -179,7 +200,7 @@ store an IP-address response field. Normal refresh is limited to once per
 Open-Meteo's free service permits non-commercial use and requires attribution;
 commercial use requires an appropriate [Open-Meteo plan](https://open-meteo.com/en/pricing).
 See its [service terms](https://open-meteo.com/en/terms). Forecasts are model
-output; this app does not provide radar maps, air-quality readings or
+output; this app does not provide radar maps, air-quality station readings or
 minute-by-minute rain predictions.
 
 Current conditions and selected-hour details include UV index, mean sea level

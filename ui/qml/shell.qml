@@ -144,6 +144,7 @@ QtObject {
                     DailyPanel { id:daily;Layout.fillWidth:true;Layout.preferredWidth:window.width<950?window.width:window.width*0.54;days:root.days;units:root.units;onDaySelected:day=>details.showDay(day) }
                     MetricsPanel { Layout.fillWidth:true;Layout.preferredWidth:window.width*0.44;Layout.alignment:Qt.AlignTop;current:root.current;day:root.days.length?root.days[0]:null;units:root.units;timezone:root.timezone }
                 }
+                AirQualityPanel { Layout.fillWidth:true;airQuality:bridge.snapshot?bridge.snapshot.air_quality:Forecast.airQuality() }
                 PlainLabel { objectName:"sourceAttribution";Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;text:bridge.snapshot?bridge.snapshot.source.attribution+(bridge.snapshot.alerts.source?" · Alerts: "+bridge.snapshot.alerts.source:""):"Forecast: Open-Meteo";color:Tokens.secondary;font.pixelSize:11;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 Item { Layout.preferredHeight:24 }
             }

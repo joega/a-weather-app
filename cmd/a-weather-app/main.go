@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/joega/a-weather-app/internal/airquality"
 	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/effects"
 	"github.com/joega/a-weather-app/internal/ipc"
@@ -286,7 +287,7 @@ func launch(args []string) error {
 	}
 	defer lock.Close()
 	manager := effects.New(root, statePath, *instance, *output)
-	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline})
+	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline, FetchAirQuality: airquality.Fetch})
 	if e != nil {
 		return e
 	}

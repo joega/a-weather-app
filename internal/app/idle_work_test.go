@@ -102,7 +102,7 @@ func benchmarkIdleApp(b *testing.B) *App {
 	watching := notifications.DefaultDocument()
 	object(watching["settings"])["enabled"] = true
 	watching["snoozed_until"] = float64(now.Add(24 * time.Hour).Unix())
-	for name, value := range map[string]M{"location.json": weather.DefaultLocation(), "forecast.json": forecast, "notifications.json": watching} {
+	for name, value := range map[string]M{"location.json": weather.DefaultLocation(), "forecast.json": forecast, "notifications.json": watching, "air-quality.json": airQualityFixture(weather.DefaultLocation(), now, now)} {
 		if err = state.Write(name, value, weather.MaxBytes); err != nil {
 			b.Fatal(err)
 		}
