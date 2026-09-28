@@ -1,4 +1,5 @@
 #include "transport.h"
+#include "maptiles.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -7,6 +8,7 @@
 #include <QQuickWindow>
 #include <QElapsedTimer>
 #include <QDateTime>
+#include <QTimer>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -20,16 +22,29 @@
 namespace {volatile std::sig_atomic_t signalWrite=-1;void termination(int){const int savedErrno=errno;const int descriptor=signalWrite;char byte=1;if(descriptor>=0){auto ignored=write(descriptor,&byte,1);(void)ignored;}errno=savedErrno;}}
 int main(int argc,char **argv){
     QGuiApplication app(argc,argv);app.setApplicationName("a-weather-app");app.setDesktopFileName("a-weather-app");app.setQuitOnLastWindowClosed(false);
-    QCommandLineParser args;args.addHelpOption();args.addOption({"socket","Owned weather service socket","path"});args.addOption({"diagnostic","Log frontend diagnostics"});args.addOption({"measure-frames","Report bounded frameSwapped callback intervals at exit (not GPU time)"});args.process(app);
+    QCommandLineParser args;args.addHelpOption();args.addOption({"socket","Owned weather service socket","path"});args.addOption({"diagnostic","Log frontend diagnostics"});args.addOption({"measure-frames","Report bounded frameSwapped callback intervals at exit (not GPU time)"});args.addOption({"measure-map-open","Development measurement: open the map after the first snapshot"});args.process(app);
     if(!args.isSet("socket")||!args.value("socket").startsWith('/'))return 2;
     if(args.isSet("diagnostic"))qInstallMessageHandler([](QtMsgType,const QMessageLogContext &,const QString &message){const auto bytes=message.left(4096).toUtf8();fprintf(stderr,"%s\n",bytes.constData());});
     WeatherTransport transport(args.value("socket"),args.isSet("diagnostic"));
-    QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+    MapTiles mapTiles;
+    QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);engine.rootContext()->setContextProperty("mapTiles",&mapTiles);
     QObject::connect(&engine,&QQmlApplicationEngine::objectCreationFailed,&app,[]{QCoreApplication::exit(1);},Qt::QueuedConnection);
     int pipes[2];if(pipe2(pipes,O_NONBLOCK|O_CLOEXEC)!=0)return 1;signalWrite=pipes[1];
     QSocketNotifier signalReader(pipes[0],QSocketNotifier::Read);QObject::connect(&signalReader,&QSocketNotifier::activated,&transport,[&]{char bytes[32];while(read(pipes[0],bytes,sizeof bytes)>0){}transport.requestShutdown();});
     std::signal(SIGTERM,termination);std::signal(SIGINT,termination);
     engine.load(QUrl("qrc:/ui/qml/shell.qml"));if(args.isSet("diagnostic"))fprintf(stderr,"Weather frontend roots: %lld\n",static_cast<long long>(engine.rootObjects().size()));
+    if(args.isSet("measure-map-open")&&!engine.rootObjects().isEmpty()) {
+        auto *root=engine.rootObjects().first();auto *bridge=root->property("backend").value<QObject*>();
+        if(!bridge)return 3;
+        auto *opener=new QTimer(&app);opener->setInterval(30);
+        QObject::connect(opener,&QTimer::timeout,&app,[root,bridge,opener]{
+            if(!bridge->property("snapshot").isValid()||bridge->property("snapshot").isNull())return;
+            root->setProperty("mapOpen",true);
+            if(!QMetaObject::invokeMethod(bridge,"openMap")){QCoreApplication::exit(3);return;}
+            fprintf(stderr,"Weather map measurement opened\n");opener->stop();
+        });
+        opener->start();
+    }
     QVector<double> frameIntervals;QJsonArray callbacks;QElapsedTimer frameClock;bool frameStarted=false,framesCapped=false;
     if(args.isSet("measure-frames"))for(auto *window:QGuiApplication::allWindows())if(auto *quick=qobject_cast<QQuickWindow*>(window))QObject::connect(quick,&QQuickWindow::frameSwapped,&app,[&]{if(callbacks.size()<10000){callbacks.append(QDateTime::currentMSecsSinceEpoch());if(frameStarted)frameIntervals.append(frameClock.nsecsElapsed()/1000000.0);}else framesCapped=true;frameClock.restart();frameStarted=true;},Qt::QueuedConnection);
     const int result=app.exec();

@@ -136,6 +136,30 @@ function airQuality(v) {
     }
     return {freshness:v.freshness,refreshing:v.refreshing,offline:v.offline,error:v.error,domain:v.domain,source:v.source,attribution:v.attribution,valid_at:valid,fetched_at:fetched,valid_label:validLabel,fetched_label:fetchedLabel,age_seconds:age,us_aqi:us,european_aqi:eu,pm2_5_ug_m3:pm};
 }
+function weatherMap(v) {
+    if(!object(v)||["closed","loading","unavailable","fresh","stale"].indexOf(v.status)<0||typeof v.offline!=="boolean"||
+       (v.error!==""&&v.error!=="fetch_failed"&&v.error!=="save_failed"))throw Error("Invalid map status");
+    if(!Array.isArray(v.hour_labels)||v.hour_labels.length>24)throw Error("Invalid map labels");
+    if(v.data===null) {if(v.hour_labels.length!==0||v.fetched_label!==null)throw Error("Invalid empty map labels");return {status:v.status,offline:v.offline,error:v.error,data:null,hour_labels:[],fetched_label:null};}
+    let d=v.data;
+    if(!object(d)||d.radius_miles!==10||!Array.isArray(d.hours)||d.hours.length<1||d.hours.length>24||!Array.isArray(d.cells)||d.cells.length!==25||
+       ["ncep_nbm_conus","dwd_icon_d2","cmc_gem_hrdps","ncep_gfs_global"].indexOf(d.model_id)<0||
+       d.attribution!=="Model forecast via Open-Meteo (CC BY 4.0)")throw Error("Invalid map data");
+    number(d.latitude,-85,85);number(d.longitude,-180,180);number(d.resolution_km,1,25);time(d.fetched_at);
+    string(d.model_name,80);
+    if(v.hour_labels.length!==d.hours.length||typeof v.fetched_label!=="string")throw Error("Invalid map time labels");
+    string(v.fetched_label,80);for(let label of v.hour_labels)string(label,80);
+    for(let i=0;i<d.hours.length;i++) {integer(d.hours[i],0,253402300799);if(i&&d.hours[i]-d.hours[i-1]!==3600)throw Error("Invalid map hours")}
+    for(let cell of d.cells) {
+        if(!object(cell))throw Error("Invalid map cell");
+        number(cell.latitude,-85,85);number(cell.longitude,-180,180);
+        for(let [key,lo,hi] of [["temperature_c",-100,70],["wind_speed_m_s",0,150],["wind_from_deg",0,360],["precipitation_mm",0,500]]) {
+            if(!Array.isArray(cell[key])||cell[key].length!==d.hours.length)throw Error("Invalid map series");
+            for(let x of cell[key])number(x,lo,hi);
+        }
+    }
+    return {status:v.status,offline:v.offline,error:v.error,data:d,hour_labels:v.hour_labels,fetched_label:v.fetched_label};
+}
 function snapshot(v) {
     if(!object(v)||v.schema_version!==1||!object(v.controls)||!object(v.alerts)||!object(v.source)||!object(v.location)) throw Error("Invalid snapshot");
     if(!Array.isArray(v.alerts.items)||v.alerts.items.length>8||["available","unavailable","not_supported_here"].indexOf(v.alerts.status)<0)throw Error("Invalid alerts");

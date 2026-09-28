@@ -51,6 +51,14 @@ API access is restricted to non-commercial use under its
 unrestricted use of the hosted API. Commercial use requires an appropriate
 provider plan.
 
+The optional local map displays model forecast data via Open-Meteo with
+attribution in the panel. Its geographic background uses visible
+[OpenStreetMap tiles](https://operations.osmfoundation.org/policies/tiles/) on
+demand. The map displays “© OpenStreetMap contributors (ODbL)” and links to
+[OpenStreetMap copyright and license information](https://www.openstreetmap.org/copyright).
+No tile imagery is bundled with the source or release package. Tile access is
+best effort and subject to the OpenStreetMap Foundation's usage policy.
+
 The application uses procedural atmosphere shaders and code-drawn weather icons.
 It does not bundle Apple Weather artwork. The preview is a synthetic forecast
 screenshot, not a capture of a user's location or current weather.

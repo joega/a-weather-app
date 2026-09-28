@@ -7,6 +7,7 @@ import (
 	"github.com/joega/a-weather-app/internal/notifications"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
+	"github.com/joega/a-weather-app/internal/weathermap"
 	"math"
 	"reflect"
 	"sync"
@@ -32,6 +33,7 @@ type Options struct {
 	FetchCountry     func(context.Context, M, time.Time, string) (M, error)
 	// Nil leaves air quality cache-only. The production service supplies Fetch.
 	FetchAirQuality func(context.Context, M, time.Time) (M, error)
+	FetchMap        func(context.Context, float64, float64, string, time.Time) (weathermap.Data, error)
 	SearchPlaces    func(context.Context, M) ([]any, error)
 	Effects         Effects
 	Sender          notifications.Sender
@@ -60,6 +62,7 @@ type App struct {
 	place                                 M
 	search                                placeSearch
 	aq                                    airQualityState
+	wmap                                  mapState
 	errorCode, locationError              any
 	notifications                         *notifications.Watcher
 	nextFetch                             time.Time
@@ -230,6 +233,7 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 	a.country, a.place = profileIdentity(a.profile, a.mode)
 	a.search.init()
 	a.initAirQuality()
+	a.initMap()
 	saved, e := state.Read("controls.json", 8192)
 	if e != nil {
 		return nil, e
@@ -340,6 +344,7 @@ func (a *App) beginFetch(selection M) {
 }
 func (a *App) poll() {
 	defer a.pollAirQuality()
+	defer a.pollMap()
 	a.pollSearch()
 	for {
 		select {
@@ -446,6 +451,7 @@ func (a *App) adopt(v M) {
 	a.locationError = nil
 	a.nextFetch = a.options.Now().Add(900 * time.Second)
 	if !reflect.DeepEqual(oldLocation, a.location) {
+		a.mapLocationChanged(oldLocation)
 		a.cancelAirQuality()
 		a.aq.record, a.aq.errorCode = nil, nil
 		a.aq.nextFetch = a.options.Now()
@@ -660,9 +666,14 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 			}
 		}
 		if e == nil {
+			a.closeMap()
 			a.cancelSearch()
 			a.beginFetch(v)
 		}
+	case "map_open":
+		a.openMap()
+	case "map_close":
+		a.closeMap()
 	case "search_places":
 		var v M
 		v, e = weather.ValidatePlaceSearch(object(request["search"]))
@@ -716,6 +727,7 @@ func (a *App) Close(ctx context.Context) error {
 	a.closed = true
 	a.closeDone = make(chan struct{})
 	a.cancelAirQuality()
+	a.closeMap()
 	if a.fetchCancel != nil {
 		a.fetchCancel()
 	}

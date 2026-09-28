@@ -1,5 +1,6 @@
 #include <QtTest>
 #include "transport.h"
+#include "maptiles.h"
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlExpression>
@@ -12,6 +13,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDir>
+#include <QStandardPaths>
+#include <unistd.h>
 #include <memory>
 
 // Private offline fixtures have no precipitation and never request native effects.
@@ -71,13 +74,15 @@ public:
 class ServiceFrontendTest:public QObject {
     Q_OBJECT
     std::unique_ptr<WeatherTransport> transport;
+    std::unique_ptr<MapTiles> mapTiles;
     std::unique_ptr<QQmlApplicationEngine> engine;
     QObject *root=nullptr;
     QQuickWindow *window=nullptr;
     QVariant eval(const QString &source){QQmlExpression expression(QQmlEngine::contextForObject(root),root,source);auto result=expression.evaluate();if(expression.hasError())QTest::qFail(qPrintable(expression.error().toString()),__FILE__,__LINE__);return result;}
     bool attach(ServiceFixture &fixture){
         transport=std::make_unique<WeatherTransport>(fixture.socket,false);
-        engine=std::make_unique<QQmlApplicationEngine>();engine->rootContext()->setContextProperty("weatherTransport",transport.get());
+        mapTiles=std::make_unique<MapTiles>();
+        engine=std::make_unique<QQmlApplicationEngine>();engine->rootContext()->setContextProperty("weatherTransport",transport.get());engine->rootContext()->setContextProperty("mapTiles",mapTiles.get());
         // Capture exit requests without stopping the QtTest application's event loop.
         QObject::disconnect(engine.get(),nullptr,QCoreApplication::instance(),nullptr);
         engine->load(QUrl("qrc:/ui/qml/shell.qml"));if(engine->rootObjects().size()!=1)return false;root=engine->rootObjects().first();
@@ -92,9 +97,55 @@ class ServiceFrontendTest:public QObject {
     QObject *named(const char *name){auto object=root->findChild<QObject*>(name);if(!object&&window)object=visualNamed(window->contentItem(),name);if(!object){QTest::qFail(qPrintable(QString("Missing UI control %1").arg(name)),__FILE__,__LINE__);return root;}return object;}
     void click(const char *name){auto item=qobject_cast<QQuickItem*>(named(name));QVERIFY(item);QVERIFY(item->isEnabled());QVERIFY(item->isVisible());auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2)).toPoint();QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,point);}
     void toggle(const char *name,bool checked){auto object=named(name);QVERIFY(object->property("enabled").toBool());object->setProperty("checked",checked);QVERIFY(QMetaObject::invokeMethod(object,"clicked",Qt::DirectConnection));}
+    struct Usage {qint64 ticks=0,rssKiB=0,pssKiB=0;};
+    Usage usage(qint64 pid){
+        Usage value;QFile stat(QString("/proc/%1/stat").arg(pid));if(stat.open(QIODevice::ReadOnly)){
+            auto raw=stat.readAll();auto fields=raw.mid(raw.lastIndexOf(')')+1).trimmed().split(' ');
+            if(fields.size()>12)value.ticks=fields[11].toLongLong()+fields[12].toLongLong();
+        }
+        QFile memory(QString("/proc/%1/smaps_rollup").arg(pid));if(memory.open(QIODevice::ReadOnly)){
+            for(const auto &line:memory.readAll().split('\n')){
+                if(line.startsWith("Rss:"))value.rssKiB=line.mid(4).trimmed().split(' ').first().toLongLong();
+                if(line.startsWith("Pss:"))value.pssKiB=line.mid(4).trimmed().split(' ').first().toLongLong();
+            }
+        }
+        return value;
+    }
+    QJsonObject measure(const QString &phase,qint64 servicePID){
+        const qint64 uiPID=QCoreApplication::applicationPid();auto beforeUI=usage(uiPID),beforeGo=usage(servicePID);
+        qint64 peakRSS=0,peakPSS=0;QElapsedTimer timer;timer.start();
+        for(int i=0;i<20;i++){QTest::qWait(250);auto ui=usage(uiPID),go=usage(servicePID);peakRSS=qMax(peakRSS,ui.rssKiB+go.rssKiB);peakPSS=qMax(peakPSS,ui.pssKiB+go.pssKiB);}
+        auto afterUI=usage(uiPID),afterGo=usage(servicePID);
+        const double seconds=timer.elapsed()/1000.0,hz=sysconf(_SC_CLK_TCK);
+        return {{"phase",phase},{"seconds",seconds},{"cpu_percent_one_core",100.0*(afterUI.ticks+afterGo.ticks-beforeUI.ticks-beforeGo.ticks)/hz/seconds},{"peak_rss_kib",peakRSS},{"peak_pss_kib",peakPSS},{"ui_pid",uiPID},{"service_pid",servicePID}};
+    }
 private slots:
+    void mapWholeAppOfflineMeasurement(){
+        const auto capture=qEnvironmentVariable("WEATHER_QT_MAP_CAPTURE");if(capture.isEmpty())QSKIP("Set WEATHER_QT_MAP_CAPTURE for private whole-app map measurement");
+        QFile file(capture);QVERIFY(file.open(QIODevice::ReadOnly));auto map=QJsonDocument::fromJson(file.readAll()).object();QVERIFY(!map.isEmpty());
+        // Reuse geographic tiles from the reviewed visual capture, cache-only.
+        QCoreApplication::setApplicationName("frontend-test");
+        ServiceFixture fixture;fixture.cache(60);fixture.save("weather-map.json",map);
+        QElapsedTimer startup;startup.start();QVERIFY(fixture.start());QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(window->isExposed()&&eval("backend.snapshot!==null").toBool(),5000);
+        const auto startupMs=startup.elapsed();root->setProperty("effectsOpen",false);
+        QTest::qWait(1000);auto closed=measure("closed",fixture.service.processId());
+        QSignalSpy tiles(mapTiles.get(),&MapTiles::tileReady);
+        QSignalSpy tileReplies(mapTiles.get(),&MapTiles::tileReply);
+        root->setProperty("mapOpen",true);eval("backend.openMap()");
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.weatherMap.data!==null").toBool(),5000);
+        QTRY_VERIFY_WITH_TIMEOUT(tiles.size()>=4,3000);
+        QTest::qWait(1000);auto opened=measure("open",fixture.service.processId());
+        int networkTiles=0;for(const auto &reply:tileReplies)if(!reply.at(1).toBool())++networkTiles;
+        QCOMPARE(networkTiles,0);
+        QJsonObject result{{"startup_to_exposed_snapshot_ms",startupMs},{"closed",closed},{"open",opened},{"cached_tile_replies",tileReplies.size()},{"tile_network_replies",networkTiles}};
+        qInfo().noquote()<<"MAP_PERF"<<QJsonDocument(result).toJson(QJsonDocument::Compact);
+        root->setProperty("mapOpen",false);eval("backend.closeMap()");
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("backend.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+    }
     void initTestCase(){QVERIFY2(!qEnvironmentVariable("GO_APP").isEmpty(),"GO_APP must name the compiled Go service");QGuiApplication::setQuitOnLastWindowClosed(false);}
-    void cleanup(){engine.reset();transport.reset();root=nullptr;window=nullptr;}
+    void cleanup(){engine.reset();mapTiles.reset();transport.reset();root=nullptr;window=nullptr;}
     void emptyOfflineWindow(){
         ServiceFixture fixture;QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(window->isVisible()&&window->isExposed(),3000);

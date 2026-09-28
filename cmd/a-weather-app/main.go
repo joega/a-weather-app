@@ -15,6 +15,7 @@ import (
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/supervision"
 	"github.com/joega/a-weather-app/internal/weather"
+	"github.com/joega/a-weather-app/internal/weathermap"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -287,7 +288,9 @@ func launch(args []string) error {
 	}
 	defer lock.Close()
 	manager := effects.New(root, statePath, *instance, *output)
-	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline, FetchAirQuality: airquality.Fetch})
+	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline, FetchAirQuality: airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
+		return weathermap.Fetch(ctx, nil, lat, lon, country, now)
+	}})
 	if e != nil {
 		return e
 	}

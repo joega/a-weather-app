@@ -75,14 +75,24 @@ func (p *peer) enqueue(raw []byte, ack bool) (<-chan error, error) {
 }
 
 type Server struct {
-	app      *App
-	listener *net.UnixListener
-	mu       sync.Mutex
-	peers    map[*peer]bool
-	ctx      context.Context
-	cancel   context.CancelFunc
-	uiSeen   bool
-	last     []byte
+	app             *App
+	listener        *net.UnixListener
+	mu              sync.Mutex
+	peers           map[*peer]bool
+	ctx             context.Context
+	cancel          context.CancelFunc
+	uiSeen          bool
+	last            []byte
+	lastMapRevision uint64
+}
+
+func (s *Server) mapEvent() {
+	revision, value := s.app.Map()
+	if value == nil || revision == s.lastMapRevision {
+		return
+	}
+	s.lastMapRevision = revision
+	s.broadcast(M{"version": 1.0, "event": "map", "map": value})
 }
 
 func (s *Server) send(p *peer, value M) error {
@@ -351,6 +361,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 				s.snapshot()
 				lastBroadcast = time.Now()
 			}
+			s.mapEvent()
 			nextTick = time.Now().Add(a.Interval())
 			reset()
 		}
@@ -382,9 +393,11 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			peersWG.Add(1)
 			go func() { defer peersWG.Done(); s.handle(p) }()
 		case <-timer.C:
+			s.mapEvent()
 			continue
 		case <-a.Changed:
 			s.snapshot()
+			s.mapEvent()
 			lastBroadcast = time.Now()
 			candidate := time.Now().Add(a.Interval())
 			if candidate.Before(nextTick) {

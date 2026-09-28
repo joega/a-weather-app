@@ -8,6 +8,7 @@ weather effects across your Hyprland desktop. Designed for Omarchy.
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
 - Modeled air quality with separate US/European AQI scales and PM2.5 concentration.
+- An on-demand local map for temperature, wind and forecast precipitation.
 - Official US weather alerts with individual instructions and expiry times.
 - Worldwide city search, saved US ZIP locations and optional approximate local detection.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
@@ -177,6 +178,39 @@ Air-quality attribution: Copernicus Atmosphere Monitoring Service (CAMS), ECMWF 
 processed by [Open-Meteo](https://open-meteo.com/en/docs/air-quality-api), under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). AQ indices are calculated
 by Open-Meteo; values are rounded for display.
+
+## Local weather map
+
+Click **Map** in the forecast header for a fixed 10-mile radius around the saved
+location. Temperature shading, static wind arrows with speeds, and modeled hourly
+precipitation share one discrete timeline. Previous/Next and the slider switch
+hours locally; the panel shows the selected local time and timezone, units,
+legend, model, approximate native grid resolution, fetch time and attribution.
+Precipitation is the model total for the hour ending at the selected time, not
+radar or a live measurement. Zero precipitation has no shading.
+
+The map requests one 5×5 lattice (25 points over a 20-mile diameter) and up to
+24 forecast hours when opened. It prefers explicit NOAA NBM CONUS (~2.5 km),
+DWD ICON-D2 in central Europe (~2 km), or ECCC GEM HRDPS in Canada (~2.5 km).
+Outside those areas, or when the regional model returns no usable first hour,
+it uses explicit NOAA GFS global (~13 km). GFS shows only a broad pattern. The
+display interpolates between sampled model cells; even regional shading does
+not resolve conditions on a particular street. A shorter available horizon
+shortens the timeline. The current provider request may fail or be delayed;
+the rest of the weather app remains available.
+
+No map requests occur until the panel opens. An unchanged location reuses its
+forecast for 20 minutes, limits new attempts to two per 20 minutes (a second
+attempt is allowed only after an opening is canceled), and can
+show a matching saved map for up to six hours with a stale label. Offline mode
+uses only saved forecast and geographic tiles. The fixed view loads at most 16
+visible [OpenStreetMap tiles](https://operations.osmfoundation.org/policies/tiles/)
+with a 32 MiB HTTP cache; the tile server is best effort. The on-map
+OpenStreetMap credit opens its [ODbL information](https://www.openstreetmap.org/copyright).
+One map forecast HTTP request represents 25 provider location equivalents; a
+regional-coverage fallback can add a second request and 25 more equivalents.
+The provider does not expose billed-call counts in the response. Map requests
+do not run in the background while the map is closed.
 
 ## Privacy and removal
 

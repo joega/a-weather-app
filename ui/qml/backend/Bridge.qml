@@ -4,6 +4,8 @@ Item {
     id:root
     visible:false
     property var snapshot:null
+    property var weatherMap:({status:"closed",offline:false,error:"",data:null})
+    property bool mapWanted:false
     property double lastSnapshotRevision:0
     property string error:""
     readonly property int operationGraceMs:120000
@@ -51,6 +53,8 @@ Item {
         if(!weatherTransport.send(request)){fail("Weather service could not accept the action");return false}
         deadline.restart();return true;
     }
+    function openMap() {mapWanted=true;weatherMap={status:"loading",offline:false,error:"",data:null};return send("map_open")}
+    function closeMap() {mapWanted=false;weatherMap={status:"closed",offline:false,error:"",data:null};return send("map_close")}
     function drainUserAction() {
         if(closing) {if(pending<0)send("quit");return}
         if(stopQueued) {stopQueued=false;send("stop_effects");return}
@@ -81,6 +85,7 @@ Item {
             Forecast.boundedTree(value);
             if(value.event!==undefined) {
                 if(value.event==="toggle_window")toggleWindow();
+                else if(value.event==="map") {if(mapWanted)weatherMap=Forecast.weatherMap(value.map);}
                 else if(value.event==="service_stopped") {
                     closing=true;quitAcknowledged=value.ok;shutdownFailed=!value.ok;
                     deadline.stop();closeTimer.stop();closed(value.ok?0:1);

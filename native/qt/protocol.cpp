@@ -85,8 +85,9 @@ bool decodeProtocol(const QByteArray &line, QJsonObject *object) {
     if(obj.contains("event")) {
         if(!obj.value("event").isString())return false;
         const auto event=obj.value("event").toString();
-        if(event!="snapshot"&&event!="toggle_window"&&event!="service_stopped")return false;
+        if(event!="snapshot"&&event!="toggle_window"&&event!="service_stopped"&&event!="map")return false;
         if(event=="snapshot"&&!obj.value("snapshot").isObject())return false;
+        if(event=="map"&&!obj.value("map").isObject())return false;
         if(obj.contains("request_id"))return false;
         if(event=="service_stopped") {
             if(!obj.value("ok").isBool())return false;
