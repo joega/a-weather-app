@@ -31,11 +31,13 @@ Popup {
     Overlay.modal: Rectangle { color:"#990b1725" }
     contentItem: ScrollView {
         id:scroll
-        clip:true;contentWidth:availableWidth
+        objectName:"forecastDetailsScroll"
+        clip:true;contentWidth:availableWidth;contentHeight:detailBody.implicitHeight
         ScrollBar.vertical.policy: ScrollBar.AsNeeded
         ScrollBar.vertical.active: true
         ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
         ColumnLayout {
+            id:detailBody
             width:scroll.availableWidth;spacing:16
             RowLayout {
                 Layout.fillWidth:true
@@ -54,7 +56,7 @@ Popup {
                 onChosen:value=>root.metric=value
             }
             ForecastChart { Layout.fillWidth:true;hours:root.hours;units:root.units;metric:root.metric;selectedIndex:root.selectedIndex;onSelected:index=>root.selectedTime=root.hours[index].time }
-            PlainLabel { Layout.fillWidth:true;text:root.metric==="precipitation_rate_mm_hr"?"Precipitation total for the hour ending at each time.":"Select an hour to explore. Only remaining forecast hours are shown.";font.pixelSize:13;color:Tokens.secondary;wrapMode:Text.Wrap;elide:Text.ElideNone }
+            PlainLabel { Layout.fillWidth:true;text:root.metric==="precipitation_rate_mm_hr"?"Precipitation total for the hour ending at each time.":"Select an hour to explore its model forecast. Only remaining forecast hours are shown.";font.pixelSize:13;color:Tokens.secondary;wrapMode:Text.Wrap;elide:Text.ElideNone }
             RowLayout {
                 Layout.fillWidth:true
                 ActionButton { objectName:"previousForecastHour";text:"Previous";enabled:root.selectedIndex>0;onClicked:root.selectedTime=root.hours[root.selectedIndex-1].time }
@@ -71,12 +73,15 @@ Popup {
                         {title:"Wind",value:Forecast.direction(root.hour.wind_direction_deg)+" "+Forecast.wind(root.hour.wind_speed_m_s,root.units)},
                         {title:"Gusts",value:Forecast.wind(root.hour.wind_gust_m_s,root.units)},
                         {title:"Humidity",value:Forecast.percent(root.hour.humidity)},
-                        {title:"Cloud cover",value:Forecast.percent(root.hour.cloud_cover)}]:[]
+                        {title:"Cloud cover",value:Forecast.percent(root.hour.cloud_cover)},
+                        {kind:"uv",title:"UV index",value:Forecast.uv(root.hour.uv_index)},
+                        {kind:"pressure",title:"Mean sea level pressure",value:Forecast.pressure(root.hour.pressure_msl_hpa)},
+                        {kind:"dew_point",title:"Dew point",value:Forecast.temp(root.hour.dew_point_c,root.units)}]:[]
                     delegate:ColumnLayout {
                         required property var modelData
                         Layout.fillWidth:true;Layout.preferredWidth:1;spacing:4
                         PlainLabel { Layout.fillWidth:true;text:modelData.title;font.pixelSize:13;color:Tokens.secondary;wrapMode:Text.Wrap;elide:Text.ElideNone }
-                        PlainLabel { Layout.fillWidth:true;text:modelData.value;font.pixelSize:20;wrapMode:Text.Wrap;elide:Text.ElideNone }
+                        PlainLabel { objectName:modelData.kind?"detailMetricValue_"+modelData.kind:"";Layout.fillWidth:true;text:modelData.value;font.pixelSize:20;wrapMode:Text.Wrap;elide:Text.ElideNone }
                     }
                 }
             }

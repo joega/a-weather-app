@@ -182,6 +182,13 @@ See its [service terms](https://open-meteo.com/en/terms). Forecasts are model
 output; this app does not provide radar maps, air-quality readings or
 minute-by-minute rain predictions.
 
+Current conditions and selected-hour details include UV index, mean sea level
+pressure in hPa, and dew point at 2 m in your chosen temperature unit. These are
+model values for the displayed forecast time; UV is not a daily maximum.
+Unavailable or invalid optional values display as `—` while other valid weather
+remains visible. They use the forecast's existing freshness status and remain
+available in saved offline forecasts. Older caches show `—` until refreshed.
+
 Private settings, locations, forecasts and bounded notification reservations
 live in `$XDG_STATE_HOME/a-weather-app`, or `~/.local/state/a-weather-app`.
 The app does not store notification body history; your desktop daemon may.

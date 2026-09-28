@@ -18,6 +18,17 @@ var hourlyUnits = func() Object {
 }()
 var dailyUnits = Object{"temperature_2m_max": "°C", "temperature_2m_min": "°C", "sunrise": "unixtime", "sunset": "unixtime", "precipitation_probability_max": "%", "weather_code": "wmo code"}
 
+// These fields enrich the existing request. Their units, arrays and values are
+// checked independently so provider gaps cannot invalidate core weather.
+var optionalMetrics = []struct {
+	provider, field, unit string
+	lo, hi                float64
+}{
+	{"uv_index", "uv_index", "", 0, 50},
+	{"pressure_msl", "pressure_msl_hpa", "hPa", 800, 1100},
+	{"dew_point_2m", "dew_point_c", "°C", -100, 60},
+}
+
 func ForecastURL(location Object) (string, error) {
 	l, e := ValidateLocation(location)
 	if e != nil {
@@ -28,6 +39,11 @@ func ForecastURL(location Object) (string, error) {
 		keys := make([]string, 0, len(fields))
 		for k := range fields {
 			keys = append(keys, k)
+		}
+		if section != "daily" {
+			for _, metric := range optionalMetrics {
+				keys = append(keys, metric.provider)
+			}
 		}
 		q.Set(section, strings.Join(keys, ","))
 	}
@@ -78,6 +94,33 @@ func records(p Object, section string, fields Object) ([]Object, error) {
 		}
 	}
 	return r, nil
+}
+func optionalMetricValue(v any, lo, hi float64) any {
+	value, e := bounded(v, lo, hi, true)
+	if e != nil {
+		return nil
+	}
+	return value
+}
+func optionalCurrent(p, row, current Object) {
+	u := obj(p["current_units"])
+	for _, metric := range optionalMetrics {
+		current[metric.field] = nil
+		if u[metric.provider] == metric.unit {
+			current[metric.field] = optionalMetricValue(row[metric.provider], metric.lo, metric.hi)
+		}
+	}
+}
+func optionalHourlySeries(p Object, count int) map[string][]any {
+	u, data := obj(p["hourly_units"]), obj(p["hourly"])
+	series := map[string][]any{}
+	for _, metric := range optionalMetrics {
+		values, ok := data[metric.provider].([]any)
+		if u[metric.provider] == metric.unit && ok && len(values) == count {
+			series[metric.field] = values
+		}
+	}
+	return series
 }
 func normalize(row Object, optional bool) (Object, error) {
 	t, e := epoch(row["time"])
@@ -148,6 +191,7 @@ func ParseForecast(p, location Object, now time.Time) (Object, error) {
 	if e != nil {
 		return nil, e
 	}
+	optionalCurrent(p, row, current)
 	iv, e := bounded(row["interval"], 1, math.Inf(1), false)
 	if e != nil {
 		return nil, e
@@ -160,11 +204,18 @@ func ParseForecast(p, location Object, now time.Time) (Object, error) {
 	if e != nil {
 		return nil, e
 	}
+	series := optionalHourlySeries(p, len(rows))
 	ct, _ := num(row["time"])
-	for _, item := range rows {
+	for i, item := range rows {
 		r, e := normalize(item, true)
 		if e != nil {
 			return nil, e
+		}
+		for _, metric := range optionalMetrics {
+			r[metric.field] = nil
+			if values := series[metric.field]; values != nil {
+				r[metric.field] = optionalMetricValue(values[i], metric.lo, metric.hi)
+			}
 		}
 		prob, e := bounded(item["precipitation_probability"], 0, 100, true)
 		if e != nil {

@@ -90,9 +90,15 @@ func benchmarkIdleApp(b *testing.B) *App {
 		for key := range weather.WeatherBounds {
 			row[key] = 0.5
 		}
+		for key, bounds := range weather.OptionalWeatherBounds {
+			row[key] = bounds[0] + 0.5
+		}
 		hours = append(hours, row)
 	}
 	forecast["hourly"] = hours
+	for key, bounds := range weather.OptionalWeatherBounds {
+		object(forecast["current"])[key] = bounds[0] + 0.5
+	}
 	watching := notifications.DefaultDocument()
 	object(watching["settings"])["enabled"] = true
 	watching["snoozed_until"] = float64(now.Add(24 * time.Hour).Unix())

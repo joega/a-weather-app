@@ -98,6 +98,7 @@ QtObject {
         }
         ScrollView {
             id:forecastScroll
+            objectName:"forecastScroll"
             enabled:!root.effectsOpen
             anchors.fill:parent;clip:true;contentWidth:availableWidth
             ColumnLayout {

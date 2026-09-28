@@ -36,6 +36,13 @@ class FrontendTest:public QObject {
         auto v=QJsonDocument::fromJson(raw).object();v["snapshot_revision"]=revision;
         auto location=v["location"].toObject();location["name"]=name;v["location"]=location;return v;
     }
+    QJsonObject metricSnapshot(qint64 revision){
+        auto v=snapshot(revision,"Metric fixture");
+        auto source=v["source"].toObject();source["fetched_at"]="2026-09-28T12:00:00Z";source["freshness"]="stale";v["source"]=source;
+        QJsonObject current{{"time","2026-09-28T12:00:00Z"},{"condition","clear"},{"is_day",true},{"temperature_c",15},{"apparent_temperature_c",14},{"humidity",0.65},{"wind_speed_m_s",2},{"wind_gust_m_s",4},{"wind_direction_deg",90},{"visibility_m",10000},{"uv_index",0},{"pressure_msl_hpa",1013.2},{"dew_point_c",12.5}};
+        auto hour=current;hour["local_hour"]="12 PM";hour["time"]="2026-09-28T13:00:00Z";hour["uv_index"]=3.2;
+        v["current"]=current;v["hourly"]=QJsonArray{hour};return v;
+    }
     void deliver(FakeTransport &transport,const QJsonObject &v){emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));}
     QVariant evaluate(QQmlEngine &engine,QObject *bridge,const QString &expression){QQmlExpression e(engine.rootContext(),bridge,expression);auto v=e.evaluate();if(e.hasError())qFatal("%s",qPrintable(e.error().toString()));return v;}
 private slots:
@@ -180,6 +187,56 @@ private slots:
         deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",value}});
         QVERIFY(!bridge->property("disconnected").toBool());
         QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),astral+", Region, Country");
+    }
+    void pointFieldValidationAndLegacyNulls(){
+        auto accepted=[this](QJsonObject value){
+            FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+            QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());
+            if(!bridge)return false;
+            deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",value}});
+            return !bridge->property("disconnected").toBool();
+        };
+        auto valid=metricSnapshot(1);QVERIFY(accepted(valid));
+        auto old=valid;auto current=old["current"].toObject();auto hour=old["hourly"].toArray().first().toObject();
+        for(auto key:{"uv_index","pressure_msl_hpa","dew_point_c"}){current.remove(key);hour.remove(key);}
+        old["current"]=current;old["hourly"]=QJsonArray{hour};QVERIFY(accepted(old));
+        for(auto key:{"uv_index","pressure_msl_hpa","dew_point_c"}){current[key]=QJsonValue::Null;hour[key]=QJsonValue::Null;}
+        old["current"]=current;old["hourly"]=QJsonArray{hour};QVERIFY(accepted(old));
+        for(auto bad:QList<QPair<QString,QJsonValue>>{{"uv_index",-0.1},{"uv_index",50.1},{"pressure_msl_hpa",799.9},{"pressure_msl_hpa",1100.1},{"dew_point_c",-100.1},{"dew_point_c",60.1},{"uv_index","3.2"}}){
+            auto invalid=valid;auto row=invalid["current"].toObject();row[bad.first]=bad.second;invalid["current"]=row;QVERIFY2(!accepted(invalid),qPrintable(bad.first));
+            invalid=valid;auto hourly=invalid["hourly"].toArray();row=hourly.first().toObject();row[bad.first]=bad.second;hourly.replace(0,row);invalid["hourly"]=hourly;QVERIFY2(!accepted(invalid),qPrintable(bad.first));
+        }
+    }
+    void renderPointMetricsScreenshots(){
+        const QString prefix=qEnvironmentVariable("WEATHER_QT_METRICS_SCREENSHOT_PREFIX");
+        if(prefix.isEmpty())QSKIP("Set WEATHER_QT_METRICS_SCREENSHOT_PREFIX for private render capture");
+        FakeTransport transport;QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
+        QQuickWindow *window=nullptr;for(auto *candidate:QGuiApplication::allWindows())if(candidate->objectName()=="weatherWindow")window=qobject_cast<QQuickWindow*>(candidate);
+        QVERIFY(window);QTRY_VERIFY(window->isExposed());
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",metricSnapshot(1)}});
+        root->setProperty("effectsOpen",false);
+        QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+        auto *scroll=root->findChild<QObject*>("forecastScroll");QVERIFY(scroll);
+        auto *flick=qvariant_cast<QQuickItem*>(scroll->property("contentItem"));QVERIFY(flick);
+        auto toBottom=[flick](){flick->setProperty("contentY",qMax(0.0,flick->property("contentHeight").toDouble()-flick->height()));};
+        window->resize(1200,850);QTest::qWait(120);toBottom();QTest::qWait(100);
+        QVERIFY(window->grabWindow().save(prefix+"-wide-current.png"));
+        window->resize(700,850);QTest::qWait(120);toBottom();QTest::qWait(100);
+        QVERIFY(window->grabWindow().save(prefix+"-narrow-current.png"));
+        QQmlExpression openDetail(QQmlEngine::contextForObject(root),root,"details.showHour(root.hours[0])");openDetail.evaluate();QVERIFY2(!openDetail.hasError(),qPrintable(openDetail.error().toString()));
+        auto *details=root->findChild<QObject*>("forecastDetails");QVERIFY(details);QTRY_VERIFY(details->property("visible").toBool());
+        auto *detailsScroll=root->findChild<QObject*>("forecastDetailsScroll");QVERIFY(detailsScroll);
+        auto *detailsFlick=qvariant_cast<QQuickItem*>(detailsScroll->property("contentItem"));QVERIFY(detailsFlick);
+        QTRY_VERIFY_WITH_TIMEOUT(detailsFlick->property("contentHeight").toDouble()>detailsFlick->height(),2000);
+        detailsFlick->setProperty("contentY",qMax(0.0,detailsFlick->property("contentHeight").toDouble()-detailsFlick->height()));QTest::qWait(100);
+        QVERIFY(window->grabWindow().save(prefix+"-narrow-hour.png"));
+        QQmlExpression closeDetail(QQmlEngine::contextForObject(root),root,"details.close()");closeDetail.evaluate();QVERIFY2(!closeDetail.hasError(),qPrintable(closeDetail.error().toString()));
+        auto unavailable=metricSnapshot(2);auto current=unavailable["current"].toObject();auto hourly=unavailable["hourly"].toArray();auto hour=hourly.first().toObject();
+        for(auto key:{"uv_index","pressure_msl_hpa","dew_point_c"}){current[key]=QJsonValue::Null;hour[key]=QJsonValue::Null;}
+        unavailable["current"]=current;hourly.replace(0,hour);unavailable["hourly"]=hourly;
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",unavailable}});
+        toBottom();QTest::qWait(100);QVERIFY(window->grabWindow().save(prefix+"-narrow-unavailable.png"));
     }
     void renderSearchScreenshots(){
         const QString prefix=qEnvironmentVariable("WEATHER_QT_SCREENSHOT_PREFIX");

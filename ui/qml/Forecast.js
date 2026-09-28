@@ -63,6 +63,7 @@ function weather(v) {
         precipitation_rate_mm_hr:optional(v.precipitation_rate_mm_hr,0,10000),precipitation_probability:optional(v.precipitation_probability,0,1),
         visibility_m:optional(v.visibility_m,0,1000000),wind_speed_m_s:optional(v.wind_speed_m_s,0,200),
         wind_gust_m_s:optional(v.wind_gust_m_s,0,250),wind_direction_deg:optional(v.wind_direction_deg,0,360),
+        uv_index:optional(v.uv_index,0,50),pressure_msl_hpa:optional(v.pressure_msl_hpa,800,1100),dew_point_c:optional(v.dew_point_c,-100,60),
         is_day:typeof v.is_day==="boolean"?v.is_day:true};
 }
 function forecast(v) {
@@ -156,6 +157,8 @@ function snapshot(v) {
     return {launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,place_search:placeSearch(v.place_search),effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts,source:alertSource,coverage:coverage,fetched_at:alertsFetchedAt},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
 }
 function temp(v,units) { return v===null||v===undefined ? "—" : Math.round(units==="F" ? v*9/5+32:v)+"°"; }
+function uv(v) { return v===null||v===undefined ? "—" : v.toFixed(1); }
+function pressure(v) { return v===null||v===undefined ? "—" : Math.round(v)+" hPa"; }
 function title(v) { return ({clear:"Clear",partly_cloudy:"Partly cloudy",cloudy:"Cloudy",fog:"Fog",drizzle:"Drizzle",rain:"Rain",snow:"Snow",sleet:"Sleet",thunderstorm:"Thunderstorm",unknown:"Unavailable"})[v] || "Unavailable"; }
 function percent(v) { return v===null||v===undefined?"—":Math.round(v*100)+"%"; }
 function localTime(v,tz,kind) {

@@ -13,7 +13,7 @@ GlassPanel {
     readonly property double sunsetMs: day && day.sunset ? Date.parse(day.sunset) : NaN
     readonly property bool solarAvailable: Number.isFinite(sunriseMs) && Number.isFinite(sunsetMs) && sunsetMs > sunriseMs
     readonly property real solarProgress: solarAvailable ? (currentTimeMs - sunriseMs) / (sunsetMs - sunriseMs) : -1
-    implicitHeight: 293
+    implicitHeight: 426
     Timer {
         interval: 60000
         repeat: true
@@ -29,9 +29,11 @@ GlassPanel {
         Repeater {
             model: [
                 {kind:"wind", title:"Wind", value:root.current ? Forecast.direction(root.current.wind_direction_deg)+" "+Forecast.wind(root.current.wind_speed_m_s,root.units) : "—", detail:root.current ? "Gusts "+Forecast.wind(root.current.wind_gust_m_s,root.units) : "Unavailable"},
-                {kind:"humidity", title:"Humidity", value:root.current ? Forecast.percent(root.current.humidity) : "—", detail:"Relative humidity"},
+                {kind:"humidity", title:"Humidity", value:root.current ? Forecast.percent(root.current.humidity) : "—", detail:"Dew point "+Forecast.temp(root.current ? root.current.dew_point_c : null,root.units)},
                 {kind:"visibility", title:"Visibility", value:root.current && root.current.visibility_m !== null && root.current.visibility_m !== undefined ? (root.current.visibility_m/(root.units === "F" ? 1609.344 : 1000)).toFixed(1)+(root.units === "F" ? " mi" : " km") : "—", detail:""},
-                {kind:"solar", title:"Sunrise & sunset", value:root.solarAvailable ? (root.day.sunrise_label || "—")+" — "+(root.day.sunset_label || "—") : "Unavailable", detail:root.solarAvailable ? "" : "Solar times unavailable"}
+                {kind:"solar", title:"Sunrise & sunset", value:root.solarAvailable ? (root.day.sunrise_label || "—")+" — "+(root.day.sunset_label || "—") : "Unavailable", detail:root.solarAvailable ? "" : "Solar times unavailable"},
+                {kind:"uv", title:"UV index", value:Forecast.uv(root.current ? root.current.uv_index : null), detail:"Current model value"},
+                {kind:"pressure", title:"Pressure", value:Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null), detail:"Mean sea level"}
             ]
             delegate: Item {
                 id: metric
@@ -58,6 +60,13 @@ GlassPanel {
                         } else if (kind === "visibility") {
                             c.beginPath(); c.moveTo(2,18); c.bezierCurveTo(11,5,25,5,34,18); c.bezierCurveTo(25,31,11,31,2,18); c.closePath(); c.stroke()
                             c.beginPath(); c.arc(18,18,4.5,0,Math.PI*2); c.stroke()
+                        } else if (kind === "uv") {
+                            c.beginPath(); c.arc(18,18,7,0,Math.PI*2); c.stroke()
+                            for (let i=0;i<8;i++) { const angle=i*Math.PI/4; c.beginPath(); c.moveTo(18+Math.cos(angle)*11,18+Math.sin(angle)*11); c.lineTo(18+Math.cos(angle)*15,18+Math.sin(angle)*15); c.stroke() }
+                        } else if (kind === "pressure") {
+                            c.beginPath(); c.arc(18,18,13,Math.PI*0.8,Math.PI*2.2); c.stroke()
+                            c.beginPath(); c.moveTo(18,18); c.lineTo(26,12); c.stroke()
+                            c.beginPath(); c.arc(18,18,2,0,Math.PI*2); c.fill()
                         } else {
                             c.beginPath(); c.moveTo(2,27); c.lineTo(34,27); c.moveTo(6,32); c.lineTo(30,32); c.stroke()
                             c.beginPath(); c.arc(18,25,8,Math.PI,Math.PI*2); c.stroke()
@@ -67,6 +76,7 @@ GlassPanel {
                 }
                 PlainLabel {
                     id: metricValue
+                    objectName: "currentMetricValue_"+metric.modelData.kind
                     x: 46; y: 32
                     width: parent.width - 46
                     text: metric.modelData.value
@@ -76,6 +86,7 @@ GlassPanel {
                     maximumLineCount: 2
                 }
                 PlainLabel {
+                    objectName: "currentMetricDetail_"+metric.modelData.kind
                     x: 46; y: metricValue.y + metricValue.height + 5
                     width: parent.width - 46
                     text: metric.modelData.detail
@@ -129,5 +140,6 @@ GlassPanel {
         }
     }
     Rectangle { x:22; y:143; width:parent.width-44; height:1; color:Tokens.border }
+    Rectangle { x:22; y:276; width:parent.width-44; height:1; color:Tokens.border }
     Rectangle { x:parent.width/2; y:20; width:1; height:parent.height-40; color:Tokens.border }
 }

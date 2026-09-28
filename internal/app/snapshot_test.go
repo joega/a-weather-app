@@ -29,9 +29,15 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 				for key := range weather.WeatherBounds {
 					row[key] = 0.12345678901234567
 				}
+				for key, bounds := range weather.OptionalWeatherBounds {
+					row[key] = bounds[0] + 0.12345678901234567
+				}
 				hours = append(hours, row)
 			}
 			f["hourly"] = hours
+			for key, bounds := range weather.OptionalWeatherBounds {
+				object(f["current"])[key] = bounds[0] + 0.12345678901234567
+			}
 			days := []any{}
 			for i := 0; i < 10; i++ {
 				days = append(days, M{"date": now.AddDate(0, 0, i).Format("2006-01-02"), "condition": "thunderstorm", "high_c": 22.123456789012345, "low_c": 10.123456789012345, "precipitation_probability": .9876543210987654, "sunrise": now.AddDate(0, 0, i).Format(time.RFC3339), "sunset": now.AddDate(0, 0, i).Add(12 * time.Hour).Format(time.RFC3339)})
@@ -67,8 +73,44 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			if e != nil || len(event) > ipc.ResponseLimit {
 				t.Fatalf("event exceeds wire budget: %d, %v", len(event), e)
 			}
+			// The Qt bridge also limits JSON complexity before decoding a
+			// snapshot. Count the actual encoded reply, including its envelope.
+			var tree any
+			if e := json.Unmarshal(wire, &tree); e != nil {
+				t.Fatal(e)
+			}
+			nodes := 0
+			var checkTree func(any, int)
+			checkTree = func(value any, depth int) {
+				nodes++
+				if nodes > 8192 || depth > 16 {
+					t.Fatal("reply exceeds Qt JSON complexity budget", nodes, depth)
+				}
+				switch value := value.(type) {
+				case map[string]any:
+					if len(value) > 64 {
+						t.Fatal("reply exceeds Qt object cardinality budget")
+					}
+					for _, child := range value {
+						checkTree(child, depth+1)
+					}
+				case []any:
+					if len(value) > 240 {
+						t.Fatal("reply exceeds Qt array cardinality budget")
+					}
+					for _, child := range value {
+						checkTree(child, depth+1)
+					}
+				}
+			}
+			checkTree(tree, 0)
 			if len(snapshot["hourly"].([]any)) != 240 || len(snapshot["daily"].([]any)) != 10 {
 				t.Fatal("forecast records discarded to reduce message size")
+			}
+			for key := range weather.OptionalWeatherBounds {
+				if object(snapshot["current"])[key] == nil || object(snapshot["hourly"].([]any)[239])[key] == nil {
+					t.Fatal("optional metrics lost at maximum forecast size", key)
+				}
 			}
 			if len(object(snapshot["place_search"])["results"].([]any)) != 10 {
 				t.Fatal("place results lost at maximum forecast size")
@@ -96,7 +138,7 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			if string(repeat) != string(raw) {
 				t.Fatal("byte cap is nondeterministic")
 			}
-			t.Logf("snapshot=%d bytes, reply=%d bytes, event=%d bytes", len(raw), len(wire), len(event))
+			t.Logf("snapshot=%d bytes, reply=%d bytes, event=%d bytes, tree=%d nodes", len(raw), len(wire), len(event), nodes)
 		})
 	}
 }

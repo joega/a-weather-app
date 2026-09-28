@@ -38,12 +38,14 @@ public:
         return QFile::exists(socket);
     }
     QJsonObject saved(const QString &name){QFile f(state+"/"+name);if(!f.open(QIODevice::ReadOnly))return {};return QJsonDocument::fromJson(f.readAll()).object();}
-    void cache(int age){
+    void cache(int age,bool pointFields=false){
         auto now=QDateTime::currentDateTimeUtc();QString stamp=now.toString(Qt::ISODate);
         QJsonObject location{{"name","New York, NY"},{"latitude",40.7128},{"longitude",-74.006},{"timezone","America/New_York"}};
         QJsonObject row{{"time",stamp},{"condition","clear"},{"is_day",true},{"temperature_c",15},{"apparent_temperature_c",14},{"humidity",.5},{"cloud_cover",.2},{"precipitation_rate_mm_hr",0},{"precipitation_probability",0},{"visibility_m",10000},{"wind_speed_m_s",1},{"wind_direction_deg",180},{"wind_gust_m_s",2}};
+        if(pointFields){row["uv_index"]=0;row["pressure_msl_hpa"]=1013.2;row["dew_point_c"]=12.5;}
         QJsonObject day{{"date",now.date().toString(Qt::ISODate)},{"condition","clear"},{"high_c",20},{"low_c",10},{"precipitation_probability",0},{"sunrise",QJsonValue::Null},{"sunset",QJsonValue::Null}};
         auto hour=row;hour["time"]=now.addSecs(3600).toString(Qt::ISODate);
+        if(pointFields){hour["uv_index"]=3.2;hour["pressure_msl_hpa"]=1008.8;hour["dew_point_c"]=9.5;}
         save("forecast.json",{{"schema_version",1},{"location",location},{"fetched_at",now.addSecs(-age).toString(Qt::ISODate)},{"source",QJsonObject{{"name","Open-Meteo"},{"attribution","Weather data by Open-Meteo.com (CC BY 4.0)"}}},{"current",row},{"hourly",QJsonArray{hour}},{"daily",QJsonArray{day}},{"alerts",QJsonObject{{"status","unavailable"},{"items",QJsonArray{}}}}});
     }
     void savedBerlinPlace(){
@@ -70,7 +72,13 @@ class ServiceFrontendTest:public QObject {
         engine->load(QUrl("qrc:/ui/qml/shell.qml"));if(engine->rootObjects().size()!=1)return false;root=engine->rootObjects().first();
         window=qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());return window!=nullptr;
     }
-    QObject *named(const char *name){auto object=root->findChild<QObject*>(name);if(!object){QTest::qFail(qPrintable(QString("Missing UI control %1").arg(name)),__FILE__,__LINE__);return root;}return object;}
+    QObject *visualNamed(QQuickItem *item,const char *name){
+        if(!item)return nullptr;
+        if(item->objectName()==QLatin1String(name))return item;
+        for(auto *child:item->childItems())if(auto *found=visualNamed(child,name))return found;
+        return nullptr;
+    }
+    QObject *named(const char *name){auto object=root->findChild<QObject*>(name);if(!object&&window)object=visualNamed(window->contentItem(),name);if(!object){QTest::qFail(qPrintable(QString("Missing UI control %1").arg(name)),__FILE__,__LINE__);return root;}return object;}
     void click(const char *name){auto item=qobject_cast<QQuickItem*>(named(name));QVERIFY(item);QVERIFY(item->isEnabled());QVERIFY(item->isVisible());auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2)).toPoint();QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,point);}
     void toggle(const char *name,bool checked){auto object=named(name);QVERIFY(object->property("enabled").toBool());object->setProperty("checked",checked);QVERIFY(QMetaObject::invokeMethod(object,"clicked",Qt::DirectConnection));}
 private slots:
@@ -103,7 +111,31 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);QTRY_VERIFY(window->isExposed());
         QVERIFY2(eval("root.freshness").toString().startsWith(prefix),qPrintable(eval("root.freshness").toString()));
         QCOMPARE(eval("root.current.temperature_c").toDouble(),15.0);QCOMPARE(eval("root.days.length").toInt(),1);QCOMPARE(eval("root.hours.length").toInt(),1);
+        QCOMPARE(named("currentMetricValue_uv")->property("text").toString(),QString("—"));
+        QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("—"));
+        QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),QString("Dew point —"));
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+    }
+    void cachedPointMetricsUnitsAndHour(){
+        ServiceFixture fixture;fixture.cache(4000,true);QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);
+        QVERIFY(eval("root.freshness").toString().startsWith("Stale forecast"));
+        QCOMPARE(named("currentMetricValue_uv")->property("text").toString(),QString("0.0"));
+        QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("1013 hPa"));
+        QCOMPARE(named("currentMetricDetail_pressure")->property("text").toString(),QString("Mean sea level"));
+        QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),QString("Dew point 55°"));
+        root->setProperty("effectsOpen",false);
+        eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
+        QCOMPARE(named("detailMetricValue_uv")->property("text").toString(),QString("3.2"));
+        QCOMPARE(named("detailMetricValue_pressure")->property("text").toString(),QString("1009 hPa"));
+        QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(),QString("49°"));
+        click("closeForecastDetails");
+        root->setProperty("effectsOpen",false);click("unitsC");QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),QString("C"),3000);
+        QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),QString("Dew point 13°"));
+        QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("1013 hPa"));
+        eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
+        QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(),QString("10°"));
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
     }
     void offlinePlaceAndSearchCoverage(){
         ServiceFixture fixture;fixture.savedBerlinPlace();QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
@@ -149,7 +181,11 @@ private slots:
         QVERIFY(eval("root.freshness").toString().startsWith("Stale forecast"));QCOMPARE(eval("root.hours.length").toInt(),1);
         root->setProperty("effectsOpen",false);click("unitsC");QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),QString("C"),3000);
         QCOMPARE(fixture.saved("controls.json")["units"].toString(),QString("C"));
-        eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());click("closeForecastDetails");
+        eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
+        QCOMPARE(named("detailMetricValue_uv")->property("text").toString(),QString("—"));
+        QCOMPARE(named("detailMetricValue_pressure")->property("text").toString(),QString("—"));
+        QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(),QString("—"));
+        click("closeForecastDetails");
         click("openEffects");QTRY_VERIFY(named("effectsDrawer")->property("visible").toBool());
         toggle("reducedMotion",true);QTRY_VERIFY_WITH_TIMEOUT(eval("root.controls.reduced_motion").toBool(),3000);
         toggle("windowPhysics",false);QTRY_VERIFY_WITH_TIMEOUT(!eval("root.controls.window_physics").toBool(),3000);

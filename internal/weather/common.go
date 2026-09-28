@@ -158,6 +158,7 @@ func Condition(v any) (string, error) {
 }
 
 var WeatherBounds = map[string][2]float64{"temperature_c": {-150, 100}, "apparent_temperature_c": {-200, 150}, "humidity": {0, 1}, "cloud_cover": {0, 1}, "precipitation_rate_mm_hr": {0, 10000}, "precipitation_probability": {0, 1}, "wind_speed_m_s": {0, 1000}, "wind_direction_deg": {0, 360}, "wind_gust_m_s": {0, 1000}, "visibility_m": {0, 1e7}}
+var OptionalWeatherBounds = map[string][2]float64{"uv_index": {0, 50}, "pressure_msl_hpa": {800, 1100}, "dew_point_c": {-100, 60}}
 
 func WeatherRecord(row Object) (Object, error) {
 	c, _ := row["condition"].(string)
@@ -175,6 +176,13 @@ func WeatherRecord(row Object) (Object, error) {
 	}
 	r := Object{"time": stamp(t), "condition": c, "is_day": row["is_day"]}
 	for k, b := range WeatherBounds {
+		v, e := bounded(row[k], b[0], b[1], true)
+		if e != nil {
+			return nil, fmt.Errorf("%s: %w", k, e)
+		}
+		r[k] = v
+	}
+	for k, b := range OptionalWeatherBounds {
 		v, e := bounded(row[k], b[0], b[1], true)
 		if e != nil {
 			return nil, fmt.Errorf("%s: %w", k, e)
