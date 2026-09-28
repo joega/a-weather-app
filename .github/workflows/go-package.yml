@@ -1,0 +1,26 @@
+name: Build weather package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: go-package-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Freeze source and build inside pinned container
+        shell: bash
+        run: |
+          bash scripts/run_go_migration_build.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: a-weather-app-go-qt-linux-x86_64
+          path: dist/go-migration.*/
+          if-no-files-found: error
+          retention-days: 30

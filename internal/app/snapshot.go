@@ -1,0 +1,227 @@
+package app
+
+import (
+	"encoding/json"
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
+	"sort"
+	"strings"
+	"time"
+)
+
+// Leave room for the protocol reply/event envelope below its 256 KiB limit.
+const snapshotByteLimit = 250 * 1024
+
+// encodedTextPrefix budgets JSON bytes, including escapes, rather than UTF-8
+// bytes alone. Binary search keeps the cut on a complete Unicode rune.
+func encodedTextPrefix(text string, extraBytes int) string {
+	runes := []rune(text)
+	low, high := 0, len(runes)
+	for low < high {
+		mid := low + (high-low+1)/2
+		encoded, _ := json.Marshal(string(runes[:mid]))
+		if len(encoded)-2 <= extraBytes {
+			low = mid
+		} else {
+			high = mid - 1
+		}
+	}
+	return string(runes[:low])
+}
+
+func capSnapshotAlertText(snapshot M) {
+	encoded, err := json.Marshal(snapshot)
+	if err != nil || len(encoded) <= snapshotByteLimit {
+		return
+	}
+	items, _ := object(snapshot["alerts"])["items"].([]any)
+	if len(items) == 0 {
+		return
+	}
+	type originalText struct {
+		description, instruction any
+		truncated                bool
+	}
+	originals := make([]originalText, len(items))
+	for i, value := range items {
+		row := object(value)
+		originals[i] = originalText{row["description"], row["instruction"], row["text_truncated"] == true}
+		for _, key := range []string{"description", "instruction"} {
+			if _, ok := row[key].(string); ok {
+				row[key] = ""
+			}
+		}
+		row["text_truncated"] = true
+	}
+	base, _ := json.Marshal(snapshot)
+	// A false flag is one byte longer than true; reserve that byte per alert
+	// when a shorter original fits unchanged in its allowance.
+	remaining := snapshotByteLimit - len(base) - len(items)
+	if remaining < 0 {
+		remaining = 0
+	}
+	perAlert := remaining / len(items)
+	for i, value := range items {
+		row := object(value)
+		old := originals[i]
+		truncated := old.truncated
+		for _, field := range []struct {
+			key    string
+			value  any
+			budget int
+		}{
+			{"description", old.description, perAlert * 2 / 3},
+			{"instruction", old.instruction, perAlert - perAlert*2/3},
+		} {
+			if text, ok := field.value.(string); ok {
+				prefix := encodedTextPrefix(text, field.budget)
+				row[field.key] = prefix
+				truncated = truncated || prefix != text
+			}
+		}
+		row["text_truncated"] = truncated
+	}
+}
+
+func clockLabel(t time.Time) string { return strings.TrimLeft(t.Format("03:04 PM"), "0") }
+func (a *App) snapshot() M {
+	now := a.options.Now()
+	// Observations and the ambient forecast display use the default subtle
+	// strength; the user's chosen strength belongs to the effects preview.
+	live := weather.Select(a.forecast, now, "live", nil, "subtle", a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
+	if a.forecast == nil && a.location != nil {
+		locationSelected := a.selected(true)
+		live["solar"] = locationSelected["solar"]
+		live["effects"] = locationSelected["effects"]
+	}
+	preview := a.selected(false)
+	// Cached observations can carry ignored provider fields. Only normalized
+	// weather fields belong in the display preview and its byte budget.
+	if preview["freshness"] != "manual" {
+		if record, err := weather.WeatherRecord(object(preview["current"])); err == nil {
+			preview["current"] = record
+		} else {
+			preview["current"] = M{"condition": "unknown"}
+		}
+	}
+	forecast := object(live["forecast"])
+	location := a.location
+	if location == nil {
+		location = M{"name": "Current location", "timezone": "UTC", "latitude": nil, "longitude": nil}
+	}
+	zone, e := time.LoadLocation(stringOf(location["timezone"]))
+	if e != nil {
+		zone = time.UTC
+	}
+	hourly, daily := []any{}, []any{}
+	var current any
+	alerts := M{}
+	if forecast != nil {
+		current, _ = weather.WeatherRecord(object(forecast["current"]))
+		alerts = object(forecast["alerts"])
+		rows, _ := forecast["hourly"].([]any)
+		for _, v := range rows {
+			raw := object(v)
+			stamp, e := weather.Instant(raw["time"])
+			if e != nil || stamp.Before(now) {
+				continue
+			}
+			row, e := weather.WeatherRecord(raw)
+			if e != nil {
+				continue
+			}
+			local := stamp.In(zone)
+			start := stamp.Add(-time.Hour).In(zone)
+			row["local_hour"] = strings.TrimLeft(local.Format("03 PM"), "0")
+			row["local_date"] = local.Format("2006-01-02")
+			row["local_label"] = local.Format("Mon Jan 02 · 03 PM MST")
+			row["period_label"] = clockLabel(start) + " " + start.Format("MST") + " – " + clockLabel(local) + " " + local.Format("MST")
+			hourly = append(hourly, row)
+			if len(hourly) == 240 {
+				break
+			}
+		}
+		rows, _ = forecast["daily"].([]any)
+		for _, v := range rows {
+			row, e := weather.DailyRecord(object(v))
+			if e != nil {
+				continue
+			}
+			date, _ := time.Parse("2006-01-02", stringOf(row["date"]))
+			row["day_label"] = date.Format("Mon")
+			if stringOf(row["date"]) == now.In(zone).Format("2006-01-02") {
+				row["day_label"] = "Today"
+			}
+			for _, k := range []string{"sunrise", "sunset"} {
+				row[k+"_label"] = nil
+				if row[k] != nil {
+					stamp, e := weather.Instant(row[k])
+					if e == nil {
+						row[k+"_label"] = clockLabel(stamp.In(zone))
+					}
+				}
+			}
+			daily = append(daily, row)
+			if len(daily) == 10 {
+				break
+			}
+		}
+	}
+	ranked := []M{}
+	items, _ := alerts["items"].([]any)
+	for _, v := range items {
+		if row := object(v); row != nil {
+			ranked = append(ranked, row)
+		}
+	}
+	priority := func(v any, order map[string]int) int {
+		if rank, ok := order[stringOf(v)]; ok {
+			return rank
+		}
+		return 4
+	}
+	severity := map[string]int{"Extreme": 0, "Severe": 1, "Moderate": 2, "Minor": 3}
+	urgency := map[string]int{"Immediate": 0, "Expected": 1, "Future": 2, "Past": 3}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		a, b := ranked[i], ranked[j]
+		sa, sb := priority(a["severity"], severity), priority(b["severity"], severity)
+		if sa != sb {
+			return sa < sb
+		}
+		ua, ub := priority(a["urgency"], urgency), priority(b["urgency"], urgency)
+		if ua != ub {
+			return ua < ub
+		}
+		ta, _ := weather.Instant(a["expires"])
+		tb, _ := weather.Instant(b["expires"])
+		return ta.Before(tb)
+	})
+	display := []any{}
+	for _, raw := range ranked {
+		row, e := weather.AlertRecord(raw)
+		if e != nil {
+			continue
+		}
+		expiry, _ := weather.Instant(row["expires"])
+		row["expires_label"] = expiry.In(zone).Format("Mon 03:04 PM MST")
+		display = append(display, row)
+		if len(display) == 8 {
+			break
+		}
+	}
+	status := alerts["status"]
+	if status == nil {
+		status = "unavailable"
+	}
+	var fetched any
+	if forecast != nil {
+		fetched = forecast["fetched_at"]
+	}
+	notifications := M{"settings": M{"enabled": false, "quiet_enabled": true, "quiet_start": 22.0, "quiet_end": 7.0, "probability": 50.0}, "state": "off", "snoozed_until": nil, "delivery": "none", "supported": false}
+	if a.notifications != nil {
+		notifications = a.notifications.Snapshot()
+	}
+	result := M{"schema_version": 1.0, "location": safeio.Clone(location), "location_settings": M{"mode": a.mode, "zip_code": a.zip, "busy": a.locationBusy, "error": a.locationError}, "current": current, "hourly": hourly, "daily": daily, "alerts": M{"status": status, "items": display}, "source": M{"name": "Open-Meteo", "attribution": "Weather data by Open-Meteo.com (CC BY 4.0)", "fetched_at": fetched, "freshness": live["freshness"], "age_seconds": live["age_seconds"], "error": a.errorCode, "refreshing": a.fetchBusy}, "notifications": notifications, "controls": safeio.Clone(a.controls), "atmosphere": live["effects"], "preview": M{"current": preview["current"], "effects": preview["effects"], "freshness": preview["freshness"]}, "effect_status": a.effectsStatus(), "effects_setup": a.setupStatus(), "launcher_status": a.launcherStatus}
+	capSnapshotAlertText(result)
+	return result
+}

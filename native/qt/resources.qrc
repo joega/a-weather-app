@@ -1,0 +1,24 @@
+<RCC><qresource prefix="/ui">
+<file alias="qml/shell.qml">../../ui/qml/shell.qml</file>
+<file alias="qml/qmldir">../../ui/qml/qmldir</file>
+<file alias="qml/Forecast.js">../../ui/qml/Forecast.js</file>
+<file alias="qml/backend/Bridge.qml">../../ui/qml/backend/Bridge.qml</file>
+<file alias="qml/ActionButton.qml">../../ui/qml/ActionButton.qml</file>
+<file alias="qml/AlertsPanel.qml">../../ui/qml/AlertsPanel.qml</file>
+<file alias="qml/Atmosphere.qml">../../ui/qml/Atmosphere.qml</file>
+<file alias="qml/ChoiceControl.qml">../../ui/qml/ChoiceControl.qml</file>
+<file alias="qml/DailyPanel.qml">../../ui/qml/DailyPanel.qml</file>
+<file alias="qml/EffectsDrawer.qml">../../ui/qml/EffectsDrawer.qml</file>
+<file alias="qml/ForecastChart.qml">../../ui/qml/ForecastChart.qml</file>
+<file alias="qml/ForecastDetails.qml">../../ui/qml/ForecastDetails.qml</file>
+<file alias="qml/GlassPanel.qml">../../ui/qml/GlassPanel.qml</file>
+<file alias="qml/HourlyPanel.qml">../../ui/qml/HourlyPanel.qml</file>
+<file alias="qml/MetricsPanel.qml">../../ui/qml/MetricsPanel.qml</file>
+<file alias="qml/NotificationsPanel.qml">../../ui/qml/NotificationsPanel.qml</file>
+<file alias="qml/PlainLabel.qml">../../ui/qml/PlainLabel.qml</file>
+<file alias="qml/Tokens.qml">../../ui/qml/Tokens.qml</file>
+<file alias="qml/ToggleControl.qml">../../ui/qml/ToggleControl.qml</file>
+<file alias="qml/UiIcon.qml">../../ui/qml/UiIcon.qml</file>
+<file alias="qml/WeatherIcon.qml">../../ui/qml/WeatherIcon.qml</file>
+<file alias="shaders/atmosphere.frag.qsb">../../ui/shaders/atmosphere.frag.qsb</file>
+</qresource></RCC>

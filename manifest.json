@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "a-weather-app.weather",
   "name": "A Weather App",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-go-qt-dev",
   "author": "Joe Gaetano",
   "license": "MIT",
   "description": "Cached weather status and an atmospheric native forecast window",
@@ -14,7 +14,7 @@
     "displayName": "A Weather App",
     "description": "Cached local conditions; click to toggle the native forecast window",
     "category": "Info",
-    "defaultSection": "right",
+    "defaultSection": "center",
     "allowMultiple": false
   }
 }

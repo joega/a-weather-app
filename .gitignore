@@ -1,11 +1,11 @@
 # Build products and local state
-__pycache__/
-*.py[cod]
 *.qsb
 *.so
 native/atmosphere/a-weather-app-atmosphere
 build/
 dist/
+# Generated only for the assembled, verified runtime; never reuse legacy metadata.
+/packaging/runtime.json
 *.log
 .env
 .env.*

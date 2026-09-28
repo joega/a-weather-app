@@ -27,32 +27,39 @@ window. These illustrate the interface, not current conditions.
 Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
 you stop them; the separate preview runs for five minutes.
 
-## Install on Omarchy
+## Build and install
 
-On a current **x86_64 Omarchy** installation:
+The package targets **x86_64 Omarchy**. Build it in an isolated container:
 
 ```sh
-omarchy plugin add https://github.com/joega/a-weather-app.git --enable
+bash scripts/run_go_migration_build.sh
 ```
 
-Click the weather widget to open the app. The repository includes the compiled
-forecast shader and native effects components: no compiler, shader build, binary
-download or extra setup command is needed. Effects remain off until you enable
-them in the app.
+The script prints a private full log and an archive under `dist/go-migration.*`.
+It installs build dependencies only inside Docker. Extract the archive into a new
+owned directory and run its compiled `./a-weather-app`. Keep the existing
+installation and a backup of saved data for rollback; do not replace artifacts
+while native effects are loaded. Nothing is published or installed automatically.
 
 On first launch, open Settings and choose a five-digit US ZIP, or explicitly
 choose approximate local detection. New York is the fallback location. Refresh
 failures retain cached weather with freshness indicators; unavailable alerts
 are never treated as an all-clear.
 
-The packaged runtime targets Omarchy's Python 3, Quickshell/Qt 6, GTK4,
+The packaged runtime targets Omarchy's Qt 6, GTK4,
 gtk4-layer-shell, JSON-GLib, libepoxy and Mesa libraries. Omarchy supplies these
 through its standard packages and dependencies. Notifications use `notify-send`
 from `libnotify`. Other Linux distributions may need to install these dependencies.
 
-For a standalone checkout on the same supported system, run `./a-weather-app`.
-See [building and verifying releases](packaging/README.md) for source builds,
-artifact provenance and the release pipeline.
+The forecast UI is a compiled C++/Qt host with embedded QML and shaders. Go owns
+weather, saved state, notifications and process supervision. The existing C/GTK
+renderer and C++ compositor plugin remain. Only the thin bar adapter runs inside
+Omarchy's existing Quickshell. No Python source, build tools, tests or runtime
+interpreter are required.
+
+For source development with dependencies already present, `make` builds the core
+and frontend; `make shaders native` prepares shader/native artifacts. Then use
+`./a-weather-app`.
 
 ### Optional launcher
 
@@ -83,19 +90,19 @@ replacing an unrelated command.
 
 ## Omarchy bar widget
 
-The entire repository is the plugin; its root `manifest.json` declares
+The package's root `manifest.json` declares
 `a-weather-app.weather`. The bar reads cached conditions without fetching weather
 or loading native code. Clicking it opens or hides the app.
 
-Before updating, stop desktop effects and quit the app, then run:
+The widget defaults to the center section; existing user placement is preserved.
+Local installation and rollback should point the plugin at the extracted package
+or a fully built source checkout. Stop desktop effects and quit before switching
+versions.
 
-```sh
-omarchy plugin update a-weather-app.weather
-```
-
-The update includes the matching compiled artifacts. No rebuild is needed.
-Do not replace binaries while effects are running. No marketplace approval is
-implied by installation.
+After switching a local plugin link between versions, rescan with
+`omarchy-shell shell rescanPlugins`. If the shell retains the old QML adapter,
+use `omarchy restart shell` once; this clears cached adapter code without changing
+your bar layout. Validate the canonical package directory, not the symlink itself.
 
 ## Desktop effects
 
@@ -114,8 +121,7 @@ is required for the supported packaged runtime.
 - **Stop** turns effects off. Live mode does not automatically resume after login.
 - Reduced motion disables precipitation and lightning; lightning is off by default.
 
-Native plugins run inside the compositor. Support is experimental on the tested
-AMD RENOIR/Mesa 26.2.2/Hyprland 0.56.2 system. Multiple configured monitors,
+Native plugins run inside the compositor. Multiple configured monitors,
 rotated/mirrored outputs and configured HDR are refused. Other GPUs/ABIs, general
 dynamic output recreation, arbitrary fractional scales and multi-day stability
 are unverified. Short isolated tests do not establish broad hardware support.
@@ -126,7 +132,7 @@ The bar reads cached weather every 30 seconds; it does not start a network
 refresh or desktop effects. Forecast animation runs only while the window is
 visible and not minimized. Enable Reduced motion to stop that animation and
 disable precipitation/lightning effects. Closing a forecast-only window quits
-its UI/bridge; explicitly enabled watching or live effects keep the app running
+its UI/service; explicitly enabled watching or live effects keep the app running
 while hidden. No autostart service is installed.
 
 Qt rendering uses CPU, GPU and memory even without desktop effects. Native
@@ -137,8 +143,7 @@ Native effects run with your compositor's privileges and share its failure
 domain. Input validation, ownership checks, artifact hashes and compiler
 hardening reduce risk but do not make native code sandboxed or prove it free
 of vulnerabilities. Stop effects before replacing their binaries. Artifact
-checksums detect mismatches; release provenance is verified separately as
-described in the [release instructions](packaging/README.md).
+checksums detect mismatches; release provenance must be verified separately.
 
 ## Notifications
 
@@ -168,9 +173,9 @@ temporary directory (`$TMPDIR` when configured, normally `/tmp`), with bounded
 logs. Failed cleanup retains that directory for inspection. Launcher failures
 may retain `guardian-last-error.log` in the state directory.
 
-The optional `python3 -m weather` command uses
-`~/.cache/a-weather-app/weather.json` by default; its `--cache` option and
-`python3 -m weather.service` file options select separate explicit paths.
+`./a-weather-app --bar` reads cached status without starting the app or making
+network requests. `--state-dir` selects an isolated state directory; ZIP and demo
+overrides retain their original `locations/ZIP` and `demos/boston` subdirectories.
 Output directories must be owned by you with mode `0700`; input files must be
 regular, owned by you, and not writable by other users. Symlinks are refused.
 
@@ -180,21 +185,25 @@ Stop effects and quit the app before uninstalling:
 omarchy plugin remove a-weather-app.weather
 ```
 
-Removal disables the widget and removes the installed source/builds, preserving
-private settings and separately managed checkouts. Installed dependency packages
+Removal disables the widget. For a local symlink install it removes the link,
+not its target checkout or extracted package; a cloned plugin directory is
+removed. Private settings are preserved. Installed dependency packages
 also remain. Remove any separately created `~/.local/bin/a-weather-app` symlink,
 `~/.local/share/applications/a-weather-app.desktop`, and
 `~/.local/share/icons/hicolor/scalable/apps/a-weather-app.svg` individually. To erase
 saved data, stop the app first and remove only its configured state directory,
-any standalone CLI cache/output files you selected, and any retained effects
+any legacy standalone cache/output files you selected, and any retained effects
 diagnostic directory after inspecting its exact path.
 
 ## Troubleshooting
 
 - **Missing or changed packaged files:** quit the app, then update or reinstall it.
-  Source builders should follow [the build instructions](packaging/README.md).
 - **Effects unavailable:** use the compatibility check; verify the running
   compositor version, current monitor and a matching app release.
+- **Effects worker crash:** guarded recovery stops only an acknowledged native
+  session. The app reports cleanup failure and retains diagnostic files rather
+  than silently retrying. Quit and reopen the app after cleanup; a changed or
+  unconfirmed native owner is never adopted or unloaded.
 - **Old manual bar setup:** clear stale overrides with
   `omarchy bar set a-weather-app.weather projectPath null --json`, and similarly
   clear `instance` and `output`. Retain a custom `statePath` if needed.

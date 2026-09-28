@@ -5,6 +5,8 @@ umask 077
 export ASAN_OPTIONS=detect_leaks=1:halt_on_error=1
 export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
 source_root=$(cd -- "$(dirname -- "$0")/.." && pwd -P)
+make -C "$source_root" native-tools
+native_check="$source_root/build/weather-native-check"
 sanitizer_root=$(mktemp -d /tmp/weather-native-sanitizers.XXXXXXXX)
 printf 'Temporary sanitizer checks: %s\n' "$sanitizer_root"
 mkdir -p "$sanitizer_root/native" "$sanitizer_root/tests" "$sanitizer_root/godot"
@@ -20,9 +22,8 @@ c++ -std=c++23 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer \
 "$sanitizer_root/simulations"
 # Supply flags via the environment so the Makefile still adds include paths and
 # its warning/hardening flags; command-line CFLAGS would override those additions.
-env CFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' \
+env CFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' NATIVE_CHECK="$native_check" \
   make -B -C "$sanitizer_root/native/atmosphere"
 "$sanitizer_root/native/atmosphere/a-weather-app-atmosphere" --self-test
-python3 -I -B "$source_root/tests/check_native_inputs.py" \
-  "$sanitizer_root/native/atmosphere/a-weather-app-atmosphere"
+"$native_check" inputs "$sanitizer_root/native/atmosphere/a-weather-app-atmosphere"
 printf 'PASS: simulation and native input checks with address, undefined-behavior and leak sanitizers.\n'

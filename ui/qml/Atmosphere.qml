@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Window
-import Quickshell
 
 Item {
     id: root
@@ -20,7 +19,7 @@ Item {
                               && Window.window.visibility !== Window.Hidden))
     property real lightningIntensity: animationActive && lightningEnabled && condition === "thunderstorm"
         ? lightningAt(visualTime) : 0.0
-    // Seed-zero envelope matches weather/lightning.py and native atmosphere flash().
+    // Seed-zero envelope matches internal/weather/visual.go and native atmosphere flash().
     function lightningAt(seconds) {
         if (!Number.isFinite(seconds) || seconds < 0) return 0
         const mixed = (Math.floor(seconds / 24) * 1664525 + 1013904223) >>> 0
@@ -70,7 +69,7 @@ Item {
         property real rain_amount: root.animationActive ? Math.max(0, Math.min(1, root.rainAmount)) : 0
         property real snow_amount: root.animationActive ? Math.max(0, Math.min(1, root.snowAmount)) : 0
         property real wind_x: Math.max(-500, Math.min(500, root.wind))
-        fragmentShader: "file://" + Quickshell.shellDir + "/../shaders/atmosphere.frag.qsb"
+        fragmentShader: "qrc:/ui/shaders/atmosphere.frag.qsb"
         blending: false
     }
     ShaderEffectSource {

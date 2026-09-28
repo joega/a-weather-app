@@ -1,12 +1,9 @@
-//@ pragma AppId a-weather-app
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Io
 import "backend"
 import "Forecast.js" as Forecast
-ShellRoot {
+QtObject {
     id:root
     property string units:bridge.snapshot?bridge.snapshot.controls.units:"F"
     property bool effectsOpen:false
@@ -43,8 +40,12 @@ ShellRoot {
         let age=s.age_seconds===null?"":(s.age_seconds<60?"just now":Math.floor(s.age_seconds/60)+" min ago");
         return (s.freshness==="fresh"?"Weather data from ":s.freshness==="invalid_future"?"Invalid forecast timestamp · ":s.freshness.charAt(0).toUpperCase()+s.freshness.slice(1)+" forecast · ")+age+(s.error?" · Refresh failed":"");
     }
-    Bridge {
+    property QtObject backend: Bridge {
         id:bridge;onClosed:exitCode=>Qt.exit(exitCode)
+        onToggleWindow: {
+            if(window.visible)root.dismissWindow();
+            else { window.show();window.raise();window.requestActivate() }
+        }
         onSnapshotChanged: {
             if(snapshot&&!root.initialLocationChecked) {
                 root.initialLocationChecked=true;
@@ -52,16 +53,7 @@ ShellRoot {
             }
         }
     }
-    IpcHandler {
-        target:"a-weather-app-ui"
-        function openEffects():void { root.effectsOpen=true }
-        function closeEffects():void { root.effectsOpen=false }
-        function toggleWindow():void {
-            if(window.visible)root.dismissWindow();
-            else { window.show();window.raise();window.requestActivate() }
-        }
-    }
-    ApplicationWindow {
+    property QtObject weatherWindow: ApplicationWindow {
         id:window
         objectName:"weatherWindow"
         title:"A Weather App"

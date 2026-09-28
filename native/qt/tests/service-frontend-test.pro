@@ -1,0 +1,10 @@
+QT += testlib quick network
+CONFIG += console c++17 testcase
+TARGET = service-frontend-test
+INCLUDEPATH += .
+SOURCES += tests/service_frontend_test.cpp transport.cpp protocol.cpp
+HEADERS += transport.h protocol.h
+RESOURCES += resources.qrc
+OBJECTS_DIR = .service-test-build
+MOC_DIR = .service-test-build
+RCC_DIR = .service-test-build

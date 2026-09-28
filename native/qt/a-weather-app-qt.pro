@@ -1,0 +1,10 @@
+QT += quick network
+CONFIG += c++17
+CONFIG -= app_bundle
+TARGET = a-weather-app-qt
+SOURCES += main.cpp transport.cpp protocol.cpp
+HEADERS += transport.h protocol.h
+RESOURCES += resources.qrc
+OBJECTS_DIR = .build
+MOC_DIR = .build
+RCC_DIR = .build

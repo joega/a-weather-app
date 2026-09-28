@@ -89,12 +89,12 @@ OmarchyUi.BarWidget {
     Process {
         id: windowToggle
         // Let the launcher resolve symlinks just as it does when starting Qt.
-        command: ["/usr/bin/python3", "-I", "-S", "-B", root.projectPath + "/a-weather-app", "--toggle-window"]
+        command: [root.projectPath + "/a-weather-app", "--toggle-window", "--state-dir", root.statePath]
         onExited: (code, status) => toggleDeadline.stop()
     }
     Process {
         id: reader
-        command: ["/usr/bin/python3", "-I", "-S", "-B", root.projectPath + "/ui/bridge.py", "--state-dir", root.statePath, "--bar-snapshot"]
+        command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--bar"]
         stdout: SplitParser {
             splitMarker: ""
             onRead: chunk => {
@@ -116,7 +116,7 @@ OmarchyUi.BarWidget {
     Process {
         id: app
         command: {
-            let args = ["/usr/bin/python3", "-I", "-S", "-B", root.projectPath + "/a-weather-app", "--state-dir", root.statePath];
+            let args = [root.projectPath + "/a-weather-app", "--state-dir", root.statePath];
             if (root.instance !== "") args.push("--instance", root.instance);
             if (root.output !== "") args.push("--output", root.output);
             return args;

@@ -1,0 +1,13 @@
+a-weather-app-qt
+protocol-test
+frontend-test
+service-frontend-test
+.service-test-build/
+.service-test.mk
+.frontend-test-build/
+.frontend-test.mk
+.build/
+.test-build/
+.build.mk
+.test.mk
+.qmake.stash

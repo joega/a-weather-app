@@ -47,6 +47,12 @@ The application uses procedural atmosphere shaders and code-drawn weather icons.
 It does not bundle Apple Weather artwork. The preview is a synthetic forecast
 screenshot, not a capture of a user's location or current weather.
 
+## Go runtime and standard library
+
+The compiled application includes the Go runtime, standard library and embedded
+timezone data. Their notices are retained in [licenses/go.txt](licenses/go.txt).
+The build's exact Go package version is recorded in `packaging/runtime.json`.
+
 ## Native effects headers and libraries
 
 The native effects build uses Hyprland, Aquamarine, Hyprcursor, Hyprgraphics,

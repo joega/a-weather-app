@@ -1,12 +1,9 @@
-#!/usr/bin/python3 -I
-"""A Weather App: launch the forecast window and its opt-in desktop effects."""
-from pathlib import Path
-import sys
-
-sys.dont_write_bytecode = True
-# Resolve the checkout, including when launched through an installed symlink.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from scripts.run_weather_app import main
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+#!/usr/bin/bash
+# Source-checkout launcher. The packaged command is the compiled Go executable.
+set -euo pipefail
+app_source=$(dirname -- "$(realpath -- "$0")")
+if [[ ! -x "$app_source/build/a-weather-app" ]]; then
+  printf 'Build the Go/Qt application first with make, or use the container-built package.\n' >&2
+  exit 1
+fi
+exec "$app_source/build/a-weather-app" "$@"

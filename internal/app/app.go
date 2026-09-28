@@ -1,0 +1,616 @@
+// Package app owns weather state and serializes mutations independently of Qt.
+package app
+
+import (
+	"context"
+	"errors"
+	"github.com/joega/a-weather-app/internal/notifications"
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
+	"math"
+	"reflect"
+	"sync"
+	"time"
+)
+
+type M = map[string]any
+type Effects interface {
+	SetupSnapshot() M
+	Check(context.Context) M
+	SelectOutput(context.Context, string) (M, error)
+	Status() M
+	Start(context.Context, int, bool, M) error
+	Tick(context.Context, M, M) error
+	Stop(context.Context) error
+}
+type Options struct {
+	Root    string
+	Now     func() time.Time
+	Fetch   func(context.Context, M, time.Time) (M, error)
+	Resolve func(context.Context, M) (M, error)
+	Effects Effects
+	Sender  notifications.Sender
+	Offline bool
+}
+type completion struct {
+	generation                    uint64
+	selection, location, forecast M
+	err                           error
+}
+type App struct {
+	mu                                    contextMutex
+	cacheMu                               sync.RWMutex
+	cached                                M
+	revision                              uint64
+	fx                                    *effectsCoordinator
+	closeDone                             chan struct{}
+	state                                 *safeio.Directory
+	options                               Options
+	location, forecast, profile, controls M
+	mode                                  string
+	zip                                   any
+	errorCode, locationError              any
+	notifications                         *notifications.Watcher
+	nextFetch                             time.Time
+	fetchCancel                           context.CancelFunc
+	fetchBusy, locationBusy               bool
+	generation                            uint64
+	results                               chan completion
+	Changed                               chan struct{}
+	launcherStatus                        string
+	closed                                bool
+	closeErr                              error
+}
+
+func DefaultControls() M {
+	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F"}
+}
+func stringOf(v any) string { s, _ := v.(string); return s }
+func object(v any) M        { m, _ := v.(map[string]any); return m }
+func PatchControls(old, patch M) (M, error) {
+	if patch == nil {
+		return nil, errors.New("controls object")
+	}
+	v := safeio.Clone(old)
+	for k, x := range patch {
+		if _, ok := v[k]; !ok {
+			return nil, errors.New("unknown control")
+		}
+		v[k] = x
+	}
+	if v["mode"] != "live" && v["mode"] != "manual" {
+		return nil, errors.New("mode")
+	}
+	if v["strength"] != "subtle" && v["strength"] != "normal" && v["strength"] != "immersive" {
+		return nil, errors.New("strength")
+	}
+	manual := object(v["manual"])
+	if len(manual) != 1 || !weather.ValidCondition(stringOf(manual["condition"])) {
+		return nil, errors.New("manual")
+	}
+	if v["fps"] != float64(15) && v["fps"] != float64(30) && v["fps"] != float64(60) {
+		return nil, errors.New("fps")
+	}
+	if v["units"] != "F" && v["units"] != "C" {
+		return nil, errors.New("units")
+	}
+	for _, k := range []string{"reduced_motion", "lightning_enabled", "window_physics", "accumulation", "pause_fullscreen"} {
+		if _, ok := v[k].(bool); !ok {
+			return nil, errors.New("boolean")
+		}
+	}
+	return v, nil
+}
+func ValidateProfile(v M) error {
+	if len(v) != 5 || v["schema_version"] != float64(1) {
+		return errors.New("location profile")
+	}
+	selection := M{"mode": v["mode"]}
+	if v["mode"] == "zip" {
+		selection["zip_code"] = v["zip_code"]
+	}
+	s, e := weather.ValidateSelection(selection)
+	if e != nil || s["zip_code"] != v["zip_code"] {
+		return errors.New("location selection")
+	}
+	location, e := weather.ValidateLocation(object(v["location"]))
+	if e != nil {
+		return e
+	}
+	return weather.ValidateSnapshot(object(v["forecast"]), location)
+}
+func readSaved(state *safeio.Directory) (location, forecast, profile M, mode string, zip any, err error) {
+	profile, err = state.Read("location-profile.json", weather.MaxBytes)
+	if err != nil {
+		return
+	}
+	if profile != nil {
+		err = ValidateProfile(profile)
+		if err != nil {
+			return
+		}
+		location = object(profile["location"])
+		forecast = object(profile["forecast"])
+		mode = stringOf(profile["mode"])
+		zip = profile["zip_code"]
+		return
+	}
+	location, err = state.Read("location.json", 8192)
+	if err != nil {
+		return
+	}
+	mode = "default"
+	if location == nil {
+		location = weather.DefaultLocation()
+	} else {
+		mode = "custom"
+		location, err = weather.ValidateLocation(location)
+		if err != nil {
+			return
+		}
+	}
+	forecast, err = state.Read("forecast.json", weather.MaxBytes)
+	if err != nil {
+		return
+	}
+	if forecast != nil {
+		if mode == "default" && !reflect.DeepEqual(forecast["location"], location) {
+			err = weather.ValidateSnapshot(forecast, object(forecast["location"]))
+			forecast = nil
+			return
+		}
+		err = weather.ValidateSnapshot(forecast, location)
+	}
+	return
+}
+func New(state *safeio.Directory, o Options) (*App, error) {
+	if o.Now == nil {
+		o.Now = time.Now
+	}
+	if o.Fetch == nil {
+		o.Fetch = weather.Fetch
+	}
+	if o.Resolve == nil {
+		o.Resolve = weather.Resolve
+	}
+	a := &App{state: state, options: o, controls: DefaultControls(), results: make(chan completion, 8), Changed: make(chan struct{}, 1), launcherStatus: "ready"}
+	var e error
+	a.location, a.forecast, a.profile, a.mode, a.zip, e = readSaved(state)
+	if e != nil {
+		return nil, e
+	}
+	saved, e := state.Read("controls.json", 8192)
+	if e != nil {
+		return nil, e
+	}
+	if saved != nil {
+		a.controls, e = PatchControls(a.controls, saved)
+		if e != nil {
+			return nil, e
+		}
+	}
+	a.notifications = notifications.New(state, o.Sender)
+	a.nextFetch = o.Now()
+	if a.forecast != nil {
+		t, _ := weather.Instant(a.forecast["fetched_at"])
+		age := math.Max(0, o.Now().Sub(t).Seconds())
+		a.nextFetch = o.Now().Add(time.Duration(math.Max(0, 900-age) * float64(time.Second)))
+	}
+	if a.mode == "auto" && !o.Offline {
+		a.beginFetch(M{"mode": "auto", "zip_code": nil})
+	}
+	if o.Effects != nil {
+		a.fx = newEffectsCoordinator(o.Effects, a.signal)
+	}
+	a.snapshotLocked()
+	return a, nil
+}
+func (a *App) signal() {
+	select {
+	case a.Changed <- struct{}{}:
+	default:
+	}
+}
+func (a *App) beginFetch(selection M) {
+	if a.closed || a.options.Offline {
+		return
+	}
+	if selection == nil && (a.fetchBusy || a.locationBusy) {
+		return
+	}
+	if a.fetchCancel != nil {
+		a.fetchCancel()
+	}
+	a.generation++
+	gen := a.generation
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	a.fetchCancel = cancel
+	a.fetchBusy = selection == nil
+	a.locationBusy = selection != nil
+	a.nextFetch = a.options.Now().Add(900 * time.Second)
+	if selection != nil {
+		a.locationError = nil
+	}
+	location := safeio.Clone(a.location)
+	selection = safeio.Clone(selection)
+	now := a.options.Now()
+	a.signal()
+	go func() {
+		defer cancel()
+		var e error
+		if selection != nil {
+			requestSelection := safeio.Clone(selection)
+			if requestSelection["mode"] == "auto" {
+				delete(requestSelection, "zip_code")
+			}
+			location, e = a.options.Resolve(ctx, requestSelection)
+		}
+		var forecast M
+		if e == nil {
+			forecast, e = a.options.Fetch(ctx, location, now)
+		}
+		if e == nil {
+			e = weather.ValidateSnapshot(forecast, location)
+		}
+		if ctx.Err() != nil {
+			e = ctx.Err()
+		}
+		c := completion{gen, selection, location, forecast, e}
+		select {
+		case a.results <- c:
+			a.signal()
+		case <-ctx.Done():
+			select {
+			case a.results <- c:
+				a.signal()
+			default:
+			}
+		}
+	}()
+}
+func (a *App) poll() {
+	for {
+		select {
+		case c := <-a.results:
+			if c.generation != a.generation || a.closed {
+				continue
+			}
+			a.fetchBusy = false
+			a.locationBusy = false
+			a.fetchCancel = nil
+			if c.err != nil {
+				code := "refresh_failed"
+				if c.selection != nil {
+					code = "lookup_failed"
+					var locationErr *weather.LocationError
+					if errors.As(c.err, &locationErr) {
+						switch locationErr.Code {
+						case "zip_not_found", "zip_ambiguous", "timeout", "state_io_failed", "save_unconfirmed":
+							code = locationErr.Code
+						}
+					}
+				}
+				if errors.Is(c.err, context.DeadlineExceeded) {
+					code = "fetch_timeout"
+					if c.selection != nil {
+						code = "timeout"
+					}
+				}
+				if c.selection != nil {
+					a.locationError = code
+				} else {
+					a.errorCode = code
+				}
+				a.signal()
+				continue
+			}
+			var candidate M
+			if c.selection != nil {
+				candidate = M{"schema_version": float64(1), "mode": c.selection["mode"], "zip_code": c.selection["zip_code"], "location": c.location, "forecast": c.forecast}
+			} else if a.profile != nil {
+				candidate = safeio.Clone(a.profile)
+				candidate["forecast"] = c.forecast
+			}
+			name, value := "forecast.json", c.forecast
+			if candidate != nil {
+				name, value = "location-profile.json", candidate
+			}
+			e := a.state.Write(name, value, weather.MaxBytes)
+			if e != nil {
+				if c.selection != nil {
+					a.locationError = "state_io_failed"
+					actual, readErr := a.state.Read(name, weather.MaxBytes)
+					if readErr == nil && reflect.DeepEqual(actual, candidate) {
+						a.adopt(candidate)
+						a.locationError = "save_unconfirmed"
+					}
+				} else {
+					a.errorCode = "refresh_failed"
+				}
+				a.signal()
+				continue
+			}
+			if candidate != nil {
+				a.adopt(candidate)
+			} else {
+				a.forecast = c.forecast
+				a.errorCode = nil
+			}
+			a.signal()
+		default:
+			return
+		}
+	}
+}
+func (a *App) adopt(v M) {
+	a.profile = v
+	a.location = object(v["location"])
+	a.forecast = object(v["forecast"])
+	a.mode = stringOf(v["mode"])
+	a.zip = v["zip_code"]
+	a.errorCode = nil
+	a.locationError = nil
+	a.nextFetch = a.options.Now().Add(900 * time.Second)
+}
+func (a *App) effectsStatus() M {
+	if a.fx == nil {
+		return M{"state": "stopped", "persistent": false}
+	}
+	return a.fx.Status()
+}
+func (a *App) setupStatus() M {
+	if a.fx == nil {
+		return M{"status": "unchecked", "reason": "not_checked", "outputs": []any{}, "selected_output": nil}
+	}
+	return a.fx.SetupSnapshot()
+}
+func (a *App) selected(live bool) M {
+	mode := stringOf(a.controls["mode"])
+	if live || a.effectsStatus()["persistent"] == true {
+		mode = "live"
+	}
+	v := weather.Select(a.forecast, a.options.Now(), mode, weather.Manual(stringOf(object(a.controls["manual"])["condition"])), stringOf(a.controls["strength"]), a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
+	if a.forecast == nil && a.location != nil {
+		solar := weather.SolarPosition(a.options.Now(), a.location["latitude"].(float64), a.location["longitude"].(float64))
+		v["solar"] = solar
+		if mode == "live" {
+			fx := object(v["effects"])
+			fx["sun_elevation"] = solar["elevation_deg"]
+			fx["sun_azimuth"] = solar["azimuth_deg"]
+			fx["is_day"] = solar["elevation_deg"].(float64) >= 0
+		}
+	}
+	return v
+}
+func (a *App) Tick(ctx context.Context) {
+	if a.mu.LockContext(ctx) != nil {
+		return
+	}
+	defer a.mu.Unlock()
+	if a.closed {
+		return
+	}
+	a.poll()
+	if !a.options.Now().Before(a.nextFetch) {
+		a.beginFetch(nil)
+	}
+	a.notifications.Tick(a.forecast, a.location, a.options.Now(), a.errorCode == nil && a.locationError == nil && !a.locationBusy)
+	a.updateEffectsLocked()
+}
+func (a *App) Interval() time.Duration {
+	if !a.mu.TryLock() {
+		return 100 * time.Millisecond
+	}
+	defer a.mu.Unlock()
+	if a.effectsStatus()["state"] == "running" {
+		// Native policy/status has its own independent 500 ms coordinator.
+		// Poll weather and notification inputs at 1 Hz; fresh data is forwarded
+		// to that coordinator as soon as it is observed.
+		return time.Second
+	}
+	if a.notifications.Enabled() {
+		return time.Second
+	}
+	d := time.Until(a.nextFetch)
+	if a.options.Offline || d <= 0 {
+		d = time.Minute
+	}
+	if d > time.Minute {
+		d = time.Minute
+	}
+	return d
+}
+func (a *App) updateEffectsLocked() {
+	// Start requests capture their own current weather/controls. While stopped
+	// there is no native lease to refresh, so do not clone a full forecast on
+	// every notification tick merely to prepare an unused effects packet.
+	if a.fx != nil && a.fx.Status()["state"] == "running" {
+		a.fx.update(a.selected(false), a.controls)
+	}
+}
+func (a *App) snapshotLocked() M {
+	v := a.snapshot()
+	a.revision++
+	v["snapshot_revision"] = float64(a.revision)
+	a.cacheMu.Lock()
+	// This is an already-normalized JSON-shaped display tree. A structural
+	// copy preserves reader isolation without encoding and tokenizing a full
+	// forecast again. File and socket decoding retain their strict validators.
+	a.cached = weather.Clone(v).(M)
+	a.cacheMu.Unlock()
+	return v
+}
+
+// Native commands never run while the app mutex is held. If a filesystem
+// mutation is in progress, readers receive the last complete snapshot.
+func (a *App) Snapshot() M {
+	if a.mu.TryLock() {
+		defer a.mu.Unlock()
+		a.poll()
+		return a.snapshotLocked()
+	}
+	a.cacheMu.RLock()
+	defer a.cacheMu.RUnlock()
+	if a.cached == nil {
+		return nil
+	}
+	return weather.Clone(a.cached).(M)
+}
+func (a *App) Handle(ctx context.Context, request M) (M, bool) {
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	id, ok := request["request_id"].(float64)
+	reply := M{"version": float64(1), "request_id": request["request_id"], "ok": false, "error": "invalid_request"}
+	if !ok || id < 0 || id > 2147483647 || math.Trunc(id) != id || request["version"] != float64(1) {
+		return reply, false
+	}
+	op := stringOf(request["op"])
+	allowed := map[string]string{"set_controls": "controls", "set_notifications": "notifications", "set_location": "location", "select_output": "output", "start_effects": "duration"}
+	extra := allowed[op]
+	for k := range request {
+		if k != "version" && k != "request_id" && k != "op" && k != extra {
+			return reply, false
+		}
+	}
+	if extra != "" {
+		if _, ok = request[extra]; !ok {
+			return reply, false
+		}
+	}
+	if e := a.mu.LockContext(ctx); e != nil {
+		return M{"version": 1.0, "request_id": id, "ok": false, "error": "request_timeout"}, false
+	}
+	locked := true
+	defer func() {
+		if locked {
+			a.mu.Unlock()
+		}
+	}()
+	a.poll()
+	if a.closed {
+		return M{"version": float64(1), "request_id": id, "ok": false, "error": "service_closed"}, false
+	}
+	if op == "check_effects" || op == "select_output" || op == "start_effects" || op == "start_live_effects" || op == "stop_effects" {
+		duration := 300
+		if op == "start_effects" {
+			n, ok := request["duration"].(float64)
+			if !ok || n < 1 || n > 300 || math.Trunc(n) != n {
+				return reply, false
+			}
+			duration = int(n)
+		}
+		if op == "stop_effects" && a.fetchBusy && a.fetchCancel != nil {
+			a.fetchCancel()
+			a.generation++
+			a.fetchBusy = false
+			a.fetchCancel = nil
+		}
+		if a.fx == nil {
+			if op == "stop_effects" {
+				return M{"version": 1.0, "request_id": id, "ok": true, "snapshot": a.snapshotLocked()}, false
+			}
+			reply["error"] = "effects_failed"
+			return reply, false
+		}
+		selected := a.selected(op == "start_live_effects")
+		flags := safeio.Clone(a.controls)
+		a.fx.update(selected, flags)
+		action := effectAction{op: op, output: stringOf(request["output"]), duration: duration, weather: effectWeather(selected), controls: flags}
+		locked = false
+		a.mu.Unlock()
+		result := a.fx.submit(ctx, action)
+		if e := a.mu.LockContext(ctx); e != nil {
+			return M{"version": 1.0, "request_id": id, "ok": false, "error": "request_timeout"}, false
+		}
+		locked = true
+		a.poll()
+		a.signal()
+		reply = M{"version": 1.0, "request_id": id, "ok": result.err == nil, "snapshot": a.snapshotLocked()}
+		if result.err != nil {
+			reply["error"] = result.code
+		}
+		return reply, false
+	}
+	var e error
+	code := "invalid_request"
+	switch op {
+	case "snapshot", "subscribe":
+		if !a.options.Now().Before(a.nextFetch) {
+			a.beginFetch(nil)
+		}
+	case "refresh":
+		a.beginFetch(nil)
+	case "set_controls":
+		var v M
+		v, e = PatchControls(a.controls, object(request["controls"]))
+		if e == nil {
+			code = "state_io_failed"
+			e = a.state.Write("controls.json", v, 8192)
+			if e == nil {
+				a.controls = v
+			}
+		}
+	case "set_location":
+		var v M
+		v, e = weather.ValidateSelection(object(request["location"]))
+		if e == nil {
+			a.beginFetch(v)
+		}
+	case "set_notifications":
+		e = a.notifications.Configure(object(request["notifications"]))
+	case "snooze_notifications", "resume_notifications":
+		e = a.notifications.Snooze(a.options.Now(), op == "resume_notifications")
+	case "install_launcher":
+		a.launcherStatus = InstallLauncher(a.options.Root)
+	case "quit":
+		return M{"version": float64(1), "request_id": id, "ok": true}, true
+	default:
+		return reply, false
+	}
+	a.notifications.Tick(a.forecast, a.location, a.options.Now(), a.errorCode == nil && a.locationError == nil && !a.locationBusy)
+	a.updateEffectsLocked()
+	if op != "snapshot" && op != "subscribe" {
+		a.signal()
+	}
+	reply = M{"version": float64(1), "request_id": id, "ok": e == nil, "snapshot": a.snapshotLocked()}
+	if e != nil {
+		reply["error"] = code
+	}
+	return reply, false
+}
+func (a *App) Close(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, CloseBudget)
+	defer cancel()
+	if e := a.mu.LockContext(ctx); e != nil {
+		return e
+	}
+	if a.closed {
+		done := a.closeDone
+		a.mu.Unlock()
+		if done != nil {
+			select {
+			case <-done:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		a.cacheMu.RLock()
+		defer a.cacheMu.RUnlock()
+		return a.closeErr
+	}
+	a.closed = true
+	a.closeDone = make(chan struct{})
+	if a.fetchCancel != nil {
+		a.fetchCancel()
+	}
+	e := a.notifications.Close()
+	a.mu.Unlock()
+	if a.fx != nil {
+		e = errors.Join(e, a.fx.close(ctx))
+	}
+	a.cacheMu.Lock()
+	a.closeErr = e
+	a.cacheMu.Unlock()
+	close(a.closeDone)
+	return e
+}
