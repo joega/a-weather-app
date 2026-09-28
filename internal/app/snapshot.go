@@ -213,6 +213,17 @@ func (a *App) snapshot() M {
 	if status == nil {
 		status = "unavailable"
 	}
+	var alertSource any
+	coverage := "unknown"
+	var alertFetched any
+	if a.country == "US" {
+		coverage, alertSource, alertFetched = "US", "National Weather Service", alerts["fetched_at"]
+	} else {
+		status, display = "unavailable", []any{}
+		if a.country != nil {
+			status, coverage = "not_supported_here", "unsupported"
+		}
+	}
 	var fetched any
 	if forecast != nil {
 		fetched = forecast["fetched_at"]
@@ -222,6 +233,13 @@ func (a *App) snapshot() M {
 		notifications = a.notifications.Snapshot()
 	}
 	result := M{"schema_version": 1.0, "location": safeio.Clone(location), "location_settings": M{"mode": a.mode, "zip_code": a.zip, "busy": a.locationBusy, "error": a.locationError}, "current": current, "hourly": hourly, "daily": daily, "alerts": M{"status": status, "items": display}, "source": M{"name": "Open-Meteo", "attribution": "Weather data by Open-Meteo.com (CC BY 4.0)", "fetched_at": fetched, "freshness": live["freshness"], "age_seconds": live["age_seconds"], "error": a.errorCode, "refreshing": a.fetchBusy}, "notifications": notifications, "controls": safeio.Clone(a.controls), "atmosphere": live["effects"], "preview": M{"current": preview["current"], "effects": preview["effects"], "freshness": preview["freshness"]}, "effect_status": a.effectsStatus(), "effects_setup": a.setupStatus(), "launcher_status": a.launcherStatus}
+	settings := object(result["location_settings"])
+	settings["country_code"], settings["place"] = a.country, nil
+	if a.place != nil {
+		settings["place"] = safeio.Clone(a.place)
+	}
+	result["place_search"] = a.searchSnapshot()
+	result["alerts"] = M{"status": status, "items": display, "source": alertSource, "coverage": coverage, "fetched_at": alertFetched}
 	capSnapshotAlertText(result)
 	return result
 }

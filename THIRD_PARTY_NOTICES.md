@@ -43,6 +43,14 @@ from the [National Weather Service](https://www.weather.gov/). IP-based location
 lookup uses [ipwho.is](https://ipwhois.io/); it is optional and disclosed before
 use. These services and their responses are not bundled as application source.
 
+City and ZIP lookup use the [Open-Meteo geocoding API](https://open-meteo.com/en/docs/geocoding-api),
+whose location data comes from [GeoNames](https://www.geonames.org/) under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Open-Meteo's free
+API access is restricted to non-commercial use under its
+[service terms](https://open-meteo.com/en/terms); the data license does not grant
+unrestricted use of the hosted API. Commercial use requires an appropriate
+provider plan.
+
 The application uses procedural atmosphere shaders and code-drawn weather icons.
 It does not bundle Apple Weather artwork. The preview is a synthetic forecast
 screenshot, not a capture of a user's location or current weather.

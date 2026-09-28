@@ -24,13 +24,15 @@ public:
     ServiceFixture(){state=directory.path()+"/state";QDir().mkdir(state);QFile::setPermissions(state,QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner);}
     ~ServiceFixture(){if(service.state()!=QProcess::NotRunning){service.terminate();if(!service.waitForFinished(3000)){service.kill();service.waitForFinished(2000);}}}
     void save(const QString &name,const QJsonObject &object){QFile file(state+"/"+name);if(!file.open(QIODevice::WriteOnly))qFatal("Fixture write failed");file.setPermissions(QFile::ReadOwner|QFile::WriteOwner);file.write(QJsonDocument(object).toJson(QJsonDocument::Compact));}
-    bool start(){
+    bool start(bool offline=true){
         const QString app=qEnvironmentVariable("GO_APP");
         QProcess query;query.start(app,{"--print-socket","--state-dir",state});if(!query.waitForFinished(3000)||query.exitCode()!=0)return false;
         socket=QString::fromUtf8(query.readAllStandardOutput()).trimmed();
         auto env=QProcessEnvironment::systemEnvironment();env.remove("HYPRLAND_INSTANCE_SIGNATURE");env.remove("WAYLAND_DISPLAY");env.remove("DISPLAY");env.remove("DBUS_SESSION_BUS_ADDRESS");service.setProcessEnvironment(env);
         service.setProcessChannelMode(QProcess::MergedChannels);
-        service.start(app,{"--service","--headless","--offline","--duration","60","--state-dir",state});
+        QStringList arguments{"--service","--headless","--duration",offline?"60":"120","--state-dir",state};
+        if(offline)arguments.append("--offline");
+        service.start(app,arguments);
         if(!service.waitForStarted(3000))return false;
         QElapsedTimer timer;timer.start();while(timer.elapsed()<5000&&!QFile::exists(socket)&&service.state()!=QProcess::NotRunning)QTest::qWait(10);
         return QFile::exists(socket);
@@ -43,6 +45,13 @@ public:
         QJsonObject day{{"date",now.date().toString(Qt::ISODate)},{"condition","clear"},{"high_c",20},{"low_c",10},{"precipitation_probability",0},{"sunrise",QJsonValue::Null},{"sunset",QJsonValue::Null}};
         auto hour=row;hour["time"]=now.addSecs(3600).toString(Qt::ISODate);
         save("forecast.json",{{"schema_version",1},{"location",location},{"fetched_at",now.addSecs(-age).toString(Qt::ISODate)},{"source",QJsonObject{{"name","Open-Meteo"},{"attribution","Weather data by Open-Meteo.com (CC BY 4.0)"}}},{"current",row},{"hourly",QJsonArray{hour}},{"daily",QJsonArray{day}},{"alerts",QJsonObject{{"status","unavailable"},{"items",QJsonArray{}}}}});
+    }
+    void savedBerlinPlace(){
+        cache(60);
+        auto forecast=saved("forecast.json");
+        QJsonObject location{{"name","Berlin, Berlin, Germany"},{"latitude",52.52},{"longitude",13.41},{"timezone","Europe/Berlin"}};
+        forecast["location"]=location;
+        save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","DE"},{"place",QJsonObject{{"provider","open-meteo"},{"id",2950159}}}});
     }
 };
 
@@ -71,7 +80,7 @@ private slots:
         ServiceFixture fixture;QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(window->isVisible()&&window->isExposed(),3000);
         QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);
-        QVERIFY(eval("root.freshness").toString().contains("Choose your current location"));
+        QVERIFY(eval("root.freshness").toString().contains("Choose a city"));
         QVERIFY(!QFile::exists(fixture.state+"/notifications.json"));
         QVERIFY(!eval("root.liveDesktop").toBool());
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");
@@ -95,6 +104,44 @@ private slots:
         QVERIFY2(eval("root.freshness").toString().startsWith(prefix),qPrintable(eval("root.freshness").toString()));
         QCOMPARE(eval("root.current.temperature_c").toDouble(),15.0);QCOMPARE(eval("root.days.length").toInt(),1);QCOMPARE(eval("root.hours.length").toInt(),1);
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+    }
+    void offlinePlaceAndSearchCoverage(){
+        ServiceFixture fixture;fixture.savedBerlinPlace();QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);
+        QCOMPARE(eval("root.location").toString(),QString("Berlin, Berlin, Germany"));
+        QCOMPARE(eval("bridge.snapshot.location_settings.mode").toString(),QString("place"));
+        QCOMPARE(eval("bridge.snapshot.location_settings.place.id").toInt(),2950159);
+        QCOMPARE(eval("bridge.snapshot.alerts.status").toString(),QString("not_supported_here"));
+        QCOMPARE(eval("bridge.snapshot.alerts.coverage").toString(),QString("unsupported"));
+        QVERIFY(named("alertCoverageStatus")->property("text").toString().contains("not supported"));
+        QVERIFY(!named("sourceAttribution")->property("text").toString().contains("National Weather Service"));
+        root->setProperty("effectsOpen",true);
+        named("placeQuery")->setProperty("text","Berlin");
+        QTRY_COMPARE_WITH_TIMEOUT(eval("bridge.snapshot.place_search.status").toString(),QString("error"),5000);
+        QCOMPARE(eval("bridge.snapshot.place_search.error").toString(),QString("offline"));
+        QVERIFY(named("placeSearchStatus")->property("text").toString().contains("offline"));
+        root->setProperty("effectsOpen",false);
+        QTRY_COMPARE_WITH_TIMEOUT(eval("bridge.snapshot.place_search.status").toString(),QString("idle"),3000);
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
+    }
+    void liveBerlinPicker(){
+        if(qEnvironmentVariable("A_WEATHER_APP_LIVE_PLACES")!="1")QSKIP("Opt-in live provider UI test");
+        ServiceFixture fixture;QVERIFY2(fixture.start(false),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(),5000);QTRY_VERIFY(window->isExposed());
+        root->setProperty("effectsOpen",true);
+        auto *query=qobject_cast<QQuickItem*>(named("placeQuery"));QVERIFY(query);
+        named("placeCountry")->setProperty("text","DE");query->setProperty("text","Berlin");
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot.place_search.status==='ready' && bridge.snapshot.place_search.results.length>0").toBool(),20000);
+        QCOMPARE(eval("bridge.snapshot.place_search.results[0].country_code").toString(),QString("DE"));
+        query->forceActiveFocus();QTest::keyClick(window,Qt::Key_Down);
+        QCOMPARE(named("placeResults")->property("currentIndex").toInt(),0);
+        QTest::keyClick(window,Qt::Key_Return);
+        QTRY_COMPARE_WITH_TIMEOUT(eval("bridge.snapshot.location_settings.mode").toString(),QString("place"),30000);
+        QCOMPARE(eval("bridge.snapshot.location_settings.country_code").toString(),QString("DE"));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),30000);
+        QCOMPARE(eval("bridge.snapshot.alerts.status").toString(),QString("not_supported_here"));
+        QVERIFY(named("alertCoverageStatus")->property("text").toString().contains("not supported"));
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
     }
     void cachedControlsDetailsAndReload(){
         ServiceFixture fixture;fixture.cache(4000);QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));

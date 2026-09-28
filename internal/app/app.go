@@ -24,18 +24,23 @@ type Effects interface {
 	Stop(context.Context) error
 }
 type Options struct {
-	Root    string
-	Now     func() time.Time
-	Fetch   func(context.Context, M, time.Time) (M, error)
-	Resolve func(context.Context, M) (M, error)
-	Effects Effects
-	Sender  notifications.Sender
-	Offline bool
+	Root             string
+	Now              func() time.Time
+	Fetch            func(context.Context, M, time.Time) (M, error)
+	Resolve          func(context.Context, M) (M, error)
+	ResolveSelection func(context.Context, M) (M, error)
+	FetchCountry     func(context.Context, M, time.Time, string) (M, error)
+	SearchPlaces     func(context.Context, M) ([]any, error)
+	Effects          Effects
+	Sender           notifications.Sender
+	Offline          bool
 }
 type completion struct {
 	generation                    uint64
 	selection, location, forecast M
 	err                           error
+	country                       any
+	place                         M
 }
 type App struct {
 	mu                                    contextMutex
@@ -49,6 +54,9 @@ type App struct {
 	location, forecast, profile, controls M
 	mode                                  string
 	zip                                   any
+	country                               any
+	place                                 M
+	search                                placeSearch
 	errorCode, locationError              any
 	notifications                         *notifications.Watcher
 	nextFetch                             time.Time
@@ -102,16 +110,42 @@ func PatchControls(old, patch M) (M, error) {
 	return v, nil
 }
 func ValidateProfile(v M) error {
-	if len(v) != 5 || v["schema_version"] != float64(1) {
+	v1 := v["schema_version"] == float64(1) && len(v) == 5
+	v2 := v["schema_version"] == float64(2) && len(v) == 7
+	if !v1 && !v2 {
 		return errors.New("location profile")
+	}
+	for k := range v {
+		if k != "schema_version" && k != "mode" && k != "zip_code" && k != "location" && k != "forecast" && !(v2 && (k == "country_code" || k == "place")) {
+			return errors.New("location profile fields")
+		}
+	}
+	if v2 {
+		if !validCountry(v["country_code"]) || (v["mode"] == "zip" && v["country_code"] != "US") {
+			return errors.New("location country")
+		}
+		if v["mode"] == "place" {
+			p := object(v["place"])
+			if len(p) != 2 || p["provider"] != "open-meteo" || !placeInteger(p["id"], 1) || v["country_code"] == nil || v["zip_code"] != nil {
+				return errors.New("place identity")
+			}
+		} else if v["place"] != nil {
+			return errors.New("unexpected place identity")
+		}
 	}
 	selection := M{"mode": v["mode"]}
 	if v["mode"] == "zip" {
 		selection["zip_code"] = v["zip_code"]
 	}
-	s, e := weather.ValidateSelection(selection)
-	if e != nil || s["zip_code"] != v["zip_code"] {
-		return errors.New("location selection")
+	if v["mode"] == "custom" || v["mode"] == "default" || (v2 && v["mode"] == "place") {
+		if v["zip_code"] != nil {
+			return errors.New("unexpected ZIP")
+		}
+	} else {
+		s, e := weather.ValidateSelection(selection)
+		if e != nil || s["zip_code"] != v["zip_code"] {
+			return errors.New("location selection")
+		}
 	}
 	location, e := weather.ValidateLocation(object(v["location"]))
 	if e != nil {
@@ -149,6 +183,14 @@ func readSaved(state *safeio.Directory) (location, forecast, profile M, mode str
 			return
 		}
 	}
+	var identity M
+	identity, err = readZIPIdentity(state, location)
+	if err != nil {
+		return
+	}
+	if identity != nil {
+		mode, zip = "zip", identity["zip_code"]
+	}
 	forecast, err = state.Read("forecast.json", weather.MaxBytes)
 	if err != nil {
 		return
@@ -167,11 +209,14 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
-	if o.Fetch == nil {
-		o.Fetch = weather.Fetch
+	if o.Fetch == nil && o.FetchCountry == nil {
+		o.FetchCountry = weather.FetchForCountry
 	}
-	if o.Resolve == nil {
-		o.Resolve = weather.Resolve
+	if o.Resolve == nil && o.ResolveSelection == nil {
+		o.ResolveSelection = weather.ResolveSelection
+	}
+	if o.SearchPlaces == nil {
+		o.SearchPlaces = weather.SearchPlaces
 	}
 	a := &App{state: state, options: o, controls: DefaultControls(), results: make(chan completion, 8), Changed: make(chan struct{}, 1), launcherStatus: "ready"}
 	var e error
@@ -179,6 +224,8 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 	if e != nil {
 		return nil, e
 	}
+	a.country, a.place = profileIdentity(a.profile, a.mode)
+	a.search.init()
 	saved, e := state.Read("controls.json", 8192)
 	if e != nil {
 		return nil, e
@@ -232,6 +279,7 @@ func (a *App) beginFetch(selection M) {
 		a.locationError = nil
 	}
 	location := safeio.Clone(a.location)
+	country, place := a.country, safeio.Clone(a.place)
 	selection = safeio.Clone(selection)
 	now := a.options.Now()
 	a.signal()
@@ -243,11 +291,28 @@ func (a *App) beginFetch(selection M) {
 			if requestSelection["mode"] == "auto" {
 				delete(requestSelection, "zip_code")
 			}
-			location, e = a.options.Resolve(ctx, requestSelection)
+			if a.options.ResolveSelection != nil {
+				var resolved M
+				resolved, e = a.options.ResolveSelection(ctx, requestSelection)
+				if e == nil {
+					location, e = weather.ValidateLocation(object(resolved["location"]))
+					country, place = resolved["country_code"], object(resolved["place"])
+					if !validCountry(country) {
+						e = errors.New("invalid resolved country")
+					}
+				}
+			} else {
+				location, e = a.options.Resolve(ctx, requestSelection)
+				country, place = profileIdentity(nil, stringOf(requestSelection["mode"]))
+			}
 		}
 		var forecast M
 		if e == nil {
-			forecast, e = a.options.Fetch(ctx, location, now)
+			if a.options.FetchCountry != nil {
+				forecast, e = a.options.FetchCountry(ctx, location, now, stringOf(country))
+			} else {
+				forecast, e = a.options.Fetch(ctx, location, now)
+			}
 		}
 		if e == nil {
 			e = weather.ValidateSnapshot(forecast, location)
@@ -255,7 +320,7 @@ func (a *App) beginFetch(selection M) {
 		if ctx.Err() != nil {
 			e = ctx.Err()
 		}
-		c := completion{gen, selection, location, forecast, e}
+		c := completion{generation: gen, selection: selection, location: location, forecast: forecast, err: e, country: country, place: place}
 		select {
 		case a.results <- c:
 			a.signal()
@@ -269,6 +334,7 @@ func (a *App) beginFetch(selection M) {
 	}()
 }
 func (a *App) poll() {
+	a.pollSearch()
 	for {
 		select {
 		case c := <-a.results:
@@ -285,7 +351,7 @@ func (a *App) poll() {
 					var locationErr *weather.LocationError
 					if errors.As(c.err, &locationErr) {
 						switch locationErr.Code {
-						case "zip_not_found", "zip_ambiguous", "timeout", "state_io_failed", "save_unconfirmed":
+						case "zip_not_found", "zip_ambiguous", "place_not_found", "stale_selection", "timeout", "state_io_failed", "save_unconfirmed":
 							code = locationErr.Code
 						}
 					}
@@ -306,16 +372,36 @@ func (a *App) poll() {
 			}
 			var candidate M
 			if c.selection != nil {
-				candidate = M{"schema_version": float64(1), "mode": c.selection["mode"], "zip_code": c.selection["zip_code"], "location": c.location, "forecast": c.forecast}
+				candidate = M{"schema_version": float64(2), "mode": c.selection["mode"], "zip_code": c.selection["zip_code"], "location": c.location, "forecast": c.forecast, "country_code": c.country, "place": nil}
+				if c.place != nil {
+					candidate["place"] = c.place
+				}
 			} else if a.profile != nil {
 				candidate = safeio.Clone(a.profile)
+				candidate["schema_version"] = float64(2)
+				candidate["country_code"] = a.country
+				candidate["place"] = nil
+				if a.place != nil {
+					candidate["place"] = safeio.Clone(a.place)
+				}
 				candidate["forecast"] = c.forecast
+			} else if a.mode == "zip" {
+				candidate = M{"schema_version": 2.0, "mode": "zip", "zip_code": a.zip, "location": c.location, "forecast": c.forecast, "country_code": "US", "place": nil}
 			}
 			name, value := "forecast.json", c.forecast
 			if candidate != nil {
 				name, value = "location-profile.json", candidate
 			}
-			e := a.state.Write(name, value, weather.MaxBytes)
+			var e error
+			if candidate != nil {
+				e = ValidateProfile(candidate)
+				if e == nil {
+					e = a.backupLegacyProfile()
+				}
+			}
+			if e == nil {
+				e = a.state.Write(name, value, weather.MaxBytes)
+			}
 			if e != nil {
 				if c.selection != nil {
 					a.locationError = "state_io_failed"
@@ -348,6 +434,7 @@ func (a *App) adopt(v M) {
 	a.forecast = object(v["forecast"])
 	a.mode = stringOf(v["mode"])
 	a.zip = v["zip_code"]
+	a.country, a.place = profileIdentity(v, a.mode)
 	a.errorCode = nil
 	a.locationError = nil
 	a.nextFetch = a.options.Now().Add(900 * time.Second)
@@ -465,7 +552,7 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"set_controls": "controls", "set_notifications": "notifications", "set_location": "location", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"set_controls": "controls", "set_notifications": "notifications", "set_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -553,9 +640,25 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 	case "set_location":
 		var v M
 		v, e = weather.ValidateSelection(object(request["location"]))
+		if e == nil && v["mode"] == "place" {
+			e = a.consumePlace(v)
+			if e != nil {
+				code = "stale_selection"
+				a.locationError = code
+			}
+		}
 		if e == nil {
+			a.cancelSearch()
 			a.beginFetch(v)
 		}
+	case "search_places":
+		var v M
+		v, e = weather.ValidatePlaceSearch(object(request["search"]))
+		if e == nil {
+			a.beginSearch(v)
+		}
+	case "cancel_place_search":
+		a.cancelSearch()
 	case "set_notifications":
 		e = a.notifications.Configure(object(request["notifications"]))
 	case "snooze_notifications", "resume_notifications":
@@ -603,6 +706,7 @@ func (a *App) Close(ctx context.Context) error {
 	if a.fetchCancel != nil {
 		a.fetchCancel()
 	}
+	a.cancelSearch()
 	e := a.notifications.Close()
 	a.mu.Unlock()
 	if a.fx != nil {

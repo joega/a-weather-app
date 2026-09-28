@@ -9,6 +9,7 @@
 <file alias="qml/ChoiceControl.qml">../../ui/qml/ChoiceControl.qml</file>
 <file alias="qml/DailyPanel.qml">../../ui/qml/DailyPanel.qml</file>
 <file alias="qml/EffectsDrawer.qml">../../ui/qml/EffectsDrawer.qml</file>
+<file alias="qml/PlaceSearch.qml">../../ui/qml/PlaceSearch.qml</file>
 <file alias="qml/ForecastChart.qml">../../ui/qml/ForecastChart.qml</file>
 <file alias="qml/ForecastDetails.qml">../../ui/qml/ForecastDetails.qml</file>
 <file alias="qml/GlassPanel.qml">../../ui/qml/GlassPanel.qml</file>

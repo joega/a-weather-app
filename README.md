@@ -11,7 +11,7 @@ Recorded weather is illustrative, not a current forecast.
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
 - Official US weather alerts with individual instructions and expiry times.
-- Saved US ZIP locations and optional approximate local detection.
+- Worldwide city search, saved US ZIP locations and optional approximate local detection.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
 - Optional desktop rain, runoff and pooling; snow accumulation and melting.
 
@@ -41,7 +41,7 @@ owned directory and run its compiled `./a-weather-app`. Keep the existing
 installation and a backup of saved data for rollback; do not replace artifacts
 while native effects are loaded. Nothing is published or installed automatically.
 
-On first launch, open Settings and choose a five-digit US ZIP, or explicitly
+On first launch, open Settings and search for a city, choose a five-digit US ZIP, or explicitly
 choose approximate local detection. New York is the fallback location. Refresh
 failures retain cached weather with freshness indicators; unavailable alerts
 are never treated as an all-clear.
@@ -162,15 +162,37 @@ is installed. Notifications do not require native desktop effects.
 
 ## Privacy and removal
 
-Forecasts and ZIP geocoding use Open-Meteo; US alerts use `api.weather.gov`.
+Forecasts and city/ZIP geocoding use Open-Meteo; verified US locations use
+`api.weather.gov` for alerts. Other countries display "Alerts not supported here";
+legacy locations without a known country display unavailable coverage. These
+states do not mean that no weather warnings exist.
+City search sends the text you enter after a short pause; an optional two-letter
+country code narrows results. Choose a city, region and country from the results
+to save it. Typed queries are not saved. The app resolves the selected provider
+ID and keeps your previous forecast if lookup or saving fails. Saved places
+reopen offline without another geocoding request.
 Approximate local detection contacts `ipwho.is` only after opt-in. Providers
 receive requests, including location parameters where needed. The app does not
 store an IP-address response field. Normal refresh is limited to once per
 15 minutes; manual refresh can happen sooner.
 
+Open-Meteo's free service permits non-commercial use and requires attribution;
+commercial use requires an appropriate [Open-Meteo plan](https://open-meteo.com/en/pricing).
+See its [service terms](https://open-meteo.com/en/terms). Forecasts are model
+output; this app does not provide radar maps, air-quality readings or
+minute-by-minute rain predictions.
+
 Private settings, locations, forecasts and bounded notification reservations
 live in `$XDG_STATE_HOME/a-weather-app`, or `~/.local/state/a-weather-app`.
 The app does not store notification body history; your desktop daemon may.
+Location profiles use schema 2. Schema-1 profiles and older separate location
+and forecast files remain readable; a profile upgrades after a successful saved
+forecast. Before upgrading a schema-1 profile, the app keeps
+`location-profile-v1.json` in the same private state directory. To roll back to
+an older app, quit first, back up the current state, and restore that file as
+`location-profile.json` with mode `0600`. Older versions cannot read schema-2
+profiles or worldwide place selections; a full pre-update state backup is
+required to restore those installations.
 Effects use a private `a-weather-app-effects-*` directory under the system
 temporary directory (`$TMPDIR` when configured, normally `/tmp`), with bounded
 logs. Failed cleanup retains that directory for inspection. Launcher failures

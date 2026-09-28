@@ -10,6 +10,7 @@ GlassPanel {
     property var controls:({mode:"live",strength:"normal",manual:{condition:"rain"},fps:30,window_physics:true,accumulation:true,lightning_enabled:false,reduced_motion:false,pause_fullscreen:true})
     property string location:"Location unavailable"
     property var locationSettings:({mode:"default",zip_code:null,busy:false,error:null})
+    property var placeSearch:({generation:0,status:"idle",results:[],error:null})
     property string displayedSelection:""
     onLocationSettingsChanged: {
         let selection=locationSettings.mode+":"+(locationSettings.zip_code||"");
@@ -59,6 +60,8 @@ GlassPanel {
     signal startRequested()
     signal stopRequested()
     signal locationRequested(var values)
+    signal placeSearchRequested(var values)
+    signal placeSearchCancelRequested()
     signal checkRequested()
     signal outputRequested(string output)
     signal notificationsPatch(var values)
@@ -104,7 +107,16 @@ GlassPanel {
                 PlainLabel { text:"Location";font.pixelSize:23;font.weight:Font.DemiBold }
             }
             PlainLabel { objectName:"settingsLocation";Layout.fillWidth:true;text:root.location;font.pixelSize:18 }
-            PlainLabel { objectName:"locationMode";Layout.fillWidth:true;text:root.locationSettings.mode==="zip"?"ZIP code · "+root.locationSettings.zip_code:root.locationSettings.mode==="auto"?"Local location":root.locationSettings.mode==="custom"?"Custom location":"New York is the fallback. Use your current location or enter a ZIP code.";font.pixelSize:14;color:Tokens.secondary;wrapMode:Text.Wrap;elide:Text.ElideNone }
+            PlainLabel { objectName:"locationMode";Layout.fillWidth:true;text:root.locationSettings.mode==="zip"?"ZIP code · "+root.locationSettings.zip_code:root.locationSettings.mode==="place"?"Selected city · "+(root.locationSettings.country_code||"Country unavailable"):root.locationSettings.mode==="auto"?"Local location":root.locationSettings.mode==="custom"?"Custom location":"New York is the fallback. Use your current location, search for a city, or enter a ZIP code.";font.pixelSize:14;color:Tokens.secondary;wrapMode:Text.Wrap;elide:Text.ElideNone }
+            PlaceSearch {
+                Layout.fillWidth:true
+                search:root.placeSearch
+                serviceAvailable:root.serviceAvailable
+                locationBusy:root.locationLocked
+                onSearchRequested:values=>root.placeSearchRequested(values)
+                onCancelRequested:root.placeSearchCancelRequested()
+                onLocationRequested:values=>root.locationRequested(values)
+            }
             PlainLabel { text:"5-digit US ZIP code";font.pixelSize:14;color:Tokens.secondary }
             RowLayout {
                 Layout.fillWidth:true
@@ -124,7 +136,7 @@ GlassPanel {
             PlainLabel {
                 objectName:"locationStatus";Layout.fillWidth:true
                 visible:root.locationSettings.busy||root.locationSettings.error!==null
-                text:root.locationSettings.busy?"Finding location and loading forecast…":({lookup_failed:"Location lookup failed. Try again.",zip_not_found:"ZIP code not found. Check the code and try again.",zip_ambiguous:"This ZIP code matches more than one location. Try another code.",timeout:"Location lookup timed out. Try again.",state_io_failed:"Location could not be saved. Try again.",save_unconfirmed:"Location changed, but saving could not be confirmed. Try again."})[root.locationSettings.error]||""
+                text:root.locationSettings.busy?"Finding location and loading forecast…":({lookup_failed:"Location lookup failed. Try again.",zip_not_found:"ZIP code not found. Check the code and try again.",zip_ambiguous:"This ZIP code matches more than one location. Try another code.",place_not_found:"Selected city is no longer available. Search again.",stale_selection:"Search result expired. Search again.",timeout:"Location lookup timed out. Try again.",state_io_failed:"Location could not be saved. Try again.",save_unconfirmed:"Location changed, but saving could not be confirmed. Try again."})[root.locationSettings.error]||""
                 wrapMode:Text.Wrap;elide:Text.ElideNone;font.pixelSize:14;color:Tokens.accent
             }
             Rectangle { Layout.fillWidth:true;height:1;color:Tokens.border }

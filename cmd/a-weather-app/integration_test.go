@@ -19,6 +19,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/ipc"
 	"github.com/joega/a-weather-app/internal/safeio"
 )
@@ -383,6 +384,40 @@ func (c *cliCase) clean(t *testing.T, guardian, service *ownedPID) {
 
 func TestCLIEndToEnd(t *testing.T) {
 	fixture := compileCLI(t)
+	t.Run("prepared_zip_identity_survives_guardian", func(t *testing.T) {
+		c := fixture.newCase(t)
+		state, err := safeio.OpenDir(c.state, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		location := M{"name": "Boston, MA", "latitude": 42.36, "longitude": -71.05, "timezone": "America/New_York"}
+		if err = state.Write("location.json", location, 8192); err != nil {
+			t.Fatal(err)
+		}
+		if err = app.SaveZIPIdentity(state, "02108", location); err != nil {
+			t.Fatal(err)
+		}
+		state.Close()
+		p := c.start(t, "--headless", "--offline")
+		c.ready(t, p)
+		guardian, service := c.tree(t, p)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		reply, err := ipc.Call(ctx, c.socket, M{"op": "snapshot"})
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot := reply["snapshot"].(M)
+		settings := snapshot["location_settings"].(M)
+		if settings["mode"] != "zip" || settings["country_code"] != "US" || settings["zip_code"] != "02108" {
+			t.Fatal("guardian lost ZIP identity")
+		}
+		if _, _, err = c.run(t, "--quit"); err != nil {
+			t.Fatal(err)
+		}
+		waitProcess(t, p, true)
+		c.clean(t, guardian, service)
+	})
 	t.Run("bar_does_not_create_state", func(t *testing.T) {
 		c := fixture.newCase(t)
 		stdout, stderr, e := c.run(t, "--bar")

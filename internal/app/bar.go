@@ -22,9 +22,13 @@ func Bar(state *safeio.Directory, now time.Time) M {
 	if now.IsZero() {
 		now = time.Now()
 	}
-	location, forecast, _, _, _, e := readSaved(state)
+	location, forecast, profile, mode, _, e := readSaved(state)
+	country, _ := profileIdentity(profile, mode)
 	if location != nil {
 		r["tooltip"] = plainText(plainText(location["name"], 244)+" · Weather and alerts unavailable", 256)
+		if country != nil && country != "US" {
+			r["tooltip"] = plainText(plainText(location["name"], 244)+" · Weather unavailable · Alerts not supported here", 256)
+		}
 	}
 	if e != nil || forecast == nil {
 		return r
@@ -51,7 +55,10 @@ func Bar(state *safeio.Directory, now time.Time) M {
 	alerts := object(object(selected["forecast"])["alerts"])
 	items, _ := alerts["items"].([]any)
 	alertText := "Alerts unavailable"
-	if alerts["status"] == "available" {
+	if country != nil && country != "US" {
+		alertText = "Alerts not supported here"
+	}
+	if country == "US" && alerts["status"] == "available" {
 		if len(items) > 0 {
 			plural := ""
 			if len(items) != 1 {

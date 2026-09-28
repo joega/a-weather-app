@@ -5,6 +5,10 @@
 #include <QQmlExpression>
 #include <QQmlApplicationEngine>
 #include <QWindow>
+#include <QQuickWindow>
+#include <QQuickItem>
+#include <QFileInfo>
+#include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
 
@@ -79,6 +83,146 @@ private slots:
             QSignalSpy closed(bridge.data(),SIGNAL(closed(int)));QJsonObject event{{"version",1},{"event","service_stopped"},{"ok",ok}};if(!ok)event["error"]="cleanup_failed";deliver(transport,event);
             QCOMPARE(closed.size(),1);QCOMPARE(closed.first().first().toInt(),ok?0:1);QCOMPARE(transport.requests.size(),0);
         }
+    }
+    void searchValidationAndAlertCoverage(){
+        FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());QVERIFY2(bridge,qPrintable(component.errorString()));
+        auto valid=snapshot(1,"São Paulo, São Paulo, Brazil");
+        valid["location_settings"]=QJsonObject{{"mode","place"},{"zip_code",QJsonValue::Null},{"busy",false},{"error",QJsonValue::Null},{"country_code","BR"},{"place",QJsonObject{{"provider","open-meteo"},{"id",3448439}}}};
+        valid["place_search"]=QJsonObject{{"generation",3},{"status","ready"},{"error",QJsonValue::Null},{"results",QJsonArray{QJsonObject{{"id",3448439},{"name","São Paulo"},{"admin1","São Paulo"},{"country","Brazil"},{"country_code","BR"}}}}};
+        valid["alerts"]=QJsonObject{{"status","not_supported_here"},{"source",QJsonValue::Null},{"coverage","unsupported"},{"fetched_at",QJsonValue::Null},{"items",QJsonArray{}}};
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",valid}});
+        QVERIFY(!bridge->property("disconnected").toBool());
+        QCOMPARE(evaluate(engine,bridge.data(),"snapshot.place_search.results[0].name").toString(),QString::fromUtf8("São Paulo"));
+        QCOMPARE(evaluate(engine,bridge.data(),"snapshot.alerts.coverage").toString(),QString("unsupported"));
+        auto invalid=valid;invalid["snapshot_revision"]=2;
+        auto search=invalid["place_search"].toObject();auto rows=search["results"].toArray();auto row=rows.first().toObject();row["name"]="Paris\u202e";rows.replace(0,row);search["results"]=rows;invalid["place_search"]=search;
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",invalid}});
+        QVERIFY(bridge->property("disconnected").toBool());
+        auto rejects=[this](QJsonObject value){
+            FakeTransport local;QQmlEngine localEngine;localEngine.rootContext()->setContextProperty("weatherTransport",&local);
+            QQmlComponent localComponent(&localEngine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> localBridge(localComponent.create());
+            if(!localBridge)return false;
+            deliver(local,{{"version",1},{"event","snapshot"},{"snapshot",value}});
+            return localBridge->property("disconnected").toBool();
+        };
+        auto badSettings=valid;auto settings=badSettings["location_settings"].toObject();settings["unexpected"]=true;badSettings["location_settings"]=settings;
+        QVERIFY(rejects(badSettings));
+        auto duplicate=valid;auto dupSearch=duplicate["place_search"].toObject();auto dupRows=dupSearch["results"].toArray();dupRows.append(dupRows.first());dupSearch["results"]=dupRows;duplicate["place_search"]=dupSearch;
+        QVERIFY(rejects(duplicate));
+        auto badCoverage=valid;badCoverage["alerts"]=QJsonObject{{"status","not_supported_here"},{"source","National Weather Service"},{"coverage","unsupported"},{"fetched_at",QJsonValue::Null},{"items",QJsonArray{}}};
+        QVERIFY(rejects(badCoverage));
+    }
+    void searchQueuePrioritizesStopAndCoalesces(){
+        FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());QVERIFY2(bridge,qPrintable(component.errorString()));
+        emit transport.ready();QCOMPARE(transport.requests.size(),1);
+        QVERIFY(evaluate(engine,bridge.data(),"send('search_places',{query:'Berlin',country_code:'DE',client_token:1})").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"send('search_places',{query:'Paris',country_code:'FR',client_token:2})").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"send('cancel_place_search')").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"send('search_places',{query:'Tokyo',country_code:'JP',client_token:3})").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"send('stop_effects')").toBool());
+        deliver(transport,{{"version",1},{"request_id",0},{"ok",true},{"snapshot",snapshot(1,"Start")}});
+        QCOMPARE(transport.requests.size(),2);QCOMPARE(transport.requests.last()["op"].toString(),QString("stop_effects"));
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
+        QCOMPARE(transport.requests.size(),3);QCOMPARE(transport.requests.last()["op"].toString(),QString("cancel_place_search"));
+        deliver(transport,{{"version",1},{"request_id",2},{"ok",true}});
+        QCOMPARE(transport.requests.size(),4);QCOMPARE(transport.requests.last()["op"].toString(),QString("search_places"));
+        QCOMPARE(transport.requests.last()["search"].toMap()["query"].toString(),QString("Tokyo"));
+        QCOMPARE(transport.requests.last()["search"].toMap()["client_token"].toInt(),3);
+        QVERIFY(!bridge->property("busy").toBool());
+    }
+    void placeSearchDebouncesAndSelectsIssuedGeneration(){
+        QQmlEngine engine;QQmlComponent component(&engine,QUrl("qrc:/ui/qml/PlaceSearch.qml"));QScopedPointer<QObject> picker(component.create());QVERIFY2(picker,qPrintable(component.errorString()));
+        QSignalSpy searches(picker.data(),SIGNAL(searchRequested(QVariant)));QSignalSpy cancels(picker.data(),SIGNAL(cancelRequested()));QSignalSpy selections(picker.data(),SIGNAL(locationRequested(QVariant)));
+        auto *query=picker->findChild<QObject*>("placeQuery");auto *country=picker->findChild<QObject*>("placeCountry");QVERIFY(query);QVERIFY(country);
+        query->setProperty("text","Sao");QTest::qWait(100);query->setProperty("text",QString::fromUtf8("São"));country->setProperty("text","br");
+        QTRY_COMPARE_WITH_TIMEOUT(searches.size(),1,1200);
+        QCOMPARE(searches.first().first().toMap()["query"].toString(),QString::fromUtf8("São"));
+        QCOMPARE(searches.first().first().toMap()["country_code"].toString(),QString("BR"));
+        QCOMPARE(searches.first().first().toMap()["client_token"].toInt(),1);
+        picker->setProperty("search",QVariantMap{{"generation",1},{"client_token",1},{"status","loading"},{"results",QVariantList{}},{"error",QVariant()}});
+        picker->setProperty("search",QVariantMap{{"generation",1},{"client_token",1},{"status","ready"},{"results",QVariantList{QVariantMap{{"id",3448439},{"name",QString::fromUtf8("São Paulo")},{"admin1",QString::fromUtf8("São Paulo")},{"country","Brazil"},{"country_code","BR"}}}},{"error",QVariant()}});
+        QVERIFY(picker->property("showingSearch").toBool());
+        QCOMPARE(picker->property("visibleRows").toList().size(),1);
+        evaluate(engine,picker.data(),"pick(visibleRows[0])");
+        QCOMPARE(selections.size(),1);auto chosen=selections.first().first().toMap();QCOMPARE(chosen["place_id"].toInt(),3448439);QCOMPARE(chosen["search_generation"].toInt(),1);
+        query->setProperty("text","Tokyo");QVERIFY(cancels.size()>0);QVERIFY(!picker->property("showingSearch").toBool());
+        QTRY_COMPARE_WITH_TIMEOUT(searches.size(),2,1200);
+        picker->setProperty("search",QVariantMap{{"generation",2},{"client_token",2},{"status","error"},{"results",QVariantList{}},{"error","offline"}});
+        QVERIFY(picker->property("showingSearch").toBool());
+        QVERIFY(picker->findChild<QObject*>("placeSearchStatus")->property("text").toString().contains("offline"));
+    }
+    void supersededQueryCannotLatchOlderGeneration(){
+        QQmlEngine engine;QQmlComponent component(&engine,QUrl("qrc:/ui/qml/PlaceSearch.qml"));QScopedPointer<QObject> picker(component.create());QVERIFY2(picker,qPrintable(component.errorString()));
+        QSignalSpy searches(picker.data(),SIGNAL(searchRequested(QVariant)));
+        auto *query=picker->findChild<QObject*>("placeQuery");QVERIFY(query);
+        query->setProperty("text","Berlin");QTRY_COMPARE_WITH_TIMEOUT(searches.size(),1,1200);
+        query->setProperty("text","Tokyo");QTRY_COMPARE_WITH_TIMEOUT(searches.size(),2,1200);
+        QCOMPARE(searches.at(0).first().toMap()["client_token"].toInt(),1);
+        QCOMPARE(searches.at(1).first().toMap()["client_token"].toInt(),2);
+        auto oldRows=QVariantList{QVariantMap{{"id",2950159},{"name","Berlin"},{"admin1","Berlin"},{"country","Germany"},{"country_code","DE"}}};
+        picker->setProperty("search",QVariantMap{{"generation",1},{"client_token",1},{"status","loading"},{"results",QVariantList{}},{"error",QVariant()}});
+        QVERIFY(!picker->property("showingSearch").toBool());
+        picker->setProperty("search",QVariantMap{{"generation",1},{"client_token",1},{"status","ready"},{"results",oldRows},{"error",QVariant()}});
+        QVERIFY(!picker->property("showingSearch").toBool());QVERIFY(picker->property("visibleRows").toList().isEmpty());
+        picker->setProperty("search",QVariantMap{{"generation",2},{"client_token",0},{"status","idle"},{"results",QVariantList{}},{"error",QVariant()}});
+        auto newRows=QVariantList{QVariantMap{{"id",1850147},{"name","Tokyo"},{"admin1","Tokyo"},{"country","Japan"},{"country_code","JP"}}};
+        picker->setProperty("search",QVariantMap{{"generation",3},{"client_token",2},{"status","ready"},{"results",newRows},{"error",QVariant()}});
+        QVERIFY(picker->property("showingSearch").toBool());
+        QCOMPARE(picker->property("visibleRows").toList().first().toMap()["name"].toString(),QString("Tokyo"));
+    }
+    void astralLocationAccepted(){
+        FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());QVERIFY2(bridge,qPrintable(component.errorString()));
+        QString astral;for(int i=0;i<120;i++)astral+=QString::fromUtf8("🌍");
+        auto value=snapshot(1,astral+", Region, Country");
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",value}});
+        QVERIFY(!bridge->property("disconnected").toBool());
+        QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),astral+", Region, Country");
+    }
+    void renderSearchScreenshots(){
+        const QString prefix=qEnvironmentVariable("WEATHER_QT_SCREENSHOT_PREFIX");
+        if(prefix.isEmpty())QSKIP("Set WEATHER_QT_SCREENSHOT_PREFIX for private render capture");
+        FakeTransport transport;QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
+        QQuickWindow *window=nullptr;for(auto *candidate:QGuiApplication::allWindows())if(candidate->objectName()=="weatherWindow")window=qobject_cast<QQuickWindow*>(candidate);
+        QVERIFY(window);QTRY_VERIFY(window->isExposed());
+        auto base=snapshot(1,"Berlin, Berlin, Germany");
+        base["alerts"]=QJsonObject{{"status","not_supported_here"},{"source",QJsonValue::Null},{"coverage","unsupported"},{"fetched_at",QJsonValue::Null},{"items",QJsonArray{}}};
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",base}});
+        root->setProperty("effectsOpen",true);
+        auto *query=root->findChild<QObject*>("placeQuery");QVERIFY(query);query->setProperty("text","Berlin");
+        QTRY_VERIFY_WITH_TIMEOUT(!transport.requests.isEmpty(),1200);
+        auto loading=base;loading["snapshot_revision"]=2;loading["place_search"]=QJsonObject{{"generation",1},{"client_token",1},{"status","loading"},{"results",QJsonArray{}},{"error",QJsonValue::Null}};
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",loading}});
+        auto ready=loading;ready["snapshot_revision"]=3;
+        ready["place_search"]=QJsonObject{{"generation",1},{"client_token",1},{"status","ready"},{"results",QJsonArray{QJsonObject{{"id",2950159},{"name","Berlin"},{"admin1","Berlin"},{"country","Germany"},{"country_code","DE"}},QJsonObject{{"id",2988507},{"name","Paris"},{"admin1","Île-de-France"},{"country","France"},{"country_code","FR"}}}},{"error",QJsonValue::Null}};
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",ready}});
+        QTest::qWait(120);
+        QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+        QVERIFY(window->grabWindow().save(prefix+"-results.png"));
+        query->setProperty("text","Tokyo");QTest::qWait(450);
+        auto error=ready;error["snapshot_revision"]=4;error["place_search"]=QJsonObject{{"generation",2},{"client_token",2},{"status","error"},{"results",QJsonArray{}},{"error","offline"}};
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",error}});
+        QTest::qWait(120);QVERIFY(window->grabWindow().save(prefix+"-error.png"));
+        root->setProperty("effectsOpen",false);
+        QTest::qWait(120);QVERIFY(window->grabWindow().save(prefix+"-coverage.png"));
+        root->setProperty("effectsOpen",true);
+        auto *drawer=root->findChild<QObject*>("effectsDrawer");QVERIFY(drawer);QSignalSpy selections(drawer,SIGNAL(locationRequested(QVariant)));
+        query->setProperty("text","Paris");QTest::qWait(450);
+        auto keyboard=ready;keyboard["snapshot_revision"]=5;
+        keyboard["place_search"]=QJsonObject{{"generation",3},{"client_token",3},{"status","ready"},{"results",QJsonArray{QJsonObject{{"id",2988507},{"name","Paris"},{"admin1","Île-de-France"},{"country","France"},{"country_code","FR"}}}},{"error",QJsonValue::Null}};
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",keyboard}});
+        auto *queryItem=qobject_cast<QQuickItem*>(query);QVERIFY(queryItem);queryItem->forceActiveFocus();
+        QTest::keyClick(window,Qt::Key_Down);
+        auto *results=root->findChild<QObject*>("placeResults");QVERIFY(results);
+        QCOMPARE(results->property("currentIndex").toInt(),0);QVERIFY(results->property("activeFocus").toBool());
+        QVERIFY(window->grabWindow().save(prefix+"-keyboard.png"));
+        QTest::keyClick(window,Qt::Key_Return);
+        QCOMPARE(selections.size(),1);
+        QCOMPARE(selections.first().first().toMap()["place_id"].toInt(),2988507);
+        QCOMPARE(selections.first().first().toMap()["search_generation"].toInt(),3);
     }
 };
 QTEST_MAIN(FrontendTest)

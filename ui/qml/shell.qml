@@ -16,7 +16,13 @@ QtObject {
     }
     property bool alertsExpanded:false
     readonly property var activeAlerts:bridge.snapshot&&bridge.snapshot.alerts?bridge.snapshot.alerts.items:[]
-    readonly property bool alertsUnavailable:!bridge.snapshot||!bridge.snapshot.alerts||bridge.snapshot.alerts.status==="unavailable"
+    readonly property string alertsStatusText: {
+        if(!bridge.snapshot||!bridge.snapshot.alerts)return "Alert status unavailable";
+        let a=bridge.snapshot.alerts;
+        if(a.status==="not_supported_here")return "Official alerts are not supported here";
+        if(a.status==="unavailable")return "Alert status unavailable";
+        return a.items.length===0?(a.source==="National Weather Service"?"No active NWS alerts reported":"Alert status unavailable"):"";
+    }
     property var forecast:bridge.snapshot?bridge.snapshot.forecast:null
     property var current:forecast?forecast.current:null
     property var atmosphere:bridge.snapshot?bridge.snapshot.atmosphere:null
@@ -34,7 +40,7 @@ QtObject {
     property string freshness: {
         if(bridge.error)return bridge.error;
         if(bridge.snapshot&&bridge.snapshot.source.refreshing)return "Refreshing live forecast…";
-        if(bridge.snapshot&&bridge.snapshot.location_settings.mode==="default"&&!forecast)return "Choose your current location or a ZIP code in Settings";
+        if(bridge.snapshot&&bridge.snapshot.location_settings.mode==="default"&&!forecast)return "Choose a city, your current location, or a ZIP code in Settings";
         if(!bridge.snapshot||!forecast)return "Live forecast unavailable · Refresh to try again";
         let s=bridge.snapshot.source;
         let age=s.age_seconds===null?"":(s.age_seconds<60?"just now":Math.floor(s.age_seconds/60)+" min ago");
@@ -120,14 +126,14 @@ QtObject {
                     AlertsPanel {
                         id:headerAlerts;visible:root.activeAlerts.length>0&&window.width>=850
                         anchors.right:parent.right;anchors.top:headerActions.bottom;anchors.topMargin:16
-                        width:parent.width*0.49;height:implicitHeight;alerts:root.activeAlerts
+                        width:parent.width*0.49;height:implicitHeight;alerts:root.activeAlerts;source:bridge.snapshot?bridge.snapshot.alerts.source||"":""
                     }
                 }
-                AlertsPanel { Layout.fillWidth:true;visible:root.activeAlerts.length>0&&window.width<850;alerts:root.activeAlerts }
+                AlertsPanel { Layout.fillWidth:true;visible:root.activeAlerts.length>0&&window.width<850;alerts:root.activeAlerts;source:bridge.snapshot?bridge.snapshot.alerts.source||"":"" }
                 RowLayout {
                     Layout.fillWidth:true
                     PlainLabel { Layout.fillWidth:true;text:root.freshness;color:Tokens.secondary;font.pixelSize:13;wrapMode:Text.Wrap;elide:Text.ElideNone }
-                    PlainLabel { visible:root.alertsUnavailable;text:"Alerts unavailable";color:Tokens.secondary;font.pixelSize:12 }
+                    PlainLabel { objectName:"alertCoverageStatus";visible:root.alertsStatusText!=="";text:root.alertsStatusText;color:Tokens.secondary;font.pixelSize:12 }
                     PlainLabel { visible:root.controls.mode==="manual"&&!root.liveDesktop;text:"Manual effects preview · "+Forecast.title(root.controls.manual.condition);font.pixelSize:13;color:Tokens.accent }
                 }
                 PlainLabel { objectName:"forecastOutlook";visible:root.hours.length>0;Layout.fillWidth:true;text:Forecast.outlook(root.hours,root.units);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
@@ -137,7 +143,7 @@ QtObject {
                     DailyPanel { id:daily;Layout.fillWidth:true;Layout.preferredWidth:window.width<950?window.width:window.width*0.54;days:root.days;units:root.units;onDaySelected:day=>details.showDay(day) }
                     MetricsPanel { Layout.fillWidth:true;Layout.preferredWidth:window.width*0.44;Layout.alignment:Qt.AlignTop;current:root.current;day:root.days.length?root.days[0]:null;units:root.units;timezone:root.timezone }
                 }
-                PlainLabel { Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;text:bridge.snapshot?bridge.snapshot.source.attribution+" · Alerts: National Weather Service":"Forecast: Open-Meteo · Alerts: National Weather Service";color:Tokens.secondary;font.pixelSize:11;wrapMode:Text.Wrap;elide:Text.ElideNone }
+                PlainLabel { objectName:"sourceAttribution";Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;text:bridge.snapshot?bridge.snapshot.source.attribution+(bridge.snapshot.alerts.source?" · Alerts: "+bridge.snapshot.alerts.source:""):"Forecast: Open-Meteo";color:Tokens.secondary;font.pixelSize:11;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 Item { Layout.preferredHeight:24 }
             }
         }
@@ -152,6 +158,7 @@ QtObject {
             controls:root.controls;location:root.location;busy:bridge.busy
             forecastAvailable:root.forecast!==null
             locationSettings:bridge.snapshot?bridge.snapshot.location_settings:({mode:"default",zip_code:null,busy:false,error:null})
+            placeSearch:bridge.snapshot?bridge.snapshot.place_search:({generation:0,status:"idle",results:[],error:null})
             setup:bridge.snapshot?bridge.snapshot.effects_setup:({status:"unchecked",reason:"not_checked",outputs:[],selected_output:null})
             notifications:bridge.snapshot?bridge.snapshot.notifications:Forecast.notifications()
             timezone:root.timezone
@@ -174,6 +181,8 @@ QtObject {
             onCloseRequested:root.effectsOpen=false
             onPatch:values=>bridge.send("set_controls",values)
             onLocationRequested:values=>bridge.send("set_location",values)
+            onPlaceSearchRequested:values=>bridge.send("search_places",values)
+            onPlaceSearchCancelRequested:bridge.send("cancel_place_search")
             onStartRequested:bridge.send("start_effects")
             onStopRequested:bridge.send("stop_effects")
             onCheckRequested:bridge.send("check_effects")

@@ -34,12 +34,26 @@ func ValidateSelection(v Object) (Object, error) {
 	if v["mode"] == "auto" && len(v) == 1 {
 		return Object{"mode": "auto", "zip_code": nil}, nil
 	}
+	if v["mode"] == "place" && len(v) == 3 {
+		id, ok := placeInteger(v["place_id"], false)
+		generation, validGeneration := placeInteger(v["search_generation"], true)
+		if ok && validGeneration {
+			return Object{"mode": "place", "place_id": float64(id), "search_generation": float64(generation)}, nil
+		}
+	}
 	return nil, errors.New("invalid location selection")
 }
 func FetchJSON(ctx context.Context, rawURL string) (Object, error) {
 	return fetchJSON(ctx, rawURL, false)
 }
 func fetchJSON(ctx context.Context, rawURL string, local bool) (Object, error) {
+	limit := MaxBytes
+	if local {
+		limit = 16 * 1024
+	}
+	return fetchJSONBound(ctx, rawURL, local, limit)
+}
+func fetchJSONBound(ctx context.Context, rawURL string, local bool, limit int) (Object, error) {
 	u, e := url.Parse(rawURL)
 	if e != nil {
 		return nil, e
@@ -48,7 +62,7 @@ func fetchJSON(ctx context.Context, rawURL string, local bool) (Object, error) {
 	if local {
 		allowed = rawURL == LocalURL
 	}
-	if !allowed || u.Scheme != "https" || u.User != nil || (u.Port() != "" && u.Port() != "443") {
+	if !allowed || u.Scheme != "https" || u.User != nil || u.Opaque != "" || u.Fragment != "" || (u.Port() != "" && u.Port() != "443") || (u.Hostname() == "geocoding-api.open-meteo.com" && u.Path != "/v1/search" && u.Path != "/v1/get") {
 		return nil, errors.New("unsupported weather endpoint")
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -71,10 +85,6 @@ func fetchJSON(ctx context.Context, rawURL string, local bool) (Object, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("weather HTTP status %d", resp.StatusCode)
 	}
-	limit := MaxBytes
-	if local {
-		limit = 16 * 1024
-	}
 	raw, e := io.ReadAll(io.LimitReader(resp.Body, int64(limit+1)))
 	if e != nil {
 		return nil, e
@@ -91,6 +101,12 @@ func fetchJSON(ctx context.Context, rawURL string, local bool) (Object, error) {
 	return value, nil
 }
 func Fetch(ctx context.Context, location Object, now time.Time) (Object, error) {
+	return FetchForCountry(ctx, location, now, "")
+}
+func FetchForCountry(ctx context.Context, location Object, now time.Time, countryCode string) (Object, error) {
+	if countryCode != "" && !countryCodePattern.MatchString(countryCode) {
+		return nil, errors.New("invalid country code")
+	}
 	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
 	if now.IsZero() {
@@ -108,6 +124,14 @@ func Fetch(ctx context.Context, location Object, now time.Time) (Object, error) 
 	if e != nil {
 		return nil, e
 	}
+	if countryCode != "US" {
+		status, coverage := "not_supported_here", "unsupported"
+		if countryCode == "" {
+			status, coverage = "unavailable", "unknown"
+		}
+		s["alerts"] = Object{"status": status, "items": []any{}, "fetched_at": nil, "source": nil, "coverage": coverage}
+		return s, ValidateSnapshot(s, obj(s["location"]))
+	}
 	q := url.Values{"point": {fmt.Sprint(location["latitude"]) + "," + fmt.Sprint(location["longitude"])}}
 	p, e = FetchJSON(ctx, "https://api.weather.gov/alerts/active?"+q.Encode())
 	var items []any
@@ -118,9 +142,9 @@ func Fetch(ctx context.Context, location Object, now time.Time) (Object, error) 
 		return nil, ctx.Err()
 	}
 	if e != nil {
-		s["alerts"] = Object{"status": "unavailable", "items": []any{}, "fetched_at": nil, "error": "alert_feed_failed"}
+		s["alerts"] = Object{"status": "unavailable", "items": []any{}, "fetched_at": nil, "source": "National Weather Service", "coverage": "US", "error": "alert_feed_failed"}
 	} else {
-		s["alerts"] = Object{"status": "available", "items": items, "fetched_at": stamp(now), "source": "National Weather Service"}
+		s["alerts"] = Object{"status": "available", "items": items, "fetched_at": stamp(now), "source": "National Weather Service", "coverage": "US"}
 	}
 	if e = ValidateSnapshot(s, obj(s["location"])); e != nil {
 		return nil, e
@@ -237,18 +261,32 @@ var states = func() map[string]string {
 }()
 
 func Resolve(ctx context.Context, selection Object) (Object, error) {
+	r, e := ResolveSelection(ctx, selection)
+	if e != nil {
+		return nil, e
+	}
+	return obj(r["location"]), nil
+}
+func ResolveSelection(ctx context.Context, selection Object) (Object, error) {
 	s, e := ValidateSelection(selection)
 	if e != nil {
 		return nil, e
 	}
 	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
+	if s["mode"] == "place" {
+		return resolvePlace(ctx, s["place_id"])
+	}
 	if s["mode"] == "auto" {
 		p, e := fetchJSON(ctx, LocalURL, true)
 		if e != nil {
 			return nil, locError("lookup_failed")
 		}
-		return ParseLocalLocation(p)
+		l, e := ParseLocalLocation(p)
+		if e != nil {
+			return nil, e
+		}
+		return Object{"location": l, "country_code": p["country_code"], "place": nil}, nil
 	}
 	z := s["zip_code"].(string)
 	q := url.Values{"name": {z}, "countryCode": {"US"}, "count": {"10"}, "language": {"en"}, "format": {"json"}}
@@ -256,7 +294,11 @@ func Resolve(ctx context.Context, selection Object) (Object, error) {
 	if e != nil {
 		return nil, locError("lookup_failed")
 	}
-	return ParseZIP(p, z)
+	l, e := ParseZIP(p, z)
+	if e != nil {
+		return nil, e
+	}
+	return Object{"location": l, "country_code": "US", "place": nil}, nil
 }
 func ParseZIP(p Object, zip string) (Object, error) {
 	if _, e := ValidateSelection(Object{"mode": "zip", "zip_code": zip}); e != nil {

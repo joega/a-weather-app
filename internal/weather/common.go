@@ -251,11 +251,32 @@ func ValidateSnapshot(s, location Object) error {
 		}
 	}
 	a := obj(s["alerts"])
-	if a == nil || (a["status"] != "available" && a["status"] != "unavailable") {
+	if a == nil || (a["status"] != "available" && a["status"] != "unavailable" && a["status"] != "not_supported_here") {
 		return errors.New("invalid alerts")
 	}
+	if coverage, present := a["coverage"]; present {
+		if coverage != "US" && coverage != "unknown" && coverage != "unsupported" {
+			return errors.New("invalid alert coverage")
+		}
+		if coverage == "unsupported" && a["status"] != "not_supported_here" || coverage == "unknown" && a["status"] != "unavailable" || coverage == "US" && a["status"] == "not_supported_here" {
+			return errors.New("inconsistent alert coverage")
+		}
+	}
+	if source, present := a["source"]; present && source != nil {
+		if source != "National Weather Service" || a["coverage"] == "unknown" || a["coverage"] == "unsupported" {
+			return errors.New("invalid alert source")
+		}
+	}
+	if a["status"] == "not_supported_here" && a["source"] != nil {
+		return errors.New("unsupported alert source")
+	}
+	if fetched, present := a["fetched_at"]; present && fetched != nil {
+		if _, e := Instant(fetched); e != nil {
+			return e
+		}
+	}
 	rows, ok := a["items"].([]any)
-	if !ok || len(rows) > 256 {
+	if !ok || len(rows) > 256 || a["status"] != "available" && len(rows) != 0 {
 		return errors.New("invalid alerts")
 	}
 	for _, v := range rows {

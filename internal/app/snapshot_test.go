@@ -48,7 +48,12 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 				t.Fatal(e)
 			}
 			before := safeio.Clone(f)
-			a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", launcherStatus: "ready"}
+			a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
+			a.search.init()
+			a.search.status = "ready"
+			for i := 0; i < 10; i++ {
+				a.search.rows = append(a.search.rows, M{"id": float64(i + 1), "name": strings.Repeat("🌧", 120), "admin1": strings.Repeat("🌧", 244), "country": strings.Repeat("🌧", 120), "country_code": "DE"})
+			}
 			snapshot := a.snapshot()
 			raw, e := json.Marshal(snapshot)
 			if e != nil || len(raw) > snapshotByteLimit {
@@ -64,6 +69,9 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			}
 			if len(snapshot["hourly"].([]any)) != 240 || len(snapshot["daily"].([]any)) != 10 {
 				t.Fatal("forecast records discarded to reduce message size")
+			}
+			if len(object(snapshot["place_search"])["results"].([]any)) != 10 {
+				t.Fatal("place results lost at maximum forecast size")
 			}
 			display := object(snapshot["alerts"])["items"].([]any)
 			if len(display) != 8 {
@@ -97,7 +105,7 @@ func TestSnapshotIgnoresUnrecognizedPreviewFields(t *testing.T) {
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 	f := appFixture(now)
 	object(f["current"])["ignored_provider_field"] = strings.Repeat("🌧", ipc.ResponseLimit)
-	a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", launcherStatus: "ready"}
+	a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
 	snapshot := a.snapshot()
 	if _, exists := object(object(snapshot["preview"])["current"])["ignored_provider_field"]; exists {
 		t.Fatal("ignored provider data escaped through display preview")
@@ -125,7 +133,7 @@ func TestSnapshotDSTLabelsAndLivePreview(t *testing.T) {
 	f := appFixture(now)
 	f["hourly"] = []any{M{"time": "2026-11-01T04:00:00Z", "condition": "clear"}, M{"time": "2026-11-01T05:00:00Z", "condition": "clear"}, M{"time": "2026-11-01T06:00:00Z", "condition": "rain"}}
 	f["daily"] = []any{M{"date": "2026-11-01", "condition": "clear", "high_c": 20.0, "low_c": 10.0, "sunrise": "2026-11-01T11:25:00Z", "sunset": nil}, M{"date": "2026-11-02", "condition": "rain"}}
-	a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", launcherStatus: "ready"}
+	a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
 	a.controls["mode"] = "manual"
 	a.controls["manual"] = M{"condition": "snow"}
 	before := safeio.Clone(f)
@@ -163,7 +171,7 @@ func TestSnapshotRanksBeforeCapAndSanitizes(t *testing.T) {
 	}
 	items = append(items, M{"event": "<Warning>", "severity": "Extreme", "urgency": "Immediate", "effective": "2026-09-27T11:00:00Z", "expires": "2026-09-27T13:00:00Z"})
 	object(f["alerts"])["items"] = items
-	a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", launcherStatus: "ready"}
+	a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
 	rows := object(a.snapshot()["alerts"])["items"].([]any)
 	if len(rows) != 8 || object(rows[0])["event"] != "Warning" {
 		t.Fatal("severity warning hidden by display cap", rows)

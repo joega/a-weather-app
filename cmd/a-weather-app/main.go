@@ -399,5 +399,11 @@ func prepareLocation(state *safeio.Directory, zip, demo string) error {
 			return e
 		}
 	}
-	return state.Write("location.json", loc, 8192)
+	if e = state.Write("location.json", loc, 8192); e != nil {
+		return e
+	}
+	if zip != "" {
+		return app.SaveZIPIdentity(state, zip, loc)
+	}
+	return nil
 }

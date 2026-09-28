@@ -1,9 +1,43 @@
 .pragma library
 const conditions = ["clear","partly_cloudy","cloudy","fog","drizzle","rain","snow","sleet","thunderstorm","unknown"];
 function object(v) { return v !== null && typeof v === "object" && !Array.isArray(v); }
-function string(v,n,multiline) { if(typeof v!=="string" || v.length>n || (multiline ? /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/ : /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/).test(v)) throw Error("Invalid text"); return v; }
+function codepoints(v) {
+    let count=0;
+    for(let i=0;i<v.length;i++) {
+        let c=v.charCodeAt(i);
+        if(c>=0xd800&&c<=0xdbff) {
+            if(i+1>=v.length||v.charCodeAt(i+1)<0xdc00||v.charCodeAt(i+1)>0xdfff)throw Error("Invalid surrogate");
+            i++;
+        } else if(c>=0xdc00&&c<=0xdfff)throw Error("Invalid surrogate");
+        count++;
+    }
+    return count;
+}
+function string(v,n,multiline) { if(typeof v!=="string" || codepoints(v)>n || (multiline ? /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/ : /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/).test(v)) throw Error("Invalid text"); return v; }
 function number(v,lo,hi) { if(typeof v!=="number" || !isFinite(v) || v<lo || v>hi) throw Error("Invalid number"); return v; }
 function optional(v,lo,hi) { return v===null || v===undefined ? null : number(v,lo,hi); }
+function integer(v,lo,hi) { number(v,lo,hi); if(!Number.isSafeInteger(v))throw Error("Invalid integer"); return v; }
+function countryCode(v) { if(v===null||v===undefined)return null; if(typeof v!=="string"||!/^[A-Z]{2}$/.test(v))throw Error("Invalid country code"); return v; }
+function placeSearch(v) {
+    if(v===undefined)return {generation:0,client_token:0,status:"idle",results:[],error:null};
+    if(!object(v)||Object.keys(v).length<4||Object.keys(v).length>5||Object.keys(v).some(k=>["generation","client_token","status","results","error"].indexOf(k)<0)||["generation","status","results","error"].some(k=>!Object.prototype.hasOwnProperty.call(v,k))||["idle","loading","ready","error"].indexOf(v.status)<0||!Array.isArray(v.results)||v.results.length>10)throw Error("Invalid place search");
+    let token=v.client_token===undefined?0:integer(v.client_token,0,2147483647);
+    let generation=integer(v.generation,0,2147483647),ids=[],results=[];
+    for(let row of v.results) {
+        if(!object(row)||Object.keys(row).length!==5)throw Error("Invalid place result");
+        let id=integer(row.id,1,2147483647);
+        if(ids.indexOf(id)>=0)throw Error("Duplicate place result");
+        ids.push(id);
+        let name=string(row.name,244),admin1=string(row.admin1,244),country=string(row.country,244),code=countryCode(row.country_code);
+        if(!name||!country||code===null)throw Error("Incomplete place result");
+        results.push({id:id,name:name,admin1:admin1,country:country,country_code:code});
+    }
+    let error=v.error;
+    if(error!==null&&["lookup_failed","timeout","offline"].indexOf(error)<0)throw Error("Invalid place search error");
+    if((v.status==="error")!==(error!==null)||(v.status!=="ready"&&results.length>0))throw Error("Invalid place search state");
+    if(v.status==="idle"&&token!==0)throw Error("Invalid idle search token");
+    return {generation:generation,client_token:token,status:v.status,results:results,error:error};
+}
 function time(v) { string(v,40); if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/.test(v)||!isFinite(Date.parse(v))) throw Error("Invalid time"); return v; }
 function boundedTree(value) {
     let stack=[{value:value,depth:0}],count=0;
@@ -76,7 +110,15 @@ function notifications(v) {
 }
 function snapshot(v) {
     if(!object(v)||v.schema_version!==1||!object(v.controls)||!object(v.alerts)||!object(v.source)||!object(v.location)) throw Error("Invalid snapshot");
-    if(!Array.isArray(v.alerts.items)||v.alerts.items.length>8||["available","unavailable"].indexOf(v.alerts.status)<0)throw Error("Invalid alerts");
+    if(!Array.isArray(v.alerts.items)||v.alerts.items.length>8||["available","unavailable","not_supported_here"].indexOf(v.alerts.status)<0)throw Error("Invalid alerts");
+    let alertSource=v.alerts.source===undefined||v.alerts.source===null?null:string(v.alerts.source,80);
+    let coverage=v.alerts.coverage===undefined?"unknown":v.alerts.coverage;
+    if(["US","unknown","unsupported"].indexOf(coverage)<0||
+       (alertSource!==null&&alertSource!=="National Weather Service")||
+       (alertSource!==null&&coverage!=="US")||
+       (v.alerts.status==="not_supported_here"&&coverage!=="unsupported")||
+       (coverage==="unsupported"&&v.alerts.status!=="not_supported_here"))throw Error("Invalid alert coverage");
+    let alertsFetchedAt=v.alerts.fetched_at===undefined||v.alerts.fetched_at===null?null:time(v.alerts.fetched_at);
     let controls={};
     for(let k of ["reduced_motion","lightning_enabled","window_physics","accumulation","pause_fullscreen"]) { if(typeof v.controls[k]!=="boolean")throw Error("Invalid control");controls[k]=v.controls[k] }
     if([15,30,60].indexOf(v.controls.fps)<0||["live","manual"].indexOf(v.controls.mode)<0||["subtle","normal","immersive"].indexOf(v.controls.strength)<0||!object(v.controls.manual))throw Error("Invalid controls");
@@ -97,14 +139,21 @@ function snapshot(v) {
     const remaining=v.effect_status.remaining_seconds===undefined?0:number(v.effect_status.remaining_seconds,0,300);
     if(v.effect_status.persistent!==undefined&&typeof v.effect_status.persistent!=="boolean")throw Error("Invalid persistent effects state");
     if(typeof v.source.refreshing!=="boolean")throw Error("Invalid refresh status");
-    let settings={mode:"default",zip_code:null,busy:false,error:null};
+    let settings={mode:"default",zip_code:null,busy:false,error:null,country_code:null,place:null};
     if(v.location_settings!==undefined) {
         let s=v.location_settings;
-        if(!object(s)||Object.keys(s).length!==4||["default","custom","zip","auto"].indexOf(s.mode)<0||typeof s.busy!=="boolean"||(s.zip_code!==null&&(typeof s.zip_code!=="string"||!/^[0-9]{5}$/.test(s.zip_code)))||(s.mode==="zip")!==(s.zip_code!==null)||(s.error!==null&&["lookup_failed","zip_not_found","zip_ambiguous","timeout","state_io_failed","save_unconfirmed"].indexOf(s.error)<0))throw Error("Invalid location settings");
-        settings={mode:s.mode,zip_code:s.zip_code,busy:s.busy,error:s.error};
+        let settingKeys=Object.keys(s);
+        if(!object(s)||settingKeys.length<4||settingKeys.length>6||settingKeys.some(k=>["mode","zip_code","busy","error","country_code","place"].indexOf(k)<0)||["mode","zip_code","busy","error"].some(k=>!Object.prototype.hasOwnProperty.call(s,k))||["default","custom","zip","auto","place"].indexOf(s.mode)<0||typeof s.busy!=="boolean"||(s.zip_code!==null&&(typeof s.zip_code!=="string"||!/^[0-9]{5}$/.test(s.zip_code)))||(s.mode==="zip")!==(s.zip_code!==null)||(s.error!==null&&["lookup_failed","zip_not_found","zip_ambiguous","timeout","state_io_failed","save_unconfirmed","place_not_found","stale_selection"].indexOf(s.error)<0))throw Error("Invalid location settings");
+        let place=null;
+        if(s.place!==undefined&&s.place!==null) {
+            if(!object(s.place)||Object.keys(s.place).length!==2||s.place.provider!=="open-meteo")throw Error("Invalid place identity");
+            place={provider:s.place.provider,id:integer(s.place.id,1,2147483647)};
+        }
+        if((s.mode==="place")!==(place!==null))throw Error("Invalid place mode");
+        settings={mode:s.mode,zip_code:s.zip_code,busy:s.busy,error:s.error,country_code:countryCode(s.country_code),place:place};
     }
     if(v.launcher_status!==undefined&&["ready","installed","conflict","failed","unsupported_path"].indexOf(v.launcher_status)<0)throw Error("Invalid launcher status");
-    return {launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
+    return {launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,place_search:placeSearch(v.place_search),effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts,source:alertSource,coverage:coverage,fetched_at:alertsFetchedAt},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
 }
 function temp(v,units) { return v===null||v===undefined ? "—" : Math.round(units==="F" ? v*9/5+32:v)+"°"; }
 function title(v) { return ({clear:"Clear",partly_cloudy:"Partly cloudy",cloudy:"Cloudy",fog:"Fog",drizzle:"Drizzle",rain:"Rain",snow:"Snow",sleet:"Sleet",thunderstorm:"Thunderstorm",unknown:"Unavailable"})[v] || "Unavailable"; }

@@ -4,6 +4,7 @@ GlassPanel {
     id: root
     objectName: "alertsPanel"
     property var alerts: []
+    property string source: ""
     property string expandedId: ""
     implicitHeight: Math.min(290, body.implicitHeight + 32)
     function key(alert) { return alert.id || alert.event+"|"+alert.expires }
@@ -75,7 +76,7 @@ GlassPanel {
                     PlainLabel {
                         objectName:"alertShortened_"+entry.index
                         visible:entry.expanded&&modelData.text_truncated===true;width:parent.width
-                        text:"This alert text has been shortened. Read the complete warning and instructions from the National Weather Service."
+                        text:root.source==="National Weather Service"?"This alert text has been shortened. Read the complete warning and instructions from the National Weather Service.":"This alert text has been shortened. Check the official alert source for complete details."
                         wrapMode:Text.Wrap;elide:Text.ElideNone;font.pixelSize:13;color:Tokens.gold
                     }
                     PlainLabel {
@@ -86,14 +87,14 @@ GlassPanel {
                     }
                     PlainLabel {
                         visible:entry.expanded;width:parent.width
-                        text: modelData.description+"\nSource: National Weather Service"
+                        text: modelData.description+(root.source?"\nSource: "+root.source:"")
                         wrapMode: Text.Wrap; elide: Text.ElideNone
                         color: Tokens.secondary; font.pixelSize: 14
                     }
                     ActionButton {
                         id:officialSource
                         objectName:"alertOfficialSource_"+entry.index
-                        visible:entry.expanded
+                        visible:entry.expanded&&root.source==="National Weather Service"
                         text:"Open official NWS alerts"
                         onActiveFocusChanged:if(activeFocus)viewport.reveal(officialSource)
                         onClicked:Qt.openUrlExternally("https://www.weather.gov/alerts")

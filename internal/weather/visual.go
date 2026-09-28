@@ -161,7 +161,9 @@ func Select(snapshot Object, now time.Time, mode string, manual Object, strength
 		}
 		f, e := Instant(alerts["fetched_at"])
 		age := now.Sub(f).Seconds()
-		if e != nil || age < 0 || age > StaleSeconds {
+		if alerts["status"] == "not_supported_here" {
+			alerts["items"] = []any{}
+		} else if e != nil || age < 0 || age > StaleSeconds {
 			alerts["status"] = "unavailable"
 			alerts["items"] = []any{}
 		} else {

@@ -64,3 +64,27 @@ func TestBarProfileAndLegacyBoundaries(t *testing.T) {
 		t.Fatal("nil state")
 	}
 }
+
+func TestBarCoverageDoesNotTrustLegacyAllClear(t *testing.T) {
+	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+	for _, country := range []any{nil, "DE", "US"} {
+		t.Run(stringOf(country), func(t *testing.T) {
+			d := testState(t)
+			f := appFixture(now)
+			profile := M{"schema_version": 2.0, "mode": "custom", "zip_code": nil, "country_code": country, "place": nil, "location": weather.DefaultLocation(), "forecast": f}
+			if err := d.Write("location-profile.json", profile, weather.MaxBytes); err != nil {
+				t.Fatal(err)
+			}
+			expected := "Alerts unavailable"
+			if country == "DE" {
+				expected = "Alerts not supported here"
+			}
+			if country == "US" {
+				expected = "No active alerts in cached feed"
+			}
+			if Bar(d, now)["tooltip"] != "New York, NY · Clear · "+expected {
+				t.Fatal("bar misrepresented country coverage", Bar(d, now))
+			}
+		})
+	}
+}
