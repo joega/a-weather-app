@@ -22,6 +22,7 @@ Item {
     property bool stopQueued:false
     property string queuedUserOp:""
     property var queuedUserPatch:null
+    property string queuedMapOp:""
     property var queuedSearch:null
     property bool cancelSearchQueued:false
     property bool busy:closing||disconnected||stopQueued||queuedUserOp!==""||(pending>=0&&["snapshot","subscribe","search_places","cancel_place_search"].indexOf(pendingOp)<0)
@@ -32,6 +33,7 @@ Item {
         if(!weatherTransport.connected||disconnected) {if(op!=="snapshot")error="Weather service is unavailable for this action";return false}
         if(pending>=0) {
             if(op==="snapshot")return false;
+            if(op==="map_open"||op==="map_close") {queuedMapOp=op===pendingOp?"":op;return true}
             if(op==="cancel_place_search") { queuedSearch=null;cancelSearchQueued=true;return true }
             if(op==="search_places") { queuedSearch={query:patch.query,country_code:patch.country_code,client_token:patch.client_token};return true }
             if(op==="stop_effects") {
@@ -58,6 +60,7 @@ Item {
     function drainUserAction() {
         if(closing) {if(pending<0)send("quit");return}
         if(stopQueued) {stopQueued=false;send("stop_effects");return}
+        if(queuedMapOp!=="") {let op=queuedMapOp;queuedMapOp="";send(op);return}
         if(queuedUserOp!=="") {
             let op=queuedUserOp,patch=queuedUserPatch;queuedUserOp="";queuedUserPatch=null;send(op,patch);
             return;
@@ -68,7 +71,7 @@ Item {
     function fail(message) {
         if(diagnostic)console.log("Weather service bridge failed:",message);
         shutdownFailed=true;disconnected=true;error=message;pending=-1;
-        queuedUserOp="";queuedUserPatch=null;queuedSearch=null;cancelSearchQueued=false;stopQueued=false;deadline.stop();
+        queuedUserOp="";queuedUserPatch=null;queuedMapOp="";queuedSearch=null;cancelSearchQueued=false;stopQueued=false;deadline.stop();
         weatherTransport.disconnectService();if(closing)closed(1);
     }
     function applySnapshot(raw) {
@@ -106,7 +109,7 @@ Item {
     }
     function shutdown() {
         if(closing)return;closing=true;error="Closing weather app…";
-        stopQueued=false;queuedUserOp="";queuedUserPatch=null;queuedSearch=null;cancelSearchQueued=false;
+        stopQueued=false;queuedUserOp="";queuedUserPatch=null;queuedMapOp="";queuedSearch=null;cancelSearchQueued=false;
         if(!weatherTransport.connected||disconnected){closed(shutdownFailed||disconnected?1:0);return}
         closeTimer.restart();if(pending<0)send("quit");
     }
@@ -116,7 +119,7 @@ Item {
         function onMessage(json){root.accept(JSON.parse(json))}
         function onShutdownRequested(){root.shutdown()}
         function onUnavailable(message){
-            root.disconnected=true;root.pending=-1;root.queuedUserOp="";root.queuedUserPatch=null;root.queuedSearch=null;root.cancelSearchQueued=false;root.stopQueued=false;deadline.stop();
+            root.disconnected=true;root.pending=-1;root.queuedUserOp="";root.queuedUserPatch=null;root.queuedMapOp="";root.queuedSearch=null;root.cancelSearchQueued=false;root.stopQueued=false;deadline.stop();
             if(root.closing) {closeTimer.stop();root.closed(root.shutdownFailed||!root.quitAcknowledged?1:0)}
             else root.error=message;
         }

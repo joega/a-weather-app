@@ -142,6 +142,29 @@ private slots:
         QCOMPARE(evaluate(engine,panel,"mapY(40.8)<mapY(40.7)").toBool(),true);
         root->setProperty("mapOpen",false);QTRY_VERIFY(tiles.closes>0);
     }
+    void mapRapidToggleKeepsLatestIntent(){
+        FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());QVERIFY2(bridge,qPrintable(component.errorString()));
+        QVERIFY(evaluate(engine,bridge.data(),"openMap()").toBool());
+        QCOMPARE(transport.requests.size(),1);QCOMPARE(transport.requests.last()["op"].toString(),QString("map_open"));
+        QVERIFY(evaluate(engine,bridge.data(),"closeMap()").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"openMap()").toBool());
+        QCOMPARE(transport.requests.size(),1);
+        deliver(transport,{{"version",1},{"request_id",0},{"ok",true}});
+        QCOMPARE(transport.requests.size(),1);QVERIFY(bridge->property("mapWanted").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"closeMap()").toBool());
+        QCOMPARE(transport.requests.size(),2);QCOMPARE(transport.requests.last()["op"].toString(),QString("map_close"));
+        QVERIFY(evaluate(engine,bridge.data(),"openMap()").toBool());
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
+        QCOMPARE(transport.requests.size(),3);QCOMPARE(transport.requests.last()["op"].toString(),QString("map_open"));
+        QVERIFY(evaluate(engine,bridge.data(),"closeMap()").toBool());
+        deliver(transport,{{"version",1},{"request_id",2},{"ok",true}});
+        QCOMPARE(transport.requests.size(),4);QCOMPARE(transport.requests.last()["op"].toString(),QString("map_close"));
+        deliver(transport,{{"version",1},{"request_id",3},{"ok",true}});
+        QCOMPARE(bridge->property("pending").toInt(),-1);QVERIFY(!bridge->property("mapWanted").toBool());
+        QCOMPARE(evaluate(engine,bridge.data(),"weatherMap.status").toString(),QString("closed"));
+        QVERIFY(!bridge->property("disconnected").toBool());
+    }
     void applicationWindowMaps(){
         FakeTransport transport;QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);
