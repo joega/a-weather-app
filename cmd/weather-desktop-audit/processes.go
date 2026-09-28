@@ -25,6 +25,49 @@ type processIdentity struct {
 }
 
 func inspectProcess(pid int) (processIdentity, error) {
+	return inspectProcessWith(pid, readProcessMetadata, readProcessCommand)
+}
+
+func processExited(p processIdentity) bool { return p.State == "Z" || p.State == "X" }
+
+func sameProcessMetadata(a, b processIdentity) bool {
+	return a.PID == b.PID && a.Parent == b.Parent && a.StartTime == b.StartTime && a.UID == b.UID
+}
+
+func inspectProcessWith(pid int, metadata func(int) (processIdentity, error), command func(int) (string, []string, error)) (processIdentity, error) {
+	before, e := metadata(pid)
+	if e != nil || processExited(before) {
+		return before, e
+	}
+	executable, arguments, commandErr := command(pid)
+	if commandErr != nil && !os.IsPermission(commandErr) {
+		return before, commandErr
+	}
+	// A child can exit between /proc/stat and /proc/exe. Permission denial
+	// alone is not evidence of exit: confirm disappearance or the same process
+	// generation becoming a zombie/dead process. Live or changed identities
+	// remain errors. Recheck successful reads too, to avoid mixing generations.
+	after, e := metadata(pid)
+	if os.IsNotExist(e) {
+		return after, e
+	}
+	if e != nil {
+		return before, errors.Join(commandErr, e)
+	}
+	if !sameProcessMetadata(before, after) {
+		return before, errors.Join(commandErr, errors.New("process identity changed during inspection"))
+	}
+	if commandErr != nil {
+		if processExited(after) {
+			return after, nil
+		}
+		return before, commandErr
+	}
+	after.Executable, after.Arguments = executable, arguments
+	return after, nil
+}
+
+func readProcessMetadata(pid int) (processIdentity, error) {
 	result := processIdentity{PID: pid}
 	if pid < 1 || pid > 2147483647 {
 		return result, errors.New("invalid process identity")
@@ -56,19 +99,21 @@ func inspectProcess(pid int) (processIdentity, error) {
 	if e != nil {
 		return result, e
 	}
-	if result.State == "Z" {
-		return result, nil
-	}
-	result.Executable, e = filepath.EvalSymlinks(base + "/exe")
-	if e != nil {
-		return result, e
-	}
-	raw, e = safeio.ReadFile(base+"/cmdline", 8192)
-	if e != nil {
-		return result, e
-	}
-	result.Arguments = strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00")
 	return result, nil
+}
+
+func readProcessCommand(pid int) (string, []string, error) {
+	base := fmt.Sprintf("/proc/%d", pid)
+	executable, e := filepath.EvalSymlinks(base + "/exe")
+	if e != nil {
+		return "", nil, e
+	}
+	raw, e := safeio.ReadFile(base+"/cmdline", 8192)
+	if e != nil {
+		return "", nil, e
+	}
+	arguments := strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00")
+	return executable, arguments, nil
 }
 
 func hasPair(args []string, flag, value string) bool {
@@ -202,7 +247,7 @@ func (a *audit) verifyGoneExcept(exceptPID int) error {
 			failures = append(failures, e)
 			continue
 		}
-		if after.StartTime == before.StartTime && after.State != "Z" {
+		if after.StartTime == before.StartTime && !processExited(after) {
 			failures = append(failures, fmt.Errorf("owned process remains: pid=%d starttime=%s", before.PID, before.StartTime))
 		}
 	}
