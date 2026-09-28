@@ -512,14 +512,21 @@ func TestCLIEndToEnd(t *testing.T) {
 		l.SetUnlinkOnClose(false)
 		os.Chmod(c.socket, 0600)
 		l.Close()
-		stale, _ := os.Lstat(c.socket)
+		// Confirm that the pathname is stale before starting the launcher.
+		// Comparing inode numbers after replacement is unreliable on overlayfs:
+		// unlinking the stale socket can immediately recycle its inode.
+		conn, dialErr := net.DialTimeout("unix", c.socket, 100*time.Millisecond)
+		if conn != nil {
+			conn.Close()
+		}
+		if !errors.Is(dialErr, syscall.ECONNREFUSED) {
+			t.Fatalf("expected a stale socket, got %v", dialErr)
+		}
 		p := c.start(t, "--toggle-window", "--headless", "--offline", "--duration", "1")
+		// A stale socket cannot answer the snapshot request; readiness proves
+		// that the service replaced it and is accepting connections.
 		c.ready(t, p)
 		guardian, service := c.tree(t, p)
-		current, _ := os.Lstat(c.socket)
-		if os.SameFile(stale, current) {
-			t.Fatal("trusted stale socket not replaced under service lock")
-		}
 		waitProcess(t, p, true)
 		c.clean(t, guardian, service)
 		assertPrivateOutput(t, c, p.stdout.String(), p.stderr.String())
