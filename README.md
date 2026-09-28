@@ -40,6 +40,7 @@ Each release has a versioned `a-weather-app-v0.MINOR.0-linux-x86_64.tar`, a
 Check the archive against `SHA256SUMS` before extracting it. Releases begin at
 `v0.50.0`; each successful build of a new main commit advances the minor version
 (`v0.51.0`, `v0.52.0`, and so on). The release marked **Latest** is the one to download.
+Run `sha256sum --check SHA256SUMS` beside the downloaded archive to verify it.
 
 To build the same package locally in an isolated container:
 
