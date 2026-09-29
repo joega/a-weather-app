@@ -43,8 +43,10 @@ bash "$HOME/.config/omarchy/plugins/a-weather-app.weather/scripts/install_releas
 ```
 
 The widget shows **Install weather app** until the runtime is present. The setup
-script downloads the [Latest GitHub release](https://github.com/joega/a-weather-app/releases/latest),
-checks its SHA-256 checksum and runtime metadata, and installs it under
+script downloads the exact release recorded in
+[`packaging/release-lock.json`](packaging/release-lock.json), checks the archive
+against the SHA-256 digest committed with the plugin and verifies its runtime
+metadata, then installs it under
 `$XDG_DATA_HOME/a-weather-app` (or `~/.local/share/a-weather-app`). It needs
 `curl`, `jq`, `tar`, `sha256sum`, and `flock`, and runs without administrator privileges.
 It does not install packages, change shell configuration, or start desktop effects.
@@ -52,23 +54,27 @@ The native window uses Omarchy's Qt 6, GTK4, gtk4-layer-shell, JSON-GLib,
 libepoxy, Mesa, and Hyprland libraries; notifications use `notify-send`.
 
 To update, stop desktop effects and quit the app, then run
-`omarchy plugin update a-weather-app.weather` and rerun the setup script. It keeps
-previous runtime versions for rollback. You can select a known release with
-`bash scripts/install_release_runtime.sh --version v0.51.0` from the plugin
-directory. The plugin checkout stays unmodified, so Omarchy can fast-forward it.
+`omarchy plugin update a-weather-app.weather` and rerun the setup script. Each
+plugin update carries the exact version and digest of its supported runtime.
+The installer keeps previous runtime versions for rollback. The plugin checkout
+stays unmodified, so Omarchy can fast-forward it.
 
 ## Build and install manually
 
-The native package targets **x86_64 Omarchy**. Download the newest version from
-[GitHub Releases (Latest)](https://github.com/joega/a-weather-app/releases/latest).
+The native package targets **x86_64 Omarchy**. Download the version named in
+[`packaging/release-lock.json`](packaging/release-lock.json) from
+[GitHub Releases](https://github.com/joega/a-weather-app/releases).
 Each release has a versioned `a-weather-app-v0.MINOR.PATCH-linux-x86_64.tar`, a
 `SHA256SUMS` file, and `go-runtime.json` with the source commit and build details.
-Check the archive against `SHA256SUMS` before extracting it. Releases begin at
+Check the archive against both the committed digest and `SHA256SUMS` before
+extracting it. Releases begin at
 `v0.50.0`; each successful build of a new main commit advances the patch version
 (`v0.51.1`, `v0.51.2`, and so on). A feature release starts a new minor series
 by changing `packaging/release-series.txt` (for example, `0.52` produces `v0.52.0`).
-The release marked **Latest** is the one to download.
-Run `sha256sum --check SHA256SUMS` beside the downloaded archive to verify it.
+The release marked **Latest** normally matches the plugin's pinned version;
+the pin remains the authority if a newer build is still being published.
+Run `sha256sum --check SHA256SUMS` beside the downloaded archive, then compare
+the reported digest with `archive_sha256` in the lock file.
 
 To build the same package locally in an isolated container:
 

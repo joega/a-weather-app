@@ -2,25 +2,35 @@
 # Explicit, unprivileged setup for the native runtime used by the Omarchy bar plugin.
 set -euo pipefail
 umask 077
-if (( $# > 2 )) || { (( $# == 2 )) && [[ $1 != --version ]]; } || { (( $# == 1 )) && [[ $1 != --help ]]; }; then
-  printf 'Usage: bash scripts/install_release_runtime.sh [--version v0.MINOR.PATCH]\n' >&2
+if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --help ]]; }; then
+  printf 'Usage: bash scripts/install_release_runtime.sh\n' >&2
   exit 2
 fi
 if [[ ${1:-} == --help ]]; then
-  printf 'Usage: bash scripts/install_release_runtime.sh [--version v0.MINOR.PATCH]\n'
+  printf 'Usage: bash scripts/install_release_runtime.sh\n'
   exit 0
 fi
 for tool in curl jq sha256sum tar flock; do
   command -v "$tool" >/dev/null || { printf 'Missing required command: %s\n' "$tool" >&2; exit 2; }
 done
-release_tag=${2:-}
-if [[ -z $release_tag ]]; then
-  release_tag=$(curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location --retry 2 --max-time 30 \
-    https://api.github.com/repos/joega/a-weather-app/releases/latest | jq -er '.tag_name')
+source_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+release_lock="$source_root/packaging/release-lock.json"
+if [[ ! -f $release_lock || -L $release_lock ]]; then
+  printf 'Missing pinned release metadata in %s\n' "$release_lock" >&2; exit 2
 fi
-if [[ ! $release_tag =~ ^v0\.[1-9][0-9]*\.(0|[1-9][0-9]*)$ ]]; then
-  printf 'Unexpected release tag: %s\n' "$release_tag" >&2; exit 2
+release_metadata=$(cat -- "$release_lock")
+if ! jq -e '
+  type == "object" and keys == ["archive_sha256", "schemaVersion", "source_commit", "tag"]
+  and .schemaVersion == 1
+  and (.tag | type == "string" and test("^v0\\.[1-9][0-9]*\\.(0|[1-9][0-9]*)$"))
+  and (.archive_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+  and (.source_commit | type == "string" and test("^[a-f0-9]{40}$"))
+' <<<"$release_metadata" >/dev/null; then
+  printf 'Invalid pinned release metadata in %s\n' "$release_lock" >&2; exit 2
 fi
+release_tag=$(jq -r '.tag' <<<"$release_metadata")
+pinned_hash=$(jq -r '.archive_sha256' <<<"$release_metadata")
+pinned_commit=$(jq -r '.source_commit' <<<"$release_metadata")
 data_home=${XDG_DATA_HOME:-${HOME:-}/.local/share}
 if [[ $data_home != /* || $data_home == / ]]; then
   printf 'XDG_DATA_HOME (or HOME) must be an absolute directory.\n' >&2; exit 2
@@ -44,6 +54,9 @@ read -r expected_hash expected_name < "$temporary/SHA256SUMS"
 if [[ ! $expected_hash =~ ^[a-f0-9]{64}$ || $expected_name != "$archive" ]]; then
   printf 'Release checksum does not name the expected archive.\n' >&2; exit 1
 fi
+if [[ $expected_hash != "$pinned_hash" ]]; then
+  printf 'Release checksum differs from the reviewed repository pin.\n' >&2; exit 1
+fi
 (
   cd "$temporary"
   sha256sum --check SHA256SUMS
@@ -60,7 +73,7 @@ fi
 mkdir "$temporary/runtime"
 tar --extract --file "$temporary/$archive" --directory "$temporary/runtime" --no-same-owner --no-same-permissions
 jq -e --arg version "${release_tag#v}" '.version == $version' "$temporary/runtime/manifest.json" >/dev/null
-jq -e '.source_dirty == false and .source_status == [] and .runtime == "go-qt" and .architecture == "x86_64"' \
+jq -e --arg source "$pinned_commit" '.source_commit == $source and .source_dirty == false and .source_status == [] and .runtime == "go-qt" and .architecture == "x86_64"' \
   "$temporary/go-runtime.json" >/dev/null
 cmp "$temporary/go-runtime.json" "$temporary/runtime/packaging/runtime.json"
 jq -e '(.artifacts + .runtime_files) | keys | all(test("^[A-Za-z0-9._/-]+$") and (split("/") | all(. != "." and . != "..")))' \

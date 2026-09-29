@@ -90,3 +90,58 @@ jobs:
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "v${RELEASE_VERSION}" --latest --generate-notes \
             --notes "Linux x86_64 package for Omarchy. Verify the archive with SHA256SUMS before extracting."
+      - name: Pin the published runtime for plugin installs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_PUBLISHED: ${{ steps.version.outputs.published }}
+          RELEASE_DIRECTORY: ${{ steps.assets.outputs.directory }}
+        run: |
+          set -euo pipefail
+          # A newer source commit will publish and pin its own release. Never
+          # attach this release's digest to a different source revision.
+          if [[ $(git ls-remote origin refs/heads/main | cut -f1) != "$GITHUB_SHA" ]]; then
+            printf 'Main advanced; the newer build will pin its own release.\n'
+            exit 0
+          fi
+          tag="v${RELEASE_VERSION}"
+          archive="a-weather-app-${tag}-linux-x86_64.tar"
+          if [[ "$RELEASE_PUBLISHED" == true ]]; then
+            release_directory=$(mktemp -d)
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern SHA256SUMS --pattern go-runtime.json --dir "$release_directory"
+          else
+            release_directory="$RELEASE_DIRECTORY"
+            (cd "$release_directory" && sha256sum --check SHA256SUMS)
+          fi
+          [[ $(wc -l < "$release_directory/SHA256SUMS") == 1 ]]
+          read -r digest checksum_name < "$release_directory/SHA256SUMS"
+          [[ "$digest" =~ ^[a-f0-9]{64}$ && "$checksum_name" == "$archive" ]]
+          jq -e --arg source "$GITHUB_SHA" \
+            '.source_commit == $source and .source_dirty == false and .source_status == []' \
+            "$release_directory/go-runtime.json" >/dev/null
+          jq -n --arg tag "$tag" --arg digest "$digest" --arg source "$GITHUB_SHA" \
+            '{schemaVersion: 1, tag: $tag, archive_sha256: $digest, source_commit: $source}' \
+            > packaging/release-lock.json
+          jq --arg version "$RELEASE_VERSION" '.version = $version' manifest.json > manifest.json.next
+          mv manifest.json.next manifest.json
+          sed -i -E "s/^APP_VERSION \?= 0\.[0-9]+\.[0-9]+$/APP_VERSION ?= ${RELEASE_VERSION}/" Makefile
+          sed -i -E "s/^var appVersion = \"0\.[0-9]+\.[0-9]+\"$/var appVersion = \"${RELEASE_VERSION}\"/" cmd/a-weather-app/main.go
+          git add packaging/release-lock.json manifest.json Makefile cmd/a-weather-app/main.go
+          if git diff --cached --quiet; then
+            printf 'Release pin is already current.\n'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Pin plugin runtime to ${tag} [skip ci]"
+          gh auth setup-git
+          if ! git push origin HEAD:main; then
+            if [[ $(git ls-remote origin refs/heads/main | cut -f1) != "$GITHUB_SHA" ]]; then
+              printf 'Main advanced before the pin push; the newer build will pin its own release.\n'
+              exit 0
+            fi
+            printf 'Release was published, but its pin could not be pushed.\n' >&2
+            exit 1
+          fi
