@@ -43,10 +43,20 @@ temporary=$(mktemp -d "$app_root/.install.XXXXXXXX")
 trap 'find "$temporary" -depth -delete' EXIT
 archive="a-weather-app-${release_tag}-linux-x86_64.tar"
 base_url="https://github.com/joega/a-weather-app/releases/download/$release_tag"
-for asset in "$archive" SHA256SUMS go-runtime.json; do
-  curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location --retry 2 --max-time 180 \
-    --output "$temporary/$asset" "$base_url/$asset"
-done
+download_asset() {
+  local asset=$1 max_bytes=$2
+  (
+    # curl 8.4+ enforces this during a streamed response. The process file
+    # limit also bounds older curl versions and responses without a length.
+    set +o posix
+    ulimit -c 0
+    ulimit -f "$((max_bytes / 1024))"
+    curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --silent --show-error \
+      --location --max-redirs 5 --retry 2 --max-time 180 --max-filesize "$max_bytes" \
+      --output "$temporary/$asset" "$base_url/$asset"
+  )
+}
+download_asset SHA256SUMS 4096
 if [[ $(wc -l < "$temporary/SHA256SUMS") != 1 ]]; then
   printf 'Expected exactly one archive checksum.\n' >&2; exit 1
 fi
@@ -57,6 +67,10 @@ fi
 if [[ $expected_hash != "$pinned_hash" ]]; then
   printf 'Release checksum differs from the reviewed repository pin.\n' >&2; exit 1
 fi
+download_asset go-runtime.json 1048576
+jq -e --arg source "$pinned_commit" '.source_commit == $source and .source_dirty == false and .source_status == [] and .runtime == "go-qt" and .architecture == "x86_64"' \
+  "$temporary/go-runtime.json" >/dev/null
+download_asset "$archive" 67108864
 (
   cd "$temporary"
   sha256sum --check SHA256SUMS
@@ -73,8 +87,6 @@ fi
 mkdir "$temporary/runtime"
 tar --extract --file "$temporary/$archive" --directory "$temporary/runtime" --no-same-owner --no-same-permissions
 jq -e --arg version "${release_tag#v}" '.version == $version' "$temporary/runtime/manifest.json" >/dev/null
-jq -e --arg source "$pinned_commit" '.source_commit == $source and .source_dirty == false and .source_status == [] and .runtime == "go-qt" and .architecture == "x86_64"' \
-  "$temporary/go-runtime.json" >/dev/null
 cmp "$temporary/go-runtime.json" "$temporary/runtime/packaging/runtime.json"
 jq -e '(.artifacts + .runtime_files) | keys | all(test("^[A-Za-z0-9._/-]+$") and (split("/") | all(. != "." and . != "..")))' \
   "$temporary/go-runtime.json" >/dev/null
