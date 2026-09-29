@@ -57,7 +57,8 @@ To update, stop desktop effects and quit the app, then run
 `omarchy plugin update a-weather-app.weather` and rerun the setup script. Each
 plugin update carries the exact version and digest of its supported runtime.
 The installer keeps previous runtime versions for rollback. The plugin checkout
-stays unmodified, so Omarchy can fast-forward it.
+stays unmodified, so Omarchy can fast-forward it. Run `omarchy restart shell`
+after updating the plugin so the bar creates a widget from the new QML code.
 
 ## Build and install manually
 
@@ -153,10 +154,11 @@ The widget defaults to the center section; existing user placement is preserved.
 Stop desktop effects and quit before switching runtime versions or changing a
 local plugin link. A fully built source checkout also works for development.
 
-After switching a local plugin link between versions, rescan with
-`omarchy-shell shell rescanPlugins`. If the shell retains the old QML adapter,
-use `omarchy restart shell` once; this clears cached adapter code without changing
-your bar layout. Validate the canonical package directory, not the symlink itself.
+After switching a local plugin link between versions, run
+`omarchy restart shell`. A plugin rescan can retain the previous bar widget in
+memory even when it detects the new files. Restarting creates the widget from
+the new QML code without changing your bar layout. Validate the canonical
+package directory, not the symlink itself.
 
 ## Desktop effects
 
