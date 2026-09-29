@@ -20,6 +20,7 @@ OmarchyUi.BarWidget {
     property string buffer: ""
     property bool rejected: false
     property bool pendingOpen: false
+    property bool pendingRead: false
     implicitWidth: textItem.implicitWidth + Style.space(14)
     implicitHeight: barSize
     activeFocusOnTab: configured
@@ -55,7 +56,9 @@ OmarchyUi.BarWidget {
         return typeof value === "string" ? value.replace(/[<>&\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/g, "").slice(0, limit) : "";
     }
     function refresh() {
-        if (!configured || reader.running) return;
+        if (!configured) return;
+        if (reader.running) { pendingRead = true; return; }
+        pendingRead = false;
         buffer = ""; rejected = false; reader.running = true; readDeadline.restart();
     }
     function open() {
@@ -98,6 +101,16 @@ OmarchyUi.BarWidget {
         if (app.running) app.signal(15);
     }
     Timer { interval: 30000; repeat: true; running: root.configured; onTriggered: root.refresh() }
+    // Watch the directory so the first controls save and atomic replacements
+    // of saved settings or location/forecast data all update the bar immediately.
+    // Only the bounded helper reads and validates the saved files.
+    FileView {
+        path: root.configured ? root.statePath : ""
+        preload: false
+        watchChanges: true
+        printErrors: false
+        onFileChanged: root.refresh()
+    }
     Timer { interval: 300000; repeat: true; running: root.configured; onTriggered: root.refreshSaved() }
     Timer { id: readDeadline; interval: 3000; onTriggered: { root.rejected = true; reader.signal(15); readKill.restart(); } }
     Timer { id: readKill; interval: 1000; onTriggered: { if (reader.running) reader.signal(9); } }
@@ -129,6 +142,7 @@ OmarchyUi.BarWidget {
             if (code === 0 && !root.rejected) root.acceptRead();
             else { root.label = "—° · Unavailable"; root.tooltip = "A Weather App forecast unavailable"; }
             root.buffer = "";
+            if (root.pendingRead) Qt.callLater(root.refresh);
         }
     }
     Process {

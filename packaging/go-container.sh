@@ -17,7 +17,8 @@ fi
 trap 'chown -R "$OUTPUT_UID:$OUTPUT_GID" /output' EXIT
 # Configuration below belongs exclusively to this disposable container.
 printf 'Server = https://archive.archlinux.org/repos/2026/09/26/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
-pacman -Syyuu --noconfirm --needed base-devel git go hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace
+pacman -Syyuu --noconfirm --needed base-devel git go hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace
 export XDG_RUNTIME_DIR
 XDG_RUNTIME_DIR=$(mktemp -d /tmp/weather-qt-runtime.XXXXXXXX)
+export WEATHER_REQUIRE_BAR_TEST=1
 bash /source/packaging/build-go-release.sh

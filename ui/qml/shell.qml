@@ -6,6 +6,7 @@ import "Forecast.js" as Forecast
 QtObject {
     id:root
     property string units:bridge.snapshot?bridge.snapshot.controls.units:"F"
+    readonly property bool automaticUnits:bridge.snapshot?bridge.snapshot.controls.units_mode==="auto":true
     property bool effectsOpen:false
     property bool initialLocationChecked:false
     readonly property bool hasMapLocation:bridge.snapshot!==null&&bridge.snapshot.location_settings.mode!=="default"
@@ -113,8 +114,9 @@ QtObject {
                     id:headerActions;objectName:"headerActions"
                     anchors.right:parent.right;anchors.top:parent.top
                     anchors.topMargin:window.width<850?locationHeading.height+regionHeading.height+12:0
-                    ActionButton { objectName:"unitsF";text:"°F";selected:root.units==="F";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"F"}) }
-                    ActionButton { objectName:"unitsC";text:"°C";selected:root.units==="C";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"C"}) }
+                    ActionButton { objectName:"unitsAuto";text:root.automaticUnits?"Auto (°"+root.units+")":"Auto";accessibleLabel:"Use location’s temperature units";selected:root.automaticUnits;enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units_mode:"auto"}) }
+                    ActionButton { objectName:"unitsF";text:"°F";selected:!root.automaticUnits&&root.units==="F";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"F"}) }
+                    ActionButton { objectName:"unitsC";text:"°C";selected:!root.automaticUnits&&root.units==="C";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"C"}) }
                     ActionButton { objectName:"refreshForecast";iconName:"refresh";accessibleLabel:"Refresh forecast";enabled:!bridge.busy;onClicked:bridge.send("refresh") }
                     ActionButton { objectName:"openEffects";iconName:"sliders";text:"Settings";onClicked:root.effectsOpen=true }
                     ActionButton { objectName:"liveDesktop";text:root.liveDesktop?"Live desktop · On":"Live desktop";selected:root.liveDesktop;enabled:bridge.available&&!bridge.busy;onClicked:{if(root.liveDesktop)bridge.send("stop_effects");else bridge.send("start_live_effects")} }

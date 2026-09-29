@@ -77,7 +77,7 @@ type App struct {
 }
 
 func DefaultControls() M {
-	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F"}
+	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto"}
 }
 func stringOf(v any) string { s, _ := v.(string); return s }
 func object(v any) M        { m, _ := v.(map[string]any); return m }
@@ -91,6 +91,13 @@ func PatchControls(old, patch M) (M, error) {
 			return nil, errors.New("unknown control")
 		}
 		v[k] = x
+	}
+	// Selecting a unit is an explicit preference. Legacy saved unit selections
+	// also remain explicit when they have no units_mode field.
+	if _, chosen := patch["units"]; chosen {
+		if _, mode := patch["units_mode"]; !mode {
+			v["units_mode"] = "manual"
+		}
 	}
 	if v["mode"] != "live" && v["mode"] != "manual" {
 		return nil, errors.New("mode")
@@ -107,6 +114,9 @@ func PatchControls(old, patch M) (M, error) {
 	}
 	if v["units"] != "F" && v["units"] != "C" {
 		return nil, errors.New("units")
+	}
+	if v["units_mode"] != "auto" && v["units_mode"] != "manual" {
+		return nil, errors.New("units mode")
 	}
 	for _, k := range []string{"reduced_motion", "lightning_enabled", "window_physics", "accumulation", "pause_fullscreen"} {
 		if _, ok := v[k].(bool); !ok {
@@ -234,15 +244,9 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 	a.search.init()
 	a.initAirQuality()
 	a.initMap()
-	saved, e := state.Read("controls.json", 8192)
+	a.controls, e = readControls(state, a.country)
 	if e != nil {
 		return nil, e
-	}
-	if saved != nil {
-		a.controls, e = PatchControls(a.controls, saved)
-		if e != nil {
-			return nil, e
-		}
 	}
 	a.notifications = notifications.New(state, o.Sender)
 	a.nextFetch = o.Now()
@@ -447,6 +451,7 @@ func (a *App) adopt(v M) {
 	a.mode = stringOf(v["mode"])
 	a.zip = v["zip_code"]
 	a.country, a.place = profileIdentity(v, a.mode)
+	a.controls = controlsForCountry(a.controls, a.country)
 	a.errorCode = nil
 	a.locationError = nil
 	a.nextFetch = a.options.Now().Add(900 * time.Second)
@@ -649,6 +654,7 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 		var v M
 		v, e = PatchControls(a.controls, object(request["controls"]))
 		if e == nil {
+			v = controlsForCountry(v, a.country)
 			code = "state_io_failed"
 			e = a.state.Write("controls.json", v, 8192)
 			if e == nil {

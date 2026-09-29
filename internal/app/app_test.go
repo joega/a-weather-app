@@ -72,7 +72,7 @@ func TestAppControlPersistenceAndValidation(t *testing.T) {
 	if before["mode"] != "live" {
 		t.Fatal("patch changed previous map")
 	}
-	for _, patch := range []M{{"fps": true}, {"fps": 31.0}, {"mode": "bad"}, {"units": "K"}, {"strength": "intense"}, {"manual": M{"condition": "rain", "extra": true}}, {"manual": M{"condition": "not_weather"}}, {"unknown": true}, {"window_physics": 1.0}} {
+	for _, patch := range []M{{"fps": true}, {"fps": 31.0}, {"mode": "bad"}, {"units": "K"}, {"units_mode": "bad"}, {"units_mode": true}, {"strength": "intense"}, {"manual": M{"condition": "rain", "extra": true}}, {"manual": M{"condition": "not_weather"}}, {"unknown": true}, {"window_physics": 1.0}} {
 		reply, _ = a.Handle(context.Background(), request("set_controls", M{"controls": patch}))
 		if reply["ok"] != false {
 			t.Fatal("accepted invalid controls", patch)

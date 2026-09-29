@@ -73,6 +73,7 @@ func TestGlobalPlaceAtomicSaveOfflineAndCountry(t *testing.T) {
 				},
 			})
 			controls := safeio.Clone(a.controls)
+			controls["units"] = "C" // Automatic units follow these non-US places.
 			a.Handle(context.Background(), searchRequest(city.name))
 			s := readySearch(t, a)
 			reply, _ := a.Handle(context.Background(), pickRequest(s, 1))

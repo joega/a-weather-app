@@ -26,7 +26,7 @@ func TestPointMetricsSavedUpgradeOfflineAndFailedRefresh(t *testing.T) {
 	state := testState(t)
 	legacy := M{"schema_version": 1.0, "mode": "zip", "zip_code": "10001", "location": weather.DefaultLocation(), "forecast": appFixture(now)}
 	controls := DefaultControls()
-	controls["units"], controls["reduced_motion"] = "C", true
+	controls["units"], controls["units_mode"], controls["reduced_motion"] = "C", "manual", true
 	for name, value := range map[string]M{"location-profile.json": legacy, "controls.json": controls} {
 		if err := state.Write(name, value, weather.MaxBytes); err != nil {
 			t.Fatal(err)

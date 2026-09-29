@@ -175,6 +175,9 @@ function snapshot(v) {
     for(let k of ["reduced_motion","lightning_enabled","window_physics","accumulation","pause_fullscreen"]) { if(typeof v.controls[k]!=="boolean")throw Error("Invalid control");controls[k]=v.controls[k] }
     if([15,30,60].indexOf(v.controls.fps)<0||["live","manual"].indexOf(v.controls.mode)<0||["subtle","normal","immersive"].indexOf(v.controls.strength)<0||!object(v.controls.manual))throw Error("Invalid controls");
     if(["F","C"].indexOf(v.controls.units)<0)throw Error("Invalid units");
+    let unitsMode=v.controls.units_mode===undefined?"manual":v.controls.units_mode;
+    if(["auto","manual"].indexOf(unitsMode)<0)throw Error("Invalid units mode");
+    controls.units_mode=unitsMode;
     controls.units=v.controls.units;controls.fps=v.controls.fps;controls.mode=v.controls.mode;controls.strength=v.controls.strength;controls.manual={condition:condition(v.controls.manual.condition)};
     let fresh=v.source.freshness;if(["fresh","stale","expired","invalid_future","unavailable"].indexOf(fresh)<0)throw Error("Invalid freshness");
     let f=null;

@@ -94,6 +94,10 @@ choose approximate local detection. New York is the fallback location. Refresh
 failures retain cached weather with freshness indicators; unavailable alerts
 are never treated as an all-clear.
 
+Temperature units default to °F for US locations and °C for other known
+countries. Selecting °F or °C keeps that preference across location changes;
+**Auto** restores the country default. Existing saved unit selections are preserved.
+
 The packaged runtime targets Omarchy's Qt 6, GTK4,
 gtk4-layer-shell, JSON-GLib, libepoxy and Mesa libraries. Omarchy supplies these
 through its standard packages and dependencies. Notifications use `notify-send`
@@ -140,7 +144,8 @@ replacing an unrelated command.
 
 The package's root `manifest.json` declares
 `a-weather-app.weather`. The bar reads cached conditions without loading native
-code. A separate one-shot helper refreshes the saved location when the bar loads
+code and updates immediately when saved units, location or forecast data change.
+A separate one-shot helper refreshes the saved location when the bar loads
 and checks again every five minutes, fetching only if the forecast is at least
 15 minutes old. It uses approximate local detection only if you previously
 opted into that setting in the app. A new installation does not guess your
@@ -187,8 +192,8 @@ are unverified. Short isolated tests do not establish broad hardware support.
 
 ## Resource use and security boundaries
 
-The bar reads cached weather every 30 seconds. Its bounded background helper
-can refresh saved weather without opening the window or starting desktop
+The bar reads cached weather when saved data changes and every 30 seconds.
+Its bounded background helper can refresh saved weather without opening the window or starting desktop
 effects. Forecast animation runs only while the window is
 visible and not minimized. Enable Reduced motion to stop that animation and
 disable precipitation/lightning effects. Closing a forecast-only window quits

@@ -33,16 +33,9 @@ func Bar(state *safeio.Directory, now time.Time) M {
 	if e != nil || forecast == nil {
 		return r
 	}
-	controls := DefaultControls()
-	saved, e := state.Read("controls.json", 8192)
+	controls, e := readControls(state, country)
 	if e != nil {
 		return r
-	}
-	if saved != nil {
-		controls, e = PatchControls(controls, saved)
-		if e != nil {
-			return r
-		}
 	}
 	selected := weather.Select(forecast, now, "live", nil, "subtle", false, false)
 	fresh := stringOf(selected["freshness"])

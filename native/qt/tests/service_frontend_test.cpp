@@ -9,6 +9,7 @@
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -62,6 +63,12 @@ public:
         const auto forecast=saved("forecast.json");const auto location=forecast["location"].toObject();
         save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","US"},{"place",QJsonObject{{"provider","open-meteo"},{"id",5128581}}}});
     }
+    void savedLondonPlace(int age=60,double temperature=15.5){
+        cache(age);auto forecast=saved("forecast.json");auto current=forecast["current"].toObject();current["temperature_c"]=temperature;forecast["current"]=current;
+        QJsonObject location{{"name","London, England, United Kingdom"},{"latitude",51.5085},{"longitude",-.1257},{"timezone","Europe/London"}};
+        forecast["location"]=location;
+        save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","GB"},{"place",QJsonObject{{"provider","open-meteo"},{"id",2643743}}}});
+    }
     void airQualityCache(int fetchedAge,int validAge){
         const auto now=QDateTime::currentDateTimeUtc();
         auto location=saved("forecast.json")["location"].toObject();
@@ -73,6 +80,48 @@ public:
              {"units",QJsonObject{{"us_aqi","USAQI"},{"european_aqi","EAQI"},{"pm2_5_ug_m3",QString::fromUtf8("μg/m³")}}},
              {"us_aqi",0},{"european_aqi",125},{"pm2_5_ug_m3",12.4}});
     }
+};
+
+// Load the real widget in Quickshell with only its Omarchy presentation API
+// stubbed. The helper is real; background provider requests are disabled.
+class BarFixture {
+public:
+    QTemporaryDir directory;
+    QProcess process;
+    QByteArray output;
+    ~BarFixture(){if(process.state()!=QProcess::NotRunning){process.terminate();if(!process.waitForFinished(3000)){process.kill();process.waitForFinished(2000);}}}
+    bool write(const QString &name,const QByteArray &data){QFile file(directory.path()+"/"+name);return file.open(QIODevice::WriteOnly)&&file.write(data)==data.size();}
+    bool start(const QString &state){
+        const auto widget=QFINDTESTDATA("../../../quickshell/a-weather-app.weather/WeatherWidget.qml");
+        if(widget.isEmpty())return false;
+        for(const auto &folder:QStringList{"Widget","Commons","Ui","runtime","cache"})if(!QDir().mkdir(directory.path()+"/"+folder))return false;
+        QFile::setPermissions(directory.path()+"/runtime",QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner);
+        if(!QFile::copy(widget,directory.path()+"/Widget/WeatherWidget.qml"))return false;
+        if(!write("Commons/qmldir","module qs.Commons\nsingleton Style 1.0 Style.qml\n")||
+           !write("Commons/Style.qml","pragma Singleton\nimport QtQuick\nQtObject { readonly property var font: ({body:14}); function space(n) { return n; } }\n")||
+           !write("Ui/qmldir","module qs.Ui\nBarWidget 1.0 BarWidget.qml\n")||
+           !write("Ui/BarWidget.qml","import QtQuick\nItem { property QtObject bar:null; property string moduleName; property var settings: ({}); readonly property bool vertical:false; readonly property int barSize:32; function setting(name,fallback) { return settings[name]===undefined?fallback:settings[name]; } }\n")||
+           !write("a-weather-app","#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = --refresh-bar ]; then exit 0; fi\ndone\nif \"$WEATHER_BAR_APP\" \"$@\"; then sleep 0.15; else exit $?; fi\n")||
+           !write("shell.qml",R"(import QtQuick
+import Quickshell
+import "Widget" as Widget
+ShellRoot {
+    Widget.WeatherWidget {
+        settings: ({projectPath:Quickshell.env("WEATHER_BAR_PROJECT"),statePath:Quickshell.env("WEATHER_BAR_STATE")})
+        onLabelChanged: console.log("BAR_TEST_LABEL:"+label)
+        onBufferChanged: if(buffer!=="")console.log("BAR_TEST_BUFFER:"+buffer)
+    }
+    Timer { interval:20000;running:true;onTriggered:Qt.quit() }
+}
+)"))return false;
+        QFile::setPermissions(directory.path()+"/a-weather-app",QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner);
+        auto env=QProcessEnvironment::systemEnvironment();env.insert("XDG_RUNTIME_DIR",directory.path()+"/runtime");env.insert("XDG_CACHE_HOME",directory.path()+"/cache");
+        env.insert("WEATHER_BAR_APP",qEnvironmentVariable("GO_APP"));env.insert("WEATHER_BAR_PROJECT",directory.path());env.insert("WEATHER_BAR_STATE",state);
+        process.setProcessEnvironment(env);process.setProcessChannelMode(QProcess::MergedChannels);
+        process.start("qs",{"--path",directory.path()+"/shell.qml","--no-color"});return process.waitForStarted(3000);
+    }
+    QString label(){output+=process.readAll();const QByteArray marker="BAR_TEST_LABEL:";auto offset=output.lastIndexOf(marker);if(offset<0)return {};auto tail=output.mid(offset+marker.size());return QString::fromUtf8(tail.left(tail.indexOf('\n'))).trimmed();}
+    bool captured(const QString &temperature){output+=process.readAll();return output.contains(("\"label\":\""+temperature+"\"").toUtf8());}
 };
 
 class ServiceFrontendTest:public QObject {
@@ -198,14 +247,14 @@ private slots:
     }
     void temperatureUnitsMatchBar(){
         QFETCH(double,celsius);QFETCH(QString,fahrenheitLabel);QFETCH(QString,celsiusLabel);QFETCH(int,age);
-        ServiceFixture fixture;fixture.cache(age);
-        auto forecast=fixture.saved("forecast.json");auto current=forecast["current"].toObject();current["temperature_c"]=celsius;forecast["current"]=current;
-        QJsonObject location{{"name","London, England, United Kingdom"},{"latitude",51.5085},{"longitude",-.1257},{"timezone","Europe/London"}};
-        forecast["location"]=location;
-        fixture.save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","GB"},{"place",QJsonObject{{"provider","open-meteo"},{"id",2643743}}}});
+        ServiceFixture fixture;fixture.savedLondonPlace(age,celsius);
         QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);QTRY_VERIFY(window->isExposed());
         root->setProperty("effectsOpen",false);
+        BarFixture widget;
+        const bool hasQuickshell=!QStandardPaths::findExecutable("qs").isEmpty();
+        QVERIFY2(hasQuickshell||!qEnvironmentVariableIsSet("WEATHER_REQUIRE_BAR_TEST"),"Release acceptance requires Quickshell for immediate widget refresh tests");
+        if(hasQuickshell)QVERIFY(widget.start(fixture.state));
         auto checkBar=[&](const QString &temperature){
             QCOMPARE(named("currentTemperature")->property("text").toString(),temperature);
             QProcess bar;bar.start(qEnvironmentVariable("GO_APP"),{"--bar","--state-dir",fixture.state});QVERIFY(bar.waitForFinished(3000));QCOMPARE(bar.exitCode(),0);
@@ -214,17 +263,52 @@ private slots:
             QCOMPARE(status["freshness"].toString(),QString(age>2700?"stale":"fresh"));
             QVERIFY(status["tooltip"].toString().contains("Alerts not supported here"));
             QVERIFY(bar.readAllStandardError().isEmpty());
+            if(hasQuickshell)QTRY_COMPARE_WITH_TIMEOUT(widget.label(),status["label"].toString(),2000);
         };
-        QCOMPARE(eval("root.units").toString(),QString("F"));checkBar(fahrenheitLabel);
+        QCOMPARE(eval("root.units").toString(),QString("C"));QVERIFY(eval("root.automaticUnits").toBool());checkBar(celsiusLabel);
         QVERIFY(!QFile::exists(fixture.state+"/controls.json"));
-        for(const auto &units:QStringList{"C","F","C"}){
+        for(const auto &units:QStringList{"F","C","F","C"}){
             click(units=="C"?"unitsC":"unitsF");QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),units,3000);
+            QVERIFY(!eval("root.automaticUnits").toBool());QCOMPARE(fixture.saved("controls.json")["units_mode"].toString(),QString("manual"));
             QCOMPARE(fixture.saved("controls.json")["units"].toString(),units);checkBar(units=="C"?celsiusLabel:fahrenheitLabel);
         }
+        click("unitsAuto");QTRY_VERIFY_WITH_TIMEOUT(eval("root.automaticUnits").toBool(),3000);checkBar(celsiusLabel);
+        QCOMPARE(fixture.saved("controls.json")["units_mode"].toString(),QString("auto"));
+        click("unitsC");QTRY_VERIFY_WITH_TIMEOUT(!eval("root.automaticUnits").toBool(),3000);
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
         engine.reset();transport.reset();QVERIFY(fixture.start());QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);QCOMPARE(eval("root.units").toString(),QString("C"));checkBar(celsiusLabel);
         QSignalSpy finalExit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(finalExit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+    }
+    void barStartsWatchingANewStateDirectory(){
+        if(QStandardPaths::findExecutable("qs").isEmpty()){
+            QVERIFY2(!qEnvironmentVariableIsSet("WEATHER_REQUIRE_BAR_TEST"),"Release acceptance requires Quickshell");QSKIP("Quickshell not installed");
+        }
+        ServiceFixture fixture;QVERIFY(QDir().rmdir(fixture.state));
+        BarFixture widget;QVERIFY(widget.start(fixture.state));QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("--° · Unavailable"),2000);
+        QVERIFY(QDir().mkdir(fixture.state));QFile::setPermissions(fixture.state,QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner);
+        fixture.savedLondonPlace();QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("16° · Clear"),2000);
+        fixture.save("controls.json",{{"units","F"}});QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("60° · Clear"),2000);
+    }
+    void barImmediatelyTracksLocationAndRapidChanges(){
+        if(QStandardPaths::findExecutable("qs").isEmpty()){
+            QVERIFY2(!qEnvironmentVariableIsSet("WEATHER_REQUIRE_BAR_TEST"),"Release acceptance requires Quickshell");QSKIP("Quickshell not installed");
+        }
+        ServiceFixture fixture;fixture.cache(60);fixture.savedNewYorkPlace();
+        BarFixture widget;QVERIFY(widget.start(fixture.state));QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("59° · Clear"),2000);
+        auto profile=fixture.saved("location-profile.json");profile["country_code"]="GB";profile["place"]=QJsonObject{{"provider","open-meteo"},{"id",2643743}};
+        auto location=profile["location"].toObject();location["name"]="London, England, United Kingdom";location["latitude"]=51.5085;location["longitude"]=-.1257;location["timezone"]="Europe/London";
+        auto forecast=profile["forecast"].toObject();forecast["location"]=location;auto current=forecast["current"].toObject();current["temperature_c"]=15.5;forecast["current"]=current;profile["location"]=location;profile["forecast"]=forecast;
+        auto save=[&](const QString &name,const QJsonObject &value){QSaveFile file(fixture.state+"/"+name);QVERIFY(file.open(QIODevice::WriteOnly));file.setPermissions(QFile::ReadOwner|QFile::WriteOwner);QVERIFY(file.write(QJsonDocument(value).toJson(QJsonDocument::Compact))>0);QVERIFY(file.commit());};
+        save("location-profile.json",profile);QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("16° · Clear"),2000);
+        save("controls.json",{{"units","F"}});QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("60° · Clear"),2000);
+        // The helper deliberately takes 150ms to exit. Changes arriving during
+        // that read must queue another read rather than wait for the 30s timer.
+        widget.output.clear();save("controls.json",{{"units","C"}});
+        QTRY_VERIFY_WITH_TIMEOUT(widget.captured("16° · Clear"),2000);
+        save("controls.json",{{"units","F"}});
+        QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("16° · Clear"),2000);
+        QTRY_COMPARE_WITH_TIMEOUT(widget.label(),QString("60° · Clear"),2000);
     }
     void cachedPointMetricsUnitsAndHour(){
         ServiceFixture fixture;fixture.cache(4000,true);QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
