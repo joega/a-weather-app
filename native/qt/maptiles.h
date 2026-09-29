@@ -5,13 +5,14 @@
 #include <QSet>
 #include <QDateTime>
 #include <QPointer>
+#include <QUrl>
 class QNetworkDiskCache;
 class QNetworkReply;
 
 class MapTiles : public QObject {
     Q_OBJECT
 public:
-    explicit MapTiles(QObject *parent=nullptr);
+    explicit MapTiles(QObject *parent=nullptr,QUrl tileServer=QUrl(QStringLiteral("https://tile.openstreetmap.org")));
     Q_INVOKABLE void request(int zoom,int x,int y,bool offline);
     Q_INVOKABLE void close();
 signals:
@@ -26,5 +27,6 @@ private:
     QSet<QString> completed;
     QSet<QString> failed;
     QHash<QString,QDateTime> retryAfter;
+    QUrl tileServer;
     quint64 generation=0;
 };

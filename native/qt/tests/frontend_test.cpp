@@ -14,6 +14,10 @@
 #include <QSet>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QBuffer>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QTimer>
 #include "maptiles.h"
 #include <functional>
 
@@ -74,6 +78,79 @@ class FrontendTest:public QObject {
     void deliver(FakeTransport &transport,const QJsonObject &v){emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));}
     QVariant evaluate(QQmlEngine &engine,QObject *bridge,const QString &expression){QQmlExpression e(engine.rootContext(),bridge,expression);auto v=e.evaluate();if(e.hasError())qFatal("%s",qPrintable(e.error().toString()));return v;}
 private slots:
+    void mapTileDownloadLimit(){
+        QImage image(256,256,QImage::Format_ARGB32);
+        image.fill(Qt::blue);
+        QByteArray png;
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer,"PNG"));
+        QVERIFY(png.size()<128*1024);
+        {
+            QTcpServer server;
+            QVERIFY(server.listen(QHostAddress::LocalHost));
+            connect(&server,&QTcpServer::newConnection,&server,[&]{
+                auto *socket=server.nextPendingConnection();
+                connect(socket,&QTcpSocket::readyRead,socket,[socket,&png]{
+                    socket->readAll();
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: "+QByteArray::number(png.size())+"\r\n\r\n"+png);
+                });
+            });
+            MapTiles tiles(nullptr,QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+            QSignalSpy ready(&tiles,&MapTiles::tileReady);
+            QSignalSpy failed(&tiles,&MapTiles::tileFailed);
+            tiles.request(0,0,0,false);
+            QTRY_COMPARE_WITH_TIMEOUT(ready.size(),1,3000);
+            QCOMPARE(failed.size(),0);
+            QVERIFY(ready.first().at(1).toString().startsWith("data:image/png;base64,"));
+        }
+        {
+            QTcpServer server;
+            QVERIFY(server.listen(QHostAddress::LocalHost));
+            connect(&server,&QTcpServer::newConnection,&server,[&]{
+                auto *socket=server.nextPendingConnection();
+                connect(socket,&QTcpSocket::readyRead,socket,[socket]{
+                    socket->readAll();
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: 1048576\r\n\r\n");
+                });
+            });
+            MapTiles tiles(nullptr,QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+            QSignalSpy ready(&tiles,&MapTiles::tileReady);
+            QSignalSpy failed(&tiles,&MapTiles::tileFailed);
+            tiles.request(0,0,0,false);
+            QTRY_COMPARE_WITH_TIMEOUT(failed.size(),1,3000);
+            QCOMPARE(failed.first().at(1).toString(),QStringLiteral("tile exceeds 128 KiB"));
+            QCOMPARE(ready.size(),0);
+        }
+        {
+            QTcpServer server;
+            QVERIFY(server.listen(QHostAddress::LocalHost));
+            int sent=0;
+            connect(&server,&QTcpServer::newConnection,&server,[&]{
+                auto *socket=server.nextPendingConnection();
+                connect(socket,&QTcpSocket::readyRead,socket,[socket,&sent]{
+                    socket->readAll();
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nTransfer-Encoding: chunked\r\n\r\n");
+                    auto *timer=new QTimer(socket);
+                    connect(timer,&QTimer::timeout,socket,[socket,timer,&sent]{
+                        if(socket->state()!=QAbstractSocket::ConnectedState||sent>=1024*1024){timer->stop();return;}
+                        QByteArray chunk(16*1024,'x');
+                        socket->write(QByteArray::number(chunk.size(),16)+"\r\n"+chunk+"\r\n");
+                        sent+=chunk.size();
+                    });
+                    timer->start(5);
+                });
+            });
+            MapTiles tiles(nullptr,QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+            QSignalSpy ready(&tiles,&MapTiles::tileReady);
+            QSignalSpy failed(&tiles,&MapTiles::tileFailed);
+            tiles.request(0,0,0,false);
+            QTRY_COMPARE_WITH_TIMEOUT(failed.size(),1,3000);
+            QCOMPARE(failed.first().at(1).toString(),QStringLiteral("tile exceeds 128 KiB"));
+            QCOMPARE(ready.size(),0);
+            QVERIFY(sent<1024*1024);
+        }
+    }
     void renderLiveMapCapture(){
         const auto capture=qEnvironmentVariable("WEATHER_QT_MAP_CAPTURE");
         const auto output=qEnvironmentVariable("WEATHER_QT_MAP_SCREENSHOT");
