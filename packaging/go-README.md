@@ -18,8 +18,10 @@ unsupported or unknown coverage is explicitly labeled and is not an all-clear.
 Open-Meteo's free API is for non-commercial use; commercial use requires an
 appropriate provider plan. Geocoding data is provided by GeoNames via Open-Meteo.
 
-The launcher also supports `--bar`, `--toggle-window`, `--stop-effects`, and
-`--quit`. The optional bar widget calls the same launcher. To update or remove
+The launcher also supports `--bar`, `--refresh-bar`, `--toggle-window`,
+`--stop-effects`, and `--quit`. The optional bar widget calls the same launcher
+and refreshes previously saved weather in the background after login; local
+detection is used only if previously enabled in Settings. To update or remove
 the package, stop any active desktop effects and quit the app before switching
 the plugin or launcher link. Keep the previous package and a backup of saved
 state until the new version is verified.
@@ -33,4 +35,5 @@ window remains usable. Reduced motion disables precipitation and lightning.
 
 The package does not install itself, change desktop configuration, or enable
 autostart. See the repository's root README for privacy, notifications, manual
-launcher setup, troubleshooting, and source-build instructions.
+launcher setup, the separate Omarchy plugin installation, troubleshooting, and
+source-build instructions.

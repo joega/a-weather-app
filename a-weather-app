@@ -1,9 +1,22 @@
 #!/usr/bin/bash
-# Source-checkout launcher. The packaged command is the compiled Go executable.
+# Source-checkout/plugin launcher. The packaged command is the compiled Go executable.
 set -euo pipefail
 app_source=$(dirname -- "$(realpath -- "$0")")
-if [[ ! -x "$app_source/build/a-weather-app" ]]; then
-  printf 'Build the Go/Qt application first with make, or use the container-built package.\n' >&2
-  exit 1
+if [[ -x "$app_source/build/a-weather-app" ]]; then
+  exec "$app_source/build/a-weather-app" "$@"
 fi
-exec "$app_source/build/a-weather-app" "$@"
+data_home=${XDG_DATA_HOME:-${HOME:-}/.local/share}
+if [[ "$data_home" == /* && -x "$data_home/a-weather-app/current/a-weather-app" ]]; then
+  exec "$data_home/a-weather-app/current/a-weather-app" "$@"
+fi
+for argument in "$@"; do
+  if [[ "$argument" == --bar ]]; then
+    printf '%s\n' '{"schema_version":1,"label":"Install weather app","tooltip":"Run the release runtime installer from the plugin README","freshness":"unavailable"}'
+    exit 0
+  fi
+  if [[ "$argument" == --refresh-bar ]]; then
+    exit 0
+  fi
+done
+printf 'Install the release runtime with: bash %s/scripts/install_release_runtime.sh\n' "$app_source" >&2
+exit 1

@@ -14,8 +14,8 @@ if [[ "$output_root" != /output || ! -d "$output_root" ]]; then
 fi
 source_version=$(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)",?$/\1/p' "$source_root/manifest.json")
 release_version=${WEATHER_RELEASE_VERSION:-$source_version}
-if [[ ! "$source_version" =~ ^0\.[1-9][0-9]*\.0$ || ! "$release_version" =~ ^0\.[1-9][0-9]*\.0$ ]]; then
-  printf 'Expected a 0.MINOR.0 source and release version.\n' >&2; exit 2
+if [[ ! "$source_version" =~ ^0\.[1-9][0-9]*\.(0|[1-9][0-9]*)$ || ! "$release_version" =~ ^0\.[1-9][0-9]*\.(0|[1-9][0-9]*)$ ]]; then
+  printf 'Expected 0.MINOR.PATCH source and release versions.\n' >&2; exit 2
 fi
 export WEATHER_RELEASE_VERSION="$release_version"
 export LC_ALL=C.UTF-8 TZ=UTC

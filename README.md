@@ -31,15 +31,43 @@ current conditions.
 Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
 you stop them; the separate preview runs for five minutes.
 
-## Build and install
+## Install on Omarchy
 
-The package targets **x86_64 Omarchy**. Download the newest version from
+Omarchy clones this repository to install the bar widget; it does not run an
+installer or build the native app. Install the compiled runtime explicitly after
+adding the plugin:
+
+```sh
+omarchy plugin add https://github.com/joega/a-weather-app.git --enable
+bash "$HOME/.config/omarchy/plugins/a-weather-app.weather/scripts/install_release_runtime.sh"
+```
+
+The widget shows **Install weather app** until the runtime is present. The setup
+script downloads the [Latest GitHub release](https://github.com/joega/a-weather-app/releases/latest),
+checks its SHA-256 checksum and runtime metadata, and installs it under
+`$XDG_DATA_HOME/a-weather-app` (or `~/.local/share/a-weather-app`). It needs
+`curl`, `jq`, `tar`, `sha256sum`, and `flock`, and runs without administrator privileges.
+It does not install packages, change shell configuration, or start desktop effects.
+The native window uses Omarchy's Qt 6, GTK4, gtk4-layer-shell, JSON-GLib,
+libepoxy, Mesa, and Hyprland libraries; notifications use `notify-send`.
+
+To update, stop desktop effects and quit the app, then run
+`omarchy plugin update a-weather-app.weather` and rerun the setup script. It keeps
+previous runtime versions for rollback. You can select a known release with
+`bash scripts/install_release_runtime.sh --version v0.51.0` from the plugin
+directory. The plugin checkout stays unmodified, so Omarchy can fast-forward it.
+
+## Build and install manually
+
+The native package targets **x86_64 Omarchy**. Download the newest version from
 [GitHub Releases (Latest)](https://github.com/joega/a-weather-app/releases/latest).
-Each release has a versioned `a-weather-app-v0.MINOR.0-linux-x86_64.tar`, a
+Each release has a versioned `a-weather-app-v0.MINOR.PATCH-linux-x86_64.tar`, a
 `SHA256SUMS` file, and `go-runtime.json` with the source commit and build details.
 Check the archive against `SHA256SUMS` before extracting it. Releases begin at
-`v0.50.0`; each successful build of a new main commit advances the minor version
-(`v0.51.0`, `v0.52.0`, and so on). The release marked **Latest** is the one to download.
+`v0.50.0`; each successful build of a new main commit advances the patch version
+(`v0.51.1`, `v0.51.2`, and so on). A feature release starts a new minor series
+by changing `packaging/release-series.txt` (for example, `0.52` produces `v0.52.0`).
+The release marked **Latest** is the one to download.
 Run `sha256sum --check SHA256SUMS` beside the downloaded archive to verify it.
 
 To build the same package locally in an isolated container:
@@ -104,13 +132,20 @@ replacing an unrelated command.
 ## Omarchy bar widget
 
 The package's root `manifest.json` declares
-`a-weather-app.weather`. The bar reads cached conditions without fetching weather
-or loading native code. Clicking it opens or hides the app.
+`a-weather-app.weather`. The bar reads cached conditions without loading native
+code. A separate one-shot helper refreshes the saved location when the bar loads
+and checks again every five minutes, fetching only if the forecast is at least
+15 minutes old. It uses approximate local detection only if you previously
+opted into that setting in the app. A new installation does not guess your
+location or fetch until you choose one. Clicking the bar opens or hides the app.
+In a cloned plugin,
+the small repository launcher uses the separately installed release runtime;
+`projectPath` remains available for older installations that point directly at
+an extracted package.
 
 The widget defaults to the center section; existing user placement is preserved.
-Local installation and rollback should point the plugin at the extracted package
-or a fully built source checkout. Stop desktop effects and quit before switching
-versions.
+Stop desktop effects and quit before switching runtime versions or changing a
+local plugin link. A fully built source checkout also works for development.
 
 After switching a local plugin link between versions, rescan with
 `omarchy-shell shell rescanPlugins`. If the shell retains the old QML adapter,
@@ -144,8 +179,9 @@ are unverified. Short isolated tests do not establish broad hardware support.
 
 ## Resource use and security boundaries
 
-The bar reads cached weather every 30 seconds; it does not start a network
-refresh or desktop effects. Forecast animation runs only while the window is
+The bar reads cached weather every 30 seconds. Its bounded background helper
+can refresh saved weather without opening the window or starting desktop
+effects. Forecast animation runs only while the window is
 visible and not minimized. Enable Reduced motion to stop that animation and
 disable precipitation/lightning effects. Closing a forecast-only window quits
 its UI/service; explicitly enabled watching or live effects keep the app running
@@ -273,7 +309,8 @@ logs. Failed cleanup retains that directory for inspection. Launcher failures
 may retain `guardian-last-error.log` in the state directory.
 
 `./a-weather-app --bar` reads cached status without starting the app or making
-network requests. `--state-dir` selects an isolated state directory; ZIP and demo
+network requests. `--refresh-bar` makes one due refresh for the saved location
+without opening the window. `--state-dir` selects an isolated state directory; ZIP and demo
 overrides retain their original `locations/ZIP` and `demos/boston` subdirectories.
 Output directories must be owned by you with mode `0700`; input files must be
 regular, owned by you, and not writable by other users. Symlinks are refused.
@@ -284,10 +321,12 @@ Stop effects and quit the app before uninstalling:
 omarchy plugin remove a-weather-app.weather
 ```
 
-Removal disables the widget. For a local symlink install it removes the link,
-not its target checkout or extracted package; a cloned plugin directory is
-removed. Private settings are preserved. Installed dependency packages
-also remain. Remove any separately created `~/.local/bin/a-weather-app` symlink,
+Removal disables the widget and removes its cloned checkout. For a local symlink
+install it removes the link, not its target. The separately installed runtime
+under `$XDG_DATA_HOME/a-weather-app` (or `~/.local/share/a-weather-app`) and
+private settings remain for inspection or rollback; remove them separately only
+if you no longer need them. Installed dependency packages also remain.
+Remove any separately created `~/.local/bin/a-weather-app` symlink,
 `~/.local/share/applications/a-weather-app.desktop`, and
 `~/.local/share/icons/hicolor/scalable/apps/a-weather-app.svg` individually. To erase
 saved data, stop the app first and remove only its configured state directory,

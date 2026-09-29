@@ -19,6 +19,7 @@ OmarchyUi.BarWidget {
     property string tooltip: "Open A Weather App to choose a location"
     property string buffer: ""
     property bool rejected: false
+    property bool pendingOpen: false
     implicitWidth: textItem.implicitWidth + Style.space(14)
     implicitHeight: barSize
     activeFocusOnTab: configured
@@ -58,7 +59,14 @@ OmarchyUi.BarWidget {
         buffer = ""; rejected = false; reader.running = true; readDeadline.restart();
     }
     function open() {
-        if (configured && !app.running) app.running = true;
+        if (!configured || app.running) return;
+        if (backgroundRefresh.running) {
+            pendingOpen = true;
+            backgroundRefresh.signal(15);
+            refreshKill.restart();
+            return;
+        }
+        app.running = true;
     }
     function close() { if (app.running) app.signal(15); }
     function toggle() {
@@ -75,17 +83,27 @@ OmarchyUi.BarWidget {
             label = plain(value.label, 96); tooltip = plain(value.tooltip, 256);
         } catch (error) { label = "—° · Unavailable"; tooltip = "A Weather App forecast unavailable"; }
     }
-    onConfiguredChanged: { if (configured) refresh(); }
-    Component.onCompleted: refresh()
+    function refreshSaved() {
+        if (configured && !backgroundRefresh.running && !app.running) {
+            backgroundRefresh.running = true;
+            refreshDeadline.restart();
+        }
+    }
+    onConfiguredChanged: { if (configured) { refresh(); refreshSaved(); } }
+    Component.onCompleted: { refresh(); refreshSaved(); }
     Component.onDestruction: {
         if (windowToggle.running) windowToggle.signal(15);
         if (reader.running) reader.signal(15);
+        if (backgroundRefresh.running) backgroundRefresh.signal(15);
         if (app.running) app.signal(15);
     }
     Timer { interval: 30000; repeat: true; running: root.configured; onTriggered: root.refresh() }
+    Timer { interval: 300000; repeat: true; running: root.configured; onTriggered: root.refreshSaved() }
     Timer { id: readDeadline; interval: 3000; onTriggered: { root.rejected = true; reader.signal(15); readKill.restart(); } }
     Timer { id: readKill; interval: 1000; onTriggered: { if (reader.running) reader.signal(9); } }
     Timer { id: toggleDeadline; interval: 3000; onTriggered: { if (windowToggle.running) windowToggle.signal(9); } }
+    Timer { id: refreshDeadline; interval: 35000; onTriggered: { if (backgroundRefresh.running) { backgroundRefresh.signal(15); refreshKill.restart(); } } }
+    Timer { id: refreshKill; interval: 1000; onTriggered: { if (backgroundRefresh.running) backgroundRefresh.signal(9); } }
     Process {
         id: windowToggle
         // Let the launcher resolve symlinks just as it does when starting Qt.
@@ -111,6 +129,14 @@ OmarchyUi.BarWidget {
             if (code === 0 && !root.rejected) root.acceptRead();
             else { root.label = "—° · Unavailable"; root.tooltip = "A Weather App forecast unavailable"; }
             root.buffer = "";
+        }
+    }
+    Process {
+        id: backgroundRefresh
+        command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--refresh-bar"]
+        onExited: (code, status) => {
+            refreshDeadline.stop(); refreshKill.stop(); root.refresh();
+            if (root.pendingOpen) { root.pendingOpen = false; Qt.callLater(root.open); }
         }
     }
     Process {

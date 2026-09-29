@@ -29,7 +29,7 @@ type M = map[string]any
 // Package builds set this with -X. An installation directory may have any name;
 // only a development binary uses the source checkout's build/ convention.
 var buildMode = "development"
-var appVersion = "0.50.0"
+var appVersion = "0.51.1"
 
 func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
@@ -108,6 +108,7 @@ func launch(args []string) error {
 	instance := fs.String("instance", "", "Hyprland instance")
 	output := fs.String("output", "", "monitor connector")
 	bar := fs.Bool("bar", false, "print cached bar status")
+	refreshBar := fs.Bool("refresh-bar", false, "refresh saved bar weather without a window")
 	toggle := fs.Bool("toggle-window", false, "open or toggle the forecast window")
 	stop := fs.Bool("stop-effects", false, "stop the owned desktop effects")
 	quit := fs.Bool("quit", false, "quit this app and its owned effects")
@@ -203,6 +204,51 @@ func launch(args []string) error {
 	if e != nil {
 		return e
 	}
+	if *refreshBar {
+		state, err := safeio.OpenDir(statePath, false)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		defer state.Close()
+		due, err := app.BarRefreshDue(state, time.Now())
+		if err != nil || !due {
+			return err
+		}
+		if err := verifyRuntime(root); err != nil {
+			return fmt.Errorf("runtime package verification failed: %w", err)
+		}
+		// A running GUI service already owns periodic refresh. This lock also
+		// serializes separate bar instances on multiple monitors.
+		runtimeState, err := safeio.OpenDir(runtimeDir, true)
+		if err != nil {
+			return err
+		}
+		defer runtimeState.Close()
+		marker, err := runtimeState.Lock("bar-refresh.lock")
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		defer marker.Close()
+		lock, err := runtimeState.Lock("service.lock")
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
+		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer cancel()
+		ctx, deadline := context.WithTimeout(ctx, 30*time.Second)
+		defer deadline()
+		return app.RefreshBarSaved(ctx, state, app.Options{})
+	}
 	if !*service {
 		op := "toggle_window"
 		budget := 2 * time.Second
@@ -233,18 +279,8 @@ func launch(args []string) error {
 	// Only the explicitly built development executable may use source-tree
 	// assets. An installed bundle must never fall back after a missing or broken
 	// integrity manifest, including when a development root override is given.
-	executable, e := os.Executable()
-	if e != nil {
-		return e
-	}
-	executable, e = filepath.EvalSymlinks(executable)
-	if e != nil {
-		return e
-	}
-	if buildMode != "development" || executable != filepath.Join(root, "build", "a-weather-app") {
-		if e = release.Verify(root); e != nil {
-			return fmt.Errorf("runtime package verification failed: %w", e)
-		}
+	if e = verifyRuntime(root); e != nil {
+		return fmt.Errorf("runtime package verification failed: %w", e)
 	}
 	state, e := safeio.OpenDir(statePath, true)
 	if e != nil {
@@ -283,7 +319,7 @@ func launch(args []string) error {
 		defer cancel()
 		return supervision.Guard(ctx, childArgs, serviceEnvironment(), statePath, time.Duration(*duration)*time.Second)
 	}
-	lock, e := runtimeState.Lock("service.lock")
+	lock, e := serviceLock(runtimeState)
 	if e != nil {
 		return errors.New("weather service already owns this state")
 	}
@@ -335,6 +371,45 @@ func launch(args []string) error {
 		done()
 	}
 	return errors.Join(serveErr, startErr, e)
+}
+
+func verifyRuntime(root string) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	executable, err = filepath.EvalSymlinks(executable)
+	if err != nil {
+		return err
+	}
+	if buildMode != "development" || executable != filepath.Join(root, "build", "a-weather-app") {
+		return release.Verify(root)
+	}
+	return nil
+}
+
+func serviceLock(runtimeState *safeio.Directory) (*os.File, error) {
+	lock, err := runtimeState.Lock("service.lock")
+	if !errors.Is(err, syscall.EWOULDBLOCK) {
+		return lock, err
+	}
+	deadline := time.Now().Add(31 * time.Second)
+	for time.Now().Before(deadline) {
+		marker, markerErr := runtimeState.Lock("bar-refresh.lock")
+		if markerErr == nil {
+			marker.Close()
+			return nil, err
+		}
+		if !errors.Is(markerErr, syscall.EWOULDBLOCK) {
+			return nil, markerErr
+		}
+		time.Sleep(100 * time.Millisecond)
+		lock, err = runtimeState.Lock("service.lock")
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			return lock, err
+		}
+	}
+	return nil, err
 }
 
 func mayStartAfterIPCError(socket string, err error) bool {

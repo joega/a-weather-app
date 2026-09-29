@@ -8,7 +8,51 @@ import (
 	"slices"
 	"syscall"
 	"testing"
+	"time"
 )
+
+func TestServiceWaitsForBarRefreshLock(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := safeio.OpenDir(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dir.Close()
+	marker, err := dir.Lock("bar-refresh.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := dir.Lock("service.lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		lock, err := serviceLock(dir)
+		if lock != nil {
+			lock.Close()
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("service did not wait for bar refresh: %v", err)
+	case <-time.After(150 * time.Millisecond):
+	}
+	service.Close()
+	marker.Close()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("service did not acquire lock after bar refresh")
+	}
+}
 
 func TestInvalidCLIInputsDoNotCreateState(t *testing.T) {
 	for _, args := range [][]string{

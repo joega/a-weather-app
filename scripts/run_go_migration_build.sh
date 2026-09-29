@@ -7,8 +7,8 @@ image='archlinux@sha256:917e543c9d0f1f495d70907bdf05bf53607e791b351e1b01ccd3aec2
 if ! command -v docker >/dev/null; then
   printf 'Docker is unavailable; build was not started.\n' >&2; exit 2
 fi
-if [[ -n ${WEATHER_RELEASE_VERSION:-} && ! ${WEATHER_RELEASE_VERSION} =~ ^0\.[1-9][0-9]*\.0$ ]]; then
-  printf 'WEATHER_RELEASE_VERSION must be 0.MINOR.0.\n' >&2; exit 2
+if [[ -n ${WEATHER_RELEASE_VERSION:-} && ! ${WEATHER_RELEASE_VERSION} =~ ^0\.[1-9][0-9]*\.(0|[1-9][0-9]*)$ ]]; then
+  printf 'WEATHER_RELEASE_VERSION must be a 0.MINOR.PATCH version.\n' >&2; exit 2
 fi
 runner=(docker)
 if ! docker info >/dev/null 2>&1; then
