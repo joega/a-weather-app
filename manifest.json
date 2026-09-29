@@ -2,11 +2,13 @@
   "schemaVersion": 1,
   "id": "a-weather-app.weather",
   "name": "A Weather App",
-  "version": "0.51.1",
+  "version": "0.51.2",
   "author": "Joe Gaetano",
   "license": "MIT",
   "description": "Saved-location weather status with background refresh and a native forecast window",
-  "kinds": ["bar-widget"],
+  "kinds": [
+    "bar-widget"
+  ],
   "entryPoints": {
     "barWidget": "quickshell/a-weather-app.weather/WeatherWidget.qml"
   },
