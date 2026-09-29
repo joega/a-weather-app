@@ -29,7 +29,7 @@ type M = map[string]any
 // Package builds set this with -X. An installation directory may have any name;
 // only a development binary uses the source checkout's build/ convention.
 var buildMode = "development"
-var appVersion = "0.51.3"
+var appVersion = "0.51.4"
 
 func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
