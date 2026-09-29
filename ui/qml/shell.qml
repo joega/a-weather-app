@@ -124,7 +124,7 @@ QtObject {
                         PlainLabel { id:locationHeading;objectName:"locationHeading";text:root.city;font.pixelSize:38;minimumPixelSize:24;fontSizeMode:Text.Fit;elide:Text.ElideRight;width:window.width<850?parent.width:parent.width-headerActions.width-20 }
                         PlainLabel { id:regionHeading;text:root.region;font.pixelSize:19;color:Tokens.secondary }
                         Item { width:1;height:window.width<850?headerActions.height+12:0 }
-                        PlainLabel { text:root.current?Forecast.temp(root.current.temperature_c,root.units):"—°";font.pixelSize:96;font.weight:Font.Light }
+                        PlainLabel { objectName:"currentTemperature";text:root.current?Forecast.temp(root.current.temperature_c,root.units):"—°";font.pixelSize:96;font.weight:Font.Light }
                         PlainLabel { text:root.current?Forecast.title(root.current.condition):"Forecast unavailable";font.pixelSize:27 }
                         PlainLabel { width:window.width>=850&&root.activeAlerts.length?parent.width*0.48:parent.width;text:"Feels like "+Forecast.temp(root.current?root.current.apparent_temperature_c:null,root.units)+" · High "+Forecast.temp(root.days.length?root.days[0].high_c:null,root.units)+" · Low "+Forecast.temp(root.days.length?root.days[0].low_c:null,root.units);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
                     }

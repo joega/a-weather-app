@@ -33,6 +33,17 @@ func Bar(state *safeio.Directory, now time.Time) M {
 	if e != nil || forecast == nil {
 		return r
 	}
+	controls := DefaultControls()
+	saved, e := state.Read("controls.json", 8192)
+	if e != nil {
+		return r
+	}
+	if saved != nil {
+		controls, e = PatchControls(controls, saved)
+		if e != nil {
+			return r
+		}
+	}
 	selected := weather.Select(forecast, now, "live", nil, "subtle", false, false)
 	fresh := stringOf(selected["freshness"])
 	r["freshness"] = fresh
@@ -45,7 +56,11 @@ func Bar(state *safeio.Directory, now time.Time) M {
 	}
 	degrees := "--"
 	if t, ok := current["temperature_c"].(float64); ok {
-		degrees = fmt.Sprintf("%.0f", math.RoundToEven(t*9/5+32))
+		if controls["units"] == "F" {
+			t = t*9/5 + 32
+		}
+		// Match Forecast.temp's JavaScript Math.round, including negative ties.
+		degrees = fmt.Sprintf("%.0f", math.Floor(t+0.5))
 	}
 	condition := friendlyConditions[stringOf(current["condition"])]
 	label := degrees + "° · " + condition

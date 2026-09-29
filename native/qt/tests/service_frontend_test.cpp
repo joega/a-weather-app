@@ -188,6 +188,44 @@ private slots:
         QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),QString("Dew point —"));
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
     }
+    void temperatureUnitsMatchBar_data(){
+        QTest::addColumn<double>("celsius");QTest::addColumn<QString>("fahrenheitLabel");QTest::addColumn<QString>("celsiusLabel");QTest::addColumn<int>("age");
+        QTest::newRow("reported-60F-16C")<<15.5<<QString("60°")<<QString("16°")<<60;
+        QTest::newRow("fahrenheit-half-degree")<<2.5<<QString("37°")<<QString("3°")<<60;
+        QTest::newRow("below-zero")<<-1.5<<QString("29°")<<QString("-1°")<<60;
+        QTest::newRow("negative-half-degree")<<-0.5<<QString("31°")<<QString("0°")<<60;
+        QTest::newRow("stale-forecast")<<15.5<<QString("60°")<<QString("16°")<<4000;
+    }
+    void temperatureUnitsMatchBar(){
+        QFETCH(double,celsius);QFETCH(QString,fahrenheitLabel);QFETCH(QString,celsiusLabel);QFETCH(int,age);
+        ServiceFixture fixture;fixture.cache(age);
+        auto forecast=fixture.saved("forecast.json");auto current=forecast["current"].toObject();current["temperature_c"]=celsius;forecast["current"]=current;
+        QJsonObject location{{"name","London, England, United Kingdom"},{"latitude",51.5085},{"longitude",-.1257},{"timezone","Europe/London"}};
+        forecast["location"]=location;
+        fixture.save("location-profile.json",{{"schema_version",2},{"mode","place"},{"zip_code",QJsonValue::Null},{"location",location},{"forecast",forecast},{"country_code","GB"},{"place",QJsonObject{{"provider","open-meteo"},{"id",2643743}}}});
+        QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);QTRY_VERIFY(window->isExposed());
+        root->setProperty("effectsOpen",false);
+        auto checkBar=[&](const QString &temperature){
+            QCOMPARE(named("currentTemperature")->property("text").toString(),temperature);
+            QProcess bar;bar.start(qEnvironmentVariable("GO_APP"),{"--bar","--state-dir",fixture.state});QVERIFY(bar.waitForFinished(3000));QCOMPARE(bar.exitCode(),0);
+            const auto status=QJsonDocument::fromJson(bar.readAllStandardOutput()).object();
+            QCOMPARE(status["label"].toString(),temperature+" · Clear"+(age>2700?" · Stale":""));
+            QCOMPARE(status["freshness"].toString(),QString(age>2700?"stale":"fresh"));
+            QVERIFY(status["tooltip"].toString().contains("Alerts not supported here"));
+            QVERIFY(bar.readAllStandardError().isEmpty());
+        };
+        QCOMPARE(eval("root.units").toString(),QString("F"));checkBar(fahrenheitLabel);
+        QVERIFY(!QFile::exists(fixture.state+"/controls.json"));
+        for(const auto &units:QStringList{"C","F","C"}){
+            click(units=="C"?"unitsC":"unitsF");QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),units,3000);
+            QCOMPARE(fixture.saved("controls.json")["units"].toString(),units);checkBar(units=="C"?celsiusLabel:fahrenheitLabel);
+        }
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+        engine.reset();transport.reset();QVERIFY(fixture.start());QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);QCOMPARE(eval("root.units").toString(),QString("C"));checkBar(celsiusLabel);
+        QSignalSpy finalExit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(finalExit.size(),1,5000);QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+    }
     void cachedPointMetricsUnitsAndHour(){
         ServiceFixture fixture;fixture.cache(4000,true);QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);

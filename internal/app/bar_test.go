@@ -1,10 +1,97 @@
 package app
 
 import (
+	"context"
 	"github.com/joega/a-weather-app/internal/weather"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestBarFollowsSavedTemperatureUnits(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		celsius    float64
+		fahrenheit string
+		metric     string
+		age        time.Duration
+	}{
+		{"reported_60F_16C", 15.5, "60", "16", 0},
+		{"fahrenheit_half_degree", 2.5, "37", "3", 0},
+		{"below_zero", -1.5, "29", "-1", 0},
+		{"negative_half_degree", -0.5, "31", "0", 0},
+		{"stale_forecast", 15.5, "60", "16", time.Hour},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := testState(t)
+			now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+			forecast := appFixture(now.Add(-tc.age))
+			object(forecast["current"])["temperature_c"] = tc.celsius
+			if err := d.Write("forecast.json", forecast, weather.MaxBytes); err != nil {
+				t.Fatal(err)
+			}
+			a, err := New(d, Options{Offline: true, Now: func() time.Time { return now }})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer a.Close(context.Background())
+			for _, units := range []string{"F", "C", "F", "C"} {
+				reply, _ := a.Handle(context.Background(), request("set_controls", M{"controls": M{"units": units}}))
+				if reply["ok"] != true || object(object(reply["snapshot"])["controls"])["units"] != units {
+					t.Fatal("app did not save selected units", reply)
+				}
+				degrees := tc.fahrenheit
+				if units == "C" {
+					degrees = tc.metric
+				}
+				if bar := Bar(d, now); !strings.HasPrefix(stringOf(bar["label"]), degrees+"° · Clear") {
+					t.Fatalf("app selected %s, bar = %v; want %s°", units, bar, degrees)
+				}
+			}
+			reopened, err := New(d, Options{Offline: true, Now: a.options.Now})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reopened.Close(context.Background())
+			if reopened.controls["units"] != "C" || !strings.HasPrefix(stringOf(Bar(d, now)["label"]), tc.metric+"°") {
+				t.Fatal("saved units were not retained")
+			}
+		})
+	}
+}
+
+func TestBarSavedControlsValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		controls M
+		label    string
+	}{
+		{"missing_defaults_to_F", nil, "59° · Clear"},
+		{"empty_defaults_to_F", M{}, "59° · Clear"},
+		{"partial_C", M{"units": "C"}, "15° · Clear"},
+		{"invalid_units", M{"units": "K"}, "--° · Unavailable"},
+		{"invalid_controls", M{"units": "C", "fps": true}, "--° · Unavailable"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := testState(t)
+			now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+			if err := d.Write("forecast.json", appFixture(now), weather.MaxBytes); err != nil {
+				t.Fatal(err)
+			}
+			if tc.controls != nil {
+				if err := d.Write("controls.json", tc.controls, 8192); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if bar := Bar(d, now); bar["label"] != tc.label {
+				t.Fatalf("bar = %v; want %s", bar, tc.label)
+			}
+			if saved, err := d.Read("controls.json", 8192); err != nil || (tc.controls == nil && saved != nil) {
+				t.Fatal("bar created missing controls", err)
+			}
+		})
+	}
+}
 
 func TestBarFreshnessAndAlerts(t *testing.T) {
 	d := testState(t)
