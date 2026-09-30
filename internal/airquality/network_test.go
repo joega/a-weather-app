@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -134,5 +136,65 @@ func TestFetchCancellationAndDeadline(t *testing.T) {
 	defer cancel()
 	if _, e := Fetch(ctx, testLocation(), testTime()); !errors.Is(e, context.DeadlineExceeded) {
 		t.Fatalf("deadline not propagated: %v", e)
+	}
+}
+
+// Return an empty successful response, then cancel exactly when its body reaches
+// EOF. This reproduces cancellation racing with response decoding without
+// depending on the timing of a TLS server or the scheduler.
+type cancelAtEOFConn struct {
+	net.Conn
+	response       *strings.Reader
+	cancel         context.CancelFunc
+	requestWritten chan struct{}
+	wrote          sync.Once
+}
+
+func (c *cancelAtEOFConn) Read(p []byte) (int, error) {
+	<-c.requestWritten
+	n, err := c.response.Read(p)
+	if err == io.EOF && c.cancel != nil {
+		c.cancel()
+	}
+	return n, err
+}
+
+func (c *cancelAtEOFConn) Write(p []byte) (int, error) {
+	c.wrote.Do(func() { close(c.requestWritten) })
+	return len(p), nil
+}
+
+func TestFetchCancellationDuringBodyEOF(t *testing.T) {
+	for _, canceled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("canceled=%t", canceled), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			client, peer := net.Pipe()
+			t.Cleanup(func() { client.Close(); peer.Close() })
+			conn := &cancelAtEOFConn{
+				Conn:           client,
+				response:       strings.NewReader("HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"),
+				requestWritten: make(chan struct{}),
+			}
+			if canceled {
+				conn.cancel = cancel
+			}
+			transport := http.DefaultTransport.(*http.Transport).Clone()
+			transport.Proxy = nil
+			transport.DialTLSContext = func(context.Context, string, string) (net.Conn, error) {
+				return conn, nil
+			}
+			original := http.DefaultTransport
+			http.DefaultTransport = transport
+			t.Cleanup(func() { http.DefaultTransport = original; transport.CloseIdleConnections() })
+			_, err := Fetch(ctx, testLocation(), testTime())
+			want := io.EOF
+			if canceled {
+				want = context.Canceled
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("got %v, want %v", err, want)
+			}
+		})
 	}
 }

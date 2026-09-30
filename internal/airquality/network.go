@@ -36,7 +36,7 @@ func RequestURL(location Object) (string, error) {
 	return u.String(), nil
 }
 
-func Fetch(ctx context.Context, location Object, fetchedAt time.Time) (Object, error) {
+func Fetch(ctx context.Context, location Object, fetchedAt time.Time) (result Object, err error) {
 	rawURL, e := RequestURL(location)
 	if e != nil {
 		return nil, e
@@ -46,6 +46,14 @@ func Fetch(ctx context.Context, location Object, fetchedAt time.Time) (Object, e
 	}
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
+	// Cancellation can close a response body with EOF before decoding notices
+	// it. Preserve the context error across every response and parsing path.
+	// This runs before our own deferred cancel, so ordinary failures stay intact.
+	defer func() {
+		if contextErr := ctx.Err(); contextErr != nil {
+			result, err = nil, contextErr
+		}
+	}()
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("air quality redirects refused") }}
@@ -71,15 +79,9 @@ func Fetch(ctx context.Context, location Object, fetchedAt time.Time) (Object, e
 	if e != nil {
 		return nil, e
 	}
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
 	record, e := Parse(payload, location, fetchedAt)
 	if e != nil {
 		return nil, e
-	}
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
 	}
 	return record, nil
 }
