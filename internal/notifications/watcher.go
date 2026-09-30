@@ -2,16 +2,13 @@ package notifications
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
-	"fmt"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"math"
 	"os"
 	"os/exec"
 	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -134,58 +131,13 @@ func Candidate(forecast, location M, now time.Time, probability float64) M {
 	if age < 0 || age > 2700*time.Second {
 		return nil
 	}
-	rows, ok := forecast["hourly"].([]any)
-	if !ok || len(rows) > 240 {
+	zone, err := time.LoadLocation(str(location["timezone"]))
+	if err != nil {
 		return nil
 	}
-	wet := [][2]float64{}
-	for _, x := range rows {
-		r, ok := x.(M)
-		if !ok {
-			continue
-		}
-		chance, ok := r["precipitation_probability"].(float64)
-		if !ok || math.IsNaN(chance) || chance < probability/100 || chance > 1 {
-			continue
-		}
-		t := stamp(r["time"])
-		if t.IsZero() || math.Abs(t.Sub(now).Seconds()) > 11*86400 {
-			continue
-		}
-		wet = append(wet, [2]float64{float64(t.Unix()) - 3600, chance})
-	}
-	sort.Slice(wet, func(i, j int) bool { return wet[i][0] < wet[j][0] })
-	groups := []interval{}
-	for _, h := range wet {
-		n := len(groups)
-		if n > 0 && h[0] <= groups[n-1].end+10800 {
-			groups[n-1].end = math.Max(groups[n-1].end, h[0]+3600)
-			groups[n-1].hours = append(groups[n-1].hours, h)
-		} else {
-			groups = append(groups, interval{h[0], h[0] + 3600, [][2]float64{h}})
-		}
-	}
-	zone, e := time.LoadLocation(str(location["timezone"]))
-	if e != nil {
-		return nil
-	}
-	lat, a := location["latitude"].(float64)
-	lon, b := location["longitude"].(float64)
-	if !a || !b || math.IsNaN(lat) || math.IsNaN(lon) || math.Abs(lat) > 90 || math.Abs(lon) > 180 {
-		return nil
-	}
-	key := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%.4f,%.4f", lat, lon))))
-	instant := float64(now.Unix())
-	for _, g := range groups {
-		for _, h := range g.hours {
-			if h[0]+3600 > instant && h[0] <= instant+10800 {
-				start, end := time.Unix(int64(h[0]), 0).In(zone), time.Unix(int64(h[0]+3600), 0).In(zone)
-				window := start.Format("Mon 3 PM MST") + "–" + end.Format("3 PM MST")
-				return M{"location": key, "start": g.start, "end": g.end, "title": "Hourly precipitation outlook", "body": Text(fmt.Sprintf("%s: %.0f%% chance of precipitation for %s. Open-Meteo hourly forecast; timing may change.", Text(str(location["name"]), 96), math.RoundToEven(h[1]*100), window), 320)}
-			}
-		}
-	}
-	return nil
+	var cache candidateCache
+	event, _ := cache.candidate(forecast, location, now, probability, zone)
+	return event
 }
 
 // Sender completes asynchronously and must respect cancellation.
@@ -215,6 +167,14 @@ type Watcher struct {
 	supported      bool
 	cancel         context.CancelFunc
 	done           chan error
+	zoneName       string
+	zone           *time.Location
+	zoneReady      bool
+	fetchedText    string
+	fetchedAt      time.Time
+	candidates     candidateCache
+	lastTick       time.Time
+	nextEvaluation time.Time
 }
 
 func New(state *safeio.Directory, sender Sender) *Watcher {
@@ -358,22 +318,40 @@ func (w *Watcher) Snooze(now time.Time, resume bool) error {
 	}
 	return nil
 }
+
+// Tick and Interval are serialized by the owning app, like the other Watcher
+// methods. Settings, forecast and location changes must call Tick immediately.
 func (w *Watcher) Tick(forecast, location M, now time.Time, dataOK bool) {
 	settings := w.document["settings"].(M)
-	zone, e := time.LoadLocation(str(location["timezone"]))
-	locationOK := e == nil && location != nil
-	age := now.Sub(stamp(forecast["fetched_at"]))
+	w.lastTick, w.nextEvaluation = now, time.Time{}
+	zoneName := str(location["timezone"])
+	if !w.zoneReady || zoneName != w.zoneName {
+		w.zoneName, w.zoneReady = zoneName, true
+		w.zone, _ = time.LoadLocation(zoneName)
+	}
+	zone := w.zone
+	locationOK := zone != nil && location != nil
+	fetchedText := str(forecast["fetched_at"])
+	if fetchedText != w.fetchedText {
+		w.fetchedText, w.fetchedAt = fetchedText, stamp(fetchedText)
+	}
+	age := now.Sub(w.fetchedAt)
 	dataOK = dataOK && forecast != nil && reflect.DeepEqual(forecast["location"], location) && age >= 0 && age <= 2700*time.Second && locationOK
-	quiet := false
-	if w.Enabled() && settings["quiet_enabled"] == true && locationOK {
-		hour := float64(now.In(zone).Hour())
-		start, end := settings["quiet_start"].(float64), settings["quiet_end"].(float64)
-		if start < end {
-			quiet = hour >= start && hour < end
-		} else {
-			quiet = hour >= start || hour < end
+	quiet := w.Enabled() && quietAt(settings, now, zone)
+	if w.Enabled() && locationOK {
+		w.nextEvaluation = nextQuietTransition(settings, now, zone)
+		if now.Before(w.fetchedAt) {
+			w.nextEvaluation = earlier(w.nextEvaluation, w.fetchedAt)
+		} else if expiry := w.fetchedAt.Add(2700*time.Second + time.Nanosecond); now.Before(expiry) {
+			w.nextEvaluation = earlier(w.nextEvaluation, expiry)
+		}
+		if until, ok := w.document["snoozed_until"].(float64); ok && float64(now.Unix()) < until {
+			// Snooze comparisons use whole Unix seconds, including a persisted
+			// fractional timestamp: resume at the first matching whole second.
+			w.nextEvaluation = earlier(w.nextEvaluation, time.Unix(int64(math.Ceil(until)), 0))
 		}
 	}
+
 	if !dataOK || quiet {
 		w.cancelDelivery()
 	}
@@ -418,9 +396,45 @@ func (w *Watcher) Tick(forecast, location M, now time.Time, dataOK bool) {
 	if w.done != nil {
 		return
 	}
-	event := Candidate(forecast, location, now, settings["probability"].(float64))
+	event, next := w.candidates.candidate(forecast, location, now, settings["probability"].(float64), zone)
+	w.nextEvaluation = earlier(w.nextEvaluation, next)
 	if event == nil {
 		return
+	}
+	// Inspect reservations without cloning the entire document on every tick.
+	// Clone only when extending or creating a durable reservation.
+	for index, x := range w.document["events"].([]any) {
+		r := x.(M)
+		if expires := r["expires"].(float64); expires > float64(now.Unix()) {
+			w.nextEvaluation = earlier(w.nextEvaluation, time.Unix(int64(math.Ceil(expires)), 0))
+		} else {
+			continue
+		}
+		if r["location"] != event["location"] {
+			continue
+		}
+		if until := r["reserved"].(float64) + 21600; float64(now.Unix()) < until {
+			w.nextEvaluation = earlier(w.nextEvaluation, time.Unix(int64(math.Ceil(until)), 0))
+		}
+		if (event["start"].(float64) <= r["end"].(float64)+10800 && event["end"].(float64) >= r["start"].(float64)-10800) || float64(now.Unix())-r["reserved"].(float64) < 21600 {
+			start, end := math.Min(r["start"].(float64), event["start"].(float64)), math.Max(r["end"].(float64), event["end"].(float64))
+			if start != r["start"] || end != r["end"] {
+				v := safeio.Clone(w.document)
+				copy := v["events"].([]any)[index].(M)
+				copy["start"], copy["end"] = start, end
+				rows := []any{}
+				for _, x := range v["events"].([]any) {
+					if x.(M)["expires"].(float64) > float64(now.Unix()) {
+						rows = append(rows, x)
+					}
+				}
+				v["events"] = rows
+				if e := w.save(v); e != nil {
+					w.mode, w.delivery = "unavailable", "failed"
+				}
+			}
+			return
+		}
 	}
 	v := safeio.Clone(w.document)
 	rows := []any{}
@@ -431,26 +445,12 @@ func (w *Watcher) Tick(forecast, location M, now time.Time, dataOK bool) {
 		}
 	}
 	v["events"] = rows
-	for _, x := range rows {
-		r := x.(M)
-		if r["location"] == event["location"] && ((event["start"].(float64) <= r["end"].(float64)+10800 && event["end"].(float64) >= r["start"].(float64)-10800) || float64(now.Unix())-r["reserved"].(float64) < 21600) {
-			start, end := math.Min(r["start"].(float64), event["start"].(float64)), math.Max(r["end"].(float64), event["end"].(float64))
-			if start != r["start"] || end != r["end"] {
-				r["start"], r["end"] = start, end
-				if e = w.save(v); e != nil {
-					w.mode = "unavailable"
-					w.delivery = "failed"
-				}
-			}
-			return
-		}
-	}
 	if len(rows) >= 64 {
 		w.mode = "unavailable"
 		return
 	}
 	v["events"] = append(rows, M{"location": event["location"], "start": event["start"], "end": event["end"], "reserved": float64(now.Unix()), "expires": float64(now.Unix()) + retention})
-	if e = w.save(v); e != nil {
+	if e := w.save(v); e != nil {
 		w.mode = "unavailable"
 		w.delivery = "failed"
 		return
@@ -468,6 +468,30 @@ func (w *Watcher) Tick(forecast, location M, now time.Time, dataOK bool) {
 		done <- err
 	}()
 }
+
+// Interval schedules the next time-dependent evaluation. Input or policy
+// changes are handled immediately by Tick; pending asynchronous delivery keeps
+// the existing one-second completion/cancellation polling budget.
+func (w *Watcher) Interval(now time.Time) time.Duration {
+	if w.lastTick.IsZero() {
+		return time.Second
+	}
+	if now.Before(w.lastTick) {
+		return time.Nanosecond
+	}
+	d := time.Hour
+	if !w.nextEvaluation.IsZero() {
+		d = w.nextEvaluation.Sub(now)
+	}
+	if d <= 0 {
+		return time.Nanosecond
+	}
+	if w.done != nil && d > time.Second {
+		d = time.Second
+	}
+	return d
+}
+
 func (w *Watcher) Snapshot() M {
 	return M{"settings": safeio.Clone(w.document["settings"].(M)), "state": w.mode, "snoozed_until": w.document["snoozed_until"], "delivery": w.delivery, "supported": w.supported}
 }
