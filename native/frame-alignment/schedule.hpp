@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <algorithm>
 
 namespace AWeatherApp {
 // Monotonic anchored cadence: skip overdue slots, never issue catch-up bursts.
@@ -13,6 +14,10 @@ struct RainSchedule {
     }
     void advance(Clock::time_point now) {
         if (next <= now) next += period * ((now - next) / period + 1);
+    }
+    Clock::time_point wakeDeadline(Clock::time_point now, Clock::time_point deadline, bool maintenance) {
+        advance(now);
+        return std::min(deadline, maintenance ? now + std::chrono::milliseconds(250) : next);
     }
 };
 }

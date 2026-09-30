@@ -10,6 +10,10 @@ native_check="$source_root/build/weather-native-check"
 sanitizer_root=$(mktemp -d /tmp/weather-native-sanitizers.XXXXXXXX)
 printf 'Temporary sanitizer checks: %s\n' "$sanitizer_root"
 mkdir -p "$sanitizer_root/native" "$sanitizer_root/tests" "$sanitizer_root/godot"
+mkdir -p "$sanitizer_root/native/frame-alignment"
+for header in activity.hpp rain_control.hpp schedule.hpp; do
+  cp "$source_root/native/frame-alignment/$header" "$sanitizer_root/native/frame-alignment/"
+done
 for component in atmosphere physics snow; do
   cp -a "$source_root/native/$component" "$sanitizer_root/native/"
 done

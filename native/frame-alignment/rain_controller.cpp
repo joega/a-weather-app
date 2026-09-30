@@ -4,6 +4,7 @@
 #include "segment_pass.hpp"
 #include "metrics.hpp"
 #include "schedule.hpp"
+#include "activity.hpp"
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/state/MonitorState.hpp>
 #include <hyprland/src/managers/eventLoop/EventLoopManager.hpp>
@@ -45,12 +46,29 @@ struct Session {
     RainSchedule schedule;
     int fps = 30;
     std::uint64_t timerCallbacks = 0, scheduledDamage = 0, suppressedTicks = 0;
+    PrecipitationActivityPolicy activityPolicy;
+    bool rainResidual = false, snowResidual = false;
+    PrecipitationActivity activity() const {
+        return precipitationActivity(current, target, snowCurrent, snowTarget, rainResidual, snowResidual);
+    }
+    void refreshResiduals() {
+        rainResidual = simulation.hasResidualActivity();
+        snowResidual = snowSimulation.hasResidualActivity();
+    }
+    void settleEmptyParameters(Clock::time_point now) {
+        const float delta = std::chrono::duration<float>(now - last).count();
+        approachParameters(current, target, delta);
+        approachSnowParameters(snowCurrent, snowTarget, delta);
+        snowCurrent.wind = current.wind_x;
+        last = now;
+    }
     void resetMetrics() {
         metricsStarted = Clock::now();
         cpuSubmission.reset(); acceptedIntervals.reset(); presentedIntervals.reset();
         geometryCaptures = geometryAccepted = geometryRejected = 0;
         impactsMeasured = 0;
         timerCallbacks = scheduledDamage = suppressedTicks = 0;
+        activityPolicy = {};
     }
 };
 std::unique_ptr<Session> session;
@@ -156,6 +174,13 @@ std::string status(bool enabled = true) {
         << ",\"geometry_source\":\"compositor_current_frame\",\"impacts\":" << s.impactsMeasured
         << ",\"scheduled_damage_requests\":" << s.scheduledDamage
         << ",\"timer_callbacks\":" << s.timerCallbacks << ",\"suppressed_schedule_ticks\":" << s.suppressedTicks
+        << ",\"idle_schedule_ticks\":" << s.activityPolicy.idleScheduleTicks
+        << ",\"idle_prepare_frames\":" << s.activityPolicy.idlePrepareFrames
+        << ",\"idle_stage_frames\":" << s.activityPolicy.idleStageFrames
+        << ",\"rain_simulation_steps\":" << s.activityPolicy.rainSteps
+        << ",\"snow_simulation_steps\":" << s.activityPolicy.snowSteps
+        << ",\"precipitation_pass_submissions\":" << s.activityPolicy.passSubmissions
+        << ",\"empty_passes_skipped\":" << s.activityPolicy.emptyPassesSkipped
         << ",\"scheduling_scope\":\"rain_originated_damage_only\""
         << ",\"impacts_per_second\":" << (elapsed > 0 ? s.impactsMeasured * 1000.0 / elapsed : 0)
         << ",\"ipc_per_frame\":0,\"cpu_submission_ms\":{";
@@ -225,9 +250,21 @@ void armTimer(bool suppressed = false) {
     if (!session || !session->timer) return;
     auto& s = *session;
     const auto now = Clock::now();
-    s.schedule.advance(now);
-    const auto target = std::min(s.deadline, suppressed ? now + std::chrono::milliseconds(250) : s.schedule.next);
+    const auto target = s.schedule.wakeDeadline(now, s.deadline, suppressed || !s.activity().needed());
     s.timer->updateTimeout(std::max(Clock::duration{1}, target - now));
+}
+
+void wakePrecipitation(bool previouslyNeeded) {
+    if (!active() || previouslyNeeded || !session->activity().needed()) return;
+    session->last = Clock::now();
+    session->schedule.reset(session->last, session->fps);
+    const auto monitor = session->monitor.lock();
+    const bool suppressed = schedulingSuppression(monitor) != nullptr;
+    armTimer(suppressed);
+    if (!suppressed && g_pHyprRenderer) {
+        g_pHyprRenderer->damageMonitor(monitor);
+        ++session->scheduledDamage;
+    }
 }
 
 void scheduleTick(SP<CEventLoopTimer> self, void*) noexcept {
@@ -243,6 +280,7 @@ void scheduleTick(SP<CEventLoopTimer> self, void*) noexcept {
             if (session->hasContext) {
                 session->simulation.reset();
                 session->snowSimulation.reset();
+                session->refreshResiduals();
                 session->snowFrame.segment_count = session->snowFrame.flake_segments = session->snowFrame.masked_segments = 0;
                 session->snowFrame.metrics = {};
                 session->acceptedIntervals.breakSequence();
@@ -250,6 +288,10 @@ void scheduleTick(SP<CEventLoopTimer> self, void*) noexcept {
             session->hasContext = false;
             session->suppression = reason;
             session->last = Clock::now();
+        } else if (!session->activityPolicy.schedule(session->activity())) {
+            session->suppression = "empty_precipitation";
+            session->acceptedIntervals.breakSequence();
+            session->settleEmptyParameters(Clock::now());
         } else if (g_pHyprRenderer) {
             g_pHyprRenderer->damageMonitor(monitor);
             ++session->scheduledDamage;
@@ -297,6 +339,7 @@ void rainPrecheck(PHLMONITOR monitor) {
 
 void rainPrepareFrame(PHLMONITOR monitor) {
     if (!active() || !monitor || session->monitor != monitor || schedulingSuppression(monitor)) return;
+    if (!session->activityPolicy.prepare(session->activity())) return;
     // render.pre runs after the compositor's needs-frame gate and before
     // beginRender consumes this damage ring. Refresh the whole animated effect
     // within this existing frame; damageMonitor/addDamage would schedule another
@@ -309,6 +352,12 @@ void rainStage() {
     const auto monitor = g_pHyprRenderer->renderData().pMonitor.lock();
     if (!monitor || session->monitor != monitor) return;
     if (session->reducedMotion) { session->suppression = "reduced_motion"; return; }
+    if (!session->activityPolicy.stage(session->activity())) {
+        session->suppression = "empty_precipitation";
+        session->acceptedIntervals.breakSequence();
+        session->settleEmptyParameters(Clock::now());
+        return;
+    }
     const auto started = Clock::now();
     try {
         auto geometry = captureGeometry(monitor);
@@ -318,6 +367,7 @@ void rainStage() {
             ++s.geometryRejected;
             s.acceptedIntervals.breakSequence();
             if (s.hasContext) { s.simulation.reset(); s.snowSimulation.reset(); }
+            s.refreshResiduals();
             s.snowFrame.segment_count = s.snowFrame.flake_segments = s.snowFrame.masked_segments = 0;
             s.snowFrame.metrics = {};
             s.hasContext = false;
@@ -331,6 +381,8 @@ void rainStage() {
             s.acceptedIntervals.breakSequence();
             s.simulation.reset();
             s.snowSimulation.reset();
+            s.refreshResiduals();
+            s.frame.metrics = {};
             s.snowFrame.segment_count = s.snowFrame.flake_segments = s.snowFrame.masked_segments = 0;
             s.snowFrame.metrics = {};
             s.context = geometry.context;
@@ -354,22 +406,31 @@ void rainStage() {
                 s.snowSimulation.discardSupport(id);
             }
         }
-        if (!s.simulation.step(delta, monitor->m_size.x, monitor->m_size.y, s.current,
+        const auto activity = s.activity();
+        if (activity.rain) {
+            ++s.activityPolicy.rainSteps;
+            if (!s.simulation.step(delta, monitor->m_size.x, monitor->m_size.y, s.current,
                                std::span(geometry.supports.data(), geometry.count), s.frame, s.interactions)) {
-            s.suppression = "simulation_input";
-            s.hasContext = false;
-            s.acceptedIntervals.breakSequence();
-            return;
+                s.refreshResiduals();
+                s.suppression = "simulation_input";
+                s.hasContext = false;
+                s.acceptedIntervals.breakSequence();
+                return;
+            }
+            s.impactsMeasured += s.frame.metrics.impacts - impactsBefore;
+        } else {
+            s.frame.segment_count = s.frame.rain_segments = s.frame.masked_segments = 0;
+            s.frame.far = {};
         }
-        s.impactsMeasured += s.frame.metrics.impacts - impactsBefore;
         const auto snowBefore = s.snowFrame.metrics;
         // Settled includes both window edges and the desktop floor, so the
         // reservoir keeps updating/melting after the final flake disappears.
-        const bool snowNeeded = s.snowCurrent.strength > .0001f || snowBefore.active || snowBefore.settled > 0;
-        if (snowNeeded) {
+        if (s.snowCurrent.strength > .0001f || s.snowResidual) {
+            ++s.activityPolicy.snowSteps;
             if (!s.snowSimulation.step(delta, monitor->m_size.x, monitor->m_size.y, s.snowCurrent,
                                       std::span(geometry.supports.data(), geometry.count), s.snowFrame, s.interactions)) {
                 s.simulation.reset();
+                s.refreshResiduals();
                 s.snowFrame.segment_count = s.snowFrame.flake_segments = s.snowFrame.masked_segments = 0;
                 s.suppression = "snow_simulation_input";
                 s.hasContext = false;
@@ -380,14 +441,12 @@ void rainStage() {
             s.snowFrame.segment_count = s.snowFrame.flake_segments = s.snowFrame.masked_segments = 0;
             s.snowFrame.metrics = snowBefore;
         }
-        std::vector<Segment> segments;
-        segments.reserve(s.frame.segment_count);
-        for (std::size_t i = 0; i < s.frame.segment_count; ++i)
-            segments.push_back(s.frame.segments[i].values);
+        s.refreshResiduals();
         std::vector<Mask> masks;
-        masks.reserve(s.frame.mask_count + geometry.extra_mask_count);
-        for (std::size_t i = 0; i < s.frame.mask_count; ++i) {
-            const auto& r = s.frame.masks[i];
+        s.frame.mask_count = geometry.count;
+        masks.reserve(geometry.count + geometry.extra_mask_count);
+        for (std::size_t i = 0; i < geometry.count; ++i) {
+            const auto& r = geometry.supports[i].rect;
             masks.push_back({r.x, r.y, r.w, r.h});
         }
         for (std::size_t i = 0; i < geometry.extra_mask_count; ++i) {
@@ -397,7 +456,7 @@ void rainStage() {
         const auto& far = s.frame.far;
         // The second immutable pass owns the same current mask snapshot. Both
         // passes share GPU resources and the existing unload cleanup class.
-        if (s.snowFrame.segment_count) {
+        if (s.activityPolicy.snowPass(s.snowFrame)) {
             std::vector<Segment> snowSegments;
             snowSegments.reserve(s.snowFrame.segment_count);
             for (std::size_t i = 0; i < s.snowFrame.segment_count; ++i)
@@ -405,10 +464,16 @@ void rainStage() {
             g_pHyprRenderer->addPassElement(makeUnique<SegmentPass>(s.gpu, monitor->m_size,
                 std::move(snowSegments), masks, s.snowFrame.masked_segments, Far{}));
         }
-        g_pHyprRenderer->addPassElement(makeUnique<SegmentPass>(s.gpu, monitor->m_size,
-            std::move(segments), std::move(masks), s.frame.masked_segments,
-            Far{static_cast<uint32_t>(far.count), far.speed, far.wind, far.length,
-                far.width, far.opacity, static_cast<float>(s.frame.time)}));
+        if (s.activityPolicy.rainPass(s.frame)) {
+            std::vector<Segment> segments;
+            segments.reserve(s.frame.segment_count);
+            for (std::size_t i = 0; i < s.frame.segment_count; ++i)
+                segments.push_back(s.frame.segments[i].values);
+            g_pHyprRenderer->addPassElement(makeUnique<SegmentPass>(s.gpu, monitor->m_size,
+                std::move(segments), std::move(masks), s.frame.masked_segments,
+                Far{static_cast<uint32_t>(far.count), far.speed, far.wind, far.length,
+                    far.width, far.opacity, static_cast<float>(s.frame.time)}));
+        }
         ++s.frames;
         s.acceptedIntervals.observe(timestampMS(started));
         s.suppression = "none";
@@ -452,6 +517,7 @@ std::string rainRequest(std::string input) {
             if (configuredReduced) {
                 session->simulation.reset(); session->snowSimulation.reset();
                 session->frame = {}; session->snowFrame = {}; session->hasContext = false;
+                session->refreshResiduals();
                 session->suppression = "reduced_motion";
             } else if (!configuredInteractions.window_physics || !configuredInteractions.accumulation) {
                 // Window interaction is independent of desktop accumulation.
@@ -460,6 +526,7 @@ std::string rainRequest(std::string input) {
                 if (!configuredInteractions.accumulation) {
                     session->simulation.discardAccumulation();
                     session->snowSimulation.discardAccumulation();
+                    session->refreshResiduals();
                 }
                 session->frame.segment_count = session->frame.rain_segments = session->frame.masked_segments = 0;
                 session->snowFrame.segment_count = session->snowFrame.flake_segments = session->snowFrame.masked_segments = 0;
@@ -487,16 +554,20 @@ std::string rainRequest(std::string input) {
         return status();
     }
     if (command.action == RainCommand::SET) {
+        const bool previouslyNeeded = session && session->activity().needed();
         settings.*(rainSettings[command.setting].member) = command.value;
         if (session) session->target = settings;
+        wakePrecipitation(previouslyNeeded);
         return "{\"schema_version\":1,\"setting_accepted\":true}";
     }
     if (command.action == RainCommand::SNOW) {
+        const bool previouslyNeeded = session && session->activity().needed();
         const auto member = snowSettings[static_cast<std::size_t>(command.snowSetting)].member;
         snowSettingsConfigured.*member = command.value;
         // Thermal provenance is session-scoped and must survive intensity,
         // accumulation and overload changes without becoming a global default.
         if (session) session->snowTarget.*member = command.value;
+        wakePrecipitation(previouslyNeeded);
         return "{\"schema_version\":1,\"snow_setting_accepted\":true}";
     }
     if (command.action == RainCommand::TEMPERATURE) {
@@ -534,7 +605,10 @@ std::string rainRequest(std::string input) {
     try {
         g_pEventLoopManager->addTimer(session->timer);
         armTimer(schedulingSuppression(selected) != nullptr);
-        if (!schedulingSuppression(selected)) g_pHyprRenderer->damageMonitor(selected);
+        if (!schedulingSuppression(selected) && session->activity().needed()) {
+            g_pHyprRenderer->damageMonitor(selected);
+            ++session->scheduledDamage;
+        }
     } catch (...) {
         rainShutdown();
         throw;

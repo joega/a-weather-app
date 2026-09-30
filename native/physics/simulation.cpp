@@ -524,6 +524,14 @@ Metrics Simulation::metrics() const {
   for (std::size_t i = 0; i < floor_count_; ++i) m.floor_volume += floor_[i];
   return m;
 }
+bool Simulation::hasResidualActivity() const {
+  for (const auto &p : splashes_) if (p.life > 0) return true;
+  for (const auto &p : runoff_) if (p.volume > 0) return true;
+  for (const auto &e : edges_) if (e.active)
+    for (std::size_t i = 0; i < e.count; ++i) if (e.cells[i] > 0) return true;
+  for (std::size_t i = 0; i < floor_count_; ++i) if (floor_[i] > 0) return true;
+  return false;
+}
 void Simulation::draw(const Parameters &p, std::span<const Support> ss,
                       Frame &f) const {
   int mid = static_cast<int>(

@@ -53,6 +53,8 @@ public:
   bool inject(Vec p, Vec v, float volume = 1);
   static Hit sweep_top(Vec, Vec, std::span<const Support>);
   Metrics metrics() const;
+  // Unknown temperature and subpixel settled deposits remain live state.
+  bool hasResidualActivity() const;
 
 private:
   struct Flake {

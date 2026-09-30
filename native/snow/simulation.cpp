@@ -340,6 +340,13 @@ Metrics Simulation::metrics() const {
     }
   return m;
 }
+bool Simulation::hasResidualActivity() const {
+  for (const auto &f : flakes_) if (f.active) return true;
+  for (const auto &e : edges_) if (e.active)
+    for (std::size_t i = 0; i < e.count; ++i) if (e.cells[i] > 0) return true;
+  for (std::size_t i = 0; i < floor_count_; ++i) if (floor_[i] > 0) return true;
+  return false;
+}
 void Simulation::discardAccumulation() {
   for (auto &e : edges_) if (e.active) discardSupport(e.support.id);
   totals_.discarded += floorSnow();

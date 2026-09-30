@@ -94,6 +94,9 @@ public:
   bool discardSupport(std::uint64_t id);
   void discardAccumulation();
   Metrics metrics() const;
+  // Exact live state, including subpixel stores that still drain/evaporate.
+  // Rain streaks are driven by parameter counts rather than particle lifetime.
+  bool hasResidualActivity() const;
 
 private:
   static constexpr std::size_t cell_cap = 1024;
