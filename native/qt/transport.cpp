@@ -18,6 +18,12 @@ WeatherTransport::WeatherTransport(QString socketPath,bool diagnostic,QObject *p
     connect(&socket,&QLocalSocket::disconnected,this,[this]{fail("Weather service stopped. Close and reopen to reconnect.");});
     connect(&socket,&QLocalSocket::errorOccurred,this,[this](QLocalSocket::LocalSocketError){fail("Weather service is unavailable. Close and reopen to reconnect.");});
 }
+WeatherTransport::~WeatherTransport() {
+    // QLocalSocket can emit disconnected while closing. Disconnect before any
+    // members are destroyed: buffer dies before socket, and fail() clears it.
+    QObject::disconnect(&socket,nullptr,this,nullptr);
+    socket.abort();
+}
 void WeatherTransport::start(){if(failed||socket.state()!=QLocalSocket::UnconnectedState)return;if(verbose)qInfo()<<"Weather service connecting";socket.connectToServer(path);QTimer::singleShot(5000,this,[this]{if(!connected())fail("Weather service connection timed out");});}
 bool WeatherTransport::send(const QVariantMap &request){
     if(!connected())return false;

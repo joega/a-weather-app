@@ -3,6 +3,7 @@
 #include "../transport.h"
 #include <QLocalServer>
 #include <QTemporaryDir>
+#include <memory>
 class ProtocolTest:public QObject {
     Q_OBJECT
 private slots:
@@ -72,6 +73,36 @@ private slots:
         QTemporaryDir directory;QLocalServer server;const auto path=directory.path()+"/socket";QVERIFY(server.listen(path));
         WeatherTransport client(path,false);QSignalSpy ready(&client,&WeatherTransport::ready),errors(&client,&WeatherTransport::unavailable);
         client.start();QTRY_COMPARE(ready.size(),1);QTRY_VERIFY(server.hasPendingConnections());QScopedPointer<QLocalSocket> peer(server.nextPendingConnection());peer->close();QTRY_COMPARE(errors.size(),1);QVERIFY(!client.connected());
+    }
+    void destructionDoesNotEmitSocketCallbacks_data(){
+        QTest::addColumn<bool>("pendingEOF");
+        QTest::newRow("connected")<<false;
+        QTest::newRow("peer-closed-without-event-delivery")<<true;
+    }
+    void destructionDoesNotEmitSocketCallbacks(){
+        QFETCH(bool,pendingEOF);
+        QTemporaryDir directory;QVERIFY(directory.isValid());QLocalServer server;
+        const auto path=directory.path()+"/socket";QVERIFY(server.listen(path));
+        auto client=std::make_unique<WeatherTransport>(path,false);
+        QSignalSpy ready(client.get(),&WeatherTransport::ready);
+        QSignalSpy messages(client.get(),&WeatherTransport::message);
+        QSignalSpy errors(client.get(),&WeatherTransport::unavailable);
+        QSignalSpy changes(client.get(),&WeatherTransport::connectedChanged);
+        client->start();QTRY_COMPARE(ready.size(),1);QTRY_VERIFY(server.hasPendingConnections());
+        QScopedPointer<QLocalSocket> peer(server.nextPendingConnection());
+        // Exercise an allocated receive buffer, including a complete frame.
+        const QByteArray frame=QByteArray("{\"version\":1,\"event\":\"toggle_window\",\"padding\":\"")+
+            QByteArray(4096,'x')+"\"}\n";
+        QCOMPARE(peer->write(frame),frame.size());peer->flush();QTRY_COMPARE(messages.size(),1);
+        QCOMPARE(errors.size(),0);changes.clear();
+        // Leave EOF pending, as when the service fixture finishes before the
+        // frontend's event loop gets another turn. Do not wait for disconnect.
+        if(pendingEOF)peer->abort();
+        QVERIFY(client->connected());
+        client.reset();
+        // Destruction must not call fail() after its QByteArray has died or
+        // notify external observers with a partially destroyed transport.
+        QCOMPARE(errors.size(),0);QCOMPARE(changes.size(),0);
     }
 };
 QTEST_GUILESS_MAIN(ProtocolTest)

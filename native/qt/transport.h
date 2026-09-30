@@ -16,6 +16,7 @@ class WeatherTransport final:public QObject {
     void fail(const QString &message);
 public:
     WeatherTransport(QString socketPath,bool diagnostic,QObject *parent=nullptr);
+    ~WeatherTransport() override;
     bool connected()const{return socket.state()==QLocalSocket::ConnectedState&&!failed;}
     bool diagnostic()const{return verbose;}
     Q_INVOKABLE void start();

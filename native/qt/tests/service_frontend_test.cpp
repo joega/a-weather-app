@@ -18,6 +18,10 @@
 #include <unistd.h>
 #include <memory>
 
+static void teardownTrace(const char *phase) {
+    if(qEnvironmentVariableIsSet("WEATHER_QT_TEARDOWN_TRACE"))qInfo()<<"TEARDOWN"<<phase;
+}
+
 // Private offline fixtures have no precipitation and never request native effects.
 // Each test owns its service process; even failed assertions leave no service running.
 class ServiceFixture {
@@ -26,7 +30,7 @@ public:
     QString state,socket;
     QProcess service;
     ServiceFixture(){state=directory.path()+"/state";QDir().mkdir(state);QFile::setPermissions(state,QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner);}
-    ~ServiceFixture(){if(service.state()!=QProcess::NotRunning){service.terminate();if(!service.waitForFinished(3000)){service.kill();service.waitForFinished(2000);}}}
+    ~ServiceFixture(){teardownTrace("fixture begin");if(service.state()!=QProcess::NotRunning){service.terminate();if(!service.waitForFinished(3000)){service.kill();service.waitForFinished(2000);}}teardownTrace("fixture stopped");}
     void save(const QString &name,const QJsonObject &object){QFile file(state+"/"+name);if(!file.open(QIODevice::WriteOnly))qFatal("Fixture write failed");file.setPermissions(QFile::ReadOwner|QFile::WriteOwner);file.write(QJsonDocument(object).toJson(QJsonDocument::Compact));}
     bool start(bool offline=true){
         const QString app=qEnvironmentVariable("GO_APP");
@@ -206,8 +210,15 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
     }
     void initTestCase(){QVERIFY2(!qEnvironmentVariable("GO_APP").isEmpty(),"GO_APP must name the compiled Go service");QGuiApplication::setQuitOnLastWindowClosed(false);}
-    void cleanup(){engine.reset();mapTiles.reset();transport.reset();root=nullptr;window=nullptr;}
+    void cleanup(){teardownTrace("engine begin");engine.reset();teardownTrace("map tiles begin");mapTiles.reset();teardownTrace("transport begin");transport.reset();root=nullptr;window=nullptr;teardownTrace("cleanup complete");}
+    void hiddenPresentationSuppressesPeriodicSnapshots_data(){
+        QTest::addColumn<QString>("shutdownMode");
+        QTest::newRow("orderly")<<QString("orderly");
+        QTest::newRow("fixture-terminate")<<QString("fixture-terminate");
+        QTest::newRow("kill-disconnect")<<QString("kill-disconnect");
+    }
     void hiddenPresentationSuppressesPeriodicSnapshots(){
+        QFETCH(QString,shutdownMode);
         ServiceFixture fixture;fixture.cache(60);
         fixture.save("notifications.json",{{"schema_version",1},{"settings",QJsonObject{{"enabled",true},{"quiet_enabled",false},{"quiet_start",22},{"quiet_end",7},{"probability",50}}},{"snoozed_until",QDateTime::currentSecsSinceEpoch()+3600},{"events",QJsonArray{}}});
         QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
@@ -236,6 +247,18 @@ private slots:
         window->showNormal();QTRY_VERIFY_WITH_TIMEOUT(eval("backend.presentationActive").toBool()&&eval("backend.pending<0").toBool(),3000);
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.lastSnapshotRevision").toDouble()>minimizedRevision,3000);
         QVERIFY(!eval("backend.disconnected").toBool());
+        if(shutdownMode=="fixture-terminate") {
+            // Preserve the original failure sequence: the local fixture stops
+            // the service before QtTest cleanup destroys the live QML engine.
+            return;
+        }
+        if(shutdownMode=="kill-disconnect") {
+            fixture.service.kill();QVERIFY(fixture.service.waitForFinished(3000));
+            QTRY_VERIFY_WITH_TIMEOUT(eval("backend.disconnected").toBool(),3000);
+            QVERIFY(!transport->connected());
+            QVERIFY(!eval("backend.send('set_controls',{units:'F'})").toBool());
+            return;
+        }
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("backend.shutdown()");
         QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
         QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
