@@ -2,12 +2,29 @@
 # Source-checkout/plugin launcher. The packaged command is the compiled Go executable.
 set -euo pipefail
 app_source=$(dirname -- "$(realpath -- "$0")")
+source "$app_source/scripts/runtime_paths.sh"
 if [[ -x "$app_source/build/a-weather-app" ]]; then
-  exec "$app_source/build/a-weather-app" "$@"
+  weather_open_directory "$app_source/build" 0 0
+  weather_open_file "$weather_dir_fd" a-weather-app
+  exec "/proc/self/fd/$weather_file_fd" "$@"
 fi
 data_home=${XDG_DATA_HOME:-${HOME:-}/.local/share}
-if [[ "$data_home" == /* && -x "$data_home/a-weather-app/current/a-weather-app" ]]; then
-  exec "$data_home/a-weather-app/current/a-weather-app" "$@"
+if [[ "$data_home" == /* && ( -e "$data_home/a-weather-app" || -L "$data_home/a-weather-app" ) ]]; then
+  weather_open_directory "$data_home" 0
+  weather_open_child "$weather_dir_fd" a-weather-app 0 0 1
+  app_fd=$weather_child_fd
+  current="/proc/self/fd/$app_fd/current"
+  if [[ -e $current || -L $current ]]; then
+    selection=$(readlink -- "$current") || { weather_path_error current; exit 1; }
+    [[ $selection =~ ^releases/v0\.[1-9][0-9]*\.(0|[1-9][0-9]*)$ ]] || { weather_path_error current; exit 1; }
+    weather_open_child "$app_fd" releases 0 0 1
+    weather_open_child "$weather_child_fd" "${selection#releases/}" 0 0 1
+    release_fd=$weather_child_fd
+    weather_check_tree "$release_fd"
+    weather_open_file "$release_fd" a-weather-app
+    [[ -x /proc/self/fd/$weather_file_fd ]] || { weather_path_error a-weather-app; exit 1; }
+    exec "/proc/self/fd/$weather_file_fd" "$@"
+  fi
 fi
 for argument in "$@"; do
   if [[ "$argument" == --bar ]]; then
