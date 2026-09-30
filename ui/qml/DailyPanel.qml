@@ -5,17 +5,16 @@ GlassPanel {
     id:root
     property var days: []
     property string units:"F"
-    property bool expanded:false
     signal daySelected(var day)
     property real rangeLow: { let n=100; for(let d of days) if(d.low_c!==null)n=Math.min(n,d.low_c);return n }
     property real rangeHigh: { let n=-150;for(let d of days)if(d.high_c!==null)n=Math.max(n,d.high_c);return n }
-    implicitHeight: root.days.length===0 ? 252 : 66+Math.min(expanded?10:5,days.length)*37+42
+    implicitHeight: root.days.length===0 ? 252 : 66+Math.min(10,days.length)*37
     PlainLabel { x:20;y:14;text:"10-day forecast";font.pixelSize:20;font.weight:Font.DemiBold }
     PlainLabel { visible:root.days.length===0;x:20;y:92;text:"Daily forecast unavailable";color:Tokens.secondary }
     Column {
         x:20;y:50;width:parent.width-40
         Repeater {
-            model:root.days.slice(0,root.expanded?10:5)
+            model:root.days.slice(0,10)
             delegate:Button {
                 id:dayRow
                 required property var modelData
@@ -43,6 +42,5 @@ GlassPanel {
                 Rectangle { anchors.bottom:parent.bottom;width:parent.width;height:1;color:Tokens.border;opacity:0.45 }
             }
         }
-        ActionButton { objectName:"expandForecast"; visible:root.days.length>5;iconName:root.expanded?"chevron-up":"chevron-down";text:root.expanded?"Show fewer days":"Show "+(root.days.length-5)+" more days";onClicked:root.expanded=!root.expanded;implicitHeight:36 }
     }
 }
