@@ -50,6 +50,7 @@ type App struct {
 	mu                                    contextMutex
 	cacheMu                               sync.RWMutex
 	cached                                M
+	displayRows                           displayRows
 	revision                              uint64
 	fx                                    *effectsCoordinator
 	closeDone                             chan struct{}
@@ -479,7 +480,7 @@ func (a *App) selected(live bool) M {
 	if live || a.effectsStatus()["persistent"] == true {
 		mode = "live"
 	}
-	v := weather.Select(a.forecast, a.options.Now(), mode, weather.Manual(stringOf(object(a.controls["manual"])["condition"])), stringOf(a.controls["strength"]), a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
+	v := weather.SelectView(a.forecast, a.options.Now(), mode, weather.Manual(stringOf(object(a.controls["manual"])["condition"])), stringOf(a.controls["strength"]), a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
 	if a.forecast == nil && a.location != nil {
 		solar := weather.SolarPosition(a.options.Now(), a.location["latitude"].(float64), a.location["longitude"].(float64))
 		v["solar"] = solar
@@ -507,7 +508,8 @@ func (a *App) Tick(ctx context.Context) {
 	a.notifications.Tick(a.forecast, a.location, a.options.Now(), a.errorCode == nil && a.locationError == nil && !a.locationBusy)
 	a.updateEffectsLocked()
 }
-func (a *App) Interval() time.Duration {
+func (a *App) Interval() time.Duration { return a.interval(false) }
+func (a *App) interval(presented bool) time.Duration {
 	if !a.mu.TryLock() {
 		return 100 * time.Millisecond
 	}
@@ -518,15 +520,23 @@ func (a *App) Interval() time.Duration {
 		// to that coordinator as soon as it is observed.
 		return time.Second
 	}
-	if a.notifications.Enabled() {
-		return time.Second
-	}
-	d := time.Until(a.nextFetch)
+	now := a.options.Now()
+	d := a.nextFetch.Sub(now)
 	if a.options.Offline || d <= 0 {
 		d = time.Minute
 	}
 	if d > time.Minute {
 		d = time.Minute
+	}
+	if a.notifications.Enabled() {
+		if notificationDelay := a.notifications.Interval(now); notificationDelay < d {
+			d = notificationDelay
+		}
+		// Visible watching previously received a clock/freshness snapshot every
+		// five seconds. Preserve that cadence independently of watcher deadlines.
+		if presented && d > 5*time.Second {
+			d = 5 * time.Second
+		}
 	}
 	return d
 }
@@ -543,12 +553,12 @@ func (a *App) snapshotLocked() M {
 	a.revision++
 	v["snapshot_revision"] = float64(a.revision)
 	a.cacheMu.Lock()
-	// This is an already-normalized JSON-shaped display tree. A structural
-	// copy preserves reader isolation without encoding and tokenizing a full
-	// forecast again. File and socket decoding retain their strict validators.
-	a.cached = weather.Clone(v).(M)
+	// Keep the normalized display tree private. Callers receive a structural
+	// copy without encoding and tokenizing the forecast again. File and socket
+	// decoding retain their strict validators.
+	a.cached = v
 	a.cacheMu.Unlock()
-	return v
+	return weather.Clone(v).(M)
 }
 
 // Native commands never run while the app mutex is held. If a filesystem

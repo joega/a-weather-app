@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -88,7 +89,7 @@ func (a *App) snapshot() M {
 	now := a.options.Now()
 	// Observations and the ambient forecast display use the default subtle
 	// strength; the user's chosen strength belongs to the effects preview.
-	live := weather.Select(a.forecast, now, "live", nil, "subtle", a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
+	live := weather.SelectView(a.forecast, now, "live", nil, "subtle", a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
 	if a.forecast == nil && a.location != nil {
 		locationSelected := a.selected(true)
 		live["solar"] = locationSelected["solar"]
@@ -119,53 +120,7 @@ func (a *App) snapshot() M {
 	if forecast != nil {
 		current, _ = weather.WeatherRecord(object(forecast["current"]))
 		alerts = object(forecast["alerts"])
-		rows, _ := forecast["hourly"].([]any)
-		for _, v := range rows {
-			raw := object(v)
-			stamp, e := weather.Instant(raw["time"])
-			if e != nil || stamp.Before(now) {
-				continue
-			}
-			row, e := weather.WeatherRecord(raw)
-			if e != nil {
-				continue
-			}
-			local := stamp.In(zone)
-			start := stamp.Add(-time.Hour).In(zone)
-			row["local_hour"] = strings.TrimLeft(local.Format("03 PM"), "0")
-			row["local_date"] = local.Format("2006-01-02")
-			row["local_label"] = local.Format("Mon Jan 02 · 03 PM MST")
-			row["period_label"] = clockLabel(start) + " " + start.Format("MST") + " – " + clockLabel(local) + " " + local.Format("MST")
-			hourly = append(hourly, row)
-			if len(hourly) == 240 {
-				break
-			}
-		}
-		rows, _ = forecast["daily"].([]any)
-		for _, v := range rows {
-			row, e := weather.DailyRecord(object(v))
-			if e != nil {
-				continue
-			}
-			date, _ := time.Parse("2006-01-02", stringOf(row["date"]))
-			row["day_label"] = date.Format("Mon")
-			if stringOf(row["date"]) == now.In(zone).Format("2006-01-02") {
-				row["day_label"] = "Today"
-			}
-			for _, k := range []string{"sunrise", "sunset"} {
-				row[k+"_label"] = nil
-				if row[k] != nil {
-					stamp, e := weather.Instant(row[k])
-					if e == nil {
-						row[k+"_label"] = clockLabel(stamp.In(zone))
-					}
-				}
-			}
-			daily = append(daily, row)
-			if len(daily) == 10 {
-				break
-			}
-		}
+		hourly, daily = a.forecastRows(forecast, zone, now)
 	}
 	ranked := []M{}
 	items, _ := alerts["items"].([]any)
@@ -243,4 +198,79 @@ func (a *App) snapshot() M {
 	result["alerts"] = M{"status": status, "items": display, "source": alertSource, "coverage": coverage, "fetched_at": alertFetched}
 	capSnapshotAlertText(result)
 	return result
+}
+
+// Forecast rows are immutable after publication. Keep their normalized display
+// form until a row expires, the local day changes, or the forecast is replaced.
+type displayRows struct {
+	source           M
+	zone             string
+	date             string
+	builtAt, expires time.Time
+	hourly, daily    []any
+}
+
+func (a *App) forecastRows(forecast M, zone *time.Location, now time.Time) ([]any, []any) {
+	c := &a.displayRows
+	date := now.In(zone).Format("2006-01-02")
+	if c.source != nil && reflect.ValueOf(c.source).UnsafePointer() == reflect.ValueOf(a.forecast).UnsafePointer() && c.zone == zone.String() && c.date == date && !now.Before(c.builtAt) && now.Before(c.expires) {
+		return c.hourly, c.daily
+	}
+	hourly, daily := []any{}, []any{}
+	rows, _ := forecast["hourly"].([]any)
+	for _, v := range rows {
+		raw := object(v)
+		stamp, e := weather.Instant(raw["time"])
+		if e != nil || stamp.Before(now) {
+			continue
+		}
+		row, e := weather.WeatherRecord(raw)
+		if e != nil {
+			continue
+		}
+		local := stamp.In(zone)
+		start := stamp.Add(-time.Hour).In(zone)
+		row["local_hour"] = strings.TrimLeft(local.Format("03 PM"), "0")
+		row["local_date"] = local.Format("2006-01-02")
+		row["local_label"] = local.Format("Mon Jan 02 · 03 PM MST")
+		row["period_label"] = clockLabel(start) + " " + start.Format("MST") + " – " + clockLabel(local) + " " + local.Format("MST")
+		hourly = append(hourly, row)
+		if len(hourly) == 240 {
+			break
+		}
+	}
+	rows, _ = forecast["daily"].([]any)
+	for _, v := range rows {
+		row, e := weather.DailyRecord(object(v))
+		if e != nil {
+			continue
+		}
+		date, _ := time.Parse("2006-01-02", stringOf(row["date"]))
+		row["day_label"] = date.Format("Mon")
+		if stringOf(row["date"]) == now.In(zone).Format("2006-01-02") {
+			row["day_label"] = "Today"
+		}
+		for _, k := range []string{"sunrise", "sunset"} {
+			row[k+"_label"] = nil
+			if row[k] != nil {
+				stamp, e := weather.Instant(row[k])
+				if e == nil {
+					row[k+"_label"] = clockLabel(stamp.In(zone))
+				}
+			}
+		}
+		daily = append(daily, row)
+		if len(daily) == 10 {
+			break
+		}
+	}
+	expires := now.Add(24 * time.Hour)
+	for _, value := range hourly {
+		stamp, err := weather.Instant(object(value)["time"])
+		if err == nil && stamp.Add(time.Nanosecond).Before(expires) {
+			expires = stamp.Add(time.Nanosecond)
+		}
+	}
+	*c = displayRows{source: a.forecast, zone: zone.String(), date: date, builtAt: now, expires: expires, hourly: hourly, daily: daily}
+	return hourly, daily
 }

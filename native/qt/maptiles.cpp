@@ -5,6 +5,8 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QImage>
+#include <QImageReader>
+#include <QBuffer>
 #include <QUrl>
 #include <QTimer>
 #include <memory>
@@ -12,19 +14,46 @@
 
 namespace {
 constexpr qint64 maxTileBytes=128*1024;
+constexpr qint64 maxDecodedTileBytes=512*1024;
+bool validTilePNG(const QByteArray &bytes) {
+    QBuffer buffer;
+    buffer.setData(bytes);
+    if(!buffer.open(QIODevice::ReadOnly))return false;
+    QImageReader reader(&buffer,"PNG");
+    reader.setAutoDetectImageFormat(false);
+    reader.setDecideFormatFromContent(false);
+    const QSize dimensions=reader.size();
+    // PNG supports at most 64 bits per pixel. Bound the allocation before read().
+    if(reader.format().toLower()!="png"||dimensions!=QSize(256,256)||
+       qint64(dimensions.width())*dimensions.height()*8>maxDecodedTileBytes)return false;
+    const auto image=reader.read();
+    return !image.isNull()&&image.size()==dimensions&&image.sizeInBytes()<=maxDecodedTileBytes;
+}
 struct TileDownload {
     QByteArray bytes;
     bool tooLarge=false;
 };
 }
 
-MapTiles::MapTiles(QObject *parent,QUrl tileServer):QObject(parent),tileServer(std::move(tileServer)) {}
+MapTiles::MapTiles(QObject *parent,QUrl tileServer,std::function<QDateTime()> clock):QObject(parent),tileServer(std::move(tileServer)),clock(std::move(clock)) {}
+
+void MapTiles::pruneCooldowns(const QDateTime &now) {
+    for(auto it=retryAfter.begin();it!=retryAfter.end();) {
+        if(it.value()<=now)it=retryAfter.erase(it);else ++it;
+    }
+}
+void MapTiles::rememberFailure(const QString &key) {
+    const auto now=clock();
+    pruneCooldowns(now);
+    if(retryAfter.contains(key)||retryAfter.size()<maxCooldownEntries)retryAfter.insert(key,now.addSecs(300));
+}
 
 void MapTiles::request(int zoom,int x,int y,bool offline) {
     if(zoom<0||zoom>16||x<0||y<0||x>=(1<<zoom)||y>=(1<<zoom)||active.size()>=16)return;
     const QString key=QString::number(zoom)+"/"+QString::number(x)+"/"+QString::number(y);
     if(active.contains(key)||completed.contains(key)||failed.contains(key))return;
-    if(!offline&&retryAfter.value(key)>QDateTime::currentDateTimeUtc())return;
+    pruneCooldowns(clock());
+    if(!offline&&(retryAfter.contains(key)||retryAfter.size()+active.size()>=maxCooldownEntries))return;
     if(!cache) {
         const auto path=QStandardPaths::writableLocation(QStandardPaths::CacheLocation)+"/map-tiles";
         if(!QDir().mkpath(path))return;
@@ -61,16 +90,15 @@ void MapTiles::request(int zoom,int x,int y,bool offline) {
         if(active.value(key)==reply)active.remove(key);
         if(issued==generation&&!download->tooLarge&&reply->error()==QNetworkReply::NoError&&reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
             const auto &bytes=download->bytes;
-            const auto image=QImage::fromData(bytes,"PNG");
-            if(image.width()==256&&image.height()==256) {
+            if(validTilePNG(bytes)) {
                 completed.insert(key);
                 retryAfter.remove(key);
                 emit tileReply(key,reply->attribute(QNetworkRequest::SourceIsFromCacheAttribute).toBool());
                 emit tileReady(key,"data:image/png;base64,"+QString::fromLatin1(bytes.toBase64()));
-            } else {failed.insert(key);retryAfter.insert(key,QDateTime::currentDateTimeUtc().addSecs(300));emit tileFailed(key,"invalid PNG dimensions");}
+            } else {failed.insert(key);if(!offline)rememberFailure(key);emit tileFailed(key,"invalid PNG dimensions or payload");}
         } else if(issued==generation) {
             failed.insert(key);
-            if(!offline)retryAfter.insert(key,QDateTime::currentDateTimeUtc().addSecs(300));
+            if(!offline)rememberFailure(key);
             emit tileFailed(key,download->tooLarge?QStringLiteral("tile exceeds 128 KiB"):reply->errorString()+" (HTTP "+QString::number(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt())+")");
         }
         reply->deleteLater();
@@ -87,8 +115,11 @@ void MapTiles::request(int zoom,int x,int y,bool offline) {
 }
 void MapTiles::close() {
     ++generation;
-    for(auto reply:active)if(reply)reply->abort();
+    // abort() can emit finished synchronously; callbacks remove entries from active.
+    const auto pending=active.values();
     active.clear();
+    for(auto reply:pending)if(reply)reply->abort();
     completed.clear();
     failed.clear();
+    pruneCooldowns(clock());
 }

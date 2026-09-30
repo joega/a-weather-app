@@ -6,13 +6,14 @@
 #include <QDateTime>
 #include <QPointer>
 #include <QUrl>
+#include <functional>
 class QNetworkDiskCache;
 class QNetworkReply;
 
 class MapTiles : public QObject {
     Q_OBJECT
 public:
-    explicit MapTiles(QObject *parent=nullptr,QUrl tileServer=QUrl(QStringLiteral("https://tile.openstreetmap.org")));
+    explicit MapTiles(QObject *parent=nullptr,QUrl tileServer=QUrl(QStringLiteral("https://tile.openstreetmap.org")),std::function<QDateTime()> clock=QDateTime::currentDateTimeUtc);
     Q_INVOKABLE void request(int zoom,int x,int y,bool offline);
     Q_INVOKABLE void close();
 signals:
@@ -21,6 +22,10 @@ signals:
     void tileStarted(const QString &key);
     void tileReply(const QString &key,bool fromCache);
 private:
+    friend class FrontendTest;
+    static constexpr int maxCooldownEntries=512;
+    void pruneCooldowns(const QDateTime &now);
+    void rememberFailure(const QString &key);
     QNetworkAccessManager manager;
     QNetworkDiskCache *cache=nullptr;
     QHash<QString,QPointer<QNetworkReply>> active;
@@ -28,5 +33,6 @@ private:
     QSet<QString> failed;
     QHash<QString,QDateTime> retryAfter;
     QUrl tileServer;
+    std::function<QDateTime()> clock;
     quint64 generation=0;
 };

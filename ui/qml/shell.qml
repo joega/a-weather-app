@@ -11,7 +11,7 @@ QtObject {
     property bool initialLocationChecked:false
     readonly property bool hasMapLocation:bridge.snapshot!==null&&bridge.snapshot.location_settings.mode!=="default"
     readonly property bool mapsNearViewport:mapSection.height>100&&mapSection.y+mapSection.height+18>forecastScroll.contentItem.contentY-64&&mapSection.y+18<forecastScroll.contentItem.contentY+forecastScroll.height+64
-    readonly property bool mapActive:window.visible&&!root.effectsOpen&&bridge.available&&root.hasMapLocation&&!bridge.snapshot.location_settings.busy&&root.mapsNearViewport
+    readonly property bool mapActive:window.visible&&window.visibility!==Window.Hidden&&window.visibility!==Window.Minimized&&!root.effectsOpen&&bridge.available&&root.hasMapLocation&&!bridge.snapshot.location_settings.busy&&root.mapsNearViewport
     onMapActiveChanged: {if(mapActive&&!bridge.mapWanted)bridge.openMap();else if(!mapActive&&bridge.mapWanted)bridge.closeMap()}
     readonly property bool liveDesktop:bridge.snapshot!==null&&bridge.snapshot.effect_persistent&&bridge.snapshot.effect_status!=="stopped"
     readonly property bool watchingPrecipitation:bridge.snapshot!==null&&bridge.snapshot.notifications.settings.enabled
@@ -52,7 +52,8 @@ QtObject {
         return (s.freshness==="fresh"?"Weather data from ":s.freshness==="invalid_future"?"Invalid forecast timestamp · ":s.freshness.charAt(0).toUpperCase()+s.freshness.slice(1)+" forecast · ")+age+(s.error?" · Refresh failed":"");
     }
     property QtObject backend: Bridge {
-        id:bridge;onClosed:exitCode=>Qt.exit(exitCode)
+        id:bridge;presentationActive:window.visible&&window.visibility!==Window.Hidden&&window.visibility!==Window.Minimized
+        onClosed:exitCode=>Qt.exit(exitCode)
         onToggleWindow: {
             if(window.visible)root.dismissWindow();
             else { window.show();window.raise();window.requestActivate() }

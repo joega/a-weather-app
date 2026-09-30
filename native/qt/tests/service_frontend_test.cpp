@@ -35,6 +35,8 @@ public:
         auto env=QProcessEnvironment::systemEnvironment();env.remove("HYPRLAND_INSTANCE_SIGNATURE");env.remove("WAYLAND_DISPLAY");env.remove("DISPLAY");env.remove("DBUS_SESSION_BUS_ADDRESS");service.setProcessEnvironment(env);
         service.setProcessChannelMode(QProcess::MergedChannels);
         QStringList arguments{"--service","--headless","--duration",offline?"60":"120","--state-dir",state};
+        const auto module=QFINDTESTDATA("../../../go.mod");
+        if(!module.isEmpty())arguments.append({"--root",QFileInfo(module).absolutePath()});
         if(offline)arguments.append("--offline");
         service.start(app,arguments);
         if(!service.waitForStarted(3000))return false;
@@ -205,6 +207,39 @@ private slots:
     }
     void initTestCase(){QVERIFY2(!qEnvironmentVariable("GO_APP").isEmpty(),"GO_APP must name the compiled Go service");QGuiApplication::setQuitOnLastWindowClosed(false);}
     void cleanup(){engine.reset();mapTiles.reset();transport.reset();root=nullptr;window=nullptr;}
+    void hiddenPresentationSuppressesPeriodicSnapshots(){
+        ServiceFixture fixture;fixture.cache(60);
+        fixture.save("notifications.json",{{"schema_version",1},{"settings",QJsonObject{{"enabled",true},{"quiet_enabled",false},{"quiet_start",22},{"quiet_end",7},{"probability",50}}},{"snoozed_until",QDateTime::currentSecsSinceEpoch()+3600},{"events",QJsonArray{}}});
+        QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
+        QSignalSpy events(transport.get(),&WeatherTransport::message);
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.subscribed&&backend.snapshot!==null&&backend.pending<0").toBool(),5000);
+        QVERIFY(eval("backend.snapshot.notifications.settings.enabled").toBool());
+        window->hide();QTRY_VERIFY_WITH_TIMEOUT(!eval("backend.presentationActive").toBool()&&eval("backend.pending<0").toBool(),3000);
+        const auto hiddenRevision=eval("backend.lastSnapshotRevision").toDouble();events.clear();
+        QTest::qWait(6200);
+        QCOMPARE(eval("backend.lastSnapshotRevision").toDouble(),hiddenRevision);
+        for(const auto &event:events) {
+            const auto message=QJsonDocument::fromJson(event.first().toString().toUtf8()).object();
+            QVERIFY(message.value("event").toString()!=QStringLiteral("snapshot"));
+        }
+        // Explicit changes remain responsive while presentation is hidden.
+        QVERIFY(eval("backend.send('set_controls',{units:'C'})").toBool());
+        QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),QString("C"),3000);
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.pending<0").toBool(),3000);
+        const auto changedRevision=eval("backend.lastSnapshotRevision").toDouble();QVERIFY(changedRevision>hiddenRevision);
+        window->showNormal();QTRY_VERIFY_WITH_TIMEOUT(eval("backend.presentationActive").toBool()&&eval("backend.pending<0").toBool(),3000);
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.lastSnapshotRevision").toDouble()>changedRevision,3000);
+        window->showMinimized();QVERIFY(window->isVisible());
+        QTRY_VERIFY_WITH_TIMEOUT(!eval("backend.presentationActive").toBool()&&eval("backend.pending<0").toBool(),3000);
+        const auto minimizedRevision=eval("backend.lastSnapshotRevision").toDouble();
+        QTest::qWait(6200);QCOMPARE(eval("backend.lastSnapshotRevision").toDouble(),minimizedRevision);
+        window->showNormal();QTRY_VERIFY_WITH_TIMEOUT(eval("backend.presentationActive").toBool()&&eval("backend.pending<0").toBool(),3000);
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.lastSnapshotRevision").toDouble()>minimizedRevision,3000);
+        QVERIFY(!eval("backend.disconnected").toBool());
+        QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("backend.shutdown()");
+        QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(),QProcess::NotRunning,5000);
+    }
     void emptyOfflineWindow(){
         ServiceFixture fixture;QVERIFY2(fixture.start(),qPrintable(fixture.service.readAll()));QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(window->isVisible()&&window->isExposed(),3000);

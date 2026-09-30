@@ -78,6 +78,66 @@ class FrontendTest:public QObject {
     void deliver(FakeTransport &transport,const QJsonObject &v){emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));}
     QVariant evaluate(QQmlEngine &engine,QObject *bridge,const QString &expression){QQmlExpression e(engine.rootContext(),bridge,expression);auto v=e.evaluate();if(e.hasError())qFatal("%s",qPrintable(e.error().toString()));return v;}
 private slots:
+    void mapTileInvalidPNGs_data(){
+        QTest::addColumn<QByteArray>("payload");
+        QImage oversized(4096,4096,QImage::Format_ARGB32);oversized.fill(Qt::blue);
+        QByteArray png;QBuffer buffer(&png);QVERIFY(buffer.open(QIODevice::WriteOnly));QVERIFY(oversized.save(&buffer,"PNG"));
+        QVERIFY(png.size()<128*1024);
+        QTest::newRow("large compressed image")<<png;
+        QTest::newRow("truncated header")<<png.left(20);
+        QTest::newRow("malformed payload")<<QByteArray("not a PNG");
+        QImage normal(256,256,QImage::Format_ARGB32);normal.fill(Qt::blue);
+        QByteArray normalPNG;QBuffer normalBuffer(&normalPNG);QVERIFY(normalBuffer.open(QIODevice::WriteOnly));QVERIFY(normal.save(&normalBuffer,"PNG"));
+        QTest::newRow("truncated pixel data")<<normalPNG.left(70);
+        QByteArray other;QBuffer otherBuffer(&other);QVERIFY(otherBuffer.open(QIODevice::WriteOnly));QVERIFY(normal.save(&otherBuffer,"BMP"));
+        QTest::newRow("non PNG")<<other.left(128*1024);
+    }
+    void mapTileInvalidPNGs(){
+        QFETCH(QByteArray,payload);
+        QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost));
+        connect(&server,&QTcpServer::newConnection,&server,[&]{
+            auto *socket=server.nextPendingConnection();
+            connect(socket,&QTcpSocket::readyRead,socket,[socket,&payload]{
+                socket->readAll();socket->write("HTTP/1.1 200 OK\r\nContent-Length: "+QByteArray::number(payload.size())+"\r\n\r\n"+payload);
+            });
+        });
+        MapTiles tiles(nullptr,QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+        QSignalSpy ready(&tiles,&MapTiles::tileReady),failed(&tiles,&MapTiles::tileFailed);
+        tiles.request(0,0,0,false);
+        QTRY_COMPARE_WITH_TIMEOUT(failed.size(),1,3000);QCOMPARE(ready.size(),0);
+        QCOMPARE(failed.first().at(1).toString(),QStringLiteral("invalid PNG dimensions or payload"));
+    }
+    void mapTileCooldownBoundAndExpiry(){
+        auto now=QDateTime::fromSecsSinceEpoch(1700000000,QTimeZone::UTC);
+        MapTiles tiles(nullptr,QUrl("http://127.0.0.1:1"),[&]{return now;});
+        for(int x=0;x<MapTiles::maxCooldownEntries;x++)tiles.rememberFailure(QString("10/%1/0").arg(x));
+        QCOMPARE(tiles.retryAfter.size(),MapTiles::maxCooldownEntries);
+        QSignalSpy started(&tiles,&MapTiles::tileStarted);
+        tiles.close();tiles.request(10,0,0,false);tiles.request(10,512,0,false);
+        QCOMPARE(started.size(),0);QCOMPARE(tiles.retryAfter.size(),MapTiles::maxCooldownEntries);
+        now=now.addSecs(299);tiles.close();tiles.request(10,0,0,false);QCOMPARE(started.size(),0);
+        now=now.addSecs(1);tiles.close();QCOMPARE(tiles.retryAfter.size(),0);
+        tiles.request(10,0,0,false);QCOMPARE(started.size(),1);tiles.close();
+        // Sequential failures across locations remain bounded even over many expiry cycles.
+        for(int cycle=0;cycle<3;cycle++) {
+            for(int x=0;x<MapTiles::maxCooldownEntries;x++)tiles.rememberFailure(QString("%1/%2").arg(cycle).arg(x));
+            QCOMPARE(tiles.retryAfter.size(),MapTiles::maxCooldownEntries);
+            now=now.addSecs(300);tiles.close();QCOMPARE(tiles.retryAfter.size(),0);
+        }
+    }
+    void mapTileCloseDiscardsDelayedReply(){
+        QTcpServer server;QVERIFY(server.listen(QHostAddress::LocalHost));
+        QList<QPointer<QTcpSocket>> pending;
+        connect(&server,&QTcpServer::newConnection,&server,[&]{while(server.hasPendingConnections())pending.append(server.nextPendingConnection());});
+        MapTiles tiles(nullptr,QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+        QSignalSpy ready(&tiles,&MapTiles::tileReady),failed(&tiles,&MapTiles::tileFailed),started(&tiles,&MapTiles::tileStarted);
+        for(int x=0;x<3;x++)tiles.request(2,x,0,false);
+        QTRY_COMPARE(pending.size(),3);QCOMPARE(tiles.active.size(),3);
+        tiles.close();QCOMPARE(tiles.active.size(),0);QCOMPARE(ready.size(),0);QCOMPARE(failed.size(),0);
+        for(auto socket:pending)QTRY_COMPARE(socket->state(),QAbstractSocket::UnconnectedState);
+        tiles.request(2,0,0,false);QCOMPARE(started.size(),4);tiles.close();
+        QCoreApplication::processEvents();QCOMPARE(ready.size(),0);QCOMPARE(failed.size(),0);QCOMPARE(tiles.retryAfter.size(),0);
+    }
     void mapTileDownloadLimit(){
         QImage image(256,256,QImage::Format_ARGB32);
         image.fill(Qt::blue);
@@ -93,7 +153,7 @@ private slots:
                 auto *socket=server.nextPendingConnection();
                 connect(socket,&QTcpSocket::readyRead,socket,[socket,&png]{
                     socket->readAll();
-                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: "+QByteArray::number(png.size())+"\r\n\r\n"+png);
+                    socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: max-age=3600\r\nContent-Length: "+QByteArray::number(png.size())+"\r\n\r\n"+png);
                 });
             });
             MapTiles tiles(nullptr,QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
@@ -103,6 +163,11 @@ private slots:
             QTRY_COMPARE_WITH_TIMEOUT(ready.size(),1,3000);
             QCOMPARE(failed.size(),0);
             QVERIFY(ready.first().at(1).toString().startsWith("data:image/png;base64,"));
+            tiles.close();
+            QSignalSpy replies(&tiles,&MapTiles::tileReply);
+            tiles.request(0,0,0,true);
+            QTRY_COMPARE_WITH_TIMEOUT(ready.size(),2,3000);
+            QCOMPARE(failed.size(),0);QCOMPARE(replies.size(),1);QVERIFY(replies.first().at(1).toBool());
         }
         {
             QTcpServer server;
@@ -251,7 +316,21 @@ private slots:
         QCOMPARE(tiles.requests,tiles.active.size());QCOMPARE(transport.requests.size(),1);
         QCOMPARE(evaluate(engine,temperature,"mapX(-73.9)>mapX(-74.0)").toBool(),true);
         QCOMPARE(evaluate(engine,temperature,"mapY(40.8)<mapY(40.7)").toBool(),true);
-        auto *window=root->property("weatherWindow").value<QObject*>();QVERIFY(window);window->setProperty("visible",false);
+        auto *window=qobject_cast<QWindow*>(root->property("weatherWindow").value<QObject*>());QVERIFY(window);
+        deliver(transport,{{"version",1},{"request_id",0},{"ok",true}});
+        window->showMinimized();QVERIFY(window->isVisible());
+        QTRY_VERIFY(!root->property("mapActive").toBool());
+        QTRY_VERIFY(!evaluate(engine,root,"backend.mapWanted").toBool());QVERIFY(tiles.active.isEmpty());
+        QCOMPARE(transport.requests.last()["op"].toString(),QString("map_close"));
+        const auto requestsBeforeRestore=tiles.requests;
+        // A late forecast event while minimized must not restart geographic tile work.
+        deliver(transport,{{"version",1},{"event","map"},{"map",QJsonObject{{"status","loading"},{"offline",false},{"error",""},{"data",data}}}});
+        QCOMPARE(tiles.requests,requestsBeforeRestore);
+        window->showNormal();QTRY_VERIFY(root->property("mapActive").toBool());
+        QTRY_VERIFY(evaluate(engine,root,"backend.mapWanted").toBool());
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
+        QTRY_COMPARE(transport.requests.last()["op"].toString(),QString("map_open"));
+        window->hide();
         QTRY_VERIFY(tiles.closes>0);QVERIFY(!evaluate(engine,root,"backend.mapWanted").toBool());
     }
     void mapRapidToggleKeepsLatestIntent(){
@@ -301,11 +380,14 @@ private slots:
         QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),QString("Newest"));
         QVERIFY(!bridge->property("disconnected").toBool()); // [] and null retained as ordinary JSON values.
         deliver(transport,{{"version",1},{"request_id",0},{"ok",true},{"snapshot",snapshot(1,"Older")}});
+        QCOMPARE(transport.requests.last()["op"].toString(),QString("set_presentation"));
+        QVERIFY(transport.requests.last()["active"].toBool());
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
         QCOMPARE(bridge->property("pending").toInt(),-1);QVERIFY(!bridge->property("busy").toBool());
         QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),QString("Newest"));
         QVERIFY(evaluate(engine,bridge.data(),"send('set_controls',{units:'C'})").toBool());
         deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshot(3,"Latest")}});
-        deliver(transport,{{"version",1},{"request_id",1},{"ok",false},{"error","invalid_controls"},{"snapshot",snapshot(2,"Stale")}});
+        deliver(transport,{{"version",1},{"request_id",2},{"ok",false},{"error","invalid_controls"},{"snapshot",snapshot(2,"Stale")}});
         QCOMPARE(bridge->property("pending").toInt(),-1);QVERIFY(!bridge->property("error").toString().isEmpty());
         QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),QString("Latest"));
         deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshot(3,"Same revision")}});
@@ -313,6 +395,50 @@ private slots:
         emit transport.ready();QCOMPARE(bridge->property("lastSnapshotRevision").toDouble(),0.0);
         deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshot(1,"New service")}});
         QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),QString("New service"));
+    }
+    void presentationStartupAndCoalescing(){
+        FakeTransport transport;QQmlEngine engine;engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        QQmlComponent component(&engine,QUrl("qrc:/ui/qml/backend/Bridge.qml"));QScopedPointer<QObject> bridge(component.create());QVERIFY2(bridge,qPrintable(component.errorString()));
+        bridge->setProperty("presentationActive",false);QCOMPARE(transport.requests.size(),0);
+        emit transport.ready();QCOMPARE(transport.requests.size(),1);QCOMPARE(transport.requests.last()["op"].toString(),QString("subscribe"));
+        bridge->setProperty("presentationActive",true);bridge->setProperty("presentationActive",false);QCOMPARE(transport.requests.size(),1);
+        deliver(transport,{{"version",1},{"request_id",0},{"ok",true},{"snapshot",snapshot(1,"Initial")}});
+        QVERIFY(bridge->property("subscribed").toBool());QCOMPARE(transport.requests.size(),2);
+        QCOMPARE(transport.requests.last()["op"].toString(),QString("set_presentation"));QVERIFY(!transport.requests.last()["active"].toBool());QVERIFY(!bridge->property("busy").toBool());
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
+        QVERIFY(evaluate(engine,bridge.data(),"send('set_controls',{units:'C'})").toBool());
+        bridge->setProperty("presentationActive",true);bridge->setProperty("presentationActive",false);bridge->setProperty("presentationActive",true);
+        QCOMPARE(transport.requests.size(),3);
+        deliver(transport,{{"version",1},{"request_id",2},{"ok",true}});
+        QCOMPARE(transport.requests.size(),4);QCOMPARE(transport.requests.last()["op"].toString(),QString("set_presentation"));QVERIFY(transport.requests.last()["active"].toBool());
+        QVERIFY(!bridge->property("busy").toBool());
+        QVERIFY(evaluate(engine,bridge.data(),"send('set_controls',{units:'F'})").toBool());
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",snapshot(3,"Freshest event")}});
+        deliver(transport,{{"version",1},{"request_id",3},{"ok",true},{"snapshot",snapshot(2,"Restore response")}});
+        QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),QString("Freshest event"));
+        QCOMPARE(transport.requests.size(),5);QCOMPARE(transport.requests.last()["op"].toString(),QString("set_controls"));
+        deliver(transport,{{"version",1},{"request_id",4},{"ok",true}});
+        bridge->setProperty("presentationActive",false);deliver(transport,{{"version",1},{"request_id",5},{"ok",true}});
+        bridge->setProperty("presentationActive",true);
+        deliver(transport,{{"version",1},{"request_id",6},{"ok",true},{"snapshot",snapshot(4,"Fresh restore")}});
+        QCOMPARE(evaluate(engine,bridge.data(),"snapshot.location").toString(),QString("Fresh restore"));QCOMPARE(bridge->property("pending").toInt(),-1);
+    }
+    void presentationWindowVisibility(){
+        FakeTransport transport;FakeMapTiles tiles;QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("weatherTransport",&transport);engine.rootContext()->setContextProperty("mapTiles",&tiles);
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);auto *root=engine.rootObjects().first();
+        auto *window=qobject_cast<QWindow*>(root->property("weatherWindow").value<QObject*>());QVERIFY(window);
+        window->hide();emit transport.ready();QCOMPARE(transport.requests.last()["op"].toString(),QString("subscribe"));
+        deliver(transport,{{"version",1},{"request_id",0},{"ok",true},{"snapshot",snapshot(1,"Start hidden")}});
+        QCOMPARE(transport.requests.last()["op"].toString(),QString("set_presentation"));QVERIFY(!transport.requests.last()["active"].toBool());
+        deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
+        window->showNormal();QTRY_VERIFY(evaluate(engine,root,"backend.presentationActive").toBool());QVERIFY(transport.requests.last()["active"].toBool());
+        deliver(transport,{{"version",1},{"request_id",2},{"ok",true},{"snapshot",snapshot(2,"Restored")}});
+        window->showMinimized();QVERIFY(window->isVisible());QTRY_VERIFY(!evaluate(engine,root,"backend.presentationActive").toBool());QVERIFY(!transport.requests.last()["active"].toBool());
+        deliver(transport,{{"version",1},{"request_id",3},{"ok",true}});
+        window->showNormal();QTRY_VERIFY(evaluate(engine,root,"backend.presentationActive").toBool());QVERIFY(transport.requests.last()["active"].toBool());
+        deliver(transport,{{"version",1},{"request_id",4},{"ok",true},{"snapshot",snapshot(3,"Restored again")}});
+        QCOMPARE(evaluate(engine,root,"backend.snapshot.location").toString(),QString("Restored again"));
     }
     void serviceStopped(){
         for(bool ok:{true,false}){
@@ -363,9 +489,11 @@ private slots:
         deliver(transport,{{"version",1},{"request_id",0},{"ok",true},{"snapshot",snapshot(1,"Start")}});
         QCOMPARE(transport.requests.size(),2);QCOMPARE(transport.requests.last()["op"].toString(),QString("stop_effects"));
         deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
-        QCOMPARE(transport.requests.size(),3);QCOMPARE(transport.requests.last()["op"].toString(),QString("cancel_place_search"));
+        QCOMPARE(transport.requests.size(),3);QCOMPARE(transport.requests.last()["op"].toString(),QString("set_presentation"));
         deliver(transport,{{"version",1},{"request_id",2},{"ok",true}});
-        QCOMPARE(transport.requests.size(),4);QCOMPARE(transport.requests.last()["op"].toString(),QString("search_places"));
+        QCOMPARE(transport.requests.size(),4);QCOMPARE(transport.requests.last()["op"].toString(),QString("cancel_place_search"));
+        deliver(transport,{{"version",1},{"request_id",3},{"ok",true}});
+        QCOMPARE(transport.requests.size(),5);QCOMPARE(transport.requests.last()["op"].toString(),QString("search_places"));
         QCOMPARE(transport.requests.last()["search"].toMap()["query"].toString(),QString("Tokyo"));
         QCOMPARE(transport.requests.last()["search"].toMap()["client_token"].toInt(),3);
         QVERIFY(!bridge->property("busy").toBool());

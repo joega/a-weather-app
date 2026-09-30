@@ -28,6 +28,7 @@ type peer struct {
 	ctx                context.Context
 	cancel             context.CancelFunc
 	subscribed         bool
+	presentationActive bool
 }
 
 func newPeer(ctx context.Context, conn *net.UnixConn) *peer {
@@ -75,15 +76,16 @@ func (p *peer) enqueue(raw []byte, ack bool) (<-chan error, error) {
 }
 
 type Server struct {
-	app             *App
-	listener        *net.UnixListener
-	mu              sync.Mutex
-	peers           map[*peer]bool
-	ctx             context.Context
-	cancel          context.CancelFunc
-	uiSeen          bool
-	last            []byte
-	lastMapRevision uint64
+	app              *App
+	listener         *net.UnixListener
+	mu               sync.Mutex
+	peers            map[*peer]bool
+	ctx              context.Context
+	cancel           context.CancelFunc
+	uiSeen           bool
+	last             []byte
+	lastMapRevision  uint64
+	presentationWake chan struct{}
 }
 
 func (s *Server) mapEvent() {
@@ -153,7 +155,8 @@ func (s *Server) broadcastAndFlush(value M) {
 		}
 	}
 }
-func (s *Server) snapshot() {
+func (s *Server) snapshot() { s.snapshotTo(false) }
+func (s *Server) snapshotTo(presentedOnly bool) {
 	value := s.app.Snapshot()
 	comparison := M{}
 	for k, v := range value {
@@ -166,7 +169,22 @@ func (s *Server) snapshot() {
 		return
 	}
 	s.last = raw
-	s.broadcast(M{"version": 1.0, "event": "snapshot", "snapshot": value})
+	event := M{"version": 1.0, "event": "snapshot", "snapshot": value}
+	if !presentedOnly {
+		s.broadcast(event)
+		return
+	}
+	raw, e = ipc.Encode(event, ipc.ResponseLimit)
+	if e != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for p := range s.peers {
+		if p.subscribed && p.presentationActive {
+			p.enqueue(raw, false)
+		}
+	}
 }
 func (s *Server) subscribe(p *peer, reply M) error {
 	// Registration, refreshed initial snapshot and its enqueue are atomic with
@@ -178,8 +196,43 @@ func (s *Server) subscribe(p *peer, reply M) error {
 		return e
 	}
 	p.subscribed = true
+	p.presentationActive = true
 	s.uiSeen = true
 	return nil
+}
+
+// Presentation is a subscriber property; hiding never suspends weather,
+// notifications, effects, or state-change events.
+func (s *Server) hasPresentation() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for p := range s.peers {
+		if p.subscribed && p.presentationActive {
+			return true
+		}
+	}
+	return false
+}
+func (s *Server) presentation(p *peer, request M) error {
+	reply := M{"version": 1.0, "request_id": request["request_id"], "ok": false, "error": "invalid_request"}
+	id, validID := request["request_id"].(float64)
+	active, validActive := request["active"].(bool)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(request) == 4 && request["version"] == 1.0 && validID && id >= 0 && id <= 2147483647 && id == float64(int64(id)) && validActive && p.subscribed {
+		p.presentationActive = active
+		if s.presentationWake != nil {
+			select {
+			case s.presentationWake <- struct{}{}:
+			default:
+			}
+		}
+		reply = M{"version": 1.0, "request_id": id, "ok": true}
+		if active {
+			reply["snapshot"] = s.app.Snapshot()
+		}
+	}
+	return s.send(p, reply)
 }
 func (s *Server) handle(p *peer) {
 	defer func() {
@@ -208,6 +261,12 @@ func (s *Server) handle(p *peer) {
 		request, e := safeio.Object(scan.Bytes(), ipc.RequestLimit)
 		if e != nil {
 			if s.send(p, M{"version": 1.0, "request_id": nil, "ok": false, "error": "invalid_request"}) != nil {
+				return
+			}
+			continue
+		}
+		if request["op"] == "set_presentation" {
+			if s.presentation(p, request) != nil {
 				return
 			}
 			continue
@@ -297,7 +356,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 		return e
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	s := &Server{app: a, listener: listener, peers: map[*peer]bool{}, ctx: ctx, cancel: cancel}
+	s := &Server{app: a, listener: listener, peers: map[*peer]bool{}, ctx: ctx, cancel: cancel, presentationWake: make(chan struct{}, 1)}
 	var peersWG sync.WaitGroup
 	defer func() {
 		cancel()
@@ -357,12 +416,12 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			tick, cancel := context.WithTimeout(ctx, time.Second)
 			a.Tick(tick)
 			cancel()
-			if time.Since(lastBroadcast) >= 5*time.Second {
-				s.snapshot()
+			if s.hasPresentation() && time.Since(lastBroadcast) >= 5*time.Second {
+				s.snapshotTo(true)
 				lastBroadcast = time.Now()
 			}
 			s.mapEvent()
-			nextTick = time.Now().Add(a.Interval())
+			nextTick = time.Now().Add(a.interval(s.hasPresentation()))
 			reset()
 		}
 		select {
@@ -395,11 +454,17 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 		case <-timer.C:
 			s.mapEvent()
 			continue
+		case <-s.presentationWake:
+			candidate := time.Now().Add(a.interval(s.hasPresentation()))
+			if candidate.Before(nextTick) {
+				nextTick = candidate
+				reset()
+			}
 		case <-a.Changed:
 			s.snapshot()
 			s.mapEvent()
 			lastBroadcast = time.Now()
-			candidate := time.Now().Add(a.Interval())
+			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {
 				nextTick = candidate
 				reset()

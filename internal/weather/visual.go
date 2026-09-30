@@ -140,6 +140,17 @@ func LightningFlash(seconds float64, storm, enabled, reduced bool, seed int64) f
 
 // Select assumes validated controls and snapshots. Invalid caller inputs safely disable effects.
 func Select(snapshot Object, now time.Time, mode string, manual Object, strength string, reduced, lightning bool) Object {
+	return selectWeather(snapshot, now, mode, manual, strength, reduced, lightning, true)
+}
+
+// SelectView borrows immutable forecast rows for a lock-protected display read.
+// Its forecast must not escape to a mutable caller. The app normalizes the rows
+// and structurally copies its final display snapshot before publishing it.
+func SelectView(snapshot Object, now time.Time, mode string, manual Object, strength string, reduced, lightning bool) Object {
+	return selectWeather(snapshot, now, mode, manual, strength, reduced, lightning, false)
+}
+
+func selectWeather(snapshot Object, now time.Time, mode string, manual Object, strength string, reduced, lightning, copyForecast bool) Object {
 	if now.IsZero() {
 		now = time.Now()
 	}
@@ -150,7 +161,20 @@ func Select(snapshot Object, now time.Time, mode string, manual Object, strength
 	lat, _ := num(location["latitude"])
 	lon, _ := num(location["longitude"])
 	solar := SolarPosition(now, lat, lon)
-	r := Object{"schema_version": float64(1), "mode": mode, "selected_at": stamp(now), "forecast": Clone(snapshot), "error": nil, "solar": solar}
+	var forecastValue any
+	if snapshot != nil {
+		if copyForecast {
+			forecastValue = Clone(snapshot)
+		} else {
+			view := Object{}
+			for k, v := range snapshot {
+				view[k] = v
+			}
+			view["alerts"] = Clone(obj(snapshot["alerts"]))
+			forecastValue = view
+		}
+	}
+	r := Object{"schema_version": float64(1), "mode": mode, "selected_at": stamp(now), "forecast": forecastValue, "error": nil, "solar": solar}
 	if snapshot == nil {
 		r["forecast"] = nil
 	}
