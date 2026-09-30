@@ -1,6 +1,6 @@
 GO ?= go
 APP_MODE ?= development
-APP_VERSION ?= 0.51.8
+APP_VERSION ?= 0.51.9
 .PHONY: all go qt test native shaders native-tools
 all: go qt
 go:
