@@ -39,8 +39,10 @@ public:
         auto env=QProcessEnvironment::systemEnvironment();env.remove("HYPRLAND_INSTANCE_SIGNATURE");env.remove("WAYLAND_DISPLAY");env.remove("DISPLAY");env.remove("DBUS_SESSION_BUS_ADDRESS");service.setProcessEnvironment(env);
         service.setProcessChannelMode(QProcess::MergedChannels);
         QStringList arguments{"--service","--headless","--duration",offline?"60":"120","--state-dir",state};
-        const auto module=QFINDTESTDATA("../../../go.mod");
-        if(!module.isEmpty())arguments.append({"--root",QFileInfo(module).absolutePath()});
+        // Let the executable select its own root. A packaged GO_APP must verify
+        // its assembled runtime, while development builds find their checkout.
+        // The test source's go.mod belongs to neither a relocated runtime nor
+        // its verified runtime inventory and must not override root discovery.
         if(offline)arguments.append("--offline");
         service.start(app,arguments);
         if(!service.waitForStarted(3000))return false;

@@ -3,14 +3,16 @@
 Run bounded offline batches from the repository root:
 
 ```sh
-python3 scripts/diagnose_qt_teardown.py build /tmp/weather-qt-diagnostic
-python3 scripts/diagnose_qt_teardown.py run /tmp/weather-qt-diagnostic --repeat 3
-python3 scripts/diagnose_qt_teardown.py run /tmp/weather-qt-diagnostic --variant sanitized --repeat 1
+go build -o /tmp/weather-qt-diagnose ./cmd/weather-qt-diagnose
+/tmp/weather-qt-diagnose build /tmp/weather-qt-diagnostic
+/tmp/weather-qt-diagnose run /tmp/weather-qt-diagnostic --repeat 3
+/tmp/weather-qt-diagnose run /tmp/weather-qt-diagnostic --variant sanitized --repeat 1
 ```
 
 The output directory must not already contain a source snapshot. Keep paths free
 of spaces (qmake project paths). The harness needs the existing Go/C++/Qt build
-tools and GDB, plus permission for GDB to trace its own child. It installs nothing.
+tools and GDB with its internal scripting support, plus permission for GDB to
+trace its own child. It installs nothing and is excluded from the runtime package.
 
 Each process executes the original hide/wait/show/minimize/wait/show sequence.
 The data rows distinguish:
@@ -22,7 +24,8 @@ The data rows distinguish:
 - `kill-disconnect`: kill the owned service, allow EOF delivery, and verify the
   frontend reports disconnection and refuses further commands.
 
-Use `--modes fixture-terminate` to narrow a batch. Every process defaults to a
+Use `--modes fixture-terminate` to narrow a batch, or supply comma-separated rows.
+Every process defaults to a
 45-second deadline, repetition is capped at ten, and the batch stops at its first
 failure. `--render-loop threaded --perturb 165` requests a different software
 render loop and allocator layout. `--trace-transport` records transport failure

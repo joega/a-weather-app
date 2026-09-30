@@ -72,6 +72,26 @@ func TestCreateInventoryAndDeterminism(t *testing.T) {
 	}
 }
 
+func TestRepositorySourceInventory(t *testing.T) {
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := SourceFiles(root)
+	if err != nil {
+		t.Fatalf("repository violates release source contract: %v", err)
+	}
+	found := false
+	for _, name := range names {
+		if name == "cmd/weather-qt-diagnose/main.go" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("development diagnostic source missing from release provenance")
+	}
+}
+
 func TestSourceOwnershipAnchoredToExplicitRoot(t *testing.T) {
 	// Model root inside a container consuming UID 1000's read-only bind mount.
 	for _, uid := range []uint32{0, 1000} {

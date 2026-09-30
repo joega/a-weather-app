@@ -17,6 +17,16 @@ weather_check_directory() {
   (( (mode & 0170000) == 0040000 && (uid == EUID || uid == weather_system_uid) && (mode & 06000) == 0 )) || return 1
   (( (mode & 0022) == 0 || ($2 == 1 && uid == weather_system_uid && (mode & 01000) != 0) ))
 }
+weather_same_directory() {
+  local before_mode before_uid before_links before_dev before_inode
+  local after_mode after_uid after_links after_dev after_inode
+  read -r before_mode before_uid before_links before_dev before_inode <<< "$1"
+  read -r after_mode after_uid after_links after_dev after_inode <<< "$2"
+  # Ordinary child-directory creation changes st_nlink. Identity and security
+  # attributes must remain stable; directory entry counts need not.
+  [[ $before_mode == "$after_mode" && $before_uid == "$after_uid" &&
+     $before_dev == "$after_dev" && $before_inode == "$after_inode" ]]
+}
 weather_open_child() {
   local parent=$1 name=$2 create=$3 sticky=$4 owned=$5 before after child
   local weather_path="/proc/self/fd/$parent/$name"
@@ -31,7 +41,7 @@ weather_open_child() {
   exec {child}<"$weather_path" || return 1
   weather_path="/proc/self/fd/$child"
   after=$(weather_stat -L) || { exec {child}<&-; return 1; }
-  if [[ $before != "$after" ]]; then
+  if ! weather_same_directory "$before" "$after"; then
     exec {child}<&-; weather_path_error "$name changed while opening"; return 1
   fi
   weather_child_fd=$child

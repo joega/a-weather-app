@@ -25,6 +25,34 @@ func writeRuntimeFixture(t *testing.T, path string, data []byte, mode os.FileMod
 	if err := os.WriteFile(path, data, mode); err != nil {
 		t.Fatal(err)
 	}
+	// File creation applies the process umask. Set the requested fixture mode
+	// explicitly so permission tests also work in the release container (077).
+	if err := os.Chmod(path, mode); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRuntimeInstallerAllowsDirectoryEntryChurn(t *testing.T) {
+	f := newRuntimePathFixture(t)
+	// Report the data directory's old stat, then add an ordinary owned child
+	// before the validator opens it. This deterministically changes only the
+	// directory link count, as parallel temporary-file activity can do in /tmp.
+	statStub := `#!/usr/bin/bash
+set -euo pipefail
+/usr/bin/stat "$@"
+path=${!#}
+if [[ $path == */data && -d $path && ! -e $path/ordinary-new-child ]]; then
+  mkdir -m 700 -- "$path/ordinary-new-child"
+fi
+`
+	writeRuntimeFixture(t, filepath.Join(f.root, "bin/stat"), []byte(statStub), 0700)
+	output, err := f.run(t, "scripts/install_release_runtime.sh")
+	if err != nil {
+		t.Fatalf("ordinary directory activity rejected: %v: %s", err, output)
+	}
+	if _, err := os.Stat(filepath.Join(f.data, "ordinary-new-child")); err != nil {
+		t.Fatalf("churn fixture did not run: %v", err)
+	}
 }
 
 func newRuntimePathFixture(t *testing.T) runtimePathFixture {
