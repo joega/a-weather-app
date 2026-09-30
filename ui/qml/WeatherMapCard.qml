@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import "Forecast.js" as Forecast
 
 GlassPanel {
     id: root
@@ -10,6 +11,7 @@ GlassPanel {
     property bool offline: false
     property bool tileActive: false
     property string units: "F"
+    property string windUnits: "auto"
     property int hourIndex: 0
     property string mapLayer: "temperature"
     property var tileImages: ({})
@@ -36,9 +38,9 @@ GlassPanel {
         for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(y>=0&&y<n&&result.length<16){let wrapped=(x%n+n)%n;result.push({x:x,y:y,key:zoom+"/"+wrapped+"/"+y,requestX:wrapped,left:mapArea.width/2+(x*256-centerX)*tileScale,top:mapArea.height/2+(y*256-centerY)*tileScale,size:tileSize})}
         return result;
     }
-    function windSpeed(value) {return units==="F"?(value*2.236936).toFixed(0)+" mph":value.toFixed(1)+" m/s"}
+    function windSpeed(value) {return Forecast.wind(value,units,windUnits)}
     function temperature(value) {return units==="F"?(value*1.8+32).toFixed(0)+"°F":value.toFixed(0)+"°C"}
-    function rain(value) {return units==="F"?(value/25.4).toFixed(2)+" in":value.toFixed(1)+" mm"}
+    function rain(value) {return Forecast.amount(value,units)}
     function ramp(value,min,max) {let p=Math.max(0,Math.min(1,(value-min)/Math.max(0.01,max-min)));return Qt.rgba(0.13+0.8*p,0.49-0.18*p,0.88-0.68*p,0.47)}
     function shade(value,min,max) {return mapLayer==="precipitation"?(value<=0?Qt.rgba(0,0,0,0):Qt.rgba(0.05,0.36,0.92,0.20+0.55*Math.sqrt(value/Math.max(0.1,max)))):ramp(value,min,max)}
     function paint() {
@@ -63,6 +65,8 @@ GlassPanel {
             }
         }
     }
+    onUnitsChanged: overlay.requestPaint()
+    onWindUnitsChanged: overlay.requestPaint()
     onMapDataChanged: overlay.requestPaint()
     onHourIndexChanged:overlay.requestPaint()
     onMapLayerChanged:overlay.requestPaint()
@@ -80,21 +84,21 @@ GlassPanel {
                 source:root.tileImages[modelData.key]||"";fillMode:Image.Stretch;asynchronous:true
                 Component.onCompleted:if(root.tileClient)root.tileClient.request(root.zoom,modelData.requestX,modelData.y,root.offline)
             }}
-            Canvas {id:overlay;anchors.fill:parent;onPaint:root.paint()}
+            Canvas {id:overlay;objectName:"mapOverlay";anchors.fill:parent;onPaint:root.paint()}
             Rectangle {x:parent.width/2-root.desiredScale*16093.44;y:parent.height/2-root.desiredScale*16093.44;width:2*root.desiredScale*16093.44;height:width;radius:width/2;color:"transparent";border.color:"#efffffff";border.width:2;visible:root.mapData!==null}
             Rectangle {width:8;height:8;radius:4;color:"#ffffff";border.color:"#23435c";x:parent.width/2-4;y:parent.height/2-4;visible:root.mapData!==null}
             Rectangle {anchors.top:parent.top;anchors.right:parent.right;anchors.margins:7;width:missingTiles.implicitWidth+14;height:missingTiles.implicitHeight+8;radius:5;color:"#eaf5fa";visible:root.tileActive&&root.tiles().length>0&&root.tiles().every(tile=>root.failedTiles[tile.key])&&Object.keys(root.tileImages).length===0
                 PlainLabel {id:missingTiles;anchors.centerIn:parent;text:"Geographic background unavailable";font.pixelSize:12;color:"#163448"}
             }
             Rectangle {anchors.left:parent.left;anchors.bottom:parent.bottom;anchors.margins:6;width:mapCredit.width+12;height:mapCredit.height+6;radius:4;color:"#edf7fb";visible:root.mapData!==null
-                PlainLabel {id:mapCredit;anchors.centerIn:parent;text:"10-mile radius · © OpenStreetMap contributors (ODbL)";font.pixelSize:11;color:"#132f43"}
+                PlainLabel {id:mapCredit;objectName:"mapCredit";anchors.centerIn:parent;text:Forecast.distance(root.mapData?root.mapData.radius_miles*1609.344:16093.44,root.units)+" radius · © OpenStreetMap contributors (ODbL)";font.pixelSize:11;color:"#132f43"}
                 MouseArea {anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:Qt.openUrlExternally("https://www.openstreetmap.org/copyright")}
             }
             Rectangle {anchors.fill:parent;visible:root.mapData===null;color:"#dce8e7";opacity:0.9}
             PlainLabel {anchors.centerIn:parent;visible:root.mapData===null;text:!root.hasLocation?"Choose a location to see local maps":root.mapStatus==="loading"?"Loading local model forecast…":root.offline?"Map unavailable offline for this location":"Map forecast unavailable";color:"#233e54"}
         }
         RowLayout {Layout.fillWidth:true
-            PlainLabel {text:root.mapLayer==="wind"?"Arrow points where wind blows · speeds in "+(root.units==="F"?"mph":"m/s"):"Legend";font.pixelSize:12;color:Tokens.secondary;Layout.fillWidth:root.mapLayer==="wind"}
+            PlainLabel {objectName:"mapLegend";text:root.mapLayer==="wind"?"Arrow points where wind blows · speeds in "+Forecast.windUnit(root.units,root.windUnits):"Legend";font.pixelSize:12;color:Tokens.secondary;Layout.fillWidth:root.mapLayer==="wind"}
             PlainLabel {visible:root.mapLayer!=="wind";text:root.mapLayer==="temperature"?root.temperature(root.fieldMin):root.rain(root.fieldMin);font.pixelSize:12}
             Rectangle {visible:root.mapLayer!=="wind";Layout.fillWidth:true;Layout.preferredHeight:12;radius:3
                 gradient:Gradient {orientation:Gradient.Horizontal;GradientStop {position:0;color:root.shade(0,0,1)}GradientStop {position:1;color:root.shade(1,0,1)}}}

@@ -16,6 +16,7 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property var forecast: null
     property string units: "F"
+    property string windUnits: "auto"
     property string freshness: ""
     property string selectedDate: ""
     property string selectedTime: ""
@@ -55,7 +56,7 @@ Popup {
                 choices:[{label:"Temperature",value:"temperature_c"},{label:"Precipitation",value:"precipitation_rate_mm_hr"},{label:"Wind",value:"wind_speed_m_s"}]
                 onChosen:value=>root.metric=value
             }
-            ForecastChart { Layout.fillWidth:true;hours:root.hours;units:root.units;metric:root.metric;selectedIndex:root.selectedIndex;onSelected:index=>root.selectedTime=root.hours[index].time }
+            ForecastChart { Layout.fillWidth:true;hours:root.hours;units:root.units;windUnits:root.windUnits;metric:root.metric;selectedIndex:root.selectedIndex;onSelected:index=>root.selectedTime=root.hours[index].time }
             PlainLabel { Layout.fillWidth:true;text:root.metric==="precipitation_rate_mm_hr"?"Precipitation total for the hour ending at each time.":"Select an hour to explore its model forecast. Only remaining forecast hours are shown.";font.pixelSize:13;color:Tokens.secondary;wrapMode:Text.Wrap;elide:Text.ElideNone }
             RowLayout {
                 Layout.fillWidth:true
@@ -70,12 +71,12 @@ Popup {
                     model:root.hour?[
                         {title:"Precipitation chance",value:Forecast.percent(root.hour.precipitation_probability)},
                         {title:"Precipitation amount",value:Forecast.amount(root.hour.precipitation_rate_mm_hr,root.units)},
-                        {title:"Wind",value:Forecast.direction(root.hour.wind_direction_deg)+" "+Forecast.wind(root.hour.wind_speed_m_s,root.units)},
-                        {title:"Gusts",value:Forecast.wind(root.hour.wind_gust_m_s,root.units)},
+                        {title:"Wind",value:Forecast.direction(root.hour.wind_direction_deg)+" "+Forecast.wind(root.hour.wind_speed_m_s,root.units,root.windUnits)},
+                        {title:"Gusts",value:Forecast.wind(root.hour.wind_gust_m_s,root.units,root.windUnits)},
                         {title:"Humidity",value:Forecast.percent(root.hour.humidity)},
                         {title:"Cloud cover",value:Forecast.percent(root.hour.cloud_cover)},
                         {kind:"uv",title:"UV index",value:Forecast.uv(root.hour.uv_index)},
-                        {kind:"pressure",title:"Mean sea level pressure",value:Forecast.pressure(root.hour.pressure_msl_hpa)},
+                        {kind:"pressure",title:"Mean sea level pressure",value:Forecast.pressure(root.hour.pressure_msl_hpa,root.units)},
                         {kind:"dew_point",title:"Dew point",value:Forecast.temp(root.hour.dew_point_c,root.units)}]:[]
                     delegate:ColumnLayout {
                         required property var modelData

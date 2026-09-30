@@ -7,6 +7,7 @@ GlassPanel {
     property var current: null
     property var day: null
     property string units: "F"
+    property string windUnits: "auto"
     property string timezone: "America/New_York"
     property double currentTimeMs: Date.now()
     readonly property double sunriseMs: day && day.sunrise ? Date.parse(day.sunrise) : NaN
@@ -28,12 +29,12 @@ GlassPanel {
         columnSpacing: 22
         Repeater {
             model: [
-                {kind:"wind", title:"Wind", value:root.current ? Forecast.direction(root.current.wind_direction_deg)+" "+Forecast.wind(root.current.wind_speed_m_s,root.units) : "—", detail:root.current ? "Gusts "+Forecast.wind(root.current.wind_gust_m_s,root.units) : "Unavailable"},
+                {kind:"wind", title:"Wind", value:root.current ? Forecast.direction(root.current.wind_direction_deg)+" "+Forecast.wind(root.current.wind_speed_m_s,root.units,root.windUnits) : "—", detail:root.current ? "Gusts "+Forecast.wind(root.current.wind_gust_m_s,root.units,root.windUnits) : "Unavailable"},
                 {kind:"humidity", title:"Humidity", value:root.current ? Forecast.percent(root.current.humidity) : "—", detail:"Dew point "+Forecast.temp(root.current ? root.current.dew_point_c : null,root.units)},
-                {kind:"visibility", title:"Visibility", value:root.current && root.current.visibility_m !== null && root.current.visibility_m !== undefined ? (root.current.visibility_m/(root.units === "F" ? 1609.344 : 1000)).toFixed(1)+(root.units === "F" ? " mi" : " km") : "—", detail:""},
+                {kind:"visibility", title:"Visibility", value:Forecast.distance(root.current ? root.current.visibility_m : null,root.units), detail:""},
                 {kind:"solar", title:"Sunrise & sunset", value:root.solarAvailable ? (root.day.sunrise_label || "—")+" — "+(root.day.sunset_label || "—") : "Unavailable", detail:root.solarAvailable ? "" : "Solar times unavailable"},
                 {kind:"uv", title:"UV index", value:Forecast.uv(root.current ? root.current.uv_index : null), detail:"Current model value"},
-                {kind:"pressure", title:"Pressure", value:Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null), detail:"Mean sea level"}
+                {kind:"pressure", title:"Pressure", value:Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null,root.units), detail:"Mean sea level"}
             ]
             delegate: Item {
                 id: metric

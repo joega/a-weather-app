@@ -140,6 +140,17 @@ GlassPanel {
                 wrapMode:Text.Wrap;elide:Text.ElideNone;font.pixelSize:14;color:Tokens.accent
             }
             Rectangle { Layout.fillWidth:true;height:1;color:Tokens.border }
+            PlainLabel { text:"Wind speed units";font.pixelSize:18 }
+            ComboBox {
+                objectName:"windUnitsChoice";Layout.fillWidth:true
+                model:[{label:"Auto (mph with °F, km/h with °C)",value:"auto"},{label:"Miles per hour (mph)",value:"mph"},{label:"Kilometres per hour (km/h)",value:"km/h"},{label:"Metres per second (m/s)",value:"m/s"},{label:"Knots (kn)",value:"kn"}]
+                textRole:"label";valueRole:"value"
+                currentIndex:Math.max(0,model.findIndex(choice=>choice.value===(root.controls.wind_units||"auto")))
+                enabled:!root.busy&&root.serviceAvailable
+                onActivated:root.patch({wind_units:currentValue})
+                Accessible.name:"Wind speed units"
+            }
+            Rectangle { Layout.fillWidth:true;height:1;color:Tokens.border }
             NotificationsPanel {
                 id:notificationsSection;Layout.fillWidth:true
                 notifications:root.notifications;timezone:root.timezone;busy:root.busy;serviceAvailable:root.serviceAvailable

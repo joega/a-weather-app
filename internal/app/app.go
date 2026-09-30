@@ -78,7 +78,7 @@ type App struct {
 }
 
 func DefaultControls() M {
-	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto"}
+	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto", "wind_units": "auto"}
 }
 func stringOf(v any) string { s, _ := v.(string); return s }
 func object(v any) M        { m, _ := v.(map[string]any); return m }
@@ -118,6 +118,9 @@ func PatchControls(old, patch M) (M, error) {
 	}
 	if v["units_mode"] != "auto" && v["units_mode"] != "manual" {
 		return nil, errors.New("units mode")
+	}
+	if v["wind_units"] != "auto" && v["wind_units"] != "mph" && v["wind_units"] != "km/h" && v["wind_units"] != "m/s" && v["wind_units"] != "kn" {
+		return nil, errors.New("wind units")
 	}
 	for _, k := range []string{"reduced_motion", "lightning_enabled", "window_physics", "accumulation", "pause_fullscreen"} {
 		if _, ok := v[k].(bool); !ok {

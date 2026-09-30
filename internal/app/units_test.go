@@ -142,3 +142,30 @@ func TestAutomaticUnitsFollowSuccessfulLocationChanges(t *testing.T) {
 		t.Fatal("failed location change altered units")
 	}
 }
+
+func TestWindUnitPreferencesPersistIndependently(t *testing.T) {
+	for _, unit := range []string{"auto", "mph", "km/h", "m/s", "kn"} {
+		t.Run(unit, func(t *testing.T) {
+			a := newTestApp(t, Options{})
+			reply, _ := a.Handle(context.Background(), request("set_controls", M{"controls": M{"wind_units": unit}}))
+			if reply["ok"] != true || a.controls["wind_units"] != unit || a.controls["units_mode"] != "auto" {
+				t.Fatal("wind preference changed temperature mode", reply, a.controls)
+			}
+			for _, country := range []string{"US", "GB", "JP"} {
+				controls, err := readControls(a.state, country)
+				if err != nil || controls["wind_units"] != unit {
+					t.Fatal("saved wind preference lost", country, controls, err)
+				}
+			}
+			controls, err := PatchControls(a.controls, M{"units": "C"})
+			if err != nil || controls["wind_units"] != unit {
+				t.Fatal("temperature change lost wind preference", controls, err)
+			}
+		})
+	}
+	for _, invalid := range []any{"kph", "bogus", true, nil, 3.6} {
+		if _, err := PatchControls(DefaultControls(), M{"wind_units": invalid}); err == nil {
+			t.Fatal("accepted invalid wind units", invalid)
+		}
+	}
+}

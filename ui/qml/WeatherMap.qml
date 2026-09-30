@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "Forecast.js" as Forecast
 
 ColumnLayout {
     id: root
@@ -9,6 +10,7 @@ ColumnLayout {
     property var mapState: ({status:"closed", offline:false, error:"", data:null, hour_labels:[], fetched_label:null})
     property string location: ""
     property string units: "F"
+    property string windUnits: "auto"
     property bool hasLocation: false
     property bool active: false
     property real viewportTop: 0
@@ -38,10 +40,10 @@ ColumnLayout {
     }
     PlainLabel { Layout.fillWidth: true; text: root.mapData ? "Forecast valid " + root.mapState.hour_labels[root.hourIndex] + " · Hour " + (root.hourIndex + 1) + " of " + root.mapData.hours.length : root.hasLocation ? "Local model maps load as you scroll here" : "Choose a location to see local maps"; font.pixelSize: 14; color: Tokens.secondary }
     GridLayout { id: cards; Layout.fillWidth: true; columns: root.width < 900 ? 1 : 2; columnSpacing: 16; rowSpacing: 16
-        WeatherMapCard { id: temperatureCard; objectName: "mapTemperatureModule"; Layout.fillWidth: true; Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2; mapLayer: "temperature"; mapData: root.mapData; mapStatus: root.mapState.status; hasLocation: root.hasLocation; offline: root.mapState.offline; hourIndex: root.hourIndex; units: root.units; tileImages: root.tileImages; failedTiles: root.failedTiles; tileClient: root.tileClient; tileActive: root.cardVisible(temperatureCard) }
-        WeatherMapCard { id: windCard; objectName: "mapWindModule"; Layout.fillWidth: true; Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2; mapLayer: "wind"; mapData: root.mapData; mapStatus: root.mapState.status; hasLocation: root.hasLocation; offline: root.mapState.offline; hourIndex: root.hourIndex; units: root.units; tileImages: root.tileImages; failedTiles: root.failedTiles; tileClient: root.tileClient; tileActive: root.cardVisible(windCard) }
-        WeatherMapCard { id: precipitationCard; objectName: "mapPrecipitationModule"; Layout.fillWidth: true; Layout.columnSpan: root.width < 900 ? 1 : 2; Layout.preferredWidth: root.width; mapLayer: "precipitation"; mapData: root.mapData; mapStatus: root.mapState.status; hasLocation: root.hasLocation; offline: root.mapState.offline; hourIndex: root.hourIndex; units: root.units; tileImages: root.tileImages; failedTiles: root.failedTiles; tileClient: root.tileClient; tileActive: root.cardVisible(precipitationCard) }
+        WeatherMapCard { id: temperatureCard; objectName: "mapTemperatureModule"; Layout.fillWidth: true; Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2; mapLayer: "temperature"; mapData: root.mapData; mapStatus: root.mapState.status; hasLocation: root.hasLocation; offline: root.mapState.offline; hourIndex: root.hourIndex; units: root.units; windUnits: root.windUnits; tileImages: root.tileImages; failedTiles: root.failedTiles; tileClient: root.tileClient; tileActive: root.cardVisible(temperatureCard) }
+        WeatherMapCard { id: windCard; objectName: "mapWindModule"; Layout.fillWidth: true; Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2; mapLayer: "wind"; mapData: root.mapData; mapStatus: root.mapState.status; hasLocation: root.hasLocation; offline: root.mapState.offline; hourIndex: root.hourIndex; units: root.units; windUnits: root.windUnits; tileImages: root.tileImages; failedTiles: root.failedTiles; tileClient: root.tileClient; tileActive: root.cardVisible(windCard) }
+        WeatherMapCard { id: precipitationCard; objectName: "mapPrecipitationModule"; Layout.fillWidth: true; Layout.columnSpan: root.width < 900 ? 1 : 2; Layout.preferredWidth: root.width; mapLayer: "precipitation"; mapData: root.mapData; mapStatus: root.mapState.status; hasLocation: root.hasLocation; offline: root.mapState.offline; hourIndex: root.hourIndex; units: root.units; windUnits: root.windUnits; tileImages: root.tileImages; failedTiles: root.failedTiles; tileClient: root.tileClient; tileActive: root.cardVisible(precipitationCard) }
     }
-    PlainLabel { Layout.fillWidth: true; visible: root.mapData !== null; text: root.mapData ? root.mapData.model_name + " · native grid ~" + root.mapData.resolution_km + " km · sampled/interpolated model forecast · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""; font.pixelSize: 12; color: Tokens.secondary; wrapMode: Text.Wrap; elide: Text.ElideNone }
+    PlainLabel { Layout.fillWidth: true; visible: root.mapData !== null; text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km*1000,root.units) + " · sampled/interpolated model forecast · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""; font.pixelSize: 12; color: Tokens.secondary; wrapMode: Text.Wrap; elide: Text.ElideNone }
     PlainLabel { Layout.fillWidth: true; visible: root.mapData !== null; text: root.mapData ? root.mapData.attribution + (root.mapData.resolution_km >= 10 ? " · Coarse global pattern; neighborhood detail unavailable." : "") : ""; font.pixelSize: 11; color: Tokens.secondary; wrapMode: Text.Wrap; elide: Text.ElideNone }
 }

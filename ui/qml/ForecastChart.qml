@@ -7,6 +7,7 @@ Item {
     objectName: "forecastTrend"
     property var hours: []
     property string units: "F"
+    property string windUnits: "auto"
     property string metric: "temperature_c"
     property int selectedIndex: 0
     signal selected(int index)
@@ -14,12 +15,13 @@ Item {
     function valueText(value) {
         return metric === "temperature_c" ? Forecast.temp(value, units)
              : metric === "precipitation_rate_mm_hr" ? Forecast.amount(value, units)
-             : Forecast.wind(value, units);
+             : Forecast.wind(value, units, windUnits);
     }
     onHoursChanged: plot.requestPaint()
     onMetricChanged: plot.requestPaint()
     onSelectedIndexChanged: plot.requestPaint()
     onUnitsChanged: plot.requestPaint()
+    onWindUnitsChanged: plot.requestPaint()
     Canvas {
         id: plot
         anchors.fill: parent

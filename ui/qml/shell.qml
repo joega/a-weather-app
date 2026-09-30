@@ -6,6 +6,7 @@ import "Forecast.js" as Forecast
 QtObject {
     id:root
     property string units:bridge.snapshot?bridge.snapshot.controls.units:"F"
+    readonly property string windUnits:bridge.snapshot?bridge.snapshot.controls.wind_units:"auto"
     readonly property bool automaticUnits:bridge.snapshot?bridge.snapshot.controls.units_mode==="auto":true
     property bool effectsOpen:false
     property bool initialLocationChecked:false
@@ -115,7 +116,7 @@ QtObject {
                     id:headerActions;objectName:"headerActions"
                     anchors.right:parent.right;anchors.top:parent.top
                     anchors.topMargin:window.width<850?locationHeading.height+regionHeading.height+12:0
-                    ActionButton { objectName:"unitsAuto";text:root.automaticUnits?"Auto (°"+root.units+")":"Auto";accessibleLabel:"Use location’s temperature units";selected:root.automaticUnits;enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units_mode:"auto"}) }
+                    ActionButton { objectName:"unitsAuto";text:root.automaticUnits?"Auto (°"+root.units+")":"Auto";accessibleLabel:"Use location’s measurement units";selected:root.automaticUnits;enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units_mode:"auto"}) }
                     ActionButton { objectName:"unitsF";text:"°F";selected:!root.automaticUnits&&root.units==="F";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"F"}) }
                     ActionButton { objectName:"unitsC";text:"°C";selected:!root.automaticUnits&&root.units==="C";enabled:!bridge.busy;onClicked:bridge.send("set_controls",{units:"C"}) }
                     ActionButton { objectName:"refreshForecast";iconName:"refresh";accessibleLabel:"Refresh forecast";enabled:!bridge.busy;onClicked:bridge.send("refresh") }
@@ -144,20 +145,20 @@ QtObject {
                     PlainLabel { objectName:"alertCoverageStatus";visible:root.alertsStatusText!=="";text:root.alertsStatusText;color:Tokens.secondary;font.pixelSize:12 }
                     PlainLabel { visible:root.controls.mode==="manual"&&!root.liveDesktop;text:"Manual effects preview · "+Forecast.title(root.controls.manual.condition);font.pixelSize:13;color:Tokens.accent }
                 }
-                PlainLabel { objectName:"forecastOutlook";visible:root.hours.length>0;Layout.fillWidth:true;text:Forecast.outlook(root.hours,root.units);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
+                PlainLabel { objectName:"forecastOutlook";visible:root.hours.length>0;Layout.fillWidth:true;text:Forecast.outlook(root.hours,root.units,root.windUnits);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 HourlyPanel { Layout.fillWidth:true;hours:root.hours;units:root.units;timezone:root.timezone;onHourSelected:hour=>details.showHour(hour) }
-                WeatherMap {id:mapSection;Layout.fillWidth:true;mapState:bridge.weatherMap;location:root.city;units:root.units;hasLocation:root.hasMapLocation;active:root.mapActive;viewportTop:forecastScroll.contentItem.contentY-(mapSection.y+18);viewportHeight:forecastScroll.height}
+                WeatherMap {id:mapSection;Layout.fillWidth:true;mapState:bridge.weatherMap;location:root.city;units:root.units;windUnits:root.windUnits;hasLocation:root.hasMapLocation;active:root.mapActive;viewportTop:forecastScroll.contentItem.contentY-(mapSection.y+18);viewportHeight:forecastScroll.height}
                 GridLayout {
                     Layout.fillWidth:true;columns:window.width<950?1:2;columnSpacing:16;rowSpacing:16
                     DailyPanel { id:daily;Layout.fillWidth:true;Layout.preferredWidth:window.width<950?window.width:window.width*0.54;days:root.days;units:root.units;onDaySelected:day=>details.showDay(day) }
-                    MetricsPanel { Layout.fillWidth:true;Layout.preferredWidth:window.width*0.44;Layout.alignment:Qt.AlignTop;current:root.current;day:root.days.length?root.days[0]:null;units:root.units;timezone:root.timezone }
+                    MetricsPanel { windUnits:root.windUnits;Layout.fillWidth:true;Layout.preferredWidth:window.width*0.44;Layout.alignment:Qt.AlignTop;current:root.current;day:root.days.length?root.days[0]:null;units:root.units;timezone:root.timezone }
                 }
                 AirQualityPanel { Layout.fillWidth:true;airQuality:bridge.snapshot?bridge.snapshot.air_quality:Forecast.airQuality() }
                 PlainLabel { objectName:"sourceAttribution";Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;text:bridge.snapshot?bridge.snapshot.source.attribution+(bridge.snapshot.alerts.source?" · Alerts: "+bridge.snapshot.alerts.source:""):"Forecast: Open-Meteo";color:Tokens.secondary;font.pixelSize:11;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 Item { Layout.preferredHeight:24 }
             }
         }
-        ForecastDetails { id:details;forecast:root.forecast;units:root.units;freshness:root.freshness }
+        ForecastDetails { windUnits:root.windUnits;id:details;forecast:root.forecast;units:root.units;freshness:root.freshness }
         Rectangle { anchors.fill:parent;visible:root.effectsOpen;color:"#650b1c29";MouseArea{anchors.fill:parent;onClicked:root.effectsOpen=false} }
         EffectsDrawer {
             enabled: !bridge.closing

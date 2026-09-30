@@ -178,6 +178,9 @@ function snapshot(v) {
     let unitsMode=v.controls.units_mode===undefined?"manual":v.controls.units_mode;
     if(["auto","manual"].indexOf(unitsMode)<0)throw Error("Invalid units mode");
     controls.units_mode=unitsMode;
+    let windUnits=v.controls.wind_units===undefined?"auto":v.controls.wind_units;
+    if(["auto","mph","km/h","m/s","kn"].indexOf(windUnits)<0)throw Error("Invalid wind units");
+    controls.wind_units=windUnits;
     controls.units=v.controls.units;controls.fps=v.controls.fps;controls.mode=v.controls.mode;controls.strength=v.controls.strength;controls.manual={condition:condition(v.controls.manual.condition)};
     let fresh=v.source.freshness;if(["fresh","stale","expired","invalid_future","unavailable"].indexOf(fresh)<0)throw Error("Invalid freshness");
     let f=null;
@@ -212,17 +215,24 @@ function snapshot(v) {
 }
 function temp(v,units) { return v===null||v===undefined ? "—" : Math.round(units==="F" ? v*9/5+32:v)+"°"; }
 function uv(v) { return v===null||v===undefined ? "—" : v.toFixed(1); }
-function pressure(v) { return v===null||v===undefined ? "—" : Math.round(v)+" hPa"; }
+function pressure(v,units) { return v===null||v===undefined ? "—" : units==="F"?(v/33.8638866667).toFixed(2)+" inHg":Math.round(v)+" hPa"; }
 function title(v) { return ({clear:"Clear",partly_cloudy:"Partly cloudy",cloudy:"Cloudy",fog:"Fog",drizzle:"Drizzle",rain:"Rain",snow:"Snow",sleet:"Sleet",thunderstorm:"Thunderstorm",unknown:"Unavailable"})[v] || "Unavailable"; }
 function percent(v) { return v===null||v===undefined?"—":Math.round(v*100)+"%"; }
 function localTime(v,tz,kind) {
     if(!v) return "—";
     try { return new Date(v).toLocaleString("en-US",{timeZone:tz,hour:"numeric",minute:kind==="hour"?undefined:"2-digit",hour12:true}); } catch(e) { return "Time unavailable"; }
 }
-function wind(v,units) { return v===null||v===undefined?"—":Math.round(v*(units==="F"?2.236936:3.6))+(units==="F"?" mph":" km/h"); }
+function windUnit(units,preference) { return !preference||preference==="auto"?(units==="F"?"mph":"km/h"):preference; }
+function wind(v,units,preference) {
+    if(v===null||v===undefined)return "—";
+    const unit=windUnit(units,preference);
+    const value=v*({mph:3600/1609.344,"km/h":3.6,"m/s":1,kn:3600/1852})[unit];
+    return (unit==="m/s"?value.toFixed(1):Math.round(value))+" "+unit;
+}
+function distance(v,units) { return v===null||v===undefined?"—":(v/(units==="F"?1609.344:1000)).toFixed(1)+(units==="F"?" mi":" km"); }
 function direction(v) { return v===null||v===undefined?"": ["N","NE","E","SE","S","SW","W","NW"][Math.round(v/45)%8]; }
 function amount(v,units) { return v===null||v===undefined?"—":(units==="F"?(v/25.4).toFixed(2)+" in":v.toFixed(1)+" mm"); }
-function outlook(hours,units) {
+function outlook(hours,units,windUnits) {
     // Describe the available hourly model, never invent minute-level onset or
     // turn missing probability into a dry-weather promise.
     const next=hours.slice(0,6);
@@ -238,7 +248,7 @@ function outlook(hours,units) {
     const gusts=next.filter(h=>h.wind_gust_m_s!==null&&h.wind_gust_m_s!==undefined);
     if(gusts.length===next.length) {
         const peak=Math.max.apply(null,gusts.map(h=>h.wind_gust_m_s));
-        if(peak>=8)parts.push("Gusts up to "+wind(peak,units)+".");
+        if(peak>=8)parts.push("Gusts up to "+wind(peak,units,windUnits)+".");
     }
     return parts.join(" ");
 }

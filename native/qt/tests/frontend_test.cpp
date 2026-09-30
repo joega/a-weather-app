@@ -276,6 +276,28 @@ private slots:
         for(const auto &reply:offlineReplies)QVERIFY(reply.at(1).toBool());
         window->hide();
     }
+    void measurementConversions(){
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData("import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}",QUrl());
+        QScopedPointer<QObject> scope(component.create());QVERIFY2(scope,qPrintable(component.errorString()));
+        for(const auto &test:QList<QPair<QString,QString>>{
+            {"Forecast.wind(10,'F')","22 mph"},{"Forecast.wind(10,'C')","36 km/h"},
+            {"Forecast.wind(10,'C','mph')","22 mph"},{"Forecast.wind(10,'F','km/h')","36 km/h"},
+            {"Forecast.wind(10,'C','m/s')","10.0 m/s"},{"Forecast.wind(10,'C','kn')","19 kn"},
+            {"Forecast.wind(0,'C')","0 km/h"},{"Forecast.wind(null,'F')","—"},
+            {"Forecast.pressure(1013.25,'F')","29.92 inHg"},{"Forecast.pressure(1013.25,'C')","1013 hPa"},
+            {"Forecast.pressure(null,'F')","—"},{"Forecast.distance(16093.44,'C')","16.1 km"},
+            {"Forecast.distance(16093.44,'F')","10.0 mi"},{"Forecast.distance(0,'C')","0.0 km"},
+            {"Forecast.distance(null,'C')","—"},{"Forecast.amount(25.4,'F')","1.00 in"},
+            {"Forecast.amount(25.4,'C')","25.4 mm"},
+            {"Forecast.outlook([{precipitation_probability:0,wind_gust_m_s:10}],'C','kn')","Low precipitation chances in the next 1 hourly forecasts. Gusts up to 19 kn."}})
+        {
+            QQmlExpression expression(qmlContext(scope.data()),scope.data(),test.first);
+            const auto result=expression.evaluate();QVERIFY2(!expression.hasError(),qPrintable(expression.error().toString()));
+            QCOMPARE(result.toString(),test.second);
+        }
+    }
     void mapOnDemandAndTimeline(){
         FakeTransport transport;FakeMapTiles tiles;QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport",&transport);
@@ -314,6 +336,24 @@ private slots:
         QCOMPARE(wind->property("hourIndex").toInt(),2);
         QCOMPARE(precipitation->property("hourIndex").toInt(),2);
         QCOMPARE(tiles.requests,tiles.active.size());QCOMPARE(transport.requests.size(),1);
+        QCOMPARE(evaluate(engine,wind,"windSpeed(10)").toString(),QString("22 mph"));
+        auto metricSnapshot=selectedSnapshot(2,"New York, NY");auto controls=metricSnapshot["controls"].toObject();
+        controls["units"]="C";controls["units_mode"]="auto";metricSnapshot["controls"]=controls;
+        auto *overlay=wind->findChild<QObject*>("mapOverlay");QVERIFY(overlay);
+        QSignalSpy painted(overlay,SIGNAL(painted()));QTest::qWait(100);painted.clear();
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",metricSnapshot}});
+        QCOMPARE(wind->property("units").toString(),QString("C"));
+        QCOMPARE(evaluate(engine,wind,"windSpeed(10)").toString(),QString("36 km/h"));
+        QCOMPARE(wind->findChild<QObject*>("mapLegend")->property("text").toString(),QString("Arrow points where wind blows · speeds in km/h"));
+        QVERIFY(temperature->findChild<QObject*>("mapCredit")->property("text").toString().startsWith("16.1 km radius"));
+        QTRY_VERIFY_WITH_TIMEOUT(painted.size()>0,3000);
+        controls["wind_units"]="kn";metricSnapshot["controls"]=controls;metricSnapshot["snapshot_revision"]=3;painted.clear();
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",metricSnapshot}});
+        QCOMPARE(evaluate(engine,wind,"windSpeed(10)").toString(),QString("19 kn"));
+        QVERIFY(wind->findChild<QObject*>("mapLegend")->property("text").toString().endsWith("speeds in kn"));
+        QTRY_VERIFY_WITH_TIMEOUT(painted.size()>0,3000);
+        // Changing the display units must reuse the loaded map and tiles.
+        QCOMPARE(transport.requests.size(),1);QCOMPARE(tiles.requests,tiles.active.size());
         QCOMPARE(evaluate(engine,temperature,"mapX(-73.9)>mapX(-74.0)").toBool(),true);
         QCOMPARE(evaluate(engine,temperature,"mapY(40.8)<mapY(40.7)").toBool(),true);
         auto *window=qobject_cast<QWindow*>(root->property("weatherWindow").value<QObject*>());QVERIFY(window);

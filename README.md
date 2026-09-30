@@ -253,6 +253,16 @@ approximate native grid resolution, fetch time and attribution.
 Precipitation is the model total for the hour ending at the selected time, not
 radar or a live measurement. Zero precipitation has no shading.
 
+Measurement displays follow the selected unit system: °F uses mph, inches,
+miles and inHg; °C uses km/h, millimetres, kilometres and hPa. Auto uses °F for
+U.S. locations and °C elsewhere; manual choices remain saved. Wind maps,
+conditions, gusts, hourly charts and outlooks share the same wind formatter.
+Settings also offers an independent wind override (mph, km/h, m/s or knots),
+since regional and marine conventions vary. Percentages, UV/AQI indices and
+PM2.5 in µg/m³ retain their standard scales; both AQI scales are labelled.
+Map radius and model grid distance convert for display; geographic coverage
+stays the same (10 miles, approximately 16.1 km).
+
 The map requests one 5×5 lattice (25 points over a 20-mile diameter) and up to
 24 forecast hours when opened. It prefers explicit NOAA NBM CONUS (~2.5 km),
 DWD ICON-D2 in central Europe (~2 km), or ECCC GEM HRDPS in Canada (~2.5 km).
@@ -299,7 +309,7 @@ output; this app does not provide radar maps, air-quality station readings or
 minute-by-minute rain predictions.
 
 Current conditions and selected-hour details include UV index, mean sea level
-pressure in hPa, and dew point at 2 m in your chosen temperature unit. These are
+pressure in inHg with °F or hPa with °C, and dew point at 2 m in your chosen temperature unit. These are
 model values for the displayed forecast time; UV is not a daily maximum.
 Unavailable or invalid optional values display as `—` while other valid weather
 remains visible. They use the forecast's existing freshness status and remain

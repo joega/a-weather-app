@@ -375,13 +375,13 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(),5000);
         QVERIFY(eval("root.freshness").toString().startsWith("Stale forecast"));
         QCOMPARE(named("currentMetricValue_uv")->property("text").toString(),QString("0.0"));
-        QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("1013 hPa"));
+        QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("29.92 inHg"));
         QCOMPARE(named("currentMetricDetail_pressure")->property("text").toString(),QString("Mean sea level"));
         QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),QString("Dew point 55°"));
         root->setProperty("effectsOpen",false);
         eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
         QCOMPARE(named("detailMetricValue_uv")->property("text").toString(),QString("3.2"));
-        QCOMPARE(named("detailMetricValue_pressure")->property("text").toString(),QString("1009 hPa"));
+        QCOMPARE(named("detailMetricValue_pressure")->property("text").toString(),QString("29.79 inHg"));
         QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(),QString("49°"));
         click("closeForecastDetails");
         root->setProperty("effectsOpen",false);click("unitsC");QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(),QString("C"),3000);
@@ -389,6 +389,21 @@ private slots:
         QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),QString("1013 hPa"));
         eval("details.showHour(root.hours[0])");QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
         QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(),QString("10°"));
+        QCOMPARE(named("detailMetricValue_pressure")->property("text").toString(),QString("1009 hPa"));
+        auto *windChoice=named("windUnitsChoice");QVERIFY(windChoice);
+        QCOMPARE(windChoice->property("currentIndex").toInt(),0); // Legacy controls default to Auto.
+        windChoice->setProperty("currentIndex",4);
+        QVERIFY(QMetaObject::invokeMethod(windChoice,"activated",Q_ARG(int,4)));
+        QTRY_COMPARE_WITH_TIMEOUT(eval("root.windUnits").toString(),QString("kn"),3000);
+        QCOMPARE(eval("root.units").toString(),QString("C"));
+        QCOMPARE(named("currentMetricValue_wind")->property("text").toString(),QString("S 2 kn"));
+        QCOMPARE(named("currentMetricDetail_wind")->property("text").toString(),QString("Gusts 4 kn"));
+        eval("details.metric='wind_speed_m_s'");
+        auto *trend=named("forecastTrend");QVERIFY(trend);
+        QQmlExpression chartText(QQmlEngine::contextForObject(trend),trend,"valueText(10)");
+        QCOMPARE(chartText.evaluate().toString(),QString("19 kn"));
+        QCOMPARE(fixture.saved("controls.json")["wind_units"].toString(),QString("kn"));
+
         QSignalSpy exit(engine.get(),SIGNAL(exit(int)));eval("bridge.shutdown()");QTRY_COMPARE_WITH_TIMEOUT(exit.size(),1,5000);
     }
     void airQualityOfflineCache_data(){
