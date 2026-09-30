@@ -343,8 +343,8 @@ private slots:
         QVERIFY(panel->property("playing").toBool());
         QCOMPARE(playback->property("text").toString(),QString("Stop"));
         QTest::qWait(100);QCOMPARE(panel->property("hourIndex").toInt(),2);
-        QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(),0,3000); // Wrap the available horizon.
-        QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(),1,3000);
+        QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(),0,1500); // Wrap the available horizon.
+        QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(),1,1500);
         QCOMPARE(temperature->property("hourIndex").toInt(),1);
         QCOMPARE(wind->property("hourIndex").toInt(),1);
         QCOMPARE(precipitation->property("hourIndex").toInt(),1);
@@ -352,7 +352,7 @@ private slots:
         QVERIFY(!panel->property("playing").toBool());
         QCOMPARE(playback->property("text").toString(),QString("Play"));
         QCOMPARE(panel->property("hourIndex").toInt(),0);
-        QTest::qWait(2100);QCOMPARE(panel->property("hourIndex").toInt(),0);
+        QTest::qWait(1100);QCOMPARE(panel->property("hourIndex").toInt(),0);
         QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));
         QVERIFY(QMetaObject::invokeMethod(panel->findChild<QObject*>("mapNextHour"),"clicked"));
         QCOMPARE(panel->property("hourIndex").toInt(),1);QVERIFY(!panel->property("playing").toBool());

@@ -248,7 +248,7 @@ Scroll to **Local weather maps** on the main forecast screen for three modules
 centered on the saved location, each showing a fixed 10-mile radius. Temperature
 shading, static wind arrows with speeds, and modeled hourly precipitation share
 one discrete timeline. Previous/Next and the slider switch hours locally.
-Play advances every two seconds and loops through the available hours; Stop
+Play advances every second and loops through the available hours; Stop
 returns to the first available hour. Manual timeline changes stop playback at
 your selection. Playback also stops when you leave the map section or new map
 data loads. Playback reuses the loaded forecast without extra data requests.

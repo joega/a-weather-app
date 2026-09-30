@@ -31,7 +31,7 @@ ColumnLayout {
     onMapDataChanged: { stopPlayback(); clearTiles() }
     Component.onDestruction: if (tileClient) tileClient.close()
     Timer {
-        interval: 2000
+        interval: 1000
         repeat: true
         running: root.playing && root.canPlay
         onTriggered: root.hourIndex = (root.hourIndex + 1) % root.mapData.hours.length
