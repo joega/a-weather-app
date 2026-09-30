@@ -247,8 +247,12 @@ by Open-Meteo; values are rounded for display.
 Scroll to **Local weather maps** on the main forecast screen for three modules
 centered on the saved location, each showing a fixed 10-mile radius. Temperature
 shading, static wind arrows with speeds, and modeled hourly precipitation share
-one discrete timeline. Previous/Next and the slider switch hours locally; the
-section shows the selected local time and timezone, units, legends, model,
+one discrete timeline. Previous/Next and the slider switch hours locally.
+Play advances every two seconds and loops through the available hours; Stop
+returns to the first available hour. Manual timeline changes stop playback at
+your selection. Playback also stops when you leave the map section or new map
+data loads. Playback reuses the loaded forecast without extra data requests.
+The section shows the selected local time and timezone, units, legends, model,
 approximate native grid resolution, fetch time and attribution.
 Precipitation is the model total for the hour ending at the selected time, not
 radar or a live measurement. Zero precipitation has no shading.

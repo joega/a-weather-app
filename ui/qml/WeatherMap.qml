@@ -16,15 +16,26 @@ ColumnLayout {
     property real viewportTop: 0
     property real viewportHeight: 0
     property int hourIndex: 0
+    property bool playing: false
     property var tileImages: ({})
     property var failedTiles: ({})
     readonly property var tileClient: typeof mapTiles === "undefined" ? null : mapTiles
     readonly property var mapData: mapState.data || null
+    readonly property bool canPlay: active && mapData !== null && mapData.hours.length > 1
+    function startPlayback() { if (canPlay) playing = true }
+    function stopPlayback() { playing = false; hourIndex = 0 }
+    function selectHour(index) { playing = false; hourIndex = index }
     function cardVisible(card) { return active && mapData !== null && cards.y + card.y + card.height >= viewportTop - 32 && cards.y + card.y <= viewportTop + viewportHeight + 32 }
     function clearTiles() { if (tileClient) tileClient.close(); tileImages = {}; failedTiles = {} }
-    onActiveChanged: if (!active) clearTiles()
-    onMapDataChanged: { hourIndex = 0; clearTiles() }
+    onActiveChanged: if (!active) { stopPlayback(); clearTiles() }
+    onMapDataChanged: { stopPlayback(); clearTiles() }
     Component.onDestruction: if (tileClient) tileClient.close()
+    Timer {
+        interval: 2000
+        repeat: true
+        running: root.playing && root.canPlay
+        onTriggered: root.hourIndex = (root.hourIndex + 1) % root.mapData.hours.length
+    }
     Connections { target: root.tileClient; ignoreUnknownSignals: true
         function onTileReady(key, dataURL) { let next = Object.assign({}, root.tileImages); next[key] = dataURL; root.tileImages = next }
         function onTileFailed(key) { let next = Object.assign({}, root.failedTiles); next[key] = true; root.failedTiles = next }
@@ -34,9 +45,10 @@ ColumnLayout {
         PlainLabel { text: root.mapData ? root.mapData.hours.length + " hours" : ""; color: Tokens.secondary; font.pixelSize: 13 }
     }
     RowLayout { Layout.fillWidth: true
-        ActionButton { objectName: "mapPreviousHour"; text: "Previous"; enabled: root.mapData && root.hourIndex > 0; onClicked: root.hourIndex-- }
-        Slider { id: timeline; objectName: "mapTimeline"; Layout.fillWidth: true; from: 0; to: root.mapData ? root.mapData.hours.length - 1 : 0; stepSize: 1; value: root.hourIndex; enabled: root.mapData && root.mapData.hours.length > 1; onMoved: root.hourIndex = Math.round(value) }
-        ActionButton { objectName: "mapNextHour"; text: "Next"; enabled: root.mapData && root.hourIndex < root.mapData.hours.length - 1; onClicked: root.hourIndex++ }
+        ActionButton { objectName: "mapPreviousHour"; text: "Previous"; enabled: root.mapData && root.hourIndex > 0; onClicked: root.selectHour(root.hourIndex - 1) }
+        Slider { id: timeline; objectName: "mapTimeline"; Layout.fillWidth: true; from: 0; to: root.mapData ? root.mapData.hours.length - 1 : 0; stepSize: 1; value: root.hourIndex; enabled: root.mapData && root.mapData.hours.length > 1; onMoved: root.selectHour(Math.round(value)) }
+        ActionButton { objectName: "mapNextHour"; text: "Next"; enabled: root.mapData && root.hourIndex < root.mapData.hours.length - 1; onClicked: root.selectHour(root.hourIndex + 1) }
+        ActionButton { objectName: "mapPlayback"; text: root.playing ? "Stop" : "Play"; accessibleLabel: root.playing ? "Stop map playback and return to the current hour" : "Play the map forecast timeline"; selected: root.playing; enabled: root.canPlay; onClicked: root.playing ? root.stopPlayback() : root.startPlayback() }
     }
     PlainLabel { Layout.fillWidth: true; text: root.mapData ? "Forecast valid " + root.mapState.hour_labels[root.hourIndex] + " · Hour " + (root.hourIndex + 1) + " of " + root.mapData.hours.length : root.hasLocation ? "Local model maps load as you scroll here" : "Choose a location to see local maps"; font.pixelSize: 14; color: Tokens.secondary }
     GridLayout { id: cards; Layout.fillWidth: true; columns: root.width < 900 ? 1 : 2; columnSpacing: 16; rowSpacing: 16

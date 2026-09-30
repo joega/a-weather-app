@@ -306,6 +306,8 @@ private slots:
         root->setProperty("effectsOpen",true);
         deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",selectedSnapshot(1,"New York, NY")}});
         auto *panel=root->findChild<QObject*>("weatherMaps");QVERIFY(panel);
+        auto *playback=panel->findChild<QObject*>("mapPlayback");QVERIFY(playback);
+        QVERIFY(!playback->property("enabled").toBool());
         auto *temperature=root->findChild<QObject*>("mapTemperatureModule");QVERIFY(temperature);
         auto *wind=root->findChild<QObject*>("mapWindModule");QVERIFY(wind);
         auto *precipitation=root->findChild<QObject*>("mapPrecipitationModule");QVERIFY(precipitation);
@@ -336,6 +338,29 @@ private slots:
         QCOMPARE(wind->property("hourIndex").toInt(),2);
         QCOMPARE(precipitation->property("hourIndex").toInt(),2);
         QCOMPARE(tiles.requests,tiles.active.size());QCOMPARE(transport.requests.size(),1);
+        QVERIFY(playback->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));
+        QVERIFY(panel->property("playing").toBool());
+        QCOMPARE(playback->property("text").toString(),QString("Stop"));
+        QTest::qWait(100);QCOMPARE(panel->property("hourIndex").toInt(),2);
+        QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(),0,3000); // Wrap the available horizon.
+        QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(),1,3000);
+        QCOMPARE(temperature->property("hourIndex").toInt(),1);
+        QCOMPARE(wind->property("hourIndex").toInt(),1);
+        QCOMPARE(precipitation->property("hourIndex").toInt(),1);
+        QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));
+        QVERIFY(!panel->property("playing").toBool());
+        QCOMPARE(playback->property("text").toString(),QString("Play"));
+        QCOMPARE(panel->property("hourIndex").toInt(),0);
+        QTest::qWait(2100);QCOMPARE(panel->property("hourIndex").toInt(),0);
+        QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));
+        QVERIFY(QMetaObject::invokeMethod(panel->findChild<QObject*>("mapNextHour"),"clicked"));
+        QCOMPARE(panel->property("hourIndex").toInt(),1);QVERIFY(!panel->property("playing").toBool());
+        QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));
+        auto *slider=panel->findChild<QObject*>("mapTimeline");QVERIFY(slider);
+        slider->setProperty("value",2);QVERIFY(QMetaObject::invokeMethod(slider,"moved"));
+        QCOMPARE(panel->property("hourIndex").toInt(),2);QVERIFY(!panel->property("playing").toBool());
+        QCOMPARE(transport.requests.size(),1);QCOMPARE(tiles.requests,tiles.active.size());
         QCOMPARE(evaluate(engine,wind,"windSpeed(10)").toString(),QString("22 mph"));
         auto metricSnapshot=selectedSnapshot(2,"New York, NY");auto controls=metricSnapshot["controls"].toObject();
         controls["units"]="C";controls["units_mode"]="auto";metricSnapshot["controls"]=controls;
@@ -358,8 +383,10 @@ private slots:
         QCOMPARE(evaluate(engine,temperature,"mapY(40.8)<mapY(40.7)").toBool(),true);
         auto *window=qobject_cast<QWindow*>(root->property("weatherWindow").value<QObject*>());QVERIFY(window);
         deliver(transport,{{"version",1},{"request_id",0},{"ok",true}});
+        QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));QVERIFY(panel->property("playing").toBool());
         window->showMinimized();QVERIFY(window->isVisible());
         QTRY_VERIFY(!root->property("mapActive").toBool());
+        QVERIFY(!panel->property("playing").toBool());QCOMPARE(panel->property("hourIndex").toInt(),0);
         QTRY_VERIFY(!evaluate(engine,root,"backend.mapWanted").toBool());QVERIFY(tiles.active.isEmpty());
         QCOMPARE(transport.requests.last()["op"].toString(),QString("map_close"));
         const auto requestsBeforeRestore=tiles.requests;
@@ -370,6 +397,25 @@ private slots:
         QTRY_VERIFY(evaluate(engine,root,"backend.mapWanted").toBool());
         deliver(transport,{{"version",1},{"request_id",1},{"ok",true}});
         QTRY_COMPARE(transport.requests.last()["op"].toString(),QString("map_open"));
+        const auto capture=qEnvironmentVariable("WEATHER_QT_MAP_PLAYBACK_SCREENSHOT");
+        if(!capture.isEmpty()) {
+            window->resize(700,850);QTest::qWait(100);
+            flick->setProperty("contentY",panel->property("y").toReal()-12);QTest::qWait(100);
+        }
+        deliver(transport,{{"version",1},{"event","map"},{"map",QJsonObject{{"status","fresh"},{"offline",false},{"error",""},{"fetched_at",data["fetched_at"]},{"fetched_label","Mon Sep 28, 8:00 AM EDT"},{"hour_labels",QJsonArray{"Mon Sep 28, 8:00 AM EDT","Mon Sep 28, 9:00 AM EDT","Mon Sep 28, 10:00 AM EDT"}},{"data",data}}}});
+        if(!capture.isEmpty()) {
+            QTest::qWait(100);
+            auto *quickWindow=qobject_cast<QQuickWindow*>(window);QVERIFY(quickWindow);
+            QVERIFY(quickWindow->grabWindow().save(capture));
+        }
+        QVERIFY(QMetaObject::invokeMethod(playback,"clicked"));QVERIFY(panel->property("playing").toBool());
+        auto oneHour=data;oneHour["hours"]=QJsonArray{hours.first()};QJsonArray shortenedCells;
+        for(const auto &value:cells){auto cell=value.toObject();for(const auto key:{"temperature_c","wind_speed_m_s","wind_from_deg","precipitation_mm"})cell[key]=QJsonArray{cell[key].toArray().first()};shortenedCells.append(cell);}
+        oneHour["cells"]=shortenedCells;
+        deliver(transport,{{"version",1},{"event","map"},{"map",QJsonObject{{"status","fresh"},{"offline",false},{"error",""},{"fetched_at",data["fetched_at"]},{"fetched_label","Mon Sep 28, 8:00 AM EDT"},{"hour_labels",QJsonArray{"Mon Sep 28, 8:00 AM EDT"}},{"data",oneHour}}}});
+        QVERIFY(!panel->property("playing").toBool());QCOMPARE(panel->property("hourIndex").toInt(),0);
+        QVERIFY(!playback->property("enabled").toBool());
+        evaluate(engine,panel,"startPlayback()");QVERIFY(!panel->property("playing").toBool());
         window->hide();
         QTRY_VERIFY(tiles.closes>0);QVERIFY(!evaluate(engine,root,"backend.mapWanted").toBool());
     }
