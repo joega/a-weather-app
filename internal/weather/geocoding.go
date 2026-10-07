@@ -159,13 +159,13 @@ func geocodingTree(v any) error {
 	return visit(v, 0)
 }
 
-func geocodingJSON(ctx context.Context, path string, q url.Values) (Object, error) {
+func (provider jsonProvider) geocodingJSON(ctx context.Context, path string, q url.Values) (Object, error) {
 	if path != "/v1/search" && path != "/v1/get" {
 		return nil, errors.New("invalid geocoding path")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
-	p, e := fetchJSONBound(ctx, geocodingBase+path+"?"+q.Encode(), false, geocodingMaxBytes)
+	p, e := provider.fetchJSONBound(ctx, geocodingBase+path+"?"+q.Encode(), false, geocodingMaxBytes)
 	if e != nil {
 		return nil, e
 	}
@@ -176,6 +176,10 @@ func geocodingJSON(ctx context.Context, path string, q url.Values) (Object, erro
 }
 
 func SearchPlaces(ctx context.Context, request Object) ([]any, error) {
+	return defaultJSONProvider().searchPlaces(ctx, request)
+}
+
+func (provider jsonProvider) searchPlaces(ctx context.Context, request Object) ([]any, error) {
 	v, e := ValidatePlaceSearch(request)
 	if e != nil {
 		return nil, e
@@ -192,7 +196,7 @@ func SearchPlaces(ctx context.Context, request Object) ([]any, error) {
 	if country := v["country_code"].(string); country != "" {
 		q.Set("countryCode", country)
 	}
-	p, e := geocodingJSON(ctx, "/v1/search", q)
+	p, e := provider.geocodingJSON(ctx, "/v1/search", q)
 	if e != nil {
 		return nil, e
 	}
@@ -254,12 +258,12 @@ func SearchPlaces(ctx context.Context, request Object) ([]any, error) {
 	return filtered, nil
 }
 
-func resolvePlace(ctx context.Context, rawID any) (Object, error) {
+func (provider jsonProvider) resolvePlace(ctx context.Context, rawID any) (Object, error) {
 	id, ok := placeInteger(rawID, false)
 	if !ok {
 		return nil, locError("stale_selection")
 	}
-	p, e := geocodingJSON(ctx, "/v1/get", url.Values{"id": {fmt.Sprint(id)}})
+	p, e := provider.geocodingJSON(ctx, "/v1/get", url.Values{"id": {fmt.Sprint(id)}})
 	if e != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()

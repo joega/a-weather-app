@@ -10,7 +10,7 @@ Go module minimum: 1.24.0; local verification toolchain: 1.27.1.
 - [x] Audit cloning and discarded errors; handle fallible boundaries and document invariants.
 - [x] Document important package/API ownership, concurrency, cancellation, defaults, and failures.
 - [ ] Extract coherent CLI, benchmark, and effects helpers without changing lifecycle behavior.
-- [ ] Improve affected test isolation, independent case reporting, and meaningful regressions.
+- [x] Improve affected test isolation, independent case reporting, and meaningful regressions.
 - [ ] Run final format/lint/vet/race checks, applicable display-free integration tests, benchmarks, and diff review.
 
 The initial scan found 28 mixed-import files, two larger functions with naked
@@ -67,3 +67,13 @@ Existing JSON map aliases are retained to avoid broad protocol churn. Existing
 useful lifecycle comments and named errors modified by deferred cleanup remain.
 Missing comments on trivial constants/private command implementation methods
 are not treated as a mandatory documentation quota.
+
+Stage 4: weather/geocoding and air-quality fixtures now inject private TLS
+transports through internal helpers; no tests replace http.DefaultTransport.
+Endpoint, redirect, proxy, timeout, size, and cancellation rules remain in the
+same production paths. Added a regression proving injected routing cannot
+bypass endpoint policy, and ran independent fixtures in parallel. Provider
+race suites and lint pass. Version/publication cases have independent subtests;
+update-check tests wait on worker completion rather than polling with sleeps.
+Focused application/updater race tests pass. Timing tests that exercise actual
+heartbeat cadence retain wall-clock sampling deliberately.

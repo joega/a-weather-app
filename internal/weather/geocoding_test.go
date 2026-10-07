@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func providerFixture(t *testing.T, handler http.HandlerFunc) {
+func providerFixture(t *testing.T, handler http.HandlerFunc) jsonProvider {
 	t.Helper()
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
@@ -23,9 +23,8 @@ func providerFixture(t *testing.T, handler http.HandlerFunc) {
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
 	}
-	old := http.DefaultTransport
-	http.DefaultTransport = transport
-	t.Cleanup(func() { http.DefaultTransport = old; transport.CloseIdleConnections() })
+	t.Cleanup(transport.CloseIdleConnections)
+	return jsonProvider{transport: transport}
 }
 
 func TestPlaceSearchValidation(t *testing.T) {
@@ -74,7 +73,7 @@ func TestPlaceSearchValidation(t *testing.T) {
 func TestPlaceSearchHTTPAndBounds(t *testing.T) {
 	mode := "valid"
 	hits := 0
-	providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		hits++
 		if r.Host != "geocoding-api.open-meteo.com" || r.URL.Path != "/v1/search" || r.URL.Query().Get("count") != "10" || r.URL.Query().Get("countryCode") != "DE" || r.URL.Query().Get("name") != "Berlin & id=7" || r.URL.Query().Has("client_token") {
 			t.Errorf("unsafe or malformed request: %s %s", r.Host, r.URL)
@@ -115,46 +114,46 @@ func TestPlaceSearchHTTPAndBounds(t *testing.T) {
 		}
 	})
 	request := Object{"query": "Berlin & id=7", "country_code": "DE", "client_token": float64(17)}
-	rows, e := SearchPlaces(context.Background(), request)
+	rows, e := provider.searchPlaces(context.Background(), request)
 	if e != nil || len(rows) != 1 || obj(rows[0])["id"] != float64(2950159) {
 		t.Fatalf("valid search: %#v %v", rows, e)
 	}
 	mode = "same-name"
-	rows, e = SearchPlaces(context.Background(), request)
+	rows, e = provider.searchPlaces(context.Background(), request)
 	if e != nil || len(rows) != 2 || obj(rows[0])["id"] == obj(rows[1])["id"] {
 		t.Fatalf("same-name places lost identity: %#v %v", rows, e)
 	}
 	mode = "indistinguishable"
-	rows, e = SearchPlaces(context.Background(), request)
+	rows, e = provider.searchPlaces(context.Background(), request)
 	if e != nil || len(rows) != 0 {
 		t.Fatalf("all ambiguous rows must be omitted: %#v %v", rows, e)
 	}
 	mode = "ambiguous-with-main"
-	rows, e = SearchPlaces(context.Background(), request)
+	rows, e = provider.searchPlaces(context.Background(), request)
 	if e != nil || len(rows) != 1 || obj(rows[0])["id"] != float64(2950159) {
 		t.Fatalf("valid main city lost with unrelated ambiguity: %#v %v", rows, e)
 	}
 	mode = "formatted-collision"
-	rows, e = SearchPlaces(context.Background(), request)
+	rows, e = provider.searchPlaces(context.Background(), request)
 	if e != nil || len(rows) != 1 || obj(rows[0])["id"] != float64(2950159) {
 		t.Fatalf("formatted label collision remained selectable: %#v %v", rows, e)
 	}
 	mode = "admin2-enrichment"
-	rows, e = SearchPlaces(context.Background(), request)
+	rows, e = provider.searchPlaces(context.Background(), request)
 	if e != nil || len(rows) != 2 || obj(rows[0])["admin1"] != "Brandenburg, Potsdam" || obj(rows[1])["admin1"] != "Brandenburg, Cottbus" {
 		t.Fatalf("admin2 did not disambiguate regions: %#v %v", rows, e)
 	}
 	for _, m := range []string{"malformed-admin2", "wrong-country", "redirect", "duplicate-field", "duplicate-id", "huge-id", "huge-array", "huge-body", "bidi"} {
 		mode = m
 		before := hits
-		if _, e := SearchPlaces(context.Background(), request); e == nil {
+		if _, e := provider.searchPlaces(context.Background(), request); e == nil {
 			t.Errorf("accepted %s", m)
 		}
 		if hits != before+1 {
 			t.Fatal("unexpected follow-up request")
 		}
 	}
-	if _, e := FetchJSON(context.Background(), geocodingBase+"/evil"); e == nil {
+	if _, e := provider.fetchJSON(context.Background(), geocodingBase+"/evil", false); e == nil {
 		t.Fatal("unlisted geocoding path accepted")
 	}
 }
@@ -176,19 +175,19 @@ func TestResolveGlobalPlaces(t *testing.T) {
 	for _, city := range cities {
 		byID[fmt.Sprint(city.id)] = Object{"id": city.id, "name": city.name, "admin1": city.admin, "country": city.country, "country_code": city.code, "timezone": city.zone, "latitude": city.lat, "longitude": city.lon}
 	}
-	providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != "geocoding-api.open-meteo.com" || r.URL.Path != "/v1/get" || len(r.URL.Query()) != 1 {
 			t.Errorf("unexpected get URL: %s", r.URL)
 		}
 		_ = json.NewEncoder(w).Encode(byID[r.URL.Query().Get("id")])
 	})
 	for _, city := range cities {
-		r, e := ResolveSelection(context.Background(), Object{"mode": "place", "place_id": city.id, "search_generation": 7})
+		r, e := provider.resolveSelection(context.Background(), Object{"mode": "place", "place_id": city.id, "search_generation": 7})
 		if e != nil || r["country_code"] != city.code || obj(r["place"])["id"] != float64(city.id) || obj(r["location"])["timezone"] != city.zone {
 			t.Fatalf("%s: %#v %v", city.name, r, e)
 		}
 	}
-	if _, e := ResolveSelection(context.Background(), Object{"mode": "place", "place_id": 1234, "search_generation": 7}); e == nil {
+	if _, e := provider.resolveSelection(context.Background(), Object{"mode": "place", "place_id": 1234, "search_generation": 7}); e == nil {
 		t.Fatal("missing place accepted")
 	}
 	zone, _ := time.LoadLocation("Europe/Berlin")
@@ -203,9 +202,9 @@ func TestResolveGlobalPlaces(t *testing.T) {
 
 func TestResolveRejectsTamperedPlace(t *testing.T) {
 	row := Object{"id": 7, "name": "Paris", "admin1": "Île-de-France", "admin2": "Seine", "country": "France", "country_code": "FR", "latitude": 48.86, "longitude": 2.35, "timezone": "Europe/Paris"}
-	providerFixture(t, func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(row) })
+	provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(row) })
 	selection := Object{"mode": "place", "place_id": 7, "search_generation": 1}
-	resolved, e := ResolveSelection(context.Background(), selection)
+	resolved, e := provider.resolveSelection(context.Background(), selection)
 	if e != nil || obj(resolved["location"])["name"] != "Paris, Île-de-France, Seine, France" {
 		t.Fatalf("saved place omitted composed region: %#v %v", resolved, e)
 	}
@@ -219,26 +218,26 @@ func TestResolveRejectsTamperedPlace(t *testing.T) {
 	} {
 		row = Object{"id": 7, "name": "Paris", "admin1": "Île-de-France", "admin2": "Seine", "country": "France", "country_code": "FR", "latitude": 48.86, "longitude": 2.35, "timezone": "Europe/Paris"}
 		mutate()
-		if _, e := ResolveSelection(context.Background(), selection); e == nil {
+		if _, e := provider.resolveSelection(context.Background(), selection); e == nil {
 			t.Fatalf("accepted tampered place %#v", row)
 		}
 	}
 	selection["latitude"] = 0
-	if _, e := ResolveSelection(context.Background(), selection); e == nil {
+	if _, e := provider.resolveSelection(context.Background(), selection); e == nil {
 		t.Fatal("UI coordinates accepted")
 	}
 }
 
 func TestPlaceSearchCancellationAndDeadline(t *testing.T) {
 	started := make(chan struct{})
-	providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		close(started)
 		<-r.Context().Done()
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		_, e := SearchPlaces(ctx, Object{"query": "Berlin", "country_code": ""})
+		_, e := provider.searchPlaces(ctx, Object{"query": "Berlin", "country_code": ""})
 		done <- e
 	}()
 	<-started
@@ -253,7 +252,7 @@ func TestPlaceSearchCancellationAndDeadline(t *testing.T) {
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
-	if _, e := SearchPlaces(ctx, Object{"query": "Berlin", "country_code": ""}); !errors.Is(e, context.DeadlineExceeded) {
+	if _, e := provider.searchPlaces(ctx, Object{"query": "Berlin", "country_code": ""}); !errors.Is(e, context.DeadlineExceeded) {
 		t.Fatalf("deadline: %v", e)
 	}
 }
@@ -262,7 +261,7 @@ func TestCountryAlertCoverage(t *testing.T) {
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 	payload, _ := json.Marshal(fixture("America/New_York", float64(now.Unix())))
 	alertHits := 0
-	providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Host {
 		case "api.open-meteo.com":
 			_, _ = w.Write(payload)
@@ -274,7 +273,7 @@ func TestCountryAlertCoverage(t *testing.T) {
 		}
 	})
 	for _, tc := range []struct{ country, status, coverage string }{{"DE", "not_supported_here", "unsupported"}, {"", "unavailable", "unknown"}, {"US", "available", "US"}} {
-		s, e := FetchForCountry(context.Background(), DefaultLocation(), now, tc.country)
+		s, e := provider.fetchForCountry(context.Background(), DefaultLocation(), now, tc.country)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -290,7 +289,7 @@ func TestCountryAlertCoverage(t *testing.T) {
 	if alertHits != 1 {
 		t.Fatalf("NWS called %d times", alertHits)
 	}
-	if _, e := FetchForCountry(context.Background(), DefaultLocation(), now, "us"); e == nil {
+	if _, e := provider.fetchForCountry(context.Background(), DefaultLocation(), now, "us"); e == nil {
 		t.Fatal("invalid country accepted")
 	}
 }

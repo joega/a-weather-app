@@ -21,15 +21,19 @@ func TestVersionOrdering(t *testing.T) {
 		a, b string
 		want int
 	}{{"0.51.9", "v0.51.10", -1}, {"v0.52.0", "0.51.999", 1}, {"0.51.9", "v0.51.9", 0}} {
-		n, e := Compare(v.a, v.b)
-		if e != nil || n != v.want {
-			t.Fatalf("%s vs %s: %d %v", v.a, v.b, n, e)
-		}
+		t.Run(v.a+"_vs_"+v.b, func(t *testing.T) {
+			n, err := Compare(v.a, v.b)
+			if err != nil || n != v.want {
+				t.Fatalf("Compare(%q, %q) = %d, %v; want %d, nil", v.a, v.b, n, err, v.want)
+			}
+		})
 	}
 	for _, v := range []string{"latest", "v0.51.09", "v0.51.10-beta", "0.51.999999999999"} {
-		if _, e := Compare(v, "0.51.9"); e == nil {
-			t.Fatal("accepted", v)
-		}
+		t.Run(v, func(t *testing.T) {
+			if _, err := Compare(v, "0.51.9"); err == nil {
+				t.Fatalf("Compare accepted malformed version %q", v)
+			}
+		})
 	}
 }
 
@@ -86,11 +90,13 @@ func TestQuietOfflinePreservesNotice(t *testing.T) {
 
 func TestPublicationGapAndNoDowngrade(t *testing.T) {
 	for _, v := range []struct{ installed, latest, state string }{{"0.51.9", "v0.51.10", "publishing"}, {"0.51.5", "v0.51.10", "available"}, {"0.52.0", "v0.51.9", "current"}} {
-		c := Config{Installed: v.installed, StatePath: privateState(t), Source: sourceFunc(func(context.Context) (Pin, string, error) { return fixturePin("v0.51.9"), v.latest, nil })}
-		s, e := c.Check(context.Background(), true)
-		if e != nil || s.State != v.state {
-			t.Fatalf("%+v: %+v %v", v, s, e)
-		}
+		t.Run(v.installed+"_"+v.latest, func(t *testing.T) {
+			c := Config{Installed: v.installed, StatePath: privateState(t), Source: sourceFunc(func(context.Context) (Pin, string, error) { return fixturePin("v0.51.9"), v.latest, nil })}
+			s, err := c.Check(context.Background(), true)
+			if err != nil || s.State != v.state {
+				t.Fatalf("Check = %+v, %v; want state %q", s, err, v.state)
+			}
+		})
 	}
 }
 

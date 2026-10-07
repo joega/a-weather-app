@@ -37,12 +37,11 @@ func TestUpdateCheckDoesNotBlockWeatherControls(t *testing.T) {
 		t.Fatal("missing progress", reply)
 	}
 	close(finish)
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if object(a.Snapshot()["update"])["state"] == "available" {
-			break
-		}
-		time.Sleep(time.Millisecond)
+	select {
+	case result := <-a.updates.done:
+		a.updates.done <- result // Let Snapshot consume the completed result.
+	case <-time.After(time.Second):
+		t.Fatal("update check did not complete")
 	}
 	if object(a.Snapshot()["update"])["state"] != "available" {
 		t.Fatal("completion missing")

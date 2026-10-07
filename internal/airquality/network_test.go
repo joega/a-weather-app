@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func tlsFixture(t *testing.T, handler http.HandlerFunc) {
+func tlsFixture(t *testing.T, handler http.HandlerFunc) *http.Transport {
 	t.Helper()
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
@@ -27,9 +27,8 @@ func tlsFixture(t *testing.T, handler http.HandlerFunc) {
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
 	}
-	old := http.DefaultTransport
-	http.DefaultTransport = transport
-	t.Cleanup(func() { http.DefaultTransport = old; transport.CloseIdleConnections() })
+	t.Cleanup(transport.CloseIdleConnections)
+	return transport
 }
 
 func TestRequestURLIsFixedAndCoordinatesOnly(t *testing.T) {
@@ -55,9 +54,10 @@ func TestRequestURLIsFixedAndCoordinatesOnly(t *testing.T) {
 }
 
 func TestFetchHTTPSBoundary(t *testing.T) {
+	t.Parallel()
 	mode := "valid"
 	hits := 0
-	tlsFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	transport := tlsFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		hits++
 		if r.Host != endpointHost || r.URL.Path != endpointPath || r.URL.Query().Get("domains") != "cams_global" || r.URL.Query().Get("forecast_days") != "1" || r.Header.Get("User-Agent") != userAgent {
 			t.Errorf("unexpected HTTP request: %s %s", r.Host, r.URL)
@@ -85,19 +85,19 @@ func TestFetchHTTPSBoundary(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(payload(testTime()))
 		}
 	})
-	r, e := Fetch(context.Background(), testLocation(), testTime())
+	r, e := fetchWithTransport(context.Background(), testLocation(), testTime(), transport)
 	if e != nil || r["us_aqi"] != float64(551) {
 		t.Fatalf("valid TLS fetch: %#v %v", r, e)
 	}
 	mode = "optional-array"
-	r, e = Fetch(context.Background(), testLocation(), testTime())
+	r, e = fetchWithTransport(context.Background(), testLocation(), testTime(), transport)
 	if e != nil || r["us_aqi"] != nil || r["european_aqi"] != float64(120) {
 		t.Fatalf("decoded optional array was not field-local: %#v %v", r, e)
 	}
 	for _, m := range []string{"redirect", "status", "duplicate", "large-gzip", "array"} {
 		mode = m
 		before := hits
-		if _, e := Fetch(context.Background(), testLocation(), testTime()); e == nil {
+		if _, e := fetchWithTransport(context.Background(), testLocation(), testTime(), transport); e == nil {
 			t.Errorf("accepted %s", m)
 		}
 		if hits != before+1 {
@@ -107,15 +107,16 @@ func TestFetchHTTPSBoundary(t *testing.T) {
 }
 
 func TestFetchCancellationAndDeadline(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{}, 2)
-	tlsFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	transport := tlsFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		started <- struct{}{}
 		<-r.Context().Done()
 	})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		_, e := Fetch(ctx, testLocation(), testTime())
+		_, e := fetchWithTransport(ctx, testLocation(), testTime(), transport)
 		done <- e
 	}()
 	select {
@@ -134,7 +135,7 @@ func TestFetchCancellationAndDeadline(t *testing.T) {
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	if _, e := Fetch(ctx, testLocation(), testTime()); !errors.Is(e, context.DeadlineExceeded) {
+	if _, e := fetchWithTransport(ctx, testLocation(), testTime(), transport); !errors.Is(e, context.DeadlineExceeded) {
 		t.Fatalf("deadline not propagated: %v", e)
 	}
 }
@@ -184,10 +185,8 @@ func TestFetchCancellationDuringBodyEOF(t *testing.T) {
 			transport.DialTLSContext = func(context.Context, string, string) (net.Conn, error) {
 				return conn, nil
 			}
-			original := http.DefaultTransport
-			http.DefaultTransport = transport
-			t.Cleanup(func() { http.DefaultTransport = original; transport.CloseIdleConnections() })
-			_, err := Fetch(ctx, testLocation(), testTime())
+			t.Cleanup(transport.CloseIdleConnections)
+			_, err := fetchWithTransport(ctx, testLocation(), testTime(), transport)
 			want := io.EOF
 			if canceled {
 				want = context.Canceled
