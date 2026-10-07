@@ -71,7 +71,9 @@ notice. The panel also has **Open forecast**.
 An available-update notice shows both the installed and available versions.
 Choose **Update and restart** to download and verify the release, stop owned
 desktop effects, close the app, refresh the bar, and open the new app. The app
-shows progress and the newly running version after startup is verified. Saved
+shows progress and, once after each update, a small version notice below the
+top buttons. The notice disappears after five seconds and stays dismissed when
+you reopen the window or restart the app. Saved
 settings, location, units and bar placement are retained. Effects are stopped
 during the update; choose **Live desktop** again when you want them running.
 

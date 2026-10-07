@@ -12,7 +12,27 @@ QtObject {
     readonly property string windUnits: bridge.snapshot ? bridge.snapshot.controls.wind_units : "auto"
     readonly property bool automaticUnits: bridge.snapshot ? bridge.snapshot.controls.units_mode === "auto" : true
     property bool effectsOpen: false
+    onEffectsOpenChanged: Qt.callLater(showUpdateNotice)
     property bool initialLocationChecked: false
+    readonly property var updateStatus: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
+    property string shownUpdateVersion: ""
+    property bool updateNoticeActive: false
+    onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
+    function showUpdateNotice() {
+        if (!window.visible || root.effectsOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+            return;
+        if (bridge.send("acknowledge_update", {
+            installed: root.updateStatus.installed
+        })) {
+            root.shownUpdateVersion = root.updateStatus.installed;
+            root.updateNoticeActive = true;
+            updateNoticeTimer.restart();
+        }
+    }
+    property Timer updateNoticeTimer: Timer {
+        interval: 5000
+        onTriggered: root.updateNoticeActive = false
+    }
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
     readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
     readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
@@ -92,6 +112,7 @@ QtObject {
     property QtObject backend: Bridge {
         id: bridge
         weatherTransport: root.weatherTransport
+        onBusyChanged: Qt.callLater(root.showUpdateNotice)
         presentationActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized
         onClosed: exitCode => Qt.exit(exitCode)
         onToggleWindow: {
@@ -143,11 +164,16 @@ QtObject {
                 next = point.y + item.height - flick.height + 16;
             flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
         })
-        onVisibleChanged: if (visible)
-            Qt.callLater(() => {
-                if (forecastScroll.contentItem)
-                    forecastScroll.flickable.contentY = 0;
-            })
+        onVisibleChanged: {
+            if (!visible)
+                root.updateNoticeActive = false;
+            else
+                Qt.callLater(() => {
+                    root.showUpdateNotice();
+                    if (forecastScroll.contentItem)
+                        forecastScroll.flickable.contentY = 0;
+                });
+        }
         onClosing: event => {
             event.accepted = false;
             root.dismissWindow();
@@ -187,7 +213,7 @@ QtObject {
                 spacing: 16
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Math.max(conditions.height, headerActions.height + (root.activeAlerts.length && window.width >= 850 ? headerAlerts.height + 16 : 0))
+                    Layout.preferredHeight: Math.max(conditions.height, headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0) + (root.activeAlerts.length && window.width >= 850 ? headerAlerts.height + 16 : 0))
                     RowLayout {
                         id: headerActions
                         objectName: "headerActions"
@@ -248,6 +274,23 @@ QtObject {
                             }
                         }
                     }
+                    GlassPanel {
+                        id: updatedNotice
+                        objectName: "updatedNotice"
+                        anchors.right: parent.right
+                        anchors.top: headerActions.bottom
+                        anchors.topMargin: 8
+                        width: Math.min(headerActions.width, updatedVersionNotice.implicitWidth + 24)
+                        height: 34
+                        visible: root.updateNoticeActive
+                        PlainLabel {
+                            id: updatedVersionNotice
+                            objectName: "updatedVersionNotice"
+                            anchors.centerIn: parent
+                            text: "Updated to " + root.shownUpdateVersion + "."
+                            font.pixelSize: 13
+                        }
+                    }
                     Column {
                         id: conditions
                         spacing: 3
@@ -270,7 +313,7 @@ QtObject {
                         }
                         Item {
                             width: 1
-                            height: window.width < 850 ? headerActions.height + 12 : 0
+                            height: window.width < 850 ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
                         }
                         PlainLabel {
                             objectName: "currentTemperature"
@@ -295,7 +338,7 @@ QtObject {
                         visible: root.activeAlerts.length > 0 && window.width >= 850
                         anchors.right: parent.right
                         anchors.top: headerActions.bottom
-                        anchors.topMargin: 16
+                        anchors.topMargin: 16 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
                         width: parent.width * 0.49
                         height: implicitHeight
                         alerts: root.activeAlerts
@@ -344,10 +387,9 @@ QtObject {
                 UpdatePanel {
                     objectName: "updateNotice"
                     Layout.fillWidth: true
-                    compactUpdatedNotice: true
                     status: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
-                    visible: !successDismissed && ["available", "publishing", "failed", "downloading", "verifying", "restarting", "updated", "rolled_back"].indexOf(status.state) >= 0
-                    enabled: status.state === "updated" || (bridge.available && !bridge.busy)
+                    visible: ["available", "publishing", "failed", "downloading", "verifying", "restarting", "rolled_back"].indexOf(status.state) >= 0
+                    enabled: bridge.available && !bridge.busy
                     onCheckRequested: bridge.send("check_updates")
                     onInstallRequested: bridge.send("install_update")
                 }

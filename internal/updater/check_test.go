@@ -133,3 +133,50 @@ func privateState(t *testing.T) string {
 	}
 	return p
 }
+
+func TestUpdateNoticeAcknowledgmentSurvivesRestart(t *testing.T) {
+	c := Config{Installed: "0.61.2", StatePath: privateState(t)}
+	status := Status{State: "updated", Installed: c.Installed, Message: "Updated successfully", CheckedAt: time.Now().Unix()}
+	if err := c.Save(status); err != nil {
+		t.Fatal(err)
+	}
+	if c.PresentationStatus().State != "updated" {
+		t.Fatal("new update was hidden")
+	}
+	if err := c.AcknowledgeUpdate("0.61.1"); err == nil {
+		t.Fatal("accepted stale acknowledgment")
+	}
+	if err := c.AcknowledgeUpdate(c.Installed); err != nil {
+		t.Fatal(err)
+	}
+	restarted := Config{Installed: c.Installed, StatePath: c.StatePath}
+	if restarted.PresentationStatus().State != "current" {
+		t.Fatal("update notice reappeared after restart")
+	}
+	if c.Status().State != "updated" {
+		t.Fatal("acknowledgment overwrote worker status")
+	}
+	status.CheckedAt++
+	if err := c.Save(status); err != nil {
+		t.Fatal(err)
+	}
+	if c.PresentationStatus().State != "current" {
+		t.Fatal("timestamp change redisplayed same version")
+	}
+	c.Installed = "0.61.3"
+	status.Installed = c.Installed
+	if err := c.Save(status); err != nil {
+		t.Fatal(err)
+	}
+	if c.PresentationStatus().State != "updated" {
+		t.Fatal("next update was hidden")
+	}
+	status.State = "available"
+	status.Available = "0.61.4"
+	if err := c.Save(status); err != nil {
+		t.Fatal(err)
+	}
+	if c.PresentationStatus().State != "available" {
+		t.Fatal("availability notice was hidden")
+	}
+}

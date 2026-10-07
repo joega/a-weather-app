@@ -106,3 +106,15 @@ func TestManualCheckReportsUnpersistedFailure(t *testing.T) {
 		t.Fatalf("manual check failure was hidden: %v", snapshot)
 	}
 }
+
+func TestUpdateAcknowledgmentUsesDisplayedVersion(t *testing.T) {
+	seen := ""
+	a := newTestApp(t, Options{Offline: true, AcknowledgeUpdate: func(version string) error {
+		seen = version
+		return nil
+	}})
+	reply, _ := a.Handle(context.Background(), request("acknowledge_update", M{"installed": "0.61.2"}))
+	if reply["ok"] != true || seen != "0.61.2" {
+		t.Fatal(reply, seen)
+	}
+}

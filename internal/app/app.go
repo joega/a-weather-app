@@ -39,15 +39,16 @@ type Effects interface {
 // UpdateStatus returns a caller-owned snapshot and should not block.
 // Offline suppresses automatic fetches and update checks.
 type Options struct {
-	UpdateStatus     func() M
-	CheckUpdates     func(context.Context, bool) error
-	StartUpdate      func() error
-	Root             string
-	Now              func() time.Time
-	Fetch            func(context.Context, M, time.Time) (M, error)
-	Resolve          func(context.Context, M) (M, error)
-	ResolveSelection func(context.Context, M) (M, error)
-	FetchCountry     func(context.Context, M, time.Time, string) (M, error)
+	UpdateStatus      func() M
+	AcknowledgeUpdate func(string) error
+	CheckUpdates      func(context.Context, bool) error
+	StartUpdate       func() error
+	Root              string
+	Now               func() time.Time
+	Fetch             func(context.Context, M, time.Time) (M, error)
+	Resolve           func(context.Context, M) (M, error)
+	ResolveSelection  func(context.Context, M) (M, error)
+	FetchCountry      func(context.Context, M, time.Time, string) (M, error)
 	// Nil leaves air quality cache-only. The production service supplies Fetch.
 	FetchAirQuality func(context.Context, M, time.Time) (M, error)
 	FetchMap        func(context.Context, float64, float64, string, time.Time) (weathermap.Data, error)
@@ -644,7 +645,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"set_controls": "controls", "set_notifications": "notifications", "set_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_notifications": "notifications", "set_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -761,6 +762,12 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		e = a.notifications.Configure(object(request["notifications"]))
 	case "snooze_notifications", "resume_notifications":
 		e = a.notifications.Snooze(a.options.Now(), op == "resume_notifications")
+	case "acknowledge_update":
+		if a.options.AcknowledgeUpdate == nil {
+			reply["error"] = "updates_unavailable"
+			return reply, false
+		}
+		e = a.options.AcknowledgeUpdate(stringOf(request["installed"]))
 	case "check_updates":
 		if a.options.CheckUpdates == nil {
 			reply["error"] = "updates_unavailable"

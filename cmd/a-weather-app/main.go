@@ -30,7 +30,7 @@ type M = map[string]any
 // Package builds set this with -X. An installation directory may have any name;
 // only a development binary uses the source checkout's build/ convention.
 var buildMode = "development"
-var appVersion = "0.61.1"
+var appVersion = "0.61.2"
 
 func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
@@ -317,10 +317,11 @@ func launch(args []string) error {
 	defer lock.Close()
 	manager := effects.New(root, statePath, options.instance, options.output)
 	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: options.offline,
-		UpdateStatus:    func() M { return updates.Status().Map() },
-		CheckUpdates:    func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
-		StartUpdate:     func() error { return startUpdate(false) },
-		FetchAirQuality: airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
+		UpdateStatus:      func() M { return updates.PresentationStatus().Map() },
+		AcknowledgeUpdate: updates.AcknowledgeUpdate,
+		CheckUpdates:      func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
+		StartUpdate:       func() error { return startUpdate(false) },
+		FetchAirQuality:   airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
 			return weathermap.Fetch(ctx, nil, lat, lon, country, now)
 		}})
 	if e != nil {

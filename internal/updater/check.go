@@ -167,6 +167,29 @@ func (c Config) workerActive() bool {
 	return errors.Is(e, syscall.EWOULDBLOCK)
 }
 
+// PresentationStatus hides an update success already shown by a frontend. Keep
+// the worker's status intact so acknowledgment cannot overwrite a newer update.
+func (c Config) PresentationStatus() Status {
+	s := c.Status()
+	if s.State == "updated" {
+		seen, err := safeio.Read(c.StatePath+"/update-notice-seen.json", 1024)
+		if err == nil && seen["installed"] == s.Installed {
+			s.State = "current"
+			s.Message = "You’re up to date. Updates are checked daily."
+		}
+	}
+	return s
+}
+
+// AcknowledgeUpdate persists the version actually displayed, independently of
+// worker progress. A stale frontend cannot acknowledge a different release.
+func (c Config) AcknowledgeUpdate(installed string) error {
+	if installed != c.Installed || c.Status().State != "updated" {
+		return errors.New("update notice does not match the installed update")
+	}
+	return safeio.Write(c.StatePath+"/update-notice-seen.json", map[string]any{"installed": installed}, 1024)
+}
+
 // Save atomically persists a bounded updater notice in the private state directory.
 func (c Config) Save(s Status) error { return safeio.Write(c.StatePath+"/"+statusFile, s, 16384) }
 

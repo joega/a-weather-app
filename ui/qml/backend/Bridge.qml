@@ -104,6 +104,8 @@ Item {
             request_id: id,
             op: op
         };
+        if (op === "acknowledge_update")
+            request.installed = patch.installed;
         if (op === "set_presentation")
             request.active = patch.active;
         if (op === "set_controls")

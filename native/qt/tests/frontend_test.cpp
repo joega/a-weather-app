@@ -234,33 +234,51 @@ class FrontendTest : public QObject {
         state["update"] = update;
         state["snapshot_revision"] = 3;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
-        QTRY_COMPARE(
-            notice->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
-            QString("Updated to 0.51.9."));
-        QVERIFY(!check->property("visible").toBool());
-        QVERIFY(!install->property("visible").toBool());
-        QTRY_VERIFY(notice->height() < 90);
-        if (!prefix.isEmpty()) {
-            QTest::qWait(100);
-            QVERIFY(window->grabWindow().save(prefix + "-updated.png"));
-        }
-        auto* dismiss = notice->findChild<QObject*>("dismissUpdateNotice");
-        QVERIFY(dismiss);
-        const auto requestsBeforeDismiss = transport.requests.size();
-        QVERIFY(QMetaObject::invokeMethod(dismiss, "clicked"));
-        QTRY_VERIFY(!notice->isVisible());
-        QCOMPARE(transport.requests.size(), requestsBeforeDismiss);
+        auto* success = qobject_cast<QQuickItem*>(root->findChild<QObject*>("updatedNotice"));
+        QVERIFY(success);
+        QTRY_VERIFY(success->isVisible());
+        QCOMPARE(success->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
+                 QString("Updated to 0.51.9."));
+        QVERIFY(!notice->isVisible());
+        QVERIFY(success->height() <= 34);
+        QVERIFY(success->width() < 300);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("acknowledge_update"));
+        QCOMPARE(transport.requests.last()["installed"].toString(), QString("0.51.9"));
+        requestID = transport.requests.last()["request_id"].toInt();
+        deliver(transport, {{"version", 1}, {"request_id", requestID}, {"ok", true}});
+        update["state"] = "current";
+        state["update"] = update;
         state["snapshot_revision"] = 4;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
-        QVERIFY(!notice->isVisible());
+        QVERIFY(success->isVisible());
+        auto* scroll = root->findChild<QObject*>("forecastScroll");
+        scroll->property("contentItem").value<QQuickItem*>()->setProperty("contentY", 0);
+        for (int width : {1200, 700}) {
+            window->resize(width, 850);
+            QTest::qWait(100);
+            auto* actions = qobject_cast<QQuickItem*>(root->findChild<QObject*>("headerActions"));
+            QVERIFY(actions);
+            QVERIFY(success->y() >= actions->y() + actions->height());
+            if (!prefix.isEmpty())
+                QVERIFY(window->grabWindow().save(prefix + QString("-%1-updated.png").arg(width)));
+        }
+        QTRY_VERIFY_WITH_TIMEOUT(!success->isVisible(), 6000);
+        const auto requestsAfterTimeout = transport.requests.size();
+        window->hide();
+        window->show();
+        QTest::qWait(100);
+        QVERIFY(!success->isVisible());
+        QCOMPARE(transport.requests.size(), requestsAfterTimeout);
+        update["state"] = "updated";
         update["installed"] = "0.52.0";
         state["update"] = update;
         state["snapshot_revision"] = 5;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
-        QTRY_VERIFY(notice->isVisible());
-        QTRY_COMPARE(
-            notice->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
-            QString("Updated to 0.52.0."));
+        QTRY_VERIFY(success->isVisible());
+        QCOMPARE(success->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
+                 QString("Updated to 0.52.0."));
+        requestID = transport.requests.last()["request_id"].toInt();
+        deliver(transport, {{"version", 1}, {"request_id", requestID}, {"ok", true}});
         update["state"] = "available";
         update["available"] = "0.52.1";
         state["update"] = update;

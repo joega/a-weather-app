@@ -1,6 +1,6 @@
 GO ?= go
 APP_MODE ?= development
-APP_VERSION ?= 0.61.1
+APP_VERSION ?= 0.61.2
 STATICCHECK_VERSION := v0.8.1
 GOIMPORTS_VERSION := v0.44.0
 STATICCHECK := $(CURDIR)/build/tools/staticcheck-$(STATICCHECK_VERSION)/staticcheck

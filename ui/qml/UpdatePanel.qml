@@ -6,37 +6,12 @@ GlassPanel {
     id: root
     objectName: "updatePanel"
     property var status: Forecast.updateStatus(null)
-    property bool compactUpdatedNotice: false
-    property string dismissedUpdateKey: ""
-    readonly property string updateKey: status.installed + ":" + status.checked_at
-    readonly property bool compactSuccess: compactUpdatedNotice && status.state === "updated"
-    readonly property bool successDismissed: compactSuccess && dismissedUpdateKey === updateKey
     readonly property bool updating: ["downloading", "verifying", "restarting"].indexOf(status.state) >= 0
     readonly property bool canUpdate: status.available !== "" && ["available", "failed", "rolled_back"].indexOf(status.state) >= 0
     readonly property bool canCheck: !updating && ["checking", "development", "unsupported"].indexOf(status.state) < 0
     signal checkRequested
     signal installRequested
-    implicitHeight: compactSuccess ? successRow.implicitHeight + 24 : body.implicitHeight + 32
-    RowLayout {
-        id: successRow
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: 12
-        visible: root.compactSuccess
-        spacing: 12
-        PlainLabel {
-            objectName: "updatedVersionNotice"
-            Layout.fillWidth: true
-            text: root.status.installed !== "" ? "Updated to " + root.status.installed + "." : "Updated successfully."
-            font.pixelSize: 16
-        }
-        ActionButton {
-            objectName: "dismissUpdateNotice"
-            text: "Close"
-            onClicked: root.dismissedUpdateKey = root.updateKey
-        }
-    }
+    implicitHeight: body.implicitHeight + 32
     ColumnLayout {
         id: body
         anchors.left: parent.left
@@ -44,7 +19,6 @@ GlassPanel {
         anchors.top: parent.top
         anchors.margins: 16
         spacing: 10
-        visible: !root.compactSuccess
         PlainLabel {
             objectName: "installedAppVersion"
             Layout.fillWidth: true
