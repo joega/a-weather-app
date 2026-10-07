@@ -36,6 +36,7 @@ func testDesktopUpdate(t *testing.T, standalone bool) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(root) })
+	t.Setenv("HOME", root)
 	for _, key := range []string{"XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_RUNTIME_DIR"} {
 		dir := filepath.Join(root, strings.ToLower(key))
 		if err = os.Mkdir(dir, 0700); err != nil {

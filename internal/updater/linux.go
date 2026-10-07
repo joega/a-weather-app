@@ -25,6 +25,7 @@ type LinuxInstallation struct {
 	RuntimeRoot     string
 	DataRoot        string
 	PluginRoot      string
+	BinRoot         string
 	Socket          string
 	Source          GitHubSource
 	command         func(context.Context, string, ...string) (string, error)
@@ -49,6 +50,11 @@ func DefaultPluginRoot() string {
 		base = filepath.Join(home, ".config")
 	}
 	return filepath.Join(base, "omarchy/plugins/a-weather-app.weather")
+}
+
+func DefaultBinRoot() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local/bin")
 }
 
 func (l *LinuxInstallation) run(ctx context.Context, name string, args ...string) (string, error) {
@@ -399,7 +405,10 @@ func (l *LinuxInstallation) Activate(ctx context.Context, t Transaction) error {
 	if e := l.switchRuntime("releases/" + t.Pin.Tag); e != nil {
 		return e
 	}
-	return l.migrateLauncher(t)
+	if e := l.migrateLauncher(t); e != nil {
+		return e
+	}
+	return l.migrateBinLink(t)
 }
 
 func (l *LinuxInstallation) Restore(ctx context.Context, t Transaction) error {

@@ -225,7 +225,7 @@ func launch(args []string) error {
 	if _, err := os.Lstat(pluginRoot); errors.Is(err, os.ErrNotExist) {
 		pluginRoot = ""
 	}
-	installation := &updater.LinuxInstallation{Config: updates, RuntimeRoot: root, DataRoot: updater.DefaultDataRoot(), PluginRoot: pluginRoot, Socket: socket}
+	installation := &updater.LinuxInstallation{Config: updates, RuntimeRoot: root, DataRoot: updater.DefaultDataRoot(), PluginRoot: pluginRoot, BinRoot: updater.DefaultBinRoot(), Socket: socket}
 	engine := updater.Engine{Config: updates, Installation: installation}
 	startUpdate := func(recover bool) error {
 		if updates.Development {
