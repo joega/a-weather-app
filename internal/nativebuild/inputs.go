@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 func probe(host string, accepted bool, args ...string) error {
@@ -31,13 +33,6 @@ func probe(host string, accepted bool, args ...string) error {
 	}
 	return nil
 }
-func encode(v any) ([]byte, error) { return json.Marshal(v) }
-func clone(v map[string]any) map[string]any {
-	raw, _ := json.Marshal(v)
-	out := map[string]any{}
-	json.Unmarshal(raw, &out)
-	return out
-}
 func iso(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:05.000000Z") }
 
 // Inputs exercises the exact allocation boundary and adversarial weather/policy files.
@@ -53,7 +48,10 @@ func Inputs(host string) error {
 	defer os.RemoveAll(directory)
 	path := filepath.Join(directory, "weather.json")
 	envelope := map[string]any{"schema_version": 1, "selected_at": iso(time.Now()), "effects": map[string]any{"sun_elevation": 35, "sun_azimuth": 180, "cloud_cover": 0.5, "fog_density": 0, "wind_x": 35, "lightning_enabled": false, "reduced_motion": false, "thunderstorm": false}}
-	raw, _ := encode(envelope)
+	raw, err := json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
 	if err = os.WriteFile(path, raw, 0600); err != nil {
 		return err
 	}
@@ -115,20 +113,32 @@ func Inputs(host string) error {
 	}
 	invalid := [][]byte{[]byte(""), []byte("[]"), []byte("{broken"), []byte("{\"x\":\"nul\x00byte\"}"), append([]byte("/* extension comment */"), raw...), append([]byte("{\"schema_version\":1,"), raw[1:]...), append([]byte("{\"schema_\\u0076ersion\":1,"), raw[1:]...), bytes.Replace(raw, []byte(`"cloud_cover":0.5`), []byte(`"cloud_cover":0.5,"cloud_\u0063over":0.5`), 1), []byte(`{"x":` + strings.Repeat("[", 65) + "0" + strings.Repeat("]", 65) + "}")}
 	for _, patch := range []map[string]any{{"wind_x": 501}, {"wind_x": true}, {"lightning_enabled": 1}} {
-		v := clone(envelope)
+		v, err := safeio.CloneChecked(envelope)
+		if err != nil {
+			return err
+		}
 		for k, x := range patch {
 			v["effects"].(map[string]any)[k] = x
 		}
-		data, _ := encode(v)
+		data, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
 		invalid = append(invalid, data)
 	}
 	invalid = append(invalid, bytes.Replace(raw, []byte(`"cloud_cover":0.5`), []byte(`"cloud_cover":NaN`), 1))
 	for _, patch := range []map[string]any{{"schema_version": true}, {"effects": []any{}}, {"selected_at": "2026-09-27T12:00:00"}, {"selected_at": iso(time.Now().Add(-time.Minute))}, {"selected_at": iso(time.Now().Add(10 * time.Minute))}} {
-		v := clone(envelope)
+		v, err := safeio.CloneChecked(envelope)
+		if err != nil {
+			return err
+		}
 		for k, x := range patch {
 			v[k] = x
 		}
-		data, _ := encode(v)
+		data, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
 		invalid = append(invalid, data)
 	}
 	for _, data := range invalid {
@@ -139,9 +149,15 @@ func Inputs(host string) error {
 			return err
 		}
 	}
-	v := clone(envelope)
+	v, err := safeio.CloneChecked(envelope)
+	if err != nil {
+		return err
+	}
 	v["unrelated"] = map[string]any{"schema_version": 1}
-	raw, _ = encode(v)
+	raw, err = json.Marshal(v)
+	if err != nil {
+		return err
+	}
 	if err = os.WriteFile(path, raw, 0600); err != nil {
 		return err
 	}
@@ -149,7 +165,10 @@ func Inputs(host string) error {
 		return err
 	}
 	envelope["selected_at"] = iso(time.Now())
-	raw, _ = encode(envelope)
+	raw, err = json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
 	if err = os.WriteFile(path, raw, 0600); err != nil {
 		return err
 	}
@@ -164,11 +183,17 @@ func Inputs(host string) error {
 		case []byte:
 			data = value
 		case map[string]any:
-			v := clone(value)
+			v, err := safeio.CloneChecked(value)
+			if err != nil {
+				return err
+			}
 			if _, ok := v["generated_at_unix_ms"]; !ok {
 				v["generated_at_unix_ms"] = time.Now().UnixMilli()
 			}
-			data, _ = encode(v)
+			data, err = json.Marshal(v)
+			if err != nil {
+				return err
+			}
 		default:
 			return errors.New("invalid native policy test fixture")
 		}
@@ -180,22 +205,34 @@ func Inputs(host string) error {
 	if err = checkPolicy(policy, true); err != nil {
 		return err
 	}
-	disabled := clone(policy)
+	disabled, err := safeio.CloneChecked(policy)
+	if err != nil {
+		return err
+	}
 	disabled["render_allowed"] = false
 	disabled["reason"] = "fullscreen"
 	if err = checkPolicy(disabled, true); err != nil {
 		return err
 	}
-	v = clone(policy)
+	v, err = safeio.CloneChecked(policy)
+	if err != nil {
+		return err
+	}
 	v["generated_at_unix_ms"] = time.Now().UnixMilli()
-	raw, _ = encode(v)
+	raw, err = json.Marshal(v)
+	if err != nil {
+		return err
+	}
 	for _, data := range [][]byte{append([]byte(`{"schema_version":1,`), raw[1:]...), append([]byte(`{"schema_\u0076ersion":1,`), raw[1:]...), append([]byte("/* extension comment */"), raw...)} {
 		if err = checkPolicy(data, false); err != nil {
 			return err
 		}
 	}
 	for _, patch := range []map[string]any{{"schema_version": true}, {"session": "foreign_123_456"}, {"output": "HDMI-A-1"}, {"sequence": -1}, {"stale_after_ms": 99999}, {"render_allowed": 1}, {"render_allowed": true, "reason": "fullscreen"}, {"render_allowed": false, "reason": "none"}, {"generated_at_unix_ms": time.Now().Add(-10 * time.Second).UnixMilli()}, {"generated_at_unix_ms": time.Now().Add(10 * time.Second).UnixMilli()}} {
-		v = clone(policy)
+		v, err = safeio.CloneChecked(policy)
+		if err != nil {
+			return err
+		}
 		for k, x := range patch {
 			v[k] = x
 		}

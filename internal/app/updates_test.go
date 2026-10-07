@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -83,5 +84,26 @@ func TestUpdateLaunchTimeoutAllowsRetry(t *testing.T) {
 	r, _ = a.Handle(context.Background(), request("install_update", nil))
 	if r["ok"] != true || starts != 2 {
 		t.Fatal("retry unavailable", r, starts)
+	}
+}
+
+func TestManualCheckReportsUnpersistedFailure(t *testing.T) {
+	a := newTestApp(t, Options{Offline: true, CheckUpdates: func(context.Context, bool) error {
+		return errors.New("status persistence failed")
+	}, UpdateStatus: func() M { return M{"state": "current"} }})
+	a.mu.Lock()
+	a.options.Offline = false // Keep startup offline, then exercise a manual check.
+	a.beginUpdateCheck(true)
+	done := a.updates.done
+	a.mu.Unlock()
+	select {
+	case result := <-done:
+		done <- result // Restore the result for the application's normal poll path.
+	case <-time.After(time.Second):
+		t.Fatal("check did not complete")
+	}
+	snapshot := object(a.Snapshot()["update"])
+	if snapshot["state"] != "failed" || snapshot["message"] != "Could not check for updates. Try again." {
+		t.Fatalf("manual check failure was hidden: %v", snapshot)
 	}
 }

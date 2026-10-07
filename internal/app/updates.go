@@ -9,11 +9,16 @@ import (
 type updateState struct {
 	checking       bool
 	next           time.Time
-	done           chan struct{}
+	done           chan updateCheckResult
 	installing     bool
 	installStarted time.Time
 	installError   string
 	lastStatus     M
+}
+
+type updateCheckResult struct {
+	force bool
+	err   error
 }
 
 func (a *App) beginUpdateCheck(force bool) {
@@ -29,14 +34,14 @@ func (a *App) beginUpdateCheck(force bool) {
 	}
 	a.updates.next = a.options.Now().Add(time.Minute)
 	if a.updates.done == nil {
-		a.updates.done = make(chan struct{}, 1)
+		a.updates.done = make(chan updateCheckResult, 1)
 	}
 	done := a.updates.done
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		_ = a.options.CheckUpdates(ctx, force)
-		done <- struct{}{}
+		err := a.options.CheckUpdates(ctx, force)
+		done <- updateCheckResult{force: force, err: err}
 		a.signal()
 	}()
 }
@@ -62,8 +67,13 @@ func (a *App) pollUpdates() {
 		return
 	}
 	select {
-	case <-a.updates.done:
+	case result := <-a.updates.done:
 		a.updates.checking = false
+		// Automatic failures retain the last useful status. Manual checks also
+		// surface errors that occurred before the updater could persist a result.
+		if result.force && result.err != nil {
+			a.updates.installError = "Could not check for updates. Try again."
+		}
 	default:
 	}
 }

@@ -7,7 +7,7 @@ Go module minimum: 1.24.0; local verification toolchain: 1.27.1.
 
 - [x] Add concise conventions, formatting/import checks, and pinned Staticcheck to local/CI validation.
 - [x] Group imports, simplify terminating branches, and make larger functions' returns explicit.
-- [ ] Audit cloning and discarded errors; handle fallible boundaries and document invariants.
+- [x] Audit cloning and discarded errors; handle fallible boundaries and document invariants.
 - [ ] Document important package/API ownership, concurrency, cancellation, defaults, and failures.
 - [ ] Extract coherent CLI, benchmark, and effects helpers without changing lifecycle behavior.
 - [ ] Improve affected test isolation, independent case reporting, and meaningful regressions.
@@ -43,3 +43,17 @@ escalation in this environment; rerun with sockets enabled passed.
 
 Snapshot baseline, three runs: 2.298–2.358 ms/op, 1.562–1.616 MB/op,
 2316–2320 allocations/op; retained for comparison if snapshot paths change.
+
+Stage 2: added checked cloning at IPC/native-fixture boundaries while retaining
+trusted internal cloning and its JSON number/nil representation. IPC deadline
+errors are returned. Updater progress/failure persistence errors remain in the
+error chain; failed progress cannot reach app shutdown/activation. Manual
+checks surface failures before a status result could be persisted; automatic
+checks retain the previous useful notice. Focused race tests for clone isolation,
+invalid IPC input, installation/rollback, progress persistence, and manual
+checks passed. Internal read-close/cleanup errors remain best effort where
+primary operation/durable journal errors already determine success.
+
+Release target: v0.61.0, requested by the user. Runtime pins remain tied to
+published verified artifacts; the release-series setting will be updated at
+completion, with release notes prepared but no release published.

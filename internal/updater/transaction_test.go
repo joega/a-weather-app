@@ -3,7 +3,10 @@ package updater
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
+	"syscall"
 	"testing"
 )
 
@@ -12,6 +15,43 @@ type fakeInstallation struct {
 	fail     string
 	prepared chan struct{}
 	resume   chan struct{}
+}
+
+type statusFailureInstallation struct {
+	*fakeInstallation
+	statusPath string
+}
+
+func (f *statusFailureInstallation) Prepare(_ context.Context, p Pin, progress func(string)) (Transaction, error) {
+	if err := os.Remove(f.statusPath); err != nil {
+		return Transaction{}, err
+	}
+	if err := os.Mkdir(f.statusPath, 0700); err != nil {
+		return Transaction{}, err
+	}
+	progress("verifying") // A directory cannot be replaced by the status JSON file.
+	if err := os.Remove(f.statusPath); err != nil {
+		return Transaction{}, err
+	}
+	return Transaction{OldRuntime: "/old", NewRuntime: "/new", Pin: p}, f.step("prepare")
+}
+
+func TestProgressStatusFailureDoesNotStopApp(t *testing.T) {
+	installation := &fakeInstallation{}
+	engine := transactionEngine(t, installation)
+	engine.Installation = &statusFailureInstallation{installation, filepath.Join(engine.Config.StatePath, statusFile)}
+	if err := engine.Run(context.Background()); !errors.Is(err, syscall.EISDIR) {
+		t.Fatalf("Run error = %v, want the progress persistence failure", err)
+	}
+	if !reflect.DeepEqual(installation.calls, []string{"prepare"}) {
+		t.Fatalf("status failure reached installation mutation: %v", installation.calls)
+	}
+	if journal, err := engine.journal(); err != nil || journal.Phase != "" {
+		t.Fatalf("status failure created a recovery transaction: %+v, %v", journal, err)
+	}
+	if status := engine.Config.Status(); status.State != "failed" {
+		t.Fatalf("retry status = %+v, want failed", status)
+	}
 }
 
 func (f *fakeInstallation) step(s string) error {

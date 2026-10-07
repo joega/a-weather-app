@@ -10,6 +10,9 @@ import (
 	"unicode/utf8"
 )
 
+// Decode accepts one UTF-8 JSON value within limit bytes and 16 nesting levels.
+// Duplicate object keys, trailing values, and non-finite numbers are rejected.
+// Numbers are decoded as float64, matching the persisted protocol representation.
 func Decode(raw []byte, limit int) (any, error) {
 	if len(raw) > limit || !utf8.Valid(raw) {
 		return nil, errors.New("JSON size or UTF-8")
@@ -79,6 +82,8 @@ func value(d *json.Decoder, depth int) (any, error) {
 		return t, nil
 	}
 }
+
+// Object applies Decode's limits and additionally requires a JSON object.
 func Object(raw []byte, limit int) (map[string]any, error) {
 	v, e := Decode(raw, limit)
 	if e != nil {
@@ -90,17 +95,27 @@ func Object(raw []byte, limit int) (map[string]any, error) {
 	}
 	return m, nil
 }
+
+// Clone returns an independent JSON copy of a trusted internal object.
+// It preserves nil and normalizes numbers to float64. It panics if m cannot
+// satisfy Decode's JSON contract; use CloneChecked for fallible input boundaries.
 func Clone(m map[string]any) map[string]any {
+	v, err := CloneChecked(m)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+// CloneChecked copies an object using the same JSON representation and nesting
+// limits as Decode. It returns encoding/validation errors without modifying m.
+func CloneChecked(m map[string]any) (map[string]any, error) {
 	if m == nil {
-		return nil
+		return nil, nil
 	}
 	raw, e := json.Marshal(m)
 	if e != nil {
-		panic(e)
+		return nil, e
 	}
-	v, e := Object(raw, len(raw))
-	if e != nil {
-		panic(e)
-	}
-	return v
+	return Object(raw, len(raw))
 }

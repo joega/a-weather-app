@@ -164,7 +164,7 @@ func (e Engine) Run(ctx context.Context) (err error) {
 		if err != nil && !errors.Is(err, ErrBusy) {
 			s := e.Config.Status()
 			if s.State != "failed" && s.State != "rolled_back" {
-				_ = e.status("failed", "Update could not finish: "+boundedError(err)+". Try again.", s.Pin)
+				err = errors.Join(err, e.status("failed", "Update could not finish: "+boundedError(err)+". Try again.", s.Pin))
 			}
 		}
 	}()
@@ -197,17 +197,18 @@ func (e Engine) Run(ctx context.Context) (err error) {
 	if err = e.status("downloading", "Downloading the new version…", &pin); err != nil {
 		return err
 	}
+	var progressErr error
 	progress := func(phase string) {
 		message := "Downloading the new version…"
 		if phase == "verifying" {
 			message = "Verifying the downloaded release…"
 		}
-		_ = e.status(phase, message, &pin)
+		progressErr = errors.Join(progressErr, e.status(phase, message, &pin))
 	}
 	t, err = e.Installation.Prepare(ctx, pin, progress)
+	err = errors.Join(err, progressErr)
 	if err != nil {
-		_ = e.status("failed", "Update was not installed: "+boundedError(err), &pin)
-		return err
+		return errors.Join(err, e.status("failed", "Update was not installed: "+boundedError(err), &pin))
 	}
 	t.Pin = pin
 	t.OldVersion = e.Config.Installed
@@ -269,8 +270,7 @@ func (e Engine) rollback(ctx context.Context, t Transaction, cause error) error 
 	}
 	// Restore must stop any new service before switching back and be idempotent.
 	if err := e.Installation.Restore(ctx, t); err != nil {
-		_ = e.status("failed", "Could not restore the previous version: "+boundedError(err), &t.Pin)
-		return err
+		return errors.Join(err, e.status("failed", "Could not restore the previous version: "+boundedError(err), &t.Pin))
 	}
 	if err := e.Installation.Start(ctx, t, true); err != nil {
 		return err

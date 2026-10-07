@@ -153,6 +153,37 @@ func TestCallVerifiedRejectsReplacementPeerBeforeWriting(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestCallRejectsInvalidRequestBeforeWriting(t *testing.T) {
+	for name, request := range map[string]M{"nil": nil, "unencodable": {"op": make(chan int)}} {
+		t.Run(name, func(t *testing.T) {
+			listener, path := unixListener(t)
+			done := make(chan error, 1)
+			go func() {
+				conn, err := listener.AcceptUnix()
+				if err != nil {
+					done <- err
+					return
+				}
+				defer conn.Close()
+				if err = conn.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+					done <- err
+					return
+				}
+				_, err = bufio.NewReader(conn).ReadByte()
+				done <- err
+			}()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if _, err := Call(ctx, path, request); err == nil {
+				t.Fatal("invalid request accepted")
+			}
+			if err := <-done; !errors.Is(err, io.EOF) {
+				t.Fatalf("rejected request reached peer or left connection open: %v", err)
+			}
+		})
+	}
+}
 func TestCallRejectsMalformedAndOversizedReply(t *testing.T) {
 	for _, raw := range []string{`{"version":1,"request_id":1,"ok":true,"ok":false}`, `[]`, strings.Repeat("x", ResponseLimit+10)} {
 		l, path := unixListener(t)

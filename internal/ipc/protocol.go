@@ -68,7 +68,9 @@ func Encode(v any, limit int) ([]byte, error) {
 
 // WriteEncoded consumes immutable framed bytes. Each connection has one writer.
 func WriteEncoded(conn net.Conn, b []byte) error {
-	conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	if err := conn.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		return err
+	}
 	for len(b) > 0 {
 		n, e := conn.Write(b)
 		if e != nil {
@@ -111,9 +113,17 @@ func CallVerified(ctx context.Context, path string, request M, verify func(int) 
 		}
 	}
 	if deadline, ok := ctx.Deadline(); ok {
-		conn.SetReadDeadline(deadline)
+		if e = conn.SetReadDeadline(deadline); e != nil {
+			return nil, e
+		}
 	}
-	request = safeio.Clone(request)
+	request, e = safeio.CloneChecked(request)
+	if e != nil {
+		return nil, e
+	}
+	if request == nil {
+		return nil, errors.New("IPC request object required")
+	}
 	request["version"] = float64(1)
 	request["request_id"] = float64(1)
 	if e = Send(conn, request, RequestLimit); e != nil {
