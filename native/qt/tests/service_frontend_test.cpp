@@ -105,11 +105,14 @@ public:
         for(const auto &folder:QStringList{"Widget","Commons","Ui","runtime","cache"})if(!QDir().mkdir(directory.path()+"/"+folder))return false;
         QFile::setPermissions(directory.path()+"/runtime",QFile::ReadOwner|QFile::WriteOwner|QFile::ExeOwner);
         if(!QFile::copy(widget,directory.path()+"/Widget/WeatherWidget.qml"))return false;
-        if(!write("Commons/qmldir","module qs.Commons\nsingleton Style 1.0 Style.qml\n")||
+        if(!write("Commons/qmldir","module qs.Commons\nsingleton Style 1.0 Style.qml\nsingleton Color 1.0 Color.qml\n")||
+           !write("Commons/Color.qml","pragma Singleton\nimport QtQuick\nQtObject { readonly property color foreground: 'white' }\n")||
            !write("Commons/Style.qml","pragma Singleton\nimport QtQuick\nQtObject { readonly property var font: ({body:14}); function space(n) { return n; } }\n")||
-           !write("Ui/qmldir","module qs.Ui\nBarWidget 1.0 BarWidget.qml\n")||
+           !write("Ui/qmldir","module qs.Ui\nBarWidget 1.0 BarWidget.qml\nPopupCard 1.0 PopupCard.qml\nButton 1.0 Button.qml\n")||
+           !write("Ui/PopupCard.qml","import QtQuick\nItem { property var anchorItem; property var bar; property bool open:false; property real contentWidth; property real contentHeight; visible:open; function fittedContentWidth(n) { return n; } function fittedContentHeight(n) { return n; } }\n")||
+           !write("Ui/Button.qml","import QtQuick\nItem { property string text; property bool focusable; property bool bordered; signal clicked(); }\n")||
            !write("Ui/BarWidget.qml","import QtQuick\nItem { property QtObject bar:null; property string moduleName; property var settings: ({}); readonly property bool vertical:false; readonly property int barSize:32; function setting(name,fallback) { return settings[name]===undefined?fallback:settings[name]; } }\n")||
-           !write("a-weather-app","#!/bin/sh\nfor argument in \"$@\"; do\n  if [ \"$argument\" = --refresh-bar ]; then exit 0; fi\ndone\nif \"$WEATHER_BAR_APP\" \"$@\"; then sleep 0.15; else exit $?; fi\n")||
+           !write("a-weather-app","#!/bin/sh\nfor argument in \"$@\"; do\n  case \"$argument\" in --refresh-bar|--check-updates) exit 0;; esac\ndone\nif \"$WEATHER_BAR_APP\" \"$@\"; then sleep 0.15; else exit $?; fi\n")||
            !write("shell.qml",R"(import QtQuick
 import Quickshell
 import "Widget" as Widget
@@ -156,7 +159,7 @@ class ServiceFrontendTest:public QObject {
         return nullptr;
     }
     QObject *named(const char *name){auto object=root->findChild<QObject*>(name);if(!object&&window)object=visualNamed(window->contentItem(),name);if(!object){QTest::qFail(qPrintable(QString("Missing UI control %1").arg(name)),__FILE__,__LINE__);return root;}return object;}
-    void click(const char *name){auto item=qobject_cast<QQuickItem*>(named(name));QVERIFY(item);QVERIFY(item->isEnabled());QVERIFY(item->isVisible());auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2)).toPoint();QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,point);}
+    void click(const char *name){auto item=qobject_cast<QQuickItem*>(named(name));QVERIFY(item);QVERIFY(item->isEnabled());QVERIFY(item->isVisible());QTest::qWait(100);auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2)).toPoint();QTest::mouseClick(window,Qt::LeftButton,Qt::NoModifier,point);}
     void toggle(const char *name,bool checked){auto object=named(name);QVERIFY(object->property("enabled").toBool());object->setProperty("checked",checked);QVERIFY(QMetaObject::invokeMethod(object,"clicked",Qt::DirectConnection));}
     struct Usage {qint64 ticks=0,rssKiB=0,pssKiB=0;};
     Usage usage(qint64 pid){
