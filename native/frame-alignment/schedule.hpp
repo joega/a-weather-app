@@ -9,15 +9,18 @@ struct RainSchedule {
     Clock::time_point next;
     Clock::duration period;
     void reset(Clock::time_point now, int fps) {
-        period = std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / fps));
+        period =
+            std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / fps));
         next = now + period;
     }
     void advance(Clock::time_point now) {
-        if (next <= now) next += period * ((now - next) / period + 1);
+        if (next <= now)
+            next += period * ((now - next) / period + 1);
     }
-    Clock::time_point wakeDeadline(Clock::time_point now, Clock::time_point deadline, bool maintenance) {
+    Clock::time_point wakeDeadline(Clock::time_point now, Clock::time_point deadline,
+                                   bool maintenance) {
         advance(now);
         return std::min(deadline, maintenance ? now + std::chrono::milliseconds(250) : next);
     }
 };
-}
+} // namespace AWeatherApp

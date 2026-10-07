@@ -57,3 +57,14 @@ Baseline qmllint: 105 unqualified references, six missing-property findings,
 six layout-size findings, one unused import; investigate with runtime types.
 clang-tidy wildcard evaluation includes unsuitable WebKit ownership checks;
 select portable correctness checks instead. No blanket suppressions planned.
+
+### Formatting stage
+
+- Expanded maintained native/QML/JS code with the configured tools; preserved
+  include/import/attribute order and excluded generated files.
+- `make check-native-qml-format` passes with LLVM 22.1.8 / Qt 6.11.2.
+- Qt offscreen tests: 43 protocol, 28 frontend pass; four private/live captures
+  skip. First sandbox attempt failed local socket creation; unrestricted rerun
+  passes. Native sanitizer validation reruns outside ptrace restrictions.
+- Native simulation/self-test/adversarial input checks pass with ASan, UBSan
+  and leak detection outside the sandbox; no sanitizer findings.

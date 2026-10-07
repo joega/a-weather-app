@@ -14,8 +14,7 @@
 namespace rain = a_weather_app::physics;
 namespace snow = a_weather_app::snow;
 
-template<class Simulation, class Parameters, class Frame>
-void exercise(Parameters parameters) {
+template <class Simulation, class Parameters, class Frame> void exercise(Parameters parameters) {
     auto simulation = std::make_unique<Simulation>();
     auto frame = std::make_unique<Frame>();
     std::array<rain::Support, rain::support_cap + 1> supports{};
@@ -32,8 +31,8 @@ void exercise(Parameters parameters) {
         assert(!simulation->step(dt, width, height, parameters, topology, *frame));
         assert(!frame->valid && frame->segment_count == 0);
     };
-    for (float invalid : {std::numeric_limits<float>::quiet_NaN(),
-                          std::numeric_limits<float>::infinity(), -1.f}) {
+    for (float invalid :
+         {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity(), -1.f}) {
         reject(invalid, 1920, 1080, one);
         reject(.033f, invalid, 1080, one);
         reject(.033f, 1920, invalid, one);
@@ -54,11 +53,13 @@ void exercise(Parameters parameters) {
         // Exercise changing topology and dimensions, empty input, and max capacity.
         const float width = 640 + float(random() % 3200);
         assert(simulation->step(.033f, width, 1080, parameters,
-            std::span<const rain::Support>(supports).first(count), *frame));
+                                std::span<const rain::Support>(supports).first(count), *frame));
         assert(frame->valid && frame->segment_count <= frame->segments.size());
         for (std::size_t i = 0; i < frame->segment_count; ++i)
-            for (auto value : frame->segments[i].values) assert(std::isfinite(value));
-        if (tick % 100 == 0) simulation->reset();
+            for (auto value : frame->segments[i].values)
+                assert(std::isfinite(value));
+        if (tick % 100 == 0)
+            simulation->reset();
     }
 }
 
@@ -74,30 +75,39 @@ struct PrecipitationWorkload {
     rain::InteractionOptions interactions;
     AWeatherApp::PrecipitationActivityPolicy policy;
     std::uint64_t damage = 0, preparationDamage = 0, geometry = 0;
-    PrecipitationWorkload() { current.rain_intensity = target.rain_intensity = 0; }
+    PrecipitationWorkload() {
+        current.rain_intensity = target.rain_intensity = 0;
+    }
     AWeatherApp::PrecipitationActivity activity() const {
         return AWeatherApp::precipitationActivity(current, target, snowCurrent, snowTarget,
-            rainSimulation->hasResidualActivity(), snowSimulation->hasResidualActivity());
+                                                  rainSimulation->hasResidualActivity(),
+                                                  snowSimulation->hasResidualActivity());
     }
     void tick(std::span<const rain::Support> supports = {}) {
         const auto state = activity();
-        if (policy.schedule(state)) ++damage;
-        if (policy.prepare(state)) ++preparationDamage;
-        if (!policy.stage(state)) return;
+        if (policy.schedule(state))
+            ++damage;
+        if (policy.prepare(state))
+            ++preparationDamage;
+        if (!policy.stage(state))
+            return;
         ++geometry;
         AWeatherApp::approachParameters(current, target, .05f);
         AWeatherApp::approachSnowParameters(snowCurrent, snowTarget, .05f);
         if (activity().rain) {
             ++policy.rainSteps;
-            assert(rainSimulation->step(.05f, 128, 96, current, supports, *rainFrame, interactions));
+            assert(
+                rainSimulation->step(.05f, 128, 96, current, supports, *rainFrame, interactions));
         } else {
             rainFrame->segment_count = 0;
             rainFrame->far = {};
         }
         if (snowCurrent.strength > .0001f || snowSimulation->hasResidualActivity()) {
             ++policy.snowSteps;
-            assert(snowSimulation->step(.05f, 128, 96, snowCurrent, supports, *snowFrame, interactions));
-        } else snowFrame->segment_count = 0;
+            assert(snowSimulation->step(.05f, 128, 96, snowCurrent, supports, *snowFrame,
+                                        interactions));
+        } else
+            snowFrame->segment_count = 0;
         policy.rainPass(*rainFrame);
         policy.snowPass(*snowFrame);
     }
@@ -114,33 +124,42 @@ rain::Support precipitationSupport() {
 
 void precipitationActivityRegression() {
     PrecipitationWorkload work;
-    for (int i = 0; i < 120; ++i) work.tick();
+    for (int i = 0; i < 120; ++i)
+        work.tick();
     assert(work.damage == 0 && work.preparationDamage == 0 && work.geometry == 0);
-    assert(work.policy.rainSteps == 0 && work.policy.snowSteps == 0 && work.policy.passSubmissions == 0);
-    assert(work.policy.idleScheduleTicks == 120 && work.policy.idlePrepareFrames == 120 && work.policy.idleStageFrames == 120);
+    assert(work.policy.rainSteps == 0 && work.policy.snowSteps == 0 &&
+           work.policy.passSubmissions == 0);
+    assert(work.policy.idleScheduleTicks == 120 && work.policy.idlePrepareFrames == 120 &&
+           work.policy.idleStageFrames == 120);
     const auto support = precipitationSupport();
     const auto supports = std::span(&support, 1);
     work.interactions.accumulation = false;
     work.target.rain_intensity = .8f;
     assert(work.activity().rain); // Requested precipitation wakes before interpolation.
-    for (int i = 0; i < 100; ++i) work.tick(supports);
+    for (int i = 0; i < 100; ++i)
+        work.tick(supports);
     assert(work.rainSimulation->metrics().impacts > 0 && work.policy.rainSteps > 0);
     assert(work.policy.passSubmissions > 0 && work.policy.snowSteps == 0);
     assert(work.rainSimulation->metrics().splash_active > 0);
     work.current.rain_intensity = work.target.rain_intensity = 0;
     assert(work.activity().rain); // Residual splashes continue after streaks stop.
-    for (int i = 0; i < 100 && work.activity().needed(); ++i) work.tick(supports);
+    for (int i = 0; i < 100 && work.activity().needed(); ++i)
+        work.tick(supports);
     assert(!work.activity().needed());
     const auto damage = work.damage, geometry = work.geometry, passes = work.policy.passSubmissions;
-    for (int i = 0; i < 120; ++i) work.tick(supports);
-    assert(work.damage == damage && work.geometry == geometry && work.policy.passSubmissions == passes);
+    for (int i = 0; i < 120; ++i)
+        work.tick(supports);
+    assert(work.damage == damage && work.geometry == geometry &&
+           work.policy.passSubmissions == passes);
     work.snowTarget.strength = 1;
     assert(work.activity().snow && !work.activity().rain);
-    for (int i = 0; i < 100; ++i) work.tick(supports);
+    for (int i = 0; i < 100; ++i)
+        work.tick(supports);
     assert(work.policy.snowSteps > 0 && work.snowSimulation->metrics().active > 0);
     work.snowCurrent.strength = work.snowTarget.strength = 0;
     assert(work.activity().snow); // Atmospheric flakes finish their existing paths.
-    for (int i = 0; i < 1000 && work.activity().needed(); ++i) work.tick(supports);
+    for (int i = 0; i < 1000 && work.activity().needed(); ++i)
+        work.tick(supports);
     assert(!work.activity().needed());
 
     // Quantized rain populations can be empty at positive intensity. The
@@ -173,16 +192,19 @@ void precipitationResidualRegression() {
     assert(work.rainSimulation->hasResidualActivity()); // Below any visible cutoff.
     assert(work.rainSimulation->injectRunoff({64, 0}, {0, 80}, .5f));
     work.current.evaporation_rate = work.target.evaporation_rate = 2;
-    for (int i = 0; i < 2000 && work.activity().needed(); ++i) work.tick(supports);
+    for (int i = 0; i < 2000 && work.activity().needed(); ++i)
+        work.tick(supports);
     const auto rainMetrics = work.rainSimulation->metrics();
     assert(rainMetrics.lower_impacts > 0 && rainMetrics.evaporated > 0 && rainMetrics.drained > 0);
     assert(!work.rainSimulation->hasResidualActivity() && !work.activity().needed());
-    assert(std::abs(rainMetrics.deposited - rainMetrics.evaporated - rainMetrics.drained - rainMetrics.escaped - rainMetrics.discarded) < 1e-8);
+    assert(std::abs(rainMetrics.deposited - rainMetrics.evaporated - rainMetrics.drained -
+                    rainMetrics.escaped - rainMetrics.discarded) < 1e-8);
 
     assert(work.snowSimulation->step(0, 128, 96, work.snowCurrent, supports, *work.snowFrame));
     assert(work.snowSimulation->deposit(42, 64, .0001f));
     assert(work.snowSimulation->depositFloor(12, .0001f));
-    for (int i = 0; i < 30; ++i) work.tick(supports);
+    for (int i = 0; i < 30; ++i)
+        work.tick(supports);
     assert(work.activity().snow && work.snowSimulation->metrics().settled > 0);
     assert(work.snowSimulation->metrics().melted == 0); // Unknown temperature is conservative.
     assert(work.snowSimulation->deposit(42, 64, 3));
@@ -190,17 +212,20 @@ void precipitationResidualRegression() {
     assert(work.snowSimulation->metrics().falling > 0 && work.activity().snow);
     work.snowCurrent.temperature_known = work.snowTarget.temperature_known = true;
     work.snowCurrent.temperature_c = work.snowTarget.temperature_c = 10;
-    for (int i = 0; i < 2000 && work.activity().needed(); ++i) work.tick();
+    for (int i = 0; i < 2000 && work.activity().needed(); ++i)
+        work.tick();
     const auto snowMetrics = work.snowSimulation->metrics();
     assert(snowMetrics.melted > 0 && snowMetrics.active == 0 && snowMetrics.settled == 0);
     assert(!work.activity().needed());
-    assert(std::abs(snowMetrics.deposited - snowMetrics.melted - snowMetrics.escaped - snowMetrics.discarded - snowMetrics.overflow) < 1e-8);
+    assert(std::abs(snowMetrics.deposited - snowMetrics.melted - snowMetrics.escaped -
+                    snowMetrics.discarded - snowMetrics.overflow) < 1e-8);
 
     // Frozen simulation and explicit discard/reset cannot silently retire or
     // resurrect live reservoirs in the controller's residual-state cache.
     assert(work.rainSimulation->depositFloor(12, 1));
     work.current.simulation_speed = work.target.simulation_speed = 0;
-    for (int i = 0; i < 10; ++i) work.tick();
+    for (int i = 0; i < 10; ++i)
+        work.tick();
     assert(work.rainSimulation->metrics().floor_volume == 1 && work.activity().rain);
     work.rainSimulation->discardAccumulation();
     assert(!work.rainSimulation->hasResidualActivity());
@@ -215,22 +240,27 @@ void precipitationMaintenanceRegression() {
     const auto now = Clock::time_point{} + std::chrono::seconds(100);
     AWeatherApp::RainSchedule schedule;
     schedule.reset(now, 30);
-    assert(schedule.wakeDeadline(now, now + std::chrono::seconds(5), true) == now + std::chrono::milliseconds(250));
-    assert(schedule.wakeDeadline(now, now + std::chrono::milliseconds(20), true) == now + std::chrono::milliseconds(20));
+    assert(schedule.wakeDeadline(now, now + std::chrono::seconds(5), true) ==
+           now + std::chrono::milliseconds(250));
+    assert(schedule.wakeDeadline(now, now + std::chrono::milliseconds(20), true) ==
+           now + std::chrono::milliseconds(20));
     assert(schedule.wakeDeadline(now, now + std::chrono::seconds(5), false) == schedule.next);
     const auto resumed = now + std::chrono::seconds(2);
     assert(schedule.wakeDeadline(resumed, now + std::chrono::seconds(5), false) > resumed);
     assert(schedule.next <= resumed + schedule.period); // No catch-up burst on reactivation.
     AWeatherApp::SnowTemperatureLease lease;
     snow::Parameters current, target;
-    auto command = AWeatherApp::parseRainCommand("a-weather-app:rain guard 1 snow temperature 10 2000");
+    auto command =
+        AWeatherApp::parseRainCommand("a-weather-app:rain guard 1 snow temperature 10 2000");
     lease.accept(command, current, target, 1000, now);
     assert(current.temperature_known && target.temperature_known);
     lease.expire(current, target, 1500, now + std::chrono::milliseconds(1000));
-    assert(!current.temperature_known && !target.temperature_known); // Steady expiry despite backwards wall time.
+    assert(!current.temperature_known &&
+           !target.temperature_known); // Steady expiry despite backwards wall time.
     lease.accept(command, current, target, 1000, now);
     lease.expire(current, target, 2000, now);
-    assert(!current.temperature_known && !target.temperature_known); // Wall expiry without a render frame.
+    assert(!current.temperature_known &&
+           !target.temperature_known); // Wall expiry without a render frame.
 }
 
 int main() {
@@ -241,5 +271,6 @@ int main() {
     precipitationActivityRegression();
     precipitationResidualRegression();
     precipitationMaintenanceRegression();
-    std::cout << "PASS: invalid inputs, bounded finite frames, idle precipitation work, residuals, reactivation and leases\n";
+    std::cout << "PASS: invalid inputs, bounded finite frames, idle precipitation work, residuals, "
+                 "reactivation and leases\n";
 }

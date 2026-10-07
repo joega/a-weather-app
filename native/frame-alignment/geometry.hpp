@@ -24,4 +24,4 @@ struct GeometrySnapshot {
 // units, including spans; multiply by monitor scale only at presentation.
 // Invalid means reset simulation context and draw nothing, not window closure.
 GeometrySnapshot captureGeometry(PHLMONITOR monitor);
-}
+} // namespace AWeatherApp

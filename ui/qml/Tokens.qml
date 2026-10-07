@@ -1,5 +1,6 @@
 pragma Singleton
 import QtQuick
+
 QtObject {
     readonly property color foreground: "#f0f5fc"
     readonly property color secondary: "#b7cbdc"

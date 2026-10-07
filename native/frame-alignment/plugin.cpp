@@ -48,7 +48,8 @@ bool active() {
 }
 std::optional<CBox> rule(const Target& target, PHLMONITOR monitor) {
     if (!monitor || !monitor->m_activeWorkspace || !monitor->m_enabled || monitor->isMirror() ||
-        !PROTO::sessionLock || PROTO::sessionLock->isLocked() || Fullscreen::controller()->hasFullscreen(monitor))
+        !PROTO::sessionLock || PROTO::sessionLock->isLocked() ||
+        Fullscreen::controller()->hasFullscreen(monitor))
         return {};
     const auto& windows = Desktop::windowState()->windows();
     if (windows.size() > 1024)
@@ -56,13 +57,15 @@ std::optional<CBox> rule(const Target& target, PHLMONITOR monitor) {
     for (const auto& window : windows) {
         if (!window || reinterpret_cast<std::uintptr_t>(window.get()) != target.address)
             continue;
-        if (window->m_stableID != target.stable || !window->m_isMapped || window->m_monitor != monitor ||
-            window->m_workspace != monitor->m_activeWorkspace || !g_pHyprRenderer->shouldRenderWindow(window, monitor))
+        if (window->m_stableID != target.stable || !window->m_isMapped ||
+            window->m_monitor != monitor || window->m_workspace != monitor->m_activeWorkspace ||
+            !g_pHyprRenderer->shouldRenderWindow(window, monitor))
             return {};
         using Geometry = Desktop::View::IGeometric;
         const auto at = window->position(Geometry::GEOMETRIC_CURRENT);
         const auto size = window->size(Geometry::GEOMETRIC_CURRENT);
-        if (!std::isfinite(at.x) || !std::isfinite(at.y) || !std::isfinite(size.x) || !std::isfinite(size.y) || size.x <= 0 || size.y <= 0)
+        if (!std::isfinite(at.x) || !std::isfinite(at.y) || !std::isfinite(size.x) ||
+            !std::isfinite(size.y) || size.x <= 0 || size.y <= 0)
             return {};
         return CBox{at, {size.x, 3.0}};
     }
@@ -91,8 +94,10 @@ void precheck(PHLMONITOR monitor) {
     }
 }
 void stage(eRenderStage stage) {
-    if (stage == RENDER_POST_WINDOWS) AWeatherApp::rainStage();
-    if (stage != RENDER_POST_WINDOWS || !active() || !g_pHyprRenderer || g_pHyprRenderer->m_bRenderingSnapshot)
+    if (stage == RENDER_POST_WINDOWS)
+        AWeatherApp::rainStage();
+    if (stage != RENDER_POST_WINDOWS || !active() || !g_pHyprRenderer ||
+        g_pHyprRenderer->m_bRenderingSnapshot)
         return;
     const auto monitor = g_pHyprRenderer->renderData().pMonitor.lock();
     ++stageFrames;
@@ -112,9 +117,9 @@ void stage(eRenderStage stage) {
 std::string status() {
     const bool enabled = active();
     return "{\"schema_version\":1,\"enabled\":" + std::string(enabled ? "true" : "false") +
-        ",\"selected\":" + std::to_string(count) +
-        ",\"stage_frames\":" + std::to_string(stageFrames) +
-        ",\"rules_emitted\":" + std::to_string(rulesEmitted) + "}";
+           ",\"selected\":" + std::to_string(count) +
+           ",\"stage_frames\":" + std::to_string(stageFrames) +
+           ",\"rules_emitted\":" + std::to_string(rulesEmitted) + "}";
 }
 std::string request(eHyprCtlOutputFormat, std::string input) {
     if (input.size() > 1024)
@@ -127,7 +132,8 @@ std::string request(eHyprCtlOutputFormat, std::string input) {
     if (action == "status" || action == "off") {
         if (stream >> extra)
             return "{\"error\":\"invalid_arguments\"}";
-        if (action == "off") clear();
+        if (action == "off")
+            clear();
         return status();
     }
     if (action != "on")
@@ -135,8 +141,11 @@ std::string request(eHyprCtlOutputFormat, std::string input) {
     std::string secondsToken;
     stream >> secondsToken;
     int seconds = 0;
-    const auto parsedSeconds = std::from_chars(secondsToken.data(), secondsToken.data() + secondsToken.size(), seconds);
-    if (parsedSeconds.ec != std::errc{} || parsedSeconds.ptr != secondsToken.data() + secondsToken.size() || seconds < 1 || seconds > 30)
+    const auto parsedSeconds =
+        std::from_chars(secondsToken.data(), secondsToken.data() + secondsToken.size(), seconds);
+    if (parsedSeconds.ec != std::errc{} ||
+        parsedSeconds.ptr != secondsToken.data() + secondsToken.size() || seconds < 1 ||
+        seconds > 30)
         return "{\"error\":\"duration_must_be_1_to_30\"}";
     std::array<Target, 8> next;
     std::size_t nextCount = 0;
@@ -147,7 +156,8 @@ std::string request(eHyprCtlOutputFormat, std::string input) {
         if (nextCount == next.size() || !extra.starts_with("0x") || extra.size() <= 2)
             return "{\"error\":\"invalid_addresses\"}";
         std::uintptr_t address = 0;
-        const auto parsed = std::from_chars(extra.data() + 2, extra.data() + extra.size(), address, 16);
+        const auto parsed =
+            std::from_chars(extra.data() + 2, extra.data() + extra.size(), address, 16);
         if (parsed.ec != std::errc{} || parsed.ptr != extra.data() + extra.size() || !address)
             return "{\"error\":\"invalid_addresses\"}";
         for (std::size_t i = 0; i < nextCount; ++i)
@@ -155,7 +165,8 @@ std::string request(eHyprCtlOutputFormat, std::string input) {
                 return "{\"error\":\"duplicate_address\"}";
         bool found = false;
         for (const auto& window : windows) {
-            if (window && window->m_isMapped && reinterpret_cast<std::uintptr_t>(window.get()) == address) {
+            if (window && window->m_isMapped &&
+                reinterpret_cast<std::uintptr_t>(window.get()) == address) {
                 next[nextCount].address = address;
                 next[nextCount].stable = window->m_stableID;
                 found = true;
@@ -181,9 +192,11 @@ std::string request(eHyprCtlOutputFormat, std::string input) {
                     g_pHyprRenderer->damageBox(*box);
     return status();
 }
-}
+} // namespace
 
-APICALL EXPORT std::string PLUGIN_API_VERSION() { return HYPRLAND_API_VERSION; }
+APICALL EXPORT std::string PLUGIN_API_VERSION() {
+    return HYPRLAND_API_VERSION;
+}
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE pluginHandle) {
     const auto* serverHash = __hyprland_api_get_hash();
     const auto* clientHash = __hyprland_api_get_client_hash();
@@ -192,19 +205,25 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE pluginHandle) {
     // Inline globals must bind to the executable, not private plugin storage.
     // A hidden copy previously produced a null-this crash in renderData().
     if (dlsym(RTLD_DEFAULT, "g_pHyprRenderer") != static_cast<void*>(&g_pHyprRenderer) ||
-        dlsym(RTLD_DEFAULT, "_ZN10NProtocols11sessionLockE") != static_cast<void*>(&PROTO::sessionLock) ||
+        dlsym(RTLD_DEFAULT, "_ZN10NProtocols11sessionLockE") !=
+            static_cast<void*>(&PROTO::sessionLock) ||
         dlsym(RTLD_DEFAULT, "g_pEventLoopManager") != static_cast<void*>(&g_pEventLoopManager) ||
         !g_pHyprRenderer || !PROTO::sessionLock || !g_pEventLoopManager)
-        throw std::runtime_error("a-weather-app alignment: compositor globals unavailable or privately bound");
+        throw std::runtime_error(
+            "a-weather-app alignment: compositor globals unavailable or privately bound");
     handle = pluginHandle;
-    command = HyprlandAPI::registerHyprCtlCommand(handle, {"a-weather-app:alignment", false, request});
+    command =
+        HyprlandAPI::registerHyprCtlCommand(handle, {"a-weather-app:alignment", false, request});
     if (!command)
         throw std::runtime_error("a-weather-app alignment: registration failed");
-    rainCommand = HyprlandAPI::registerHyprCtlCommand(handle, {"a-weather-app:rain", false,
-        [](eHyprCtlOutputFormat, std::string input) {
-            try { return AWeatherApp::rainRequest(std::move(input)); }
-            catch (...) { return std::string("{\"error\":\"rain_request_failed\"}"); }
-        }});
+    rainCommand = HyprlandAPI::registerHyprCtlCommand(
+        handle, {"a-weather-app:rain", false, [](eHyprCtlOutputFormat, std::string input) {
+                     try {
+                         return AWeatherApp::rainRequest(std::move(input));
+                     } catch (...) {
+                         return std::string("{\"error\":\"rain_request_failed\"}");
+                     }
+                 }});
     if (!rainCommand) {
         HyprlandAPI::unregisterHyprCtlCommand(handle, command);
         command.reset();
@@ -213,17 +232,20 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE pluginHandle) {
     preListener = Event::bus()->m_events.render.preChecks.listen(precheck);
     prepareListener = Event::bus()->m_events.render.pre.listen(AWeatherApp::rainPrepareFrame);
     stageListener = Event::bus()->m_events.render.stage.listen(stage);
-    return {"a-weather-app-frame-alignment", "Opt-in current-frame diagnostic top rules", "A Weather App", "1.0.0"};
+    return {"a-weather-app-frame-alignment", "Opt-in current-frame diagnostic top rules",
+            "A Weather App", "1.0.0"};
 }
 APICALL EXPORT void PLUGIN_EXIT() {
     preListener.reset();
     prepareListener.reset();
     stageListener.reset();
     AWeatherApp::rainShutdown();
-    if (rainCommand) HyprlandAPI::unregisterHyprCtlCommand(handle, rainCommand);
+    if (rainCommand)
+        HyprlandAPI::unregisterHyprCtlCommand(handle, rainCommand);
     rainCommand.reset();
     clear();
-    if (command) HyprlandAPI::unregisterHyprCtlCommand(handle, command);
+    if (command)
+        HyprlandAPI::unregisterHyprCtlCommand(handle, command);
     command.reset();
     handle = nullptr;
 }

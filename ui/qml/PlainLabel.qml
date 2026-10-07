@@ -1,4 +1,5 @@
 import QtQuick
+
 Text {
     textFormat: Text.PlainText
     color: Tokens.foreground

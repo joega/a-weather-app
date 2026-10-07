@@ -55,12 +55,22 @@ class SegmentPass final : public IPassElement {
                 std::vector<Segment> segments, std::vector<Mask> masks = {},
                 std::size_t maskedPrefix = 0, Far far = {});
     std::vector<UP<IPassElement>> draw() override;
-    bool needsLiveBlur() override { return false; }
-    bool needsPrecomputeBlur() override { return false; }
-    const char* passName() override { return "AWeatherAppSegmentPass"; }
-    ePassElementType type() override { return EK_CUSTOM; }
+    bool needsLiveBlur() override {
+        return false;
+    }
+    bool needsPrecomputeBlur() override {
+        return false;
+    }
+    const char* passName() override {
+        return "AWeatherAppSegmentPass";
+    }
+    ePassElementType type() override {
+        return EK_CUSTOM;
+    }
     std::optional<CBox> boundingBox() override;
-    CRegion opaqueRegion() override { return {}; }
+    CRegion opaqueRegion() override {
+        return {};
+    }
 
   private:
     const std::shared_ptr<SegmentGPU> m_gpu;
@@ -71,4 +81,4 @@ class SegmentPass final : public IPassElement {
     const Far m_far;
 };
 #endif
-}
+} // namespace AWeatherApp

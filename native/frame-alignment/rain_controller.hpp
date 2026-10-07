@@ -8,4 +8,4 @@ void rainPrepareFrame(PHLMONITOR monitor);
 void rainStage();
 std::string rainRequest(std::string input);
 void rainShutdown();
-}
+} // namespace AWeatherApp
