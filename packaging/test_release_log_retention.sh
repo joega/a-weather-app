@@ -6,10 +6,16 @@ fixture=$(mktemp -d)
 trap 'rm -rf -- "$fixture"' EXIT
 mkdir -p "$fixture/source/scripts" "$fixture/bin"
 cp "$root/scripts/run_go_migration_build.sh" "$fixture/source/scripts/"
+mkdir -p "$fixture/source/docs/reviews"
+printf 'tracked report\n' > "$fixture/source/docs/reviews/tracked report.md"
+printf 'private ignored audit\n' > "$fixture/source/docs/reviews/private.md"
+printf 'docs/\n' > "$fixture/source/.gitignore"
 (
   cd "$fixture/source"
   git init -q
   git add scripts
+  git add .gitignore
+  git add -f 'docs/reviews/tracked report.md'
   git -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm fixture
 )
 cat > "$fixture/bin/docker" <<'DOCKER'
@@ -28,6 +34,9 @@ for arg in "$@"; do
 done
 [[ ${jobs:-} == "$FIXTURE_JOBS" ]]
 [[ -f $source/scripts/run_go_migration_build.sh ]]
+[[ -f $source/docs/reviews/tracked\ report.md ]]
+[[ ! -e $source/docs/reviews/private.md ]]
+[[ -z $(git -C "$source" status --porcelain --untracked-files=all) ]]
 [[ -z $(find "$output" -mindepth 1 -print -quit) ]]
 printf 'fixture full log status=%s\n' "$FIXTURE_EXIT"
 exit "$FIXTURE_EXIT"

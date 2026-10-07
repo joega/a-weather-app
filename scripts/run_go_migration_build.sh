@@ -34,6 +34,17 @@ if ! (
       --exclude='./artifacts' --exclude='./docs' --exclude='./.agents' --exclude='./.codex' --exclude='./node_modules' \
       --exclude='.build' --exclude='.test-build' --exclude='.frontend-test-build' --exclude='.service-test-build' \
       -C "$source_root" -cf - . | tar -C "$snapshot_root" -xf - || exit $?
+  # Preserve tracked documentation/evidence exactly as checked out. Omitting
+  # tracked files makes an otherwise clean release appear dirty. Untracked
+  # personal audit material in these directories remains excluded.
+  git -C "$source_root" ls-files -z -- docs artifacts |
+    while IFS= read -r -d '' tracked; do
+      if [[ -f "$source_root/$tracked" || -L "$source_root/$tracked" ]]; then
+        printf '%s\0' "$tracked"
+      fi
+    done |
+    tar -C "$source_root" --null -T - -cf - |
+    tar -C "$snapshot_root" -xf - || exit $?
   source_index=$(git -C "$source_root" rev-parse --path-format=absolute --git-path index) || exit $?
   if [[ -f "$source_index" ]]; then cp -- "$source_index" "$snapshot_root/.git/index" || exit $?; fi
   git -C "$snapshot_root" status --porcelain --untracked-files=all || exit $?
