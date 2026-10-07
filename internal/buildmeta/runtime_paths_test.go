@@ -101,7 +101,7 @@ func newRuntimePathFixture(t *testing.T) runtimePathFixture {
 	t.Cleanup(func() { os.RemoveAll(root) })
 	f := runtimePathFixture{root: root, source: filepath.Join(root, "source"), data: filepath.Join(root, "data"), downloads: filepath.Join(root, "downloads"), marker: filepath.Join(root, "download-called")}
 	f.app = filepath.Join(f.data, "a-weather-app")
-	for _, name := range []string{"a-weather-app", "scripts/install_release_runtime.sh", "scripts/runtime_paths.sh", "scripts/bootstrap_update.sh"} {
+	for _, name := range []string{"a-weather-app", "scripts/install_release_runtime.sh", "scripts/runtime_paths.sh", "scripts/bootstrap_update.sh", "scripts/bar_release_status.sh"} {
 		raw, err := os.ReadFile(filepath.Join("../..", name))
 		if err != nil {
 			t.Fatal(err)
@@ -156,6 +156,47 @@ cp -- "$WEATHER_TEST_DOWNLOADS/${url##*/}" "$output"
 	}
 	writeRuntimeFixture(t, filepath.Join(f.source, "packaging/release-lock.json"), pin, 0600)
 	return f
+}
+
+func TestOldRuntimeBarReportsPinnedMismatchAndHelperProgress(t *testing.T) {
+	for _, cached := range []string{"", "{bad json", `{"state":"verifying","installed":"0.51.5","available":"0.51.9","message":"Verifying the downloaded release…","checked_at":1791300000}`} {
+		t.Run(cached, func(t *testing.T) {
+			f := newRuntimePathFixture(t)
+			binary := []byte("#!/usr/bin/bash\nprintf '%s\\n' '{\"schema_version\":1,\"label\":\"20°C\",\"tooltip\":\"Saved weather\",\"freshness\":\"fresh\"}'\n")
+			writeRuntimeFixture(t, filepath.Join(f.app, "releases/v0.51.5/a-weather-app"), binary, 0700)
+			if e := os.Symlink("releases/v0.51.5", filepath.Join(f.app, "current")); e != nil {
+				t.Fatal(e)
+			}
+			pin, _ := json.Marshal(map[string]any{"schemaVersion": 1, "tag": "v0.51.9", "source_commit": strings.Repeat("a", 40), "archive_sha256": strings.Repeat("b", 64)})
+			writeRuntimeFixture(t, filepath.Join(f.source, "packaging/release-lock.json"), pin, 0600)
+			state := filepath.Join(f.root, "state")
+			if cached != "" {
+				writeRuntimeFixture(t, filepath.Join(state, "update-status.json"), []byte(cached), 0600)
+			}
+			output, e := f.run(t, "a-weather-app", "--state-dir", state, "--bar")
+			if e != nil {
+				t.Fatal(e, string(output))
+			}
+			var value map[string]any
+			if e = json.Unmarshal(output, &value); e != nil {
+				t.Fatal(e, string(output))
+			}
+			u, _ := value["update"].(map[string]any)
+			want := "available"
+			if strings.Contains(cached, "verifying") {
+				want = "verifying"
+			}
+			if u["state"] != want || u["installed"] != "0.51.5" || u["available"] != "0.51.9" {
+				t.Fatal("wrong update notice", u)
+			}
+			if value["label"] != "20°C" || value["freshness"] != "fresh" {
+				t.Fatal("weather output changed", value)
+			}
+			if _, e := os.Stat(f.marker); !os.IsNotExist(e) {
+				t.Fatal("cached bar read downloaded a release", e)
+			}
+		})
+	}
 }
 
 func TestOldRuntimeLauncherBootstrapsDetachedVerifiedHelper(t *testing.T) {

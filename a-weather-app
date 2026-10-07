@@ -31,6 +31,25 @@ if [[ "$data_home" == /* && ( -e "$data_home/a-weather-app" || -L "$data_home/a-
         fi
       fi
     done
+    for argument in "$@"; do
+      if [[ $argument == --bar ]]; then
+        bar_output=$("/proc/self/fd/$weather_file_fd" "$@")
+        if command -v jq >/dev/null && jq -e 'type == "object" and .schema_version == 1 and .update == null' <<<"$bar_output" >/dev/null 2>&1; then
+          state_path=${XDG_STATE_HOME:-${HOME:-}/.local/state}/a-weather-app
+          previous=
+          for state_argument in "$@"; do
+            if [[ $previous == --state-dir ]]; then state_path=$state_argument; fi
+            previous=$state_argument
+          done
+          if enhanced=$(bash "$app_source/scripts/bar_release_status.sh" "${selection#releases/v}" "$state_path" <<<"$bar_output" 2>/dev/null); then
+            printf '%s\n' "$enhanced"
+            exit 0
+          fi
+        fi
+        printf '%s\n' "$bar_output"
+        exit 0
+      fi
+    done
     exec "/proc/self/fd/$weather_file_fd" "$@"
   fi
 fi
