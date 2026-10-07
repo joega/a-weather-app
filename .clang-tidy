@@ -1,0 +1,4 @@
+Checks: '-*,clang-analyzer-core.*,clang-analyzer-unix.*,clang-analyzer-deadcode.*,bugprone-use-after-move,bugprone-dangling-handle,bugprone-sizeof-expression,bugprone-suspicious-memory-comparison,cert-err34-c'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(^|/)(native|tests)/'
+SystemHeaders: false

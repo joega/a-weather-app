@@ -41,6 +41,17 @@ struct TileDownload {
 MapTiles::MapTiles(QObject* parent, QUrl tileServer, std::function<QDateTime()> clock)
     : QObject(parent), tileServer(std::move(tileServer)), clock(std::move(clock)) {}
 
+MapTiles::~MapTiles() {
+    // QObject base destruction happens after our member containers and clock.
+    // Disconnect all replies (including those waiting for deleteLater) first.
+    const auto replies = manager.findChildren<QNetworkReply*>();
+    for (auto* reply : replies)
+        QObject::disconnect(reply, nullptr, this, nullptr);
+    for (auto* reply : replies)
+        if (reply->isRunning())
+            reply->abort();
+}
+
 void MapTiles::pruneCooldowns(const QDateTime& now) {
     for (auto it = retryAfter.begin(); it != retryAfter.end();) {
         if (it.value() <= now)
@@ -115,7 +126,11 @@ void MapTiles::request(int zoom, int x, int y, bool offline) {
     const quint64 issued = generation;
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, key, issued, offline, download, drain] {
+                QPointer<MapTiles> owner(this);
+                QPointer<QNetworkReply> pendingReply(reply);
                 drain();
+                if (!owner || !pendingReply)
+                    return;
                 if (active.value(key) == reply)
                     active.remove(key);
                 if (issued == generation && !download->tooLarge &&
@@ -128,8 +143,10 @@ void MapTiles::request(int zoom, int x, int y, bool offline) {
                         emit tileReply(
                             key,
                             reply->attribute(QNetworkRequest::SourceIsFromCacheAttribute).toBool());
-                        emit tileReady(key, "data:image/png;base64," +
-                                                QString::fromLatin1(bytes.toBase64()));
+                        // An observer can close/reopen or destroy the client synchronously.
+                        if (owner && issued == generation)
+                            emit tileReady(key, "data:image/png;base64," +
+                                                    QString::fromLatin1(bytes.toBase64()));
                     } else {
                         failed.insert(key);
                         if (!offline)
@@ -150,7 +167,8 @@ void MapTiles::request(int zoom, int x, int y, bool offline) {
                                           .toInt()) +
                                   ")");
                 }
-                reply->deleteLater();
+                if (pendingReply)
+                    pendingReply->deleteLater();
             });
     connect(reply, &QIODevice::readyRead, this, drain);
     connect(reply, &QNetworkReply::metaDataChanged, this, [reply, rejectOversized] {

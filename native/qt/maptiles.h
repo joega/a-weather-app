@@ -16,6 +16,8 @@ class MapTiles : public QObject {
     explicit MapTiles(QObject* parent = nullptr,
                       QUrl tileServer = QUrl(QStringLiteral("https://tile.openstreetmap.org")),
                       std::function<QDateTime()> clock = QDateTime::currentDateTimeUtc);
+    // GUI-thread only. Destruction quiesces replies before callback state dies.
+    ~MapTiles() override;
     Q_INVOKABLE void request(int zoom, int x, int y, bool offline);
     Q_INVOKABLE void close();
   signals:

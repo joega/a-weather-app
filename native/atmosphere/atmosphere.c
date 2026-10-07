@@ -791,6 +791,12 @@ static gboolean renderer_default_test(void) {
     return ok;
 }
 
+static gboolean same_weather(const Weather* left, const Weather* right) {
+    return left->elevation == right->elevation && left->azimuth == right->azimuth &&
+           left->clouds == right->clouds && left->fog == right->fog && left->wind == right->wind &&
+           left->lightning == right->lightning && left->reduced == right->reduced &&
+           left->storm == right->storm;
+}
 static gboolean self_test(void) {
     const char* connected[] = {"eDP-1", "DP-1"};
     const char* reordered[] = {"DP-1", "eDP-1"};
@@ -826,7 +832,7 @@ static gboolean self_test(void) {
         Weather unchanged = weather;
         g_clear_error(&error);
         if (parse_weather(bad[i], strlen(bad[i]), &weather, &error) ||
-            memcmp(&weather, &unchanged, sizeof weather))
+            !same_weather(&weather, &unchanged))
             return FALSE;
     }
     const char* fields[] = {"sun_elevation", "sun_azimuth",       "cloud_cover",    "fog_density",
@@ -849,7 +855,7 @@ static gboolean self_test(void) {
             Weather untouched = weather;
             g_clear_error(&error);
             if (parse_weather(text, strlen(text), &weather, &error) ||
-                memcmp(&weather, &untouched, sizeof weather))
+                !same_weather(&weather, &untouched))
                 return FALSE;
         }
     if (bounded_json(valid, WEATHER_LIMIT + 1) || bounded_json("{}\0x", 4))

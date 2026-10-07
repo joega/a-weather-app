@@ -31,6 +31,31 @@ void termination(int) {
     }
     errno = savedErrno;
 }
+// The notifier is constructed after this handle and dies before its descriptors.
+class SignalPipe final {
+  public:
+    SignalPipe() {
+        if (pipe2(descriptors, O_NONBLOCK | O_CLOEXEC) == 0)
+            signalWrite = descriptors[1];
+    }
+    ~SignalPipe() {
+        signalWrite = -1;
+        for (const int descriptor : descriptors)
+            if (descriptor >= 0)
+                close(descriptor);
+    }
+    SignalPipe(const SignalPipe&) = delete;
+    SignalPipe& operator=(const SignalPipe&) = delete;
+    bool valid() const {
+        return descriptors[0] >= 0;
+    }
+    int reader() const {
+        return descriptors[0];
+    }
+
+  private:
+    int descriptors[2] = {-1, -1};
+};
 } // namespace
 int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
@@ -61,14 +86,13 @@ int main(int argc, char** argv) {
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
-    int pipes[2];
-    if (pipe2(pipes, O_NONBLOCK | O_CLOEXEC) != 0)
+    SignalPipe signalPipe;
+    if (!signalPipe.valid())
         return 1;
-    signalWrite = pipes[1];
-    QSocketNotifier signalReader(pipes[0], QSocketNotifier::Read);
+    QSocketNotifier signalReader(signalPipe.reader(), QSocketNotifier::Read);
     QObject::connect(&signalReader, &QSocketNotifier::activated, &transport, [&] {
         char bytes[32];
-        while (read(pipes[0], bytes, sizeof bytes) > 0) {
+        while (read(signalPipe.reader(), bytes, sizeof bytes) > 0) {
         }
         transport.requestShutdown();
     });
@@ -140,8 +164,5 @@ int main(int argc, char** argv) {
                                 .toJson(QJsonDocument::Compact);
         fprintf(stderr, "Weather frame callbacks JSON: %s\n", report.constData());
     }
-    signalWrite = -1;
-    close(pipes[0]);
-    close(pipes[1]);
     return result;
 }

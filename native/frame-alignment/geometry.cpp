@@ -164,6 +164,11 @@ GeometrySnapshot captureGeometry(PHLMONITOR monitor) {
         using Geometry = Desktop::View::IGeometric;
         const auto pos = windowFadeout->position(Geometry::GEOMETRIC_CURRENT) - monitor->m_position;
         const auto size = windowFadeout->size(Geometry::GEOMETRIC_CURRENT);
+        // Check the double domain before narrowing; out-of-range float conversion
+        // is not a valid way to reject untrusted compositor geometry.
+        if (!bounded(pos.x, 32768) || !bounded(pos.y, 32768) || !bounded(size.x, 16384) ||
+            !bounded(size.y, 16384) || size.x <= 0 || size.y <= 0)
+            return reject("fadeout_geometry");
         const physics::Rect rect{static_cast<float>(pos.x), static_cast<float>(pos.y),
                                  static_cast<float>(size.x), static_cast<float>(size.y)};
         if (!GeometryMath::validRect(rect) || !std::isfinite(fadeout->alpha()) ||

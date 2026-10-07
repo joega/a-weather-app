@@ -42,3 +42,7 @@ format-native-qml:
 	bash scripts/check_native_qml_format.sh format
 check-native-qml-format:
 	bash scripts/check_native_qml_format.sh check
+
+.PHONY: check-native-analysis
+check-native-analysis:
+	bash scripts/check_native_analysis.sh

@@ -84,3 +84,26 @@ select portable correctness checks instead. No blanket suppressions planned.
 - C focused build/self-test/adversarial input tests and full native
   address/undefined/leak sanitizer suite (including new early-return cases)
   pass. Formatting and diff checks pass.
+
+### C++ ownership and analysis stage
+
+- P1: MapTiles disconnects/aborts replies before derived callback state dies;
+  includes replies waiting for deferred deletion. Added active-download
+  destruction tests. Transport already correctly disconnects before abort.
+- P2: guard owner/reply and generation across synchronous drain/tileReply
+  callbacks; close or destruction by a listener cancels tileReady. Added both
+  reentrant regressions. Limits, cooldowns and offline caching are unchanged.
+- P2: scoped signal-pipe descriptors now close on all main() returns, after
+  notifier destruction. Fadeout geometry is range-checked before double-to-float
+  conversion. No simulation/rendering hot-path algorithm changes.
+- Scoped clang-tidy correctness checks use system includes for external headers,
+  C17/C++17/C++23 per target. GCC-only -fno-gnu-unique stays in real plugin builds,
+  not Clang analysis. Replaced padding-sensitive Weather memcmp with field
+  equality; no suppressions. Full Qt tests: 43 protocol / 31 frontend pass,
+  four optional capture cases skip. Plugin rebuild and symbol checks pass.
+- Correction to inventory: native executables/plugin and QSB are tracked
+  generated deliverables, not ignored; refresh and verify before final commit.
+- Scoped clang-tidy passes all production native translation units and native
+  simulation tests; external/compiler diagnostics outside selected checks are
+  reported by Clang, not hidden with source suppressions. Qt protocol and map
+  fixtures pass ASan/UBSan/leak detection (43 protocol, seven map cases).

@@ -323,6 +323,69 @@ class FrontendTest : public QObject {
         QCOMPARE(failed.size(), 0);
         QCOMPARE(tiles.retryAfter.size(), 0);
     }
+    void mapTileDestructionWithActiveReplies() {
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        QList<QPointer<QTcpSocket>> pending;
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            while (server.hasPendingConnections())
+                pending.append(server.nextPendingConnection());
+        });
+        auto tiles = std::make_unique<MapTiles>(
+            nullptr, QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+        QSignalSpy ready(tiles.get(), &MapTiles::tileReady);
+        QSignalSpy failed(tiles.get(), &MapTiles::tileFailed);
+        for (int x = 0; x < 3; ++x)
+            tiles->request(2, x, 0, false);
+        QTRY_COMPARE(pending.size(), 3);
+        QCOMPARE(tiles->active.size(), 3);
+        tiles.reset(); // Abort while all callback state is alive; no external notification.
+        QCOMPARE(ready.size(), 0);
+        QCOMPARE(failed.size(), 0);
+        for (auto socket : pending)
+            QTRY_COMPARE(socket->state(), QAbstractSocket::UnconnectedState);
+    }
+    void mapTileObserverCancelsDelivery_data() {
+        QTest::addColumn<bool>("destroy");
+        QTest::newRow("close-in-tileReply") << false;
+        QTest::newRow("destroy-in-tileReply") << true;
+    }
+    void mapTileObserverCancelsDelivery() {
+        QFETCH(bool, destroy);
+        QImage image(256, 256, QImage::Format_ARGB32);
+        image.fill(Qt::blue);
+        QByteArray payload;
+        QBuffer buffer(&payload);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "PNG"));
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto* socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [socket, &payload] {
+                socket->readAll();
+                socket->write("HTTP/1.1 200 OK\r\nContent-Length: " +
+                              QByteArray::number(payload.size()) + "\r\n\r\n" + payload);
+            });
+        });
+        auto tiles = std::make_unique<MapTiles>(
+            nullptr, QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+        QSignalSpy replies(tiles.get(), &MapTiles::tileReply);
+        QSignalSpy ready(tiles.get(), &MapTiles::tileReady);
+        connect(tiles.get(), &MapTiles::tileReply, &server, [&] {
+            if (destroy)
+                tiles.reset();
+            else
+                tiles->close();
+        });
+        tiles->request(0, 0, 0, false);
+        QTRY_COMPARE(replies.size(), 1);
+        QCOMPARE(ready.size(), 0);
+        if (tiles) {
+            QCOMPARE(tiles->active.size(), 0);
+            QCOMPARE(tiles->completed.size(), 0);
+        }
+    }
     void mapTileDownloadLimit() {
         QImage image(256, 256, QImage::Format_ARGB32);
         image.fill(Qt::blue);
