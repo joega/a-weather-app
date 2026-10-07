@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"syscall"
 	"time"
 
@@ -104,88 +103,29 @@ func serviceEnvironment() []string {
 	}
 	return env
 }
+
+// launch resolves verified runtime/state and dispatches the selected operation.
 func launch(args []string) error {
-	fs := flag.NewFlagSet("a-weather-app", flag.ContinueOnError)
-	stateFlag := fs.String("state-dir", "", "private state directory")
-	instance := fs.String("instance", "", "Hyprland instance")
-	output := fs.String("output", "", "monitor connector")
-	bar := fs.Bool("bar", false, "print cached bar status")
-	refreshBar := fs.Bool("refresh-bar", false, "refresh saved bar weather without a window")
-	toggle := fs.Bool("toggle-window", false, "open or toggle the forecast window")
-	stop := fs.Bool("stop-effects", false, "stop the owned desktop effects")
-	quit := fs.Bool("quit", false, "quit this app and its owned effects")
-	version := fs.Bool("version", false, "show version")
-	checkUpdates := fs.Bool("check-updates", false, "check for a published release")
-	forceUpdateCheck := fs.Bool("force-update-check", false, "check even if checked today")
-	installUpdate := fs.Bool("install-update", false, "install the available release and restart")
-	updateWorker := fs.Bool("update-worker", false, "internal detached update worker")
-	bootstrapUpdate := fs.Bool("bootstrap-update", false, "internal staged updater for older runtimes")
-	recoverUpdates := fs.Bool("recover-updates", false, "internal interrupted-update recovery")
-	service := fs.Bool("service", false, "internal service mode")
-	headless := fs.Bool("headless", false, "service without a window for testing")
-	offline := fs.Bool("offline", false, "use only saved weather")
-	duration := fs.Int("duration", 0, "finite development run, 1..3600 seconds")
-	zip := fs.String("zip-code", "", "use a separate exact US ZIP location")
-	demo := fs.String("demo-location", "", "use isolated Boston demo location")
-	rootFlag := fs.String("root", "", "development asset root")
-	socketOnly := fs.Bool("print-socket", false, "print the app's local socket path")
-	measureFrames := fs.Bool("measure-frames", false, "development: report Qt frame callbacks in direct service mode")
-	if e := fs.Parse(args); e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return nil
-		}
-		return e
+	options, err := parseLaunchOptions(args)
+	if errors.Is(err, flag.ErrHelp) {
+		return nil
 	}
-	if fs.NArg() != 0 {
-		return errors.New("unexpected arguments")
+	if err != nil {
+		return err
 	}
-	if *bootstrapUpdate && (!*updateWorker || buildMode == "development") {
-		return errors.New("bootstrap requires a packaged update worker")
-	}
-	if *version {
+	if options.version {
 		fmt.Println("A Weather App " + appVersion)
 		return nil
 	}
-	if *measureFrames && (!*service || *headless) {
-		return errors.New("frame measurement requires --service without --headless")
-	}
-	durationSet := false
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "duration" {
-			durationSet = true
-		}
-	})
-	if (durationSet && *duration < 1) || *duration > 3600 {
-		return errors.New("duration must be 1..3600")
-	}
-	if *instance != "" && !regexp.MustCompile(`^[a-f0-9]+_[0-9]+_[0-9]+$`).MatchString(*instance) {
-		return errors.New("invalid explicit compositor instance")
-	}
-	if *output != "" && !regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`).MatchString(*output) {
-		return errors.New("invalid explicit output connector")
-	}
-	if *zip != "" && *demo != "" {
-		return errors.New("choose ZIP or demo")
-	}
-	if *zip != "" {
-		if _, e := weather.ValidateSelection(M{"mode": "zip", "zip_code": *zip}); e != nil {
-			return e
-		}
-		if *offline {
-			return errors.New("ZIP lookup requires network; use the saved state directory in offline mode")
-		}
-	}
-	if *demo != "" && *demo != "boston" {
-		return errors.New("unknown demo")
-	}
-	statePath := *stateFlag
+
+	statePath := options.stateDir
 	if statePath == "" {
 		statePath = defaultState()
-		if *zip != "" {
-			statePath = filepath.Join(statePath, "locations", *zip)
+		if options.zipCode != "" {
+			statePath = filepath.Join(statePath, "locations", options.zipCode)
 		}
-		if *demo != "" {
-			statePath = filepath.Join(statePath, "demos", *demo)
+		if options.demoLocation != "" {
+			statePath = filepath.Join(statePath, "demos", options.demoLocation)
 		}
 	}
 	if !filepath.IsAbs(statePath) || filepath.Clean(statePath) != statePath {
@@ -194,11 +134,11 @@ func launch(args []string) error {
 	runtimeDir := runtimePath(statePath)
 	updates := updater.Config{Installed: appVersion, Development: buildMode == "development", StatePath: statePath}
 	socket := filepath.Join(runtimeDir, "service.sock")
-	if *socketOnly {
+	if options.printSocket {
 		fmt.Println(socket)
 		return nil
 	}
-	if *bar {
+	if options.bar {
 		state, e := safeio.OpenDir(statePath, false)
 		if e == nil {
 			defer state.Close()
@@ -211,7 +151,7 @@ func launch(args []string) error {
 		}
 		return json.NewEncoder(os.Stdout).Encode(value)
 	}
-	root := *rootFlag
+	root := options.root
 	if root == "" {
 		root = rootPath()
 	}
@@ -245,23 +185,23 @@ func launch(args []string) error {
 		}
 		return updater.StartDetached(executable, args, serviceEnvironment())
 	}
-	if *updateWorker {
+	if options.updateWorker {
 		if e = verifyRuntime(root); e != nil {
 			return e
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
-		if *bootstrapUpdate {
+		if options.bootstrapUpdate {
 			updates, e = installation.Bootstrap()
 			if e != nil {
 				return e
 			}
 			engine.Config = updates
 		}
-		if *recoverUpdates {
+		if options.recoverUpdates {
 			return engine.Recover(ctx)
 		}
-		if *bootstrapUpdate {
+		if options.bootstrapUpdate {
 			// Never install merely because a plugin contains a pin. Confirm that
 			// it is supported by the currently published stable release first.
 			var status updater.Status
@@ -274,7 +214,7 @@ func launch(args []string) error {
 		}
 		return engine.Run(ctx)
 	}
-	if *installUpdate {
+	if options.installUpdate {
 		return startUpdate(false)
 	}
 	if !updates.Development {
@@ -286,68 +226,26 @@ func launch(args []string) error {
 			return startUpdate(true)
 		}
 	}
-	if *checkUpdates {
+	if options.checkUpdates {
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		status, err := updates.Check(ctx, *forceUpdateCheck)
+		status, err := updates.Check(ctx, options.forceUpdateCheck)
 		if err != nil {
 			return err
 		}
 		return json.NewEncoder(os.Stdout).Encode(status.Map())
 	}
-	if *refreshBar {
-		state, err := safeio.OpenDir(statePath, false)
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		defer state.Close()
-		due, err := app.BarRefreshDue(state, time.Now())
-		if err != nil || !due {
-			return err
-		}
-		if err := verifyRuntime(root); err != nil {
-			return fmt.Errorf("runtime package verification failed: %w", err)
-		}
-		// A running GUI service already owns periodic refresh. This lock also
-		// serializes separate bar instances on multiple monitors.
-		runtimeState, err := safeio.OpenDir(runtimeDir, true)
-		if err != nil {
-			return err
-		}
-		defer runtimeState.Close()
-		marker, err := runtimeState.Lock("bar-refresh.lock")
-		if errors.Is(err, syscall.EWOULDBLOCK) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		defer marker.Close()
-		lock, err := runtimeState.Lock("service.lock")
-		if errors.Is(err, syscall.EWOULDBLOCK) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		defer lock.Close()
-		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer cancel()
-		ctx, deadline := context.WithTimeout(ctx, 30*time.Second)
-		defer deadline()
-		return app.RefreshBarSaved(ctx, state, app.Options{})
+	if options.refreshBar {
+		return refreshSavedBar(root, statePath, runtimeDir)
 	}
-	if !*service {
+	if !options.service {
 		op := "toggle_window"
 		budget := 2 * time.Second
-		if *stop {
+		if options.stop {
 			op = "stop_effects"
 			budget = 120 * time.Second
 		}
-		if *quit {
+		if options.quit {
 			op = "quit"
 			budget = 90 * time.Second
 		}
@@ -360,10 +258,10 @@ func launch(args []string) error {
 			}
 			return nil
 		}
-		if *stop || *quit {
+		if options.stop || options.quit {
 			return errors.New("weather service unavailable")
 		}
-		if *toggle && !mayStartAfterIPCError(socket, err) {
+		if options.toggle && !mayStartAfterIPCError(socket, err) {
 			return fmt.Errorf("toggle unavailable: %w", err)
 		}
 	}
@@ -378,8 +276,8 @@ func launch(args []string) error {
 		return e
 	}
 	defer state.Close()
-	if *zip != "" || *demo != "" {
-		if e = prepareLocation(state, *zip, *demo); e != nil {
+	if options.zipCode != "" || options.demoLocation != "" {
+		if e = prepareLocation(state, options.zipCode, options.demoLocation); e != nil {
 			return e
 		}
 	}
@@ -388,35 +286,35 @@ func launch(args []string) error {
 		return e
 	}
 	defer runtimeState.Close()
-	if !*service {
+	if !options.service {
 		exe, e := os.Executable()
 		if e != nil {
 			return e
 		}
 		childArgs := []string{exe, "--service", "--state-dir", statePath, "--root", root}
-		if *instance != "" {
-			childArgs = append(childArgs, "--instance", *instance)
+		if options.instance != "" {
+			childArgs = append(childArgs, "--instance", options.instance)
 		}
-		if *output != "" {
-			childArgs = append(childArgs, "--output", *output)
+		if options.output != "" {
+			childArgs = append(childArgs, "--output", options.output)
 		}
-		if *offline {
+		if options.offline {
 			childArgs = append(childArgs, "--offline")
 		}
-		if *headless {
+		if options.headless {
 			childArgs = append(childArgs, "--headless")
 		}
 		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer cancel()
-		return supervision.Guard(ctx, childArgs, serviceEnvironment(), statePath, time.Duration(*duration)*time.Second)
+		return supervision.Guard(ctx, childArgs, serviceEnvironment(), statePath, time.Duration(options.duration)*time.Second)
 	}
 	lock, e := serviceLock(runtimeState)
 	if e != nil {
 		return errors.New("weather service already owns this state")
 	}
 	defer lock.Close()
-	manager := effects.New(root, statePath, *instance, *output)
-	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline,
+	manager := effects.New(root, statePath, options.instance, options.output)
+	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: options.offline,
 		UpdateStatus:    func() M { return updates.Status().Map() },
 		CheckUpdates:    func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
 		StartUpdate:     func() error { return startUpdate(false) },
@@ -428,19 +326,19 @@ func launch(args []string) error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-	if *duration > 0 {
+	if options.duration > 0 {
 		var durationCancel context.CancelFunc
-		ctx, durationCancel = context.WithTimeout(ctx, time.Duration(*duration)*time.Second)
+		ctx, durationCancel = context.WithTimeout(ctx, time.Duration(options.duration)*time.Second)
 		defer durationCancel()
 	}
 	var child *supervision.Process
 	var startErr error
 	ready := func() {
-		if *headless {
+		if options.headless {
 			return
 		}
 		command := []string{filepath.Join(root, "native/qt/a-weather-app-qt"), "--socket", socket}
-		if *measureFrames {
+		if options.measureFrames {
 			command = append(command, "--measure-frames")
 		}
 		if os.Getenv("A_WEATHER_APP_QML_DIAGNOSTIC") == "1" {
@@ -587,4 +485,52 @@ func prepareLocation(state *safeio.Directory, zip, demo string) error {
 		return app.SaveZIPIdentity(state, zip, loc)
 	}
 	return nil
+}
+
+// refreshSavedBar shares the service lock and performs one bounded headless
+// refresh. Missing state and another refresh/service owner are harmless no-ops.
+func refreshSavedBar(root, statePath, runtimeDir string) error {
+	state, err := safeio.OpenDir(statePath, false)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer state.Close()
+	due, err := app.BarRefreshDue(state, time.Now())
+	if err != nil || !due {
+		return err
+	}
+	if err := verifyRuntime(root); err != nil {
+		return fmt.Errorf("runtime package verification failed: %w", err)
+	}
+	// A running GUI service already owns periodic refresh. This lock also
+	// serializes separate bar instances on multiple monitors.
+	runtimeState, err := safeio.OpenDir(runtimeDir, true)
+	if err != nil {
+		return err
+	}
+	defer runtimeState.Close()
+	marker, err := runtimeState.Lock("bar-refresh.lock")
+	if errors.Is(err, syscall.EWOULDBLOCK) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer marker.Close()
+	lock, err := runtimeState.Lock("service.lock")
+	if errors.Is(err, syscall.EWOULDBLOCK) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	ctx, deadline := context.WithTimeout(ctx, 30*time.Second)
+	defer deadline()
+	return app.RefreshBarSaved(ctx, state, app.Options{})
 }

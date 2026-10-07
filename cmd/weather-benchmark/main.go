@@ -515,6 +515,125 @@ func stop(p *os.Process, done <-chan error) error {
 		return errors.New("owned app cleanup exceeded deadline; guardian left to finish")
 	}
 }
+
+// benchmarkDocuments reads saved state without modifying it. Each run writes
+// these documents only into its own private fixture directory.
+func benchmarkDocuments(saved string, reduced, effects bool) (map[string]any, map[string]any, map[string]any, error) {
+	state, e := safeio.OpenDir(saved, false)
+	if e != nil {
+		return nil, nil, nil, e
+	}
+	defer state.Close()
+	profile, e := state.Read("location-profile.json", 2*1024*1024)
+	if e != nil {
+		return nil, nil, nil, e
+	}
+	if profile == nil {
+		return nil, nil, nil, errors.New("saved location profile required")
+	}
+	controls, e := state.Read("controls.json", 8192)
+	if e != nil {
+		return nil, nil, nil, e
+	}
+	if controls == nil {
+		controls = map[string]any{}
+	}
+	controls["mode"] = "live"
+	controls["reduced_motion"] = reduced
+	if effects {
+		controls["mode"] = "manual"
+		controls["manual"] = map[string]any{"condition": "rain"}
+	}
+	location, ok := profile["location"].(map[string]any)
+	if !ok {
+		return nil, nil, nil, errors.New("location missing")
+	}
+	forecast, ok := profile["forecast"].(map[string]any)
+	if !ok {
+		return nil, nil, nil, errors.New("forecast missing")
+	}
+	return location, forecast, controls, nil
+}
+
+func prepareBenchmarkState(dir string, location, forecast, controls map[string]any, hidden bool) error {
+	if e := os.Mkdir(dir, 0700); e != nil {
+		return e
+	}
+	preparedForecast, prepareErr := freshBenchmarkForecast(forecast, time.Now())
+	if prepareErr != nil {
+		return prepareErr
+	}
+	for name, value := range map[string]any{"location.json": location, "forecast.json": preparedForecast, "controls.json": controls} {
+		if e := write(filepath.Join(dir, name), value); e != nil {
+			return e
+		}
+	}
+	if hidden {
+		n := notifications.DefaultDocument()
+		n["settings"].(map[string]any)["enabled"] = true
+		n["snoozed_until"] = time.Now().Add(24 * time.Hour).Unix()
+		if e := write(filepath.Join(dir, "notifications.json"), n); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// startFiniteEffects admits and starts an owned preview with the existing
+// bounded preflight, activation, and warmup deadlines.
+func startFiniteEffects(kind, qmlRoot, socket string) error {
+	if e := effectsRequest(kind, qmlRoot, socket, "check_effects"); e != nil {
+		return fmt.Errorf("compatibility check request: %w", e)
+	}
+	deadline := time.Now().Add(30 * time.Second)
+	ready := false
+	lastReason := "no effects snapshot"
+	for time.Now().Before(deadline) {
+		setupSnapshot, statusErr := effectsSnapshot(kind, qmlRoot, socket)
+		if statusErr == nil {
+			setup, _ := setupSnapshot["effects_setup"].(map[string]any)
+			if setup == nil {
+				setup, _ = setupSnapshot["setup"].(map[string]any)
+			}
+			if setup != nil {
+				lastReason, _ = setup["reason"].(string)
+				if lastReason == "" {
+					lastReason, _ = setup["status"].(string)
+				}
+				if setup["status"] == "ready" {
+					ready = true
+					break
+				}
+				if reason, _ := setup["reason"].(string); reason != "" && reason != "not_checked" {
+					return fmt.Errorf("native effects preflight refused activation: %s", reason)
+				}
+			}
+		} else {
+			lastReason = statusErr.Error()
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if !ready {
+		return fmt.Errorf("native effects preflight did not become ready (%s)", lastReason)
+	}
+	if e := effectsRequest(kind, qmlRoot, socket, "start_effects"); e != nil {
+		return fmt.Errorf("finite effects start: %w", e)
+	}
+	activeSnapshot, statusErr := waitEffectsState(kind, qmlRoot, socket, "running", 60*time.Second)
+	if statusErr != nil {
+		return statusErr
+	}
+	status, _ := activeSnapshot["effect_status"].(map[string]any)
+	if status == nil {
+		status, _ = activeSnapshot["status"].(map[string]any)
+	}
+	if status != nil && status["persistent"] == true {
+		return errors.New("finite benchmark unexpectedly entered persistent effects mode")
+	}
+	time.Sleep(2 * time.Second)
+	return nil
+}
+
 func run() error {
 	root := flag.String("root", "", "source checkout or runtime package")
 	kind := flag.String("kind", "migration", "baseline or migration")
@@ -532,43 +651,14 @@ func run() error {
 		return errors.New("invalid benchmark arguments")
 	}
 	if *frames && (*hidden || *seconds > 120) {
-		return errors.New("frame mode requires a visible window and at most120seconds (10000callback bound)")
+		return errors.New("frame mode requires a visible window and at most 120 seconds (10000 callback bound)")
 	}
 	if *effects && (*hidden || *frames) {
 		return errors.New("native effects mode requires a visible window and whole-app measurement")
 	}
-	state, e := safeio.OpenDir(*saved, false)
+	location, forecast, controls, e := benchmarkDocuments(*saved, *reduced, *effects)
 	if e != nil {
 		return e
-	}
-	defer state.Close()
-	profile, e := state.Read("location-profile.json", 2*1024*1024)
-	if e != nil {
-		return e
-	}
-	if profile == nil {
-		return errors.New("saved location profile required")
-	}
-	controls, e := state.Read("controls.json", 8192)
-	if e != nil {
-		return e
-	}
-	if controls == nil {
-		controls = map[string]any{}
-	}
-	controls["mode"] = "live"
-	controls["reduced_motion"] = *reduced
-	if *effects {
-		controls["mode"] = "manual"
-		controls["manual"] = map[string]any{"condition": "rain"}
-	}
-	location, ok := profile["location"].(map[string]any)
-	if !ok {
-		return errors.New("location missing")
-	}
-	forecast, ok := profile["forecast"].(map[string]any)
-	if !ok {
-		return errors.New("forecast missing")
 	}
 	b, e := command("/usr/bin/hyprctl", "instances", "-j")
 	if e != nil {
@@ -618,25 +708,8 @@ func run() error {
 	for run := 1; run <= *runs; run++ {
 		result, e := func() (map[string]any, error) {
 			dir := filepath.Join(output, fmt.Sprintf("state-%d", run))
-			if e = os.Mkdir(dir, 0700); e != nil {
+			if e = prepareBenchmarkState(dir, location, forecast, controls, *hidden); e != nil {
 				return nil, e
-			}
-			preparedForecast, prepareErr := freshBenchmarkForecast(forecast, time.Now())
-			if prepareErr != nil {
-				return nil, prepareErr
-			}
-			for name, value := range map[string]any{"location.json": location, "forecast.json": preparedForecast, "controls.json": controls} {
-				if e = write(filepath.Join(dir, name), value); e != nil {
-					return nil, e
-				}
-			}
-			if *hidden {
-				n := notifications.DefaultDocument()
-				n["settings"].(map[string]any)["enabled"] = true
-				n["snoozed_until"] = time.Now().Add(24 * time.Hour).Unix()
-				if e = write(filepath.Join(dir, "notifications.json"), n); e != nil {
-					return nil, e
-				}
 			}
 			executable := filepath.Join(runRoot, "a-weather-app")
 			if *kind == "migration" {
@@ -729,56 +802,9 @@ func run() error {
 				}
 			}
 			if *effects {
-				qmlRoot := filepath.Join(runRoot, "ui/qml")
-				if e = effectsRequest(*kind, qmlRoot, socket, "check_effects"); e != nil {
-					return nil, fmt.Errorf("compatibility check request: %w", e)
+				if e = startFiniteEffects(*kind, filepath.Join(runRoot, "ui/qml"), socket); e != nil {
+					return nil, e
 				}
-				deadline := time.Now().Add(30 * time.Second)
-				ready := false
-				lastReason := "no effects snapshot"
-				for time.Now().Before(deadline) {
-					setupSnapshot, statusErr := effectsSnapshot(*kind, qmlRoot, socket)
-					if statusErr == nil {
-						setup, _ := setupSnapshot["effects_setup"].(map[string]any)
-						if setup == nil {
-							setup, _ = setupSnapshot["setup"].(map[string]any)
-						}
-						if setup != nil {
-							lastReason, _ = setup["reason"].(string)
-							if lastReason == "" {
-								lastReason, _ = setup["status"].(string)
-							}
-							if setup["status"] == "ready" {
-								ready = true
-								break
-							}
-							if reason, _ := setup["reason"].(string); reason != "" && reason != "not_checked" {
-								return nil, fmt.Errorf("native effects preflight refused activation: %s", reason)
-							}
-						}
-					} else {
-						lastReason = statusErr.Error()
-					}
-					time.Sleep(200 * time.Millisecond)
-				}
-				if !ready {
-					return nil, fmt.Errorf("native effects preflight did not become ready (%s)", lastReason)
-				}
-				if e = effectsRequest(*kind, qmlRoot, socket, "start_effects"); e != nil {
-					return nil, fmt.Errorf("finite effects start: %w", e)
-				}
-				activeSnapshot, statusErr := waitEffectsState(*kind, qmlRoot, socket, "running", 60*time.Second)
-				if statusErr != nil {
-					return nil, statusErr
-				}
-				status, _ := activeSnapshot["effect_status"].(map[string]any)
-				if status == nil {
-					status, _ = activeSnapshot["status"].(map[string]any)
-				}
-				if status != nil && status["persistent"] == true {
-					return nil, errors.New("finite benchmark unexpectedly entered persistent effects mode")
-				}
-				time.Sleep(2 * time.Second)
 			}
 			if *capture && len(c.At) == 2 && len(c.Size) == 2 {
 				_, e = command("/usr/bin/grim", "-g", fmt.Sprintf("%d,%d %dx%d", c.At[0], c.At[1], c.Size[0], c.Size[1]), filepath.Join(output, fmt.Sprintf("window-%d.png", run)))
@@ -925,7 +951,10 @@ func run() error {
 					console[key] = value
 				}
 			}
-			printed, _ := json.Marshal(console)
+			printed, err := json.Marshal(console)
+			if err != nil {
+				return nil, err
+			}
 			fmt.Println(string(printed))
 			return result, nil
 		}()

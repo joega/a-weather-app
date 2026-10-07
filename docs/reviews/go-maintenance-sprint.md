@@ -9,7 +9,7 @@ Go module minimum: 1.24.0; local verification toolchain: 1.27.1.
 - [x] Group imports, simplify terminating branches, and make larger functions' returns explicit.
 - [x] Audit cloning and discarded errors; handle fallible boundaries and document invariants.
 - [x] Document important package/API ownership, concurrency, cancellation, defaults, and failures.
-- [ ] Extract coherent CLI, benchmark, and effects helpers without changing lifecycle behavior.
+- [x] Extract coherent CLI, benchmark, and effects helpers without changing lifecycle behavior.
 - [x] Improve affected test isolation, independent case reporting, and meaningful regressions.
 - [ ] Run final format/lint/vet/race checks, applicable display-free integration tests, benchmarks, and diff review.
 
@@ -77,3 +77,13 @@ race suites and lint pass. Version/publication cases have independent subtests;
 update-check tests wait on worker completion rather than polling with sleeps.
 Focused application/updater race tests pass. Timing tests that exercise actual
 heartbeat cadence retain wall-clock sampling deliberately.
+
+Stage 5: separated CLI argument parsing/validation and bounded saved-bar refresh
+from startup dispatch. Extracted benchmark saved-document loading, private state
+preparation, and finite-effects admission/activation. Effects ticks delegate
+changed-target verification and cadence-aware weather publication, retaining
+observation timestamps and independent bounded cleanup. Full CLI, benchmark,
+and effects race suites pass, including generation/expiry, fresh denial evidence,
+policy cadence, and recovery. Added a regression proving benchmark preparation
+leaves saved files untouched. Lint passes. No live compositor/effects benchmark
+was run; these checks use isolated fixtures.

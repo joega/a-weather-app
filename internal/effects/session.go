@@ -235,102 +235,10 @@ func (s *session) tick(ctx context.Context, selected, value object) (err error) 
 		}
 		s.deadline = s.now().Add(30 * time.Second)
 	}
-	targetChanged := false
 	if selected != nil {
-		effects := obj(selected["effects"])
-		if effects == nil {
-			return errors.New("selected effects missing")
-		}
-		effects = clone(effects)
-		updates := map[string]string{}
-		ordered := []string{"reduced_motion", "window_physics", "accumulation", "fps", "set rain_intensity", "snow intensity", "set wind_x"}
-		for _, key := range ordered[:4] {
-			updates[key] = formatted(flags[key])
-		}
-		for _, row := range []struct {
-			key, command string
-			low, high    float64
-		}{{"rain_intensity", "set rain_intensity", 0, 1}, {"snow_intensity", "snow intensity", 0, 1}, {"wind_x", "set wind_x", -500, 500}} {
-			v, ok := number(effects[row.key])
-			if !ok || v < row.low || v > row.high {
-				return errors.New("invalid selected " + row.key)
-			}
-			updates[row.command] = formatted(v)
-		}
-		for _, command := range ordered {
-			if s.lastUpdates[command] != updates[command] {
-				if _, e = s.b.native(ctx, s.guard(command+" "+updates[command])); e != nil {
-					return e
-				}
-				targetChanged = true
-			}
-		}
-		temperature, until, known := temperatureLease(selected, s.now())
-		thermal := "unknown"
-		if known {
-			thermal = formatted(temperature) + " " + strconv.FormatInt(until, 10)
-		}
-		updates["snow temperature"] = thermal
-		if s.lastUpdates["snow temperature"] != thermal {
-			if _, e = s.b.native(ctx, s.guard("snow temperature "+thermal)); e != nil {
-				return e
-			}
-			targetChanged = true
-		}
-		after := status
-		if targetChanged {
-			statusObservedAt = s.now()
-			after, e = s.b.native(ctx, "status")
-			if e != nil {
-				return e
-			}
-		}
-		if e = s.verify(after, flags); e != nil {
+		status, statusObservedAt, e = s.applySelectedTargets(ctx, selected, flags, status, statusObservedAt)
+		if e != nil {
 			return e
-		}
-		// This is fresher than the initial heartbeat status. Keep its lock and
-		// cleanup evidence for the policy publication later in this tick.
-		status = after
-		snow := obj(after["snow_target_parameters"])
-		targets := obj(after["target_parameters"])
-		for _, key := range []string{"rain_intensity", "snow_intensity", "wind_x"} {
-			actual := targets[key]
-			if key == "snow_intensity" {
-				actual = snow["intensity"]
-			}
-			v, ok := number(actual)
-			expected := num(effects[key])
-			if !ok || math.Abs(v-expected) > math.Max(1e-6, 1e-5*math.Max(math.Abs(v), math.Abs(expected))) {
-				return errors.New("native target verification failed")
-			}
-		}
-		actualKnown, kok := snow["temperature_known"].(bool)
-		if !kok || (actualKnown != known && !(known && s.now().UnixMilli() >= until && !actualKnown)) {
-			return errors.New("native temperature verification failed")
-		}
-		if actualKnown {
-			v, ok := number(snow["temperature_c"])
-			if !ok || math.Abs(v-temperature) > math.Max(1e-6, 1e-5*math.Abs(temperature)) {
-				return errors.New("native temperature verification failed")
-			}
-		}
-		s.lastUpdates = updates
-		effects["reduced_motion"] = flags["reduced_motion"]
-		effects["lightning_enabled"] = flags["lightning_enabled"] == true && effects["lightning_enabled"] == true && flags["reduced_motion"] != true
-		// The native host polls this file once per second. Avoid replacing and
-		// syncing it on every 500 ms policy heartbeat: solar angles are the only
-		// continuously varying values, and one-second sky updates preserve the
-		// consumer's sampling resolution. Meaningful weather/control changes
-		// still publish immediately.
-		stableEffects := clone(effects)
-		delete(stableEffects, "sun_elevation")
-		delete(stableEffects, "sun_azimuth")
-		if !reflect.DeepEqual(stableEffects, s.lastPublishedEffects) || s.now().Sub(s.lastWeatherPublished) >= time.Second {
-			if e = s.directory.publish("selected.json", object{"schema_version": selected["schema_version"], "selected_at": selected["selected_at"], "effects": effects}); e != nil {
-				return e
-			}
-			s.lastPublishedEffects = stableEffects
-			s.lastWeatherPublished = s.now()
 		}
 	}
 	if flags["fps"].(int) != s.fps {
@@ -386,6 +294,117 @@ func (s *session) tick(ctx context.Context, selected, value object) (err error) 
 	}
 	return nil
 }
+
+// applySelectedTargets sends changed controls, verifies the owned generation,
+// and retains the observation time of the status used for policy decisions.
+func (s *session) applySelectedTargets(ctx context.Context, selected, flags, status object, statusObservedAt time.Time) (object, time.Time, error) {
+	var err error
+	targetChanged := false
+	selectedEffects := obj(selected["effects"])
+	if selectedEffects == nil {
+		return status, statusObservedAt, errors.New("selected effects missing")
+	}
+	selectedEffects = clone(selectedEffects)
+	updates := map[string]string{}
+	ordered := []string{"reduced_motion", "window_physics", "accumulation", "fps", "set rain_intensity", "snow intensity", "set wind_x"}
+	for _, key := range ordered[:4] {
+		updates[key] = formatted(flags[key])
+	}
+	for _, row := range []struct {
+		key, command string
+		low, high    float64
+	}{{"rain_intensity", "set rain_intensity", 0, 1}, {"snow_intensity", "snow intensity", 0, 1}, {"wind_x", "set wind_x", -500, 500}} {
+		v, ok := number(selectedEffects[row.key])
+		if !ok || v < row.low || v > row.high {
+			return status, statusObservedAt, errors.New("invalid selected " + row.key)
+		}
+		updates[row.command] = formatted(v)
+	}
+	for _, command := range ordered {
+		if s.lastUpdates[command] != updates[command] {
+			if _, err = s.b.native(ctx, s.guard(command+" "+updates[command])); err != nil {
+				return status, statusObservedAt, err
+			}
+			targetChanged = true
+		}
+	}
+	temperature, until, known := temperatureLease(selected, s.now())
+	thermal := "unknown"
+	if known {
+		thermal = formatted(temperature) + " " + strconv.FormatInt(until, 10)
+	}
+	updates["snow temperature"] = thermal
+	if s.lastUpdates["snow temperature"] != thermal {
+		if _, err = s.b.native(ctx, s.guard("snow temperature "+thermal)); err != nil {
+			return status, statusObservedAt, err
+		}
+		targetChanged = true
+	}
+	after := status
+	if targetChanged {
+		statusObservedAt = s.now()
+		after, err = s.b.native(ctx, "status")
+		if err != nil {
+			return status, statusObservedAt, err
+		}
+	}
+	if err = s.verify(after, flags); err != nil {
+		return status, statusObservedAt, err
+	}
+	// This is fresher than the initial heartbeat status. Keep its lock and
+	// cleanup evidence for the policy publication later in this tick.
+	status = after
+	snow := obj(after["snow_target_parameters"])
+	nativeTargets := obj(after["target_parameters"])
+	for _, key := range []string{"rain_intensity", "snow_intensity", "wind_x"} {
+		actual := nativeTargets[key]
+		if key == "snow_intensity" {
+			actual = snow["intensity"]
+		}
+		v, ok := number(actual)
+		expected := num(selectedEffects[key])
+		if !ok || math.Abs(v-expected) > math.Max(1e-6, 1e-5*math.Max(math.Abs(v), math.Abs(expected))) {
+			return status, statusObservedAt, errors.New("native target verification failed")
+		}
+	}
+	actualKnown, kok := snow["temperature_known"].(bool)
+	if !kok || (actualKnown != known && !(known && s.now().UnixMilli() >= until && !actualKnown)) {
+		return status, statusObservedAt, errors.New("native temperature verification failed")
+	}
+	if actualKnown {
+		v, ok := number(snow["temperature_c"])
+		if !ok || math.Abs(v-temperature) > math.Max(1e-6, 1e-5*math.Abs(temperature)) {
+			return status, statusObservedAt, errors.New("native temperature verification failed")
+		}
+	}
+	s.lastUpdates = updates
+	selectedEffects["reduced_motion"] = flags["reduced_motion"]
+	selectedEffects["lightning_enabled"] = flags["lightning_enabled"] == true && selectedEffects["lightning_enabled"] == true && flags["reduced_motion"] != true
+	if err = s.publishSelected(selected, selectedEffects); err != nil {
+		return status, statusObservedAt, err
+	}
+	return status, statusObservedAt, nil
+}
+
+func (s *session) publishSelected(selected, selectedEffects object) error {
+	// The native host polls this file once per second. Avoid replacing and
+	// syncing it on every 500 ms policy heartbeat: solar angles are the only
+	// continuously varying values, and one-second sky updates preserve the
+	// consumer's sampling resolution. Meaningful weather/control changes
+	// still publish immediately.
+	stableEffects := clone(selectedEffects)
+	delete(stableEffects, "sun_elevation")
+	delete(stableEffects, "sun_azimuth")
+	if !reflect.DeepEqual(stableEffects, s.lastPublishedEffects) || s.now().Sub(s.lastWeatherPublished) >= time.Second {
+		if err := s.directory.publish("selected.json", object{"schema_version": selected["schema_version"], "selected_at": selected["selected_at"], "effects": selectedEffects}); err != nil {
+			return err
+		}
+		s.lastPublishedEffects = stableEffects
+		s.lastWeatherPublished = s.now()
+	}
+	return nil
+}
+
 func (s *session) stop(ctx context.Context) error {
 	var errs []error
 	if s.directory != nil {
