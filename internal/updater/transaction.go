@@ -19,15 +19,16 @@ var ErrBusy = errors.New("an update is already in progress")
 // Transaction is durable before the running app is stopped. The implementation
 // validates its paths and revisions again before every mutation or recovery.
 type Transaction struct {
-	Phase      string `json:"phase"`
-	OldRuntime string `json:"old_runtime"`
-	OldVersion string `json:"old_version"`
-	NewRuntime string `json:"new_runtime"`
-	OldCurrent string `json:"old_current"`
-	PluginRoot string `json:"plugin_root"`
-	OldCommit  string `json:"old_commit"`
-	NewCommit  string `json:"new_commit"`
-	Pin        Pin    `json:"pin"`
+	Phase       string `json:"phase"`
+	OldRuntime  string `json:"old_runtime"`
+	RunningRoot string `json:"running_root,omitempty"`
+	OldVersion  string `json:"old_version"`
+	NewRuntime  string `json:"new_runtime"`
+	OldCurrent  string `json:"old_current"`
+	PluginRoot  string `json:"plugin_root"`
+	OldCommit   string `json:"old_commit"`
+	NewCommit   string `json:"new_commit"`
+	Pin         Pin    `json:"pin"`
 }
 
 // Installation separates platform operations from the durable transaction so

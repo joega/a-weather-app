@@ -57,7 +57,11 @@ func (l *LinuxInstallation) migrateLauncher(t Transaction) error {
 		return e
 	}
 	icon := filepath.Join(base, "icons/hicolor/scalable/apps/a-weather-app.svg")
-	expected := launcherContents(template, filepath.Join(t.OldRuntime, "a-weather-app"), icon)
+	original := t.OldRuntime
+	if t.RunningRoot != "" {
+		original = t.RunningRoot
+	}
+	expected := launcherContents(template, filepath.Join(original, "a-weather-app"), icon)
 	if !bytes.Equal(raw, expected) {
 		return nil
 	}

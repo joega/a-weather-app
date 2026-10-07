@@ -202,18 +202,15 @@ func (l *LinuxInstallation) Prepare(ctx context.Context, pin Pin, progress func(
 	if l.Config.Development {
 		return Transaction{}, errors.New("development builds must be updated locally")
 	}
-	old, current, e := l.current()
-	if e != nil {
-		return Transaction{}, e
-	}
-	if old != l.RuntimeRoot {
-		return Transaction{}, errors.New("running version differs from the managed runtime; reopen the app before updating")
-	}
 	oldCommit, e := l.pluginPreflight(ctx)
 	if e != nil {
 		return Transaction{}, e
 	}
-	t := Transaction{OldRuntime: old, OldVersion: strings.TrimPrefix(filepath.Base(old), "v"), OldCurrent: current, PluginRoot: l.PluginRoot, OldCommit: oldCommit, Pin: pin}
+	old, current, running, e := l.importRuntime()
+	if e != nil {
+		return Transaction{}, e
+	}
+	t := Transaction{OldRuntime: old, RunningRoot: running, OldVersion: strings.TrimPrefix(filepath.Base(old), "v"), OldCurrent: current, PluginRoot: l.PluginRoot, OldCommit: oldCommit, Pin: pin}
 	if l.PluginRoot != "" {
 		if _, e = l.git(ctx, "fetch", "--quiet", "origin", "refs/heads/main"); e != nil {
 			return t, e
@@ -284,6 +281,9 @@ func (l *LinuxInstallation) Validate(t Transaction) error {
 	if t.OldVersion != strings.TrimPrefix(filepath.Base(t.OldRuntime), "v") {
 		return errors.New("invalid previous runtime version")
 	}
+	if t.RunningRoot != "" && (!filepath.IsAbs(t.RunningRoot) || filepath.Clean(t.RunningRoot) != t.RunningRoot || t.RunningRoot == "/" || t.RunningRoot == l.DataRoot) {
+		return errors.New("invalid original runtime path")
+	}
 	for _, root := range []string{t.OldRuntime} {
 		if e := ownedDirectory(root); e != nil {
 			return e
@@ -309,7 +309,7 @@ func (l *LinuxInstallation) Stop(ctx context.Context, t Transaction) error {
 		if e != nil {
 			return e
 		}
-		if exe != filepath.Join(t.OldRuntime, "a-weather-app") && exe != filepath.Join(t.NewRuntime, "a-weather-app") {
+		if exe != filepath.Join(t.OldRuntime, "a-weather-app") && exe != filepath.Join(t.NewRuntime, "a-weather-app") && (t.RunningRoot == "" || exe != filepath.Join(t.RunningRoot, "a-weather-app")) {
 			return errors.New("unexpected weather service owns the socket")
 		}
 		return nil
@@ -518,7 +518,7 @@ func (l *LinuxInstallation) LockInstallation() (func(), error) {
 	if l.Config.Development {
 		return nil, errors.New("development checkouts are built locally")
 	}
-	d, e := safeio.OpenDir(l.DataRoot, false)
+	d, e := safeio.OpenDir(l.DataRoot, true)
 	if e != nil {
 		return nil, e
 	}

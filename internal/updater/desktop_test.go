@@ -19,6 +19,14 @@ import (
 // state and release trees. Release HTTP responses are injected; no host install,
 // weather location, desktop effects, shell restart or external network is used.
 func TestDesktopUpdateRestartsRealQtFrontend(t *testing.T) {
+	testDesktopUpdate(t, false)
+}
+
+func TestStandaloneUpdateRestartsRealQtFrontend(t *testing.T) {
+	testDesktopUpdate(t, true)
+}
+
+func testDesktopUpdate(t *testing.T, standalone bool) {
 	qt, err := os.ReadFile(filepath.Join("..", "..", "native", "qt", "a-weather-app-qt"))
 	if err != nil {
 		t.Skip("build the native Qt frontend with make qt for the isolated restart test")
@@ -49,6 +57,9 @@ func TestDesktopUpdateRestartsRealQtFrontend(t *testing.T) {
 	}
 	data := DefaultDataRoot()
 	oldRoot := filepath.Join(data, "releases/v0.51.5")
+	if standalone {
+		oldRoot = filepath.Join(root, "downloaded")
+	}
 	module, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -70,8 +81,10 @@ func TestDesktopUpdateRestartsRealQtFrontend(t *testing.T) {
 	oldBinary := build("0.51.5")
 	newBinary := build("0.51.9")
 	bundleFixture(t, oldRoot, "0.51.5", map[string][]byte{"a-weather-app": oldBinary, "native/qt/a-weather-app-qt": qt})
-	if err = os.Symlink("releases/v0.51.5", filepath.Join(data, "current")); err != nil {
-		t.Fatal(err)
+	if !standalone {
+		if err = os.Symlink("releases/v0.51.5", filepath.Join(data, "current")); err != nil {
+			t.Fatal(err)
+		}
 	}
 	source, pin := fixtureSource(t, "0.51.9", map[string][]byte{"a-weather-app": newBinary, "native/qt/a-weather-app-qt": qt})
 	c := Config{Installed: "0.51.5", StatePath: state}
@@ -97,7 +110,11 @@ func TestDesktopUpdateRestartsRealQtFrontend(t *testing.T) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = l.Stop(ctx, Transaction{OldRuntime: oldRoot, OldVersion: "0.51.5", OldCurrent: "releases/v0.51.5", NewRuntime: filepath.Join(data, "releases/v0.51.9"), Pin: pin})
+		tx := Transaction{OldRuntime: filepath.Join(data, "releases/v0.51.5"), OldVersion: "0.51.5", OldCurrent: "releases/v0.51.5", NewRuntime: filepath.Join(data, "releases/v0.51.9"), Pin: pin}
+		if standalone {
+			tx.RunningRoot = oldRoot
+		}
+		_ = l.Stop(ctx, tx)
 		_ = old.Process.Kill()
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)

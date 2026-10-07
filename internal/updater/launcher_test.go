@@ -73,3 +73,30 @@ func TestLauncherMigrationFollowsUpdateAndRollback(t *testing.T) {
 		})
 	}
 }
+
+func TestStandaloneGeneratedLauncherMovesToManagedSelector(t *testing.T) {
+	base := privateState(t)
+	data := filepath.Join(base, "a-weather-app")
+	old := filepath.Join(data, "releases/v0.51.5")
+	original := filepath.Join(privateState(t), "downloaded app")
+	template := []byte("[Desktop Entry]\nExec=a-weather-app\nTryExec=a-weather-app\nIcon=a-weather-app\n")
+	bundleFixture(t, old, "0.51.5", map[string][]byte{"packaging/a-weather-app.desktop": template})
+	bundleFixture(t, original, "0.51.5", map[string][]byte{"packaging/a-weather-app.desktop": template})
+	apps := filepath.Join(base, "applications")
+	if e := os.Mkdir(apps, 0700); e != nil {
+		t.Fatal(e)
+	}
+	file := filepath.Join(apps, "a-weather-app.desktop")
+	raw := launcherContents(template, filepath.Join(original, "a-weather-app"), filepath.Join(base, "icons/hicolor/scalable/apps/a-weather-app.svg"))
+	if e := os.WriteFile(file, raw, 0644); e != nil {
+		t.Fatal(e)
+	}
+	l := &LinuxInstallation{DataRoot: data}
+	if e := l.migrateLauncher(Transaction{OldRuntime: old, RunningRoot: original}); e != nil {
+		t.Fatal(e)
+	}
+	got, e := os.ReadFile(file)
+	if e != nil || !strings.Contains(string(got), "Exec=\""+filepath.Join(data, "current/a-weather-app")+"\"") {
+		t.Fatal("standalone menu still points at download", string(got), e)
+	}
+}
