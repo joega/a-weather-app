@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "limitations": [
+    {
+      "recorded_at": "2026-10-07",
+      "package": "openssl",
+      "reviewed_build_version": "3.6.4-1",
+      "assessment": "September 29 OpenSSL vendor advisories include upstream 3.6.4 in affected ranges absent from the reviewed Arch feed. Arch backports and app reachability are unresolved. Retained as an explicit release warning under the owner's incremental native assessment policy; not a claim of remediation or native security clearance.",
+      "references": [
+        "https://openssl-library.org/news/secadv/20260929.txt",
+        "https://security.archlinux.org/"
+      ]
+    },
+    {
+      "recorded_at": "2026-10-07",
+      "package": "libjpeg-turbo",
+      "reviewed_build_version": "3.2.0-2",
+      "assessment": "CVE-2026-75466 applicability and Arch backport status remain unresolved for the reviewed libjpeg-turbo build. The app has no direct tj3LoadImage calls; indirect/plugin coverage remains incomplete. This warning does not establish that other versions are fixed or affected.",
+      "references": [
+        "https://github.com/libjpeg-turbo/libjpeg-turbo/commit/f14656395b7c83f66ac248c48dc844caebcc1127"
+      ]
+    },
+    {
+      "assessment": "Native libraries are supplied by users' Omarchy systems. The build inventory and observed ELF linkage do not scan user installations or completely cover dynamically loaded Qt/QML, graphics and compositor plugins. Packages without tracker records are not declared vulnerability-free.",
+      "references": ["https://security.archlinux.org/"]
+    }
+  ]
+}

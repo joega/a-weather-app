@@ -128,7 +128,7 @@ run_phase native-linkage bash "$build_root/first/packaging/collect_native_linkag
 run_phase packaged-integration make -C "$build_root/first/native/qt" test-e2e GO_APP="$runtime_root/a-weather-app"
 run_phase runtime-verification bash "$build_root/first/scripts/verify_go_runtime.sh" "$runtime_root" /source "$build_root/first/build/weather-package"
 # Complete runtime validation before the reviewed native-coverage gate. A
-# coverage failure still prevents creating the release archive.
+# confirmed finding or assessment failure still prevents release archive creation.
 run_phase vulnerability-native bash "$build_root/first/packaging/check_release_vulnerabilities.sh" native "$output_root/evidence" "$runtime_root/packaging/runtime.json"
 run_phase archive tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
   -C "$runtime_root" -cf "$output_root/a-weather-app-go-qt-linux-x86_64.tar" .

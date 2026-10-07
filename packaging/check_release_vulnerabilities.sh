@@ -44,7 +44,7 @@ case "$mode" in
       -o "$evidence/arch-advisories.json"
     bash "$root/packaging/vulnerability_policy.sh" native "$inventory" \
       "$evidence/arch-advisories.json" "$evidence/native-assessment.json" \
-      "$root/packaging/native-advisory-review.json"
+      "$root/packaging/native-advisory-notes.json"
     ;;
   *) exit 2;;
 esac
