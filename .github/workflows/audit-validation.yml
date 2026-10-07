@@ -1,10 +1,11 @@
 name: Audit validation (no publishing)
 
-# A dedicated review branch can run this workflow without changing main or
-# activating the main-only release job. No tags, releases or installs are made.
+# Build-only validation on main or the dedicated review branch. The separate
+# automatic release workflow must be disabled before a validation-only main
+# push. This workflow makes no tags, releases or installs.
 on:
   push:
-    branches: [codex/audit-061-validation]
+    branches: [main, codex/audit-061-validation]
   workflow_dispatch:
 
 permissions:
