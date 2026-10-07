@@ -1,10 +1,10 @@
 # Native and QML maintenance sprint — October 7, 2026
 
-Completed independently available implementation and validation for **v0.61.0**,
+Completed implementation and release validation for **v0.61.0**,
 against clean baseline `49e63ee8296a3f9268264b9ae2aac1aa1afdc78b` (the completed Go sprint).
 [Go review](go-maintenance-sprint.md) records earlier Docker/live evidence;
-that evidence does not verify this sprint's changed code. Final Docker verification passed; live
-desktop checks remain explicitly pending below. No push, repository tag or publication.
+that evidence does not verify this sprint's changed code. Final Docker verification passed,
+and the user reported satisfactory live desktop testing on October 7, 2026. No push, repository tag or publication.
 
 ## Completed review and fixes
 
@@ -148,15 +148,16 @@ The six exact upstream Quickshell enum metadata diagnostics remain documented.
 This subsequent report-only commit does not change the tested implementation
 or the artifact's recorded source revision. No push, tag or publication.
 
-## Pending live desktop checks
+## Live desktop verification and completion
 
-On the live desktop: open the current build, rapidly edit/select city searches,
-hide/reopen Settings, disconnect/close with work pending, open/close maps during
-downloads and verify keyboard scrolling. Check finite rain/snow/sky effects,
-reduced motion, hidden/minimized presentation, Stop and clean unload. Check bar
-updates/open/close against the normal Omarchy host. Earlier user-reported live
-checks remain baseline evidence only. Optional live-provider/private map checks
-and live GPU/performance measurements remain unrun.
+On October 7, 2026, after the successful Docker build and focused smoke checklist,
+the user reported: “live testing seems fine to me”. This is user-reported live
+acceptance of the current changes; no issue was reported. Together with the
+recorded automated and package checks, this completes the maintenance release
+validation. Optional live-provider/private map automated captures and quantitative
+live GPU/performance measurements remain unrun; no performance improvement is
+claimed. The verified local 0.61.0 package is ready; publication remains outside
+this task's authorized scope.
 
 Published runtime pins/source defaults remain 0.60.0 until the existing release
 workflow verifies and pins new artifacts; the release target stays 0.61.0.
