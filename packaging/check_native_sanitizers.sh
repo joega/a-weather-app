@@ -30,4 +30,23 @@ env CFLAGS='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer' NATIVE_
   make -B -C "$sanitizer_root/native/atmosphere"
 "$sanitizer_root/native/atmosphere/a-weather-app-atmosphere" --self-test
 "$native_check" inputs "$sanitizer_root/native/atmosphere/a-weather-app-atmosphere"
+# GOption allocations must also be released on display-free early returns.
+atmosphere="$sanitizer_root/native/atmosphere/a-weather-app-atmosphere"
+"$atmosphere" --weather unused --preset clear --self-test
+for failure in conflicting-options unknown-option invalid-preset missing-policy; do
+  case "$failure" in
+    conflicting-options) args=(--monitor 0 --weather unused --preset clear) ;;
+    unknown-option) args=(--weather unused --unknown-option) ;;
+    invalid-preset) args=(--monitor 0 --preset invalid) ;;
+    missing-policy) args=(--weather unused --renewable-lease) ;;
+  esac
+  status=0
+  "$atmosphere" "${args[@]}" > "$sanitizer_root/$failure.log" 2>&1 || status=$?
+  if [[ $status != 1 ]] || grep -Eq 'Sanitizer|runtime error:' "$sanitizer_root/$failure.log"; then
+    cat "$sanitizer_root/$failure.log" >&2
+    printf 'FAIL: atmosphere early return %s (exit %s)\n' "$failure" "$status" >&2
+    exit 1
+  fi
+ done
+
 printf 'PASS: simulation and native input checks with address, undefined-behavior and leak sanitizers.\n'

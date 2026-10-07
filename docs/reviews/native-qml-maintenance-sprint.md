@@ -68,3 +68,19 @@ select portable correctness checks instead. No blanket suppressions planned.
   passes. Native sanitizer validation reruns outside ptrace restrictions.
 - Native simulation/self-test/adversarial input checks pass with ASan, UBSan
   and leak detection outside the sandbox; no sanitizer findings.
+
+### C lifecycle and conversion stage
+
+- P2: GOption strings now use scoped GLib cleanup on parse failures, self-test,
+  policy/validation modes and invalid CLI exits; State borrows them only while
+  the application runs. Removed repeated frees.
+- P2: expiry callback clears its one-shot source ID; signal sources remain
+  registered until teardown, avoiding stale IDs. Tick already clears its ID.
+- P2: lightning cycle wraps before float-to-uint32 conversion, avoiding undefined
+  conversion for extreme finite input; normal envelopes/shader behavior unchanged.
+- Added extreme-time self-tests and sanitizer regressions for allocated-option
+  early exits. Strict JSON duplicate/depth/type/freshness, no-follow bounded file
+  reads, GL-context deletion and finite renewable policy leases remain intact.
+- C focused build/self-test/adversarial input tests and full native
+  address/undefined/leak sanitizer suite (including new early-return cases)
+  pass. Formatting and diff checks pass.

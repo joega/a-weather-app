@@ -7,6 +7,7 @@
 #include <glib-unix.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <float.h>
 #include <math.h>
 #include <signal.h>
 #include <stdint.h>
@@ -197,7 +198,9 @@ static double pulse(double time, double start, double duration, double peak) {
 static double flash(double time, const Weather* weather) {
     if (!isfinite(time) || time < 0 || !weather->storm || !weather->lightning || weather->reduced)
         return 0;
-    uint32_t mixed = (uint32_t)floor(time / 24) * UINT32_C(1664525) + UINT32_C(1013904223);
+    // Wrap in floating point before conversion; all finite times stay in uint32 range.
+    uint32_t cycle = (uint32_t)fmod(floor(time / 24), 4294967296.0);
+    uint32_t mixed = cycle * UINT32_C(1664525) + UINT32_C(1013904223);
     double start = 4 + (mixed % 14000) / 1000.0;
     double local = fmod(time, 24);
     return pulse(local, start, .18, .28) + ((mixed & 1) ? pulse(local, start + .8, .12, .09) : 0);
@@ -641,6 +644,12 @@ static gboolean poll_weather(gpointer data) {
 static gboolean stop(gpointer data) {
     State* state = data;
     g_application_quit(G_APPLICATION(state->app));
+    return G_SOURCE_CONTINUE; // Signal sources remain owned until shutdown.
+}
+static gboolean expire_lease(gpointer data) {
+    State* state = data;
+    state->expiry = 0; // This one-shot ID must never refer to a reused source.
+    stop(state);
     return G_SOURCE_REMOVE;
 }
 static gboolean renew_lease(gpointer data) {
@@ -665,7 +674,7 @@ static gboolean renew_lease(gpointer data) {
     if (state->expiry)
         g_source_remove(state->expiry);
     state->lease_deadline = g_get_monotonic_time() + (gint64)state->duration * G_USEC_PER_SEC;
-    state->expiry = g_timeout_add_seconds(state->duration, stop, state);
+    state->expiry = g_timeout_add_seconds(state->duration, expire_lease, state);
     return G_SOURCE_CONTINUE;
 }
 static void activate(GtkApplication* app, gpointer data) {
@@ -742,7 +751,7 @@ static void activate(GtkApplication* app, gpointer data) {
         state->poll = g_timeout_add_seconds(1, poll_weather, state);
     }
     sky_schedule_reset(&state->schedule, state->started, state->fps, state->weather.reduced);
-    state->expiry = g_timeout_add_seconds(state->duration, stop, state);
+    state->expiry = g_timeout_add_seconds(state->duration, expire_lease, state);
     g_print("{\"component\":\"a-weather-app-atmosphere\",\"event\":\"start\",\"layer\":"
             "\"background\",\"keyboard\":\"none\",\"exclusive_zone\":-1,\"monitor_index\":%d,"
             "\"fps\":%u,\"duration\":%u}\n",
@@ -872,6 +881,12 @@ static gboolean self_test(void) {
     if (flash(12.3, &weather) != 0)
         return FALSE;
     weather.reduced = FALSE;
+    const double extreme_times[] = {DBL_MAX, 24.0 * 4294967296.0, INFINITY, NAN};
+    for (guint i = 0; i < G_N_ELEMENTS(extreme_times); ++i) {
+        double value = flash(extreme_times[i], &weather);
+        if (!isfinite(value) || value < 0 || value > .28)
+            return FALSE;
+    }
     double peak = 0;
     for (int i = 0; i < 4800; ++i) {
         double value = flash(i / 100.0, &weather);
@@ -889,8 +904,15 @@ int main(int argc, char** argv) {
     default_gsk_renderer();
     int duration = 30, monitor = -1, fps = 30;
     gboolean test = FALSE, lightning = FALSE, reduced = FALSE, renewable_lease = FALSE;
-    char *path = NULL, *preset_name = NULL, *validate_path = NULL;
-    char *policy_path = NULL, *policy_session = NULL, *output = NULL, *validate_policy = NULL;
+    /* GOption owns allocations until return, including parse failure/validation modes.
+     * State borrows these strings only during g_application_run(). */
+    g_autofree char* path = NULL;
+    g_autofree char* preset_name = NULL;
+    g_autofree char* validate_path = NULL;
+    g_autofree char* policy_path = NULL;
+    g_autofree char* policy_session = NULL;
+    g_autofree char* output = NULL;
+    g_autofree char* validate_policy = NULL;
     GOptionEntry entries[] = {
         {"monitor", 'm', 0, G_OPTION_ARG_INT, &monitor,
          "GDK monitor index for standalone use; checked against --output if provided", "INDEX"},
@@ -950,13 +972,6 @@ int main(int argc, char** argv) {
                     "\"status\":\"error\",\"render_allowed\":false}\n");
             g_printerr("%s\n", error ? error->message : "unknown error");
         }
-        g_free(policy_path);
-        g_free(policy_session);
-        g_free(output);
-        g_free(validate_policy);
-        g_free(validate_path);
-        g_free(path);
-        g_free(preset_name);
         return ok ? 0 : 1;
     }
     if (validate_path) {
@@ -975,12 +990,6 @@ int main(int argc, char** argv) {
                     "\"status\":\"error\",\"lightning_enabled\":false}\n");
             g_printerr("%s\n", error ? error->message : "unknown error");
         }
-        g_free(validate_path);
-        g_free(path);
-        g_free(preset_name);
-        g_free(policy_path);
-        g_free(policy_session);
-        g_free(output);
         return ok ? 0 : 1;
     }
     if (monitor < -1 || (!output && monitor < 0) || duration < 1 || duration > 300 ||
@@ -1032,10 +1041,5 @@ int main(int argc, char** argv) {
             state.visual_time, state.cloud_offset);
     g_clear_object(&state.selected_monitor);
     g_object_unref(state.app);
-    g_free(path);
-    g_free(preset_name);
-    g_free(policy_path);
-    g_free(policy_session);
-    g_free(output);
     return state.failed || (!never_presented && (!state.frames || !state.input_empty)) ? 1 : result;
 }
