@@ -3,8 +3,8 @@
 Completed independently available implementation and validation for **v0.61.0**,
 against clean baseline `49e63ee8296a3f9268264b9ae2aac1aa1afdc78b` (the completed Go sprint).
 [Go review](go-maintenance-sprint.md) records earlier Docker/live evidence;
-that evidence does not verify this sprint's changed code. Final Docker and live
-checks remain explicitly pending below. No push, repository tag or publication.
+that evidence does not verify this sprint's changed code. Final Docker verification passed; live
+desktop checks remain explicitly pending below. No push, repository tag or publication.
 
 ## Completed review and fixes
 
@@ -124,31 +124,31 @@ Tools must be present; missing tooling/modules fail explicitly. qmlformat and
 qmllint accept duplicate ComponentBehavior pragmas that runtime rejects, so the
 gate adds a direct duplicate-pragma check.
 
-## Pending user checks
+## Final Docker verification
 
-The user ran the final Docker build from commit `6d76bd0`. Go checks and Qt
-protocol/frontend tests passed, but the native/QML gate stopped because the
-container lacked Omarchy modules. The container now downloads the real Omarchy
-4.0.4-1 package, verifies its pinned SHA-256, and extracts only its shell modules
-for analysis; it does not install or configure the desktop. The downloaded
-package checksum and QML analysis against those extracted modules pass locally
-(the same six exact upstream enum metadata diagnostics). Shell syntax and diff
-checks pass. A full container rerun is still pending: `sudo -n docker info`
-continues to require a password in this session. No new archive, checksum, source
-inventory, packaged startup/shutdown or independent-build reproducibility result
-is claimed. Earlier Go artifacts do not cover these native/QML changes. Run from
-the final clean checkout:
+The initial user-run build stopped after passing Go and Qt checks because the
+container lacked Omarchy modules. Commit `a4f0031` supplies checksum-pinned real
+Omarchy 4.0.4-1 shell modules for analysis without installing the desktop.
+The user reran the pinned Docker build successfully on October 7, 2026.
 
-```sh
-cd /home/joeg/Projects/a-weather-app
-WEATHER_RELEASE_VERSION=0.61.0 bash scripts/run_go_migration_build.sh
-```
+Verified artifacts: `dist/go-migration.QxnS4uPG`, built from clean commit
+`a4f0031eb503a20225ca4128c2dd609b79d0c321` (`source_dirty=false`,
+`source_status=[]`). Archive manifest declares 0.61.0; `SHA256SUMS` passes.
+Archive SHA-256:
+`90fc2f27f0a455ec4f1fedbd89b8773d292d670d3fc73fe27a87c9e8bb6495a3`.
+Private full log: `/tmp/weather-go-migration.A4JxL86f.log`.
 
-The build performs independent builds, compares five artifacts, checks source
-metadata/version, and tests packaged startup/shutdown. In its printed output
-directory run `sha256sum --check SHA256SUMS`; verify go-runtime.json has
-`source_dirty=false`, empty source_status and the final checkout's source_commit,
-and the archive manifest declares 0.61.0. Do not push, tag or publish.
+The container passed Go lint/race/vet, native/QML gates, 43 protocol tests,
+38 frontend tests (4 optional skips), native sanitizers, Qt sanitizers
+(43 protocol and 7 map cases), shader consistency, symbols, hardening and
+adversarial inputs. Five artifacts were byte-identical across independent
+build paths. Packaged integration passed 24 tests (2 optional skips); runtime
+checks verified checksums/source inventory and compiled offline startup/shutdown.
+The six exact upstream Quickshell enum metadata diagnostics remain documented.
+This subsequent report-only commit does not change the tested implementation
+or the artifact's recorded source revision. No push, tag or publication.
+
+## Pending live desktop checks
 
 On the live desktop: open the current build, rapidly edit/select city searches,
 hide/reopen Settings, disconnect/close with work pending, open/close maps during
