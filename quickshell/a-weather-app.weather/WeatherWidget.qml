@@ -92,13 +92,17 @@ OmarchyUi.BarWidget {
             refreshDeadline.restart();
         }
     }
-    onConfiguredChanged: { if (configured) { refresh(); refreshSaved(); } }
-    Component.onCompleted: { refresh(); refreshSaved(); }
+    function checkUpdates() {
+        if (configured && !updateChecker.running) { updateChecker.running = true; updateDeadline.restart(); }
+    }
+    onConfiguredChanged: { if (configured) { refresh(); refreshSaved(); checkUpdates(); } }
+    Component.onCompleted: { refresh(); refreshSaved(); checkUpdates(); }
     Component.onDestruction: {
         if (windowToggle.running) windowToggle.signal(15);
         if (reader.running) reader.signal(15);
         if (backgroundRefresh.running) backgroundRefresh.signal(15);
         if (app.running) app.signal(15);
+        if (updateChecker.running) updateChecker.signal(15);
     }
     Timer { interval: 30000; repeat: true; running: root.configured; onTriggered: root.refresh() }
     // Watch the directory so the first controls save and atomic replacements
@@ -112,6 +116,11 @@ OmarchyUi.BarWidget {
         onFileChanged: root.refresh()
     }
     Timer { interval: 300000; repeat: true; running: root.configured; onTriggered: root.refreshSaved() }
+    // The helper persists the daily deadline, shared with the native app. Keep
+    // update requests separate from the weather refresh's shorter deadline.
+    Timer { interval: 3600000; repeat: true; running: root.configured; onTriggered: root.checkUpdates() }
+    Timer { id: updateDeadline; interval: 30000; onTriggered: { if (updateChecker.running) { updateChecker.signal(15); updateKill.restart(); } } }
+    Timer { id: updateKill; interval: 1000; onTriggered: { if (updateChecker.running) updateChecker.signal(9); } }
     Timer { id: readDeadline; interval: 3000; onTriggered: { root.rejected = true; reader.signal(15); readKill.restart(); } }
     Timer { id: readKill; interval: 1000; onTriggered: { if (reader.running) reader.signal(9); } }
     Timer { id: toggleDeadline; interval: 3000; onTriggered: { if (windowToggle.running) windowToggle.signal(9); } }
@@ -144,6 +153,11 @@ OmarchyUi.BarWidget {
             root.buffer = "";
             if (root.pendingRead) Qt.callLater(root.refresh);
         }
+    }
+    Process {
+        id: updateChecker
+        command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--check-updates"]
+        onExited: (code, status) => { updateDeadline.stop(); updateKill.stop(); root.refresh(); }
     }
     Process {
         id: backgroundRefresh

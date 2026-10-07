@@ -25,6 +25,9 @@ type Effects interface {
 	Stop(context.Context) error
 }
 type Options struct {
+	UpdateStatus     func() M
+	CheckUpdates     func(context.Context, bool) error
+	StartUpdate      func() error
 	Root             string
 	Now              func() time.Time
 	Fetch            func(context.Context, M, time.Time) (M, error)
@@ -73,6 +76,7 @@ type App struct {
 	results                               chan completion
 	Changed                               chan struct{}
 	launcherStatus                        string
+	updates                               updateState
 	closed                                bool
 	closeErr                              error
 }
@@ -266,6 +270,7 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 		a.fx = newEffectsCoordinator(o.Effects, a.signal)
 	}
 	a.snapshotLocked()
+	a.beginUpdateCheck(false)
 	return a, nil
 }
 func (a *App) signal() {
@@ -351,6 +356,7 @@ func (a *App) beginFetch(selection M) {
 	}()
 }
 func (a *App) poll() {
+	a.pollUpdates()
 	defer a.pollAirQuality()
 	defer a.pollMap()
 	a.pollSearch()
@@ -505,6 +511,7 @@ func (a *App) Tick(ctx context.Context) {
 		return
 	}
 	a.poll()
+	a.beginUpdateCheck(false)
 	if !a.options.Now().Before(a.nextFetch) {
 		a.beginFetch(nil)
 	}
@@ -705,6 +712,17 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 		e = a.notifications.Configure(object(request["notifications"]))
 	case "snooze_notifications", "resume_notifications":
 		e = a.notifications.Snooze(a.options.Now(), op == "resume_notifications")
+	case "check_updates":
+		if a.options.CheckUpdates == nil {
+			reply["error"] = "updates_unavailable"
+			return reply, false
+		}
+		a.beginUpdateCheck(true)
+	case "install_update":
+		if a.options.StartUpdate == nil || a.options.StartUpdate() != nil {
+			reply["error"] = "update_start_failed"
+			return reply, false
+		}
 	case "install_launcher":
 		a.launcherStatus = InstallLauncher(a.options.Root)
 	case "quit":

@@ -14,6 +14,7 @@ import (
 	"github.com/joega/a-weather-app/internal/release"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/supervision"
+	"github.com/joega/a-weather-app/internal/updater"
 	"github.com/joega/a-weather-app/internal/weather"
 	"github.com/joega/a-weather-app/internal/weathermap"
 	"os"
@@ -113,6 +114,8 @@ func launch(args []string) error {
 	stop := fs.Bool("stop-effects", false, "stop the owned desktop effects")
 	quit := fs.Bool("quit", false, "quit this app and its owned effects")
 	version := fs.Bool("version", false, "show version")
+	checkUpdates := fs.Bool("check-updates", false, "check for a published release")
+	forceUpdateCheck := fs.Bool("force-update-check", false, "check even if checked today")
 	service := fs.Bool("service", false, "internal service mode")
 	headless := fs.Bool("headless", false, "service without a window for testing")
 	offline := fs.Bool("offline", false, "use only saved weather")
@@ -181,6 +184,16 @@ func launch(args []string) error {
 		return errors.New("state directory must be absolute and normalized")
 	}
 	runtimeDir := runtimePath(statePath)
+	updates := updater.Config{Installed: appVersion, Development: buildMode == "development", StatePath: statePath}
+	if *checkUpdates {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+		status, err := updates.Check(ctx, *forceUpdateCheck)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(status.Map())
+	}
 	socket := filepath.Join(runtimeDir, "service.sock")
 	if *socketOnly {
 		fmt.Println(socket)
@@ -191,7 +204,13 @@ func launch(args []string) error {
 		if e == nil {
 			defer state.Close()
 		}
-		return json.NewEncoder(os.Stdout).Encode(app.Bar(state, time.Now()))
+		value := app.Bar(state, time.Now())
+		status := updates.Status()
+		value["update"] = status.Map()
+		if status.State == "available" {
+			value["tooltip"], _ = weather.Plain(fmt.Sprintf("Update %s available — open the app to install · %s", status.Available, value["tooltip"]), 256, false)
+		}
+		return json.NewEncoder(os.Stdout).Encode(value)
 	}
 	root := *rootFlag
 	if root == "" {
@@ -325,9 +344,12 @@ func launch(args []string) error {
 	}
 	defer lock.Close()
 	manager := effects.New(root, statePath, *instance, *output)
-	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline, FetchAirQuality: airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
-		return weathermap.Fetch(ctx, nil, lat, lon, country, now)
-	}})
+	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline,
+		UpdateStatus:    func() M { return updates.Status().Map() },
+		CheckUpdates:    func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
+		FetchAirQuality: airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
+			return weathermap.Fetch(ctx, nil, lat, lon, country, now)
+		}})
 	if e != nil {
 		return e
 	}
