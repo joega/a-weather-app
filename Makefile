@@ -36,3 +36,9 @@ build/weather-native-check: $(wildcard internal/nativebuild/*.go cmd/weather-nat
 	$(GO) build -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o $@ ./cmd/weather-native-check
 shaders: native-tools
 	build/weather-native-check shaders --root "$(CURDIR)"
+
+.PHONY: format-native-qml check-native-qml-format
+format-native-qml:
+	bash scripts/check_native_qml_format.sh format
+check-native-qml-format:
+	bash scripts/check_native_qml_format.sh check
