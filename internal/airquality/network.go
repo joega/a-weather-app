@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/providerhttp"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
 )
@@ -38,12 +39,17 @@ func RequestURL(location Object) (string, error) {
 
 // Fetch obtains current modeled air quality from the fixed global endpoint.
 // It returns cancellation errors even when cancellation races with body EOF.
+var sharedTransport = providerhttp.New(http.DefaultTransport.(*http.Transport), false)
+
+// CloseIdleConnections releases process-owned idle sockets at shutdown.
+func CloseIdleConnections() { sharedTransport.CloseIdleConnections() }
+
 func Fetch(ctx context.Context, location Object, fetchedAt time.Time) (Object, error) {
-	return fetchWithTransport(ctx, location, fetchedAt, http.DefaultTransport.(*http.Transport))
+	return fetchWithTransport(ctx, location, fetchedAt, sharedTransport)
 }
 
 // The injected transport changes routing only; provider policy and validation
-// remain identical to production. Clone it so each request owns its idle pool.
+// remain identical to production. The caller owns and closes its reusable pool.
 func fetchWithTransport(ctx context.Context, location Object, fetchedAt time.Time, base *http.Transport) (result Object, err error) {
 	rawURL, e := RequestURL(location)
 	if e != nil {
@@ -62,8 +68,7 @@ func fetchWithTransport(ctx context.Context, location Object, fetchedAt time.Tim
 			result, err = nil, contextErr
 		}
 	}()
-	transport := base.Clone()
-	defer transport.CloseIdleConnections()
+	transport := base
 	client := &http.Client{Transport: transport, Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("air quality redirects refused") }}
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if e != nil {

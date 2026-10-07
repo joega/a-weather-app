@@ -9,13 +9,70 @@
 #include <QBuffer>
 #include <QUrl>
 #include <QTimer>
+#include <cstring>
 #include <memory>
 #include <utility>
 
 namespace {
 constexpr qint64 maxTileBytes = 128 * 1024;
 constexpr qint64 maxDecodedTileBytes = 512 * 1024;
+// Admit only pixel data and bounded, uncompressed color/palette information.
+// In particular, no text, ICC profile or EXIF bytes reach either Qt decoder.
+// The entire scan is linear in the already bounded 128 KiB input, with no
+// decompression or allocations. CRCs and chunk framing are checked first.
+quint32 pngWord(const char* p) {
+    const auto* b = reinterpret_cast<const unsigned char*>(p);
+    return (quint32(b[0]) << 24) | (quint32(b[1]) << 16) | (quint32(b[2]) << 8) | b[3];
+}
+quint32 pngCRC(const char* p, qsizetype size) {
+    quint32 crc = 0xffffffffU;
+    for (qsizetype i = 0; i < size; ++i) {
+        crc ^= static_cast<unsigned char>(p[i]);
+        for (int bit = 0; bit < 8; ++bit)
+            crc = (crc >> 1) ^ ((crc & 1U) ? 0xedb88320U : 0U);
+    }
+    return crc ^ 0xffffffffU;
+}
+bool boundedTilePNG(const QByteArray& bytes) {
+    if (bytes.size() < 8 || bytes.size() > maxTileBytes ||
+        std::memcmp(bytes.constData(), "\x89PNG\r\n\x1a\n", 8) != 0)
+        return false;
+    qsizetype offset = 8;
+    bool pixels = false;
+    while (offset < bytes.size()) {
+        const qsizetype remaining = bytes.size() - offset;
+        if (remaining < 12)
+            return false;
+        const auto* chunk = bytes.constData() + offset;
+        const quint32 length = pngWord(chunk);
+        if (length > quint32(remaining - 12) ||
+            pngCRC(chunk + 4, qsizetype(length) + 4) != pngWord(chunk + 8 + length))
+            return false;
+        const auto isType = [chunk](const char* type) {
+            return std::memcmp(chunk + 4, type, 4) == 0;
+        };
+        if (offset == 8) {
+            if (!isType("IHDR") || length != 13 || pngWord(chunk + 8) != 256 ||
+                pngWord(chunk + 12) != 256)
+                return false;
+        } else if (isType("IDAT")) {
+            pixels = true;
+        } else if (isType("IEND")) {
+            return pixels && length == 0 && offset + 12 == bytes.size();
+        } else if (!((isType("PLTE") && length > 0 && length <= 768 && length % 3 == 0) ||
+                     (isType("tRNS") && length > 0 && length <= 256) ||
+                     (isType("sRGB") && length == 1) || (isType("gAMA") && length == 4) ||
+                     (isType("cHRM") && length == 32) || (isType("pHYs") && length == 9) ||
+                     (isType("sBIT") && length > 0 && length <= 4))) {
+            return false;
+        }
+        offset += qsizetype(length) + 12;
+    }
+    return false;
+}
 bool validTilePNG(const QByteArray& bytes) {
+    if (!boundedTilePNG(bytes))
+        return false;
     QBuffer buffer;
     buffer.setData(bytes);
     if (!buffer.open(QIODevice::ReadOnly))

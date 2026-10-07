@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,12 +33,14 @@ func encodedTextPrefix(text string, extraBytes int) string {
 }
 
 func capSnapshotAlertText(snapshot M) {
-	encoded, err := json.Marshal(snapshot)
-	if err != nil || len(encoded) <= snapshotByteLimit {
-		return
-	}
+	// Without alert text there is nothing to truncate. Other snapshot fields
+	// have their existing schema bounds and the final IPC envelope is checked.
 	items, _ := object(snapshot["alerts"])["items"].([]any)
 	if len(items) == 0 {
+		return
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil || len(encoded) <= snapshotByteLimit {
 		return
 	}
 	type originalText struct {
@@ -275,4 +278,40 @@ func (a *App) forecastRows(forecast M, zone *time.Location, now time.Time) ([]an
 	}
 	*c = displayRows{source: a.forecast, zone: zone.String(), date: date, builtAt: now, expires: expires, hourly: hourly, daily: daily}
 	return hourly, daily
+}
+
+// snapshotEncoded serializes the private immutable display tree directly while
+// holding its ownership lock. Public Snapshot still supplies structural copies.
+// The comparison excludes the monotonic revision; full adds it without a second
+// traversal. Both byte slices are immutable after return.
+func (a *App) snapshotEncoded() (comparison, full []byte, err error) {
+	var value M
+	if a.mu.TryLock() {
+		defer a.mu.Unlock()
+		a.poll()
+		value = a.snapshotPrivateLocked()
+	} else {
+		a.cacheMu.RLock()
+		defer a.cacheMu.RUnlock()
+		value = a.cached
+	}
+	if value == nil {
+		return nil, []byte("null"), nil
+	}
+	fields := make(M, len(value))
+	for k, v := range value {
+		if k != "snapshot_revision" {
+			fields[k] = v
+		}
+	}
+	comparison, err = json.Marshal(fields)
+	if err != nil {
+		return nil, nil, err
+	}
+	full = make([]byte, 0, len(comparison)+48)
+	full = append(full, comparison[:len(comparison)-1]...)
+	full = append(full, `,"snapshot_revision":`...)
+	full = strconv.AppendFloat(full, value["snapshot_revision"].(float64), 'f', -1, 64)
+	full = append(full, '}')
+	return comparison, full, nil
 }

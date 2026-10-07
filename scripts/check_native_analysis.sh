@@ -7,10 +7,12 @@ external_flags() { pkg-config --cflags "$@" | sed 's/-I/-isystem /g'; }
 read -r -a c_flags <<< "$(external_flags gtk4 gtk4-layer-shell-0 json-glib-1.0 epoxy)"
 read -r -a qt_flags <<< "$(external_flags Qt6Quick Qt6Network Qt6Test)"
 read -r -a plugin_flags <<< "$(external_flags hyprland glesv2)"
-clang-tidy native/atmosphere/atmosphere.c -- -std=c17 "${c_flags[@]}"
-for file in native/qt/*.cpp; do
-  clang-tidy "$file" -- -std=c++17 -fPIC "${qt_flags[@]}"
-done
-for file in native/frame-alignment/*.cpp native/physics/*.cpp native/snow/*.cpp tests/native_simulation.cpp; do
-  clang-tidy "$file" -- -std=c++23 -fPIC "${plugin_flags[@]}"
-done
+source packaging/release-phases.sh
+jobs=${WEATHER_BUILD_JOBS:-2}
+[[ $jobs =~ ^[1-4]$ ]]
+analyze_c() { clang-tidy "$1" -- -std=c17 "${c_flags[@]}"; }
+analyze_qt() { clang-tidy "$1" -- -std=c++17 -fPIC "${qt_flags[@]}"; }
+analyze_plugin() { clang-tidy "$1" -- -std=c++23 -fPIC "${plugin_flags[@]}"; }
+run_parallel "$jobs" analyze_c native/atmosphere/atmosphere.c
+run_parallel "$jobs" analyze_qt native/qt/*.cpp
+run_parallel "$jobs" analyze_plugin native/frame-alignment/*.cpp native/physics/*.cpp native/snow/*.cpp tests/native_simulation.cpp

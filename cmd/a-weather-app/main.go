@@ -34,6 +34,8 @@ var appVersion = "0.61.0"
 
 func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
+	defer weather.CloseIdleConnections()
+	defer airquality.CloseIdleConnections()
 	if len(args) > 0 && args[0] == "--effects-worker" {
 		return effects.RunWorker(args[1:])
 	}

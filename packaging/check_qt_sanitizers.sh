@@ -18,5 +18,5 @@ export UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1
 qmake6 tests/frontend-test.pro -o .frontend-test.mk "QMAKE_CXXFLAGS+=$flags" 'QMAKE_LFLAGS+=-fsanitize=address,undefined'
 make -f .frontend-test.mk -j2
 env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software \
-  ./frontend-test mapTileDestructionWithActiveReplies mapTileObserverCancelsDelivery mapTileCloseDiscardsDelayedReply mapTileDownloadLimit
+  ./frontend-test mapTileMetadataPolicy mapTileInvalidPNGs mapTileDestructionWithActiveReplies mapTileObserverCancelsDelivery mapTileCloseDiscardsDelayedReply mapTileDownloadLimit
 printf 'PASS: Qt protocol and map ownership checks with address, undefined-behavior and leak sanitizers.\n'

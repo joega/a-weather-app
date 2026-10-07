@@ -592,17 +592,21 @@ func (a *App) updateEffectsLocked() {
 		a.fx.update(a.selected(false), a.controls)
 	}
 }
-func (a *App) snapshotLocked() M {
+func (a *App) snapshotPrivateLocked() M {
 	v := a.snapshot()
 	a.revision++
 	v["snapshot_revision"] = float64(a.revision)
 	a.cacheMu.Lock()
-	// Keep the normalized display tree private. Callers receive a structural
-	// copy without encoding and tokenizing the forecast again. File and socket
-	// decoding retain their strict validators.
+	// Keep the normalized display tree private. Only snapshotLocked makes
+	// caller-owned structural copies; the server encodes under the ownership
+	// lock. File and socket decoding retain their strict validators.
 	a.cached = v
 	a.cacheMu.Unlock()
-	return weather.Clone(v).(M)
+	return v
+}
+
+func (a *App) snapshotLocked() M {
+	return weather.Clone(a.snapshotPrivateLocked()).(M)
 }
 
 // Snapshot returns an independent JSON snapshot without running native commands
@@ -627,6 +631,11 @@ func (a *App) Snapshot() M {
 // service shutdown; a successful response does not itself close the App.
 // Callers must not mutate request until Handle returns.
 func (a *App) Handle(ctx context.Context, request M) (M, bool) {
+	return a.handle(ctx, request, false)
+}
+
+// The server defers only a valid subscribe snapshot until atomic registration.
+func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bool) {
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	id, ok := request["request_id"].(float64)
@@ -781,6 +790,9 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 	a.updateEffectsLocked()
 	if op != "snapshot" && op != "subscribe" {
 		a.signal()
+	}
+	if op == "subscribe" && deferSubscribe && e == nil {
+		return M{"version": 1.0, "request_id": id, "ok": true}, false
 	}
 	reply = M{"version": float64(1), "request_id": id, "ok": e == nil, "snapshot": a.snapshotLocked()}
 	if e != nil {

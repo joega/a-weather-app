@@ -13,8 +13,12 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
+
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/providerhttp"
 )
 
 func tlsFixture(t *testing.T, handler http.HandlerFunc) *http.Transport {
@@ -195,5 +199,35 @@ func TestFetchCancellationDuringBodyEOF(t *testing.T) {
 				t.Fatalf("got %v, want %v", err, want)
 			}
 		})
+	}
+}
+
+func TestSequentialAQRequestsReuseConnection(t *testing.T) {
+	var connections atomic.Int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewEncoder(w).Encode(payload(testTime())); err != nil {
+			t.Error(err)
+		}
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.StartTLS()
+	defer server.Close()
+	transport := providerhttp.New(server.Client().Transport.(*http.Transport), true)
+	transport.TLSClientConfig.ServerName = "example.com"
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+	}
+	defer transport.CloseIdleConnections()
+	for i := 0; i < 3; i++ {
+		if _, err := fetchWithTransport(context.Background(), testLocation(), testTime(), transport); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if connections.Load() != 1 {
+		t.Fatalf("three requests used %d connections", connections.Load())
 	}
 }

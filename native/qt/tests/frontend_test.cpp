@@ -21,6 +21,25 @@
 #include "maptiles.h"
 #include <functional>
 
+// Build exact PNG framing without asking an image decoder to parse metadata.
+static QByteArray tileChunk(const QByteArray& type, const QByteArray& data) {
+    QByteArray chunk;
+    auto word = [&](quint32 value) {
+        for (int shift = 24; shift >= 0; shift -= 8)
+            chunk.append(char(value >> shift));
+    };
+    word(quint32(data.size()));
+    chunk += type + data;
+    quint32 crc = 0xffffffffU;
+    for (const auto byte : type + data) {
+        crc ^= static_cast<unsigned char>(byte);
+        for (int bit = 0; bit < 8; ++bit)
+            crc = (crc >> 1) ^ ((crc & 1U) ? 0xedb88320U : 0U);
+    }
+    word(crc ^ 0xffffffffU);
+    return chunk;
+}
+
 class FakeTransport : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected MEMBER connected CONSTANT)
@@ -216,14 +235,40 @@ class FrontendTest : public QObject {
         state["snapshot_revision"] = 3;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
         QTRY_COMPARE(
-            notice->findChild<QObject*>("installedAppVersion")->property("text").toString(),
-            QString("A Weather App · 0.51.9"));
-        QVERIFY(check->property("enabled").toBool());
+            notice->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
+            QString("Updated to 0.51.9."));
+        QVERIFY(!check->property("visible").toBool());
         QVERIFY(!install->property("visible").toBool());
+        QTRY_VERIFY(notice->height() < 90);
         if (!prefix.isEmpty()) {
             QTest::qWait(100);
             QVERIFY(window->grabWindow().save(prefix + "-updated.png"));
         }
+        auto* dismiss = notice->findChild<QObject*>("dismissUpdateNotice");
+        QVERIFY(dismiss);
+        const auto requestsBeforeDismiss = transport.requests.size();
+        QVERIFY(QMetaObject::invokeMethod(dismiss, "clicked"));
+        QTRY_VERIFY(!notice->isVisible());
+        QCOMPARE(transport.requests.size(), requestsBeforeDismiss);
+        state["snapshot_revision"] = 4;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QVERIFY(!notice->isVisible());
+        update["installed"] = "0.52.0";
+        state["update"] = update;
+        state["snapshot_revision"] = 5;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QTRY_VERIFY(notice->isVisible());
+        QTRY_COMPARE(
+            notice->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
+            QString("Updated to 0.52.0."));
+        update["state"] = "available";
+        update["available"] = "0.52.1";
+        state["update"] = update;
+        state["snapshot_revision"] = 6;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QTRY_VERIFY(notice->isVisible());
+        QVERIFY(check->property("visible").toBool());
+        QVERIFY(install->property("visible").toBool());
     }
     void mapTileInvalidPNGs_data() {
         QTest::addColumn<QByteArray>("payload");
@@ -270,6 +315,74 @@ class FrontendTest : public QObject {
         QCOMPARE(ready.size(), 0);
         QCOMPARE(failed.first().at(1).toString(),
                  QStringLiteral("invalid PNG dimensions or payload"));
+    }
+    void mapTileMetadataPolicy_data() {
+        QTest::addColumn<QByteArray>("payload");
+        QTest::addColumn<bool>("accepted");
+        QByteArray base;
+        for (const auto format :
+             {QImage::Format_RGB888, QImage::Format_ARGB32, QImage::Format_Indexed8}) {
+            QImage image(256, 256, format);
+            if (format == QImage::Format_Indexed8) {
+                image.setColorTable({qRgba(0, 0, 255, 0), qRgba(255, 0, 0, 255)});
+                image.fill(1);
+            } else {
+                image.fill(QColor(0, 0, 255, 128));
+            }
+            QByteArray png;
+            QBuffer buffer(&png);
+            QVERIFY(buffer.open(QIODevice::WriteOnly));
+            QVERIFY(image.save(&buffer, "PNG"));
+            QTest::newRow(qPrintable(QString::number(format))) << png << true;
+            base = png;
+        }
+        const auto compressed = qCompress(QByteArray(4 * 1024 * 1024, 'A')).mid(4);
+        QByteArray texts;
+        for (int i = 0; i < 4; ++i)
+            texts += tileChunk("zTXt", QByteArray("comment\0\0", 9) + compressed);
+        auto insert = [&](const QByteArray& chunks) {
+            return base.left(33) + chunks + base.mid(33);
+        };
+        QTest::newRow("multiple compressed texts") << insert(texts) << false;
+        QTest::newRow("international compressed text")
+            << insert(tileChunk("iTXt", QByteArray("comment\0\1\0\0\0", 13) + compressed)) << false;
+        QTest::newRow("compressed ICC profile")
+            << insert(tileChunk("iCCP", QByteArray("profile\0\0", 9) + compressed)) << false;
+        QTest::newRow("uncompressed text") << insert(tileChunk("tEXt", "name")) << false;
+        QTest::newRow("EXIF") << insert(tileChunk("eXIf", "profile")) << false;
+        auto badCRC = base;
+        badCRC[29] = char(badCRC[29] ^ 1);
+        QTest::newRow("bad CRC") << badCRC << false;
+        auto badLength = base;
+        badLength[8] = char(0xff);
+        QTest::newRow("overflow length") << badLength << false;
+        QTest::newRow("trailing data") << (base + "garbage") << false;
+    }
+    void mapTileMetadataPolicy() {
+        QFETCH(QByteArray, payload);
+        QFETCH(bool, accepted);
+        QTcpServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        connect(&server, &QTcpServer::newConnection, &server, [&] {
+            auto* socket = server.nextPendingConnection();
+            connect(socket, &QTcpSocket::readyRead, socket, [socket, &payload] {
+                socket->readAll();
+                socket->write("HTTP/1.1 200 OK\r\nContent-Length: " +
+                              QByteArray::number(payload.size()) + "\r\n\r\n" + payload);
+            });
+        });
+        MapTiles tiles(nullptr,
+                       QUrl(QStringLiteral("http://127.0.0.1:%1").arg(server.serverPort())));
+        QSignalSpy ready(&tiles, &MapTiles::tileReady), failed(&tiles, &MapTiles::tileFailed);
+        // Exercise the maximum simultaneous reply budget, including bomb inputs.
+        for (int x = 0; x < 16; ++x)
+            tiles.request(4, x, 0, false);
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size() + failed.size(), 16, 5000);
+        QCOMPARE(ready.size(), accepted ? 16 : 0);
+        if (accepted) {
+            const auto forwarded = ready.first().at(1).toString().section(',', 1).toLatin1();
+            QCOMPARE(QByteArray::fromBase64(forwarded), payload);
+        }
     }
     void mapTileCooldownBoundAndExpiry() {
         auto now = QDateTime::fromSecsSinceEpoch(1700000000, QTimeZone::UTC);

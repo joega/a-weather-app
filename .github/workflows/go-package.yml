@@ -45,6 +45,14 @@ jobs:
         env:
           WEATHER_RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: bash scripts/run_go_migration_build.sh
+      - name: Retain build and assessment evidence
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always() && steps.version.outputs.published != 'true'
+        with:
+          name: weather-build-evidence-${{ github.run_id }}
+          path: dist/go-migration.*/evidence/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Check and name release assets
         if: steps.version.outputs.published != 'true'
         id: assets

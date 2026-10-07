@@ -344,9 +344,10 @@ QtObject {
                 UpdatePanel {
                     objectName: "updateNotice"
                     Layout.fillWidth: true
+                    compactUpdatedNotice: true
                     status: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
-                    visible: ["available", "publishing", "failed", "downloading", "verifying", "restarting", "updated", "rolled_back"].indexOf(status.state) >= 0
-                    enabled: bridge.available && !bridge.busy
+                    visible: !successDismissed && ["available", "publishing", "failed", "downloading", "verifying", "restarting", "updated", "rolled_back"].indexOf(status.state) >= 0
+                    enabled: status.state === "updated" || (bridge.available && !bridge.busy)
                     onCheckRequested: bridge.send("check_updates")
                     onInstallRequested: bridge.send("install_update")
                 }

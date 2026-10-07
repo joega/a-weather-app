@@ -90,7 +90,7 @@ type Server struct {
 }
 
 func (s *Server) mapEvent() {
-	revision, value := s.app.Map()
+	revision, value := s.app.mapSince(&s.lastMapRevision)
 	if value == nil || revision == s.lastMapRevision {
 		return
 	}
@@ -158,25 +158,21 @@ func (s *Server) broadcastAndFlush(value M) {
 }
 func (s *Server) snapshot() { s.snapshotTo(false) }
 func (s *Server) snapshotTo(presentedOnly bool) {
-	value := s.app.Snapshot()
-	comparison := M{}
-	for k, v := range value {
-		if k != "snapshot_revision" {
-			comparison[k] = v
-		}
-	}
-	raw, e := json.Marshal(comparison)
-	if e != nil || bytes.Equal(raw, s.last) {
+	comparison, snapshot, e := s.app.snapshotEncoded()
+	if e != nil || bytes.Equal(comparison, s.last) {
 		return
 	}
-	s.last = raw
-	event := M{"version": 1.0, "event": "snapshot", "snapshot": value}
+	raw := append([]byte(`{"version":1,"event":"snapshot","snapshot":`), snapshot...)
+	raw = append(raw, '}')
+	if len(raw) > ipc.ResponseLimit {
+		return
+	}
+	raw = append(raw, '\n')
+	s.last = comparison
 	if !presentedOnly {
-		s.broadcast(event)
-		return
-	}
-	raw, e = ipc.Encode(event, ipc.ResponseLimit)
-	if e != nil {
+		for _, p := range s.subscribers() {
+			p.enqueue(raw, false)
+		}
 		return
 	}
 	s.mu.Lock()
@@ -192,7 +188,11 @@ func (s *Server) subscribe(p *peer, reply M) error {
 	// subscriber enumeration. A subsequent event cannot precede this first reply.
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	reply["snapshot"] = s.app.Snapshot()
+	_, raw, e := s.app.snapshotEncoded()
+	if e != nil {
+		return e
+	}
+	reply["snapshot"] = json.RawMessage(raw)
 	if e := s.send(p, reply); e != nil {
 		return e
 	}
@@ -282,7 +282,7 @@ func (s *Server) handle(p *peer) {
 			}
 		}
 		ctx, cancel := context.WithTimeout(p.ctx, 45*time.Second)
-		reply, quit := s.app.Handle(ctx, request)
+		reply, quit := s.app.handle(ctx, request, true)
 		cancel()
 		if request["op"] == "snapshot" && reply["ok"] == true {
 			reply["frontend_ready"] = s.hasPresentation()

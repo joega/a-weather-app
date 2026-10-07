@@ -25,6 +25,7 @@ type mapState struct {
 	results              chan mapCompletion
 	data                 *weathermap.Data
 	errorCode            string
+	publishedStatus      string
 	nextAttempt          time.Time
 	attemptWindow        time.Time
 	attempts             int
@@ -146,16 +147,18 @@ func (a *App) pollMap() {
 	}
 }
 
-func (a *App) Map() (uint64, M) {
+// Map returns the current map, including time-derived freshness transitions.
+func (a *App) Map() (uint64, M) { return a.mapSince(nil) }
+
+// mapSince avoids constructing labels or serializing the lattice on unchanged
+// ticks. Freshness is a small state key, including rollback/future-data changes.
+func (a *App) mapSince(last *uint64) (uint64, M) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.pollMap()
 	s := &a.wmap
 	status := "closed"
 	var payload any
-	var fetched any
-	var fetchedLabel any
-	labels := []string{}
 	if s.open {
 		status = "unavailable"
 		if s.active {
@@ -165,20 +168,31 @@ func (a *App) Map() (uint64, M) {
 			age := a.options.Now().Sub(s.data.FetchedAt)
 			if age >= -5*time.Minute && age <= 6*time.Hour {
 				payload = s.data
-				fetched = s.data.FetchedAt
-				zone, e := time.LoadLocation(stringOf(a.location["timezone"]))
-				if e != nil {
-					zone = time.UTC
-				}
-				fetchedLabel = s.data.FetchedAt.In(zone).Format("Mon Jan 2, 3:04 PM MST")
-				for _, hour := range s.data.Hours {
-					labels = append(labels, time.Unix(hour, 0).In(zone).Format("Mon Jan 2, 3:04 PM MST"))
-				}
 				status = "fresh"
 				if age > 20*time.Minute {
 					status = "stale"
 				}
 			}
+		}
+	}
+	if status != s.publishedStatus {
+		s.publishedStatus = status
+		s.revision++
+	}
+	if last != nil && *last == s.revision {
+		return s.revision, nil
+	}
+	var fetched, fetchedLabel any
+	labels := []string{}
+	if payload != nil {
+		fetched = s.data.FetchedAt
+		zone, e := time.LoadLocation(stringOf(a.location["timezone"]))
+		if e != nil {
+			zone = time.UTC
+		}
+		fetchedLabel = s.data.FetchedAt.In(zone).Format("Mon Jan 2, 3:04 PM MST")
+		for _, hour := range s.data.Hours {
+			labels = append(labels, time.Unix(hour, 0).In(zone).Format("Mon Jan 2, 3:04 PM MST"))
 		}
 	}
 	return s.revision, M{"status": status, "data": payload, "fetched_at": fetched, "fetched_label": fetchedLabel, "hour_labels": labels, "offline": a.options.Offline, "error": s.errorCode}

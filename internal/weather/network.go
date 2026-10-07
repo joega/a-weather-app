@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/providerhttp"
 	"github.com/joega/a-weather-app/internal/safeio"
 )
 
@@ -48,10 +49,24 @@ func ValidateSelection(v Object) (Object, error) {
 // jsonProvider supplies the transport while every request retains endpoint,
 // redirect, proxy, timeout, size, and decoding checks. Tests inject a private
 // TLS transport instead of replacing process-wide HTTP state.
-type jsonProvider struct{ transport *http.Transport }
+type jsonProvider struct {
+	transport      *http.Transport
+	localTransport *http.Transport
+}
+
+// Process-owned pools expire idle sockets and are closed at service shutdown.
+var sharedJSONProvider = jsonProvider{
+	transport:      providerhttp.New(http.DefaultTransport.(*http.Transport), false),
+	localTransport: providerhttp.New(http.DefaultTransport.(*http.Transport), true),
+}
+
+func CloseIdleConnections() {
+	sharedJSONProvider.transport.CloseIdleConnections()
+	sharedJSONProvider.localTransport.CloseIdleConnections()
+}
 
 func defaultJSONProvider() jsonProvider {
-	return jsonProvider{transport: http.DefaultTransport.(*http.Transport)}
+	return sharedJSONProvider
 }
 
 // FetchJSON fetches a bounded object from an allowlisted HTTPS weather endpoint.
@@ -77,11 +92,16 @@ func (provider jsonProvider) fetchJSONBound(ctx context.Context, rawURL string, 
 	if !allowed || u.Scheme != "https" || u.User != nil || u.Opaque != "" || u.Fragment != "" || (u.Port() != "" && u.Port() != "443") || (u.Hostname() == "geocoding-api.open-meteo.com" && u.Path != "/v1/search" && u.Path != "/v1/get") {
 		return nil, errors.New("unsupported weather endpoint")
 	}
-	transport := provider.transport.Clone()
+	transport := provider.transport
 	if local {
-		transport.Proxy = nil
+		transport = provider.localTransport
+		if transport == nil {
+			// Private injected providers may omit a direct pool. Never modify their
+			// shared normal transport or allow its proxy into IP geolocation.
+			transport = providerhttp.New(provider.transport, true)
+			defer transport.CloseIdleConnections()
+		}
 	}
-	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("weather redirects refused") }}
 	req, e := http.NewRequestWithContext(ctx, "GET", rawURL, nil)
 	if e != nil {

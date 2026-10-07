@@ -7,6 +7,8 @@ if [[ ! -f /.dockerenv ]] || ! awk '$5 == "/source" && $6 ~ /(^|,)ro(,|$)/ { fou
   exit 2
 fi
 source_root=/source
+source /source/packaging/release-phases.sh
+export MAKEFLAGS="-j${WEATHER_BUILD_JOBS:-2}"
 output_root=${GO_RELEASE_OUTPUT:-/output}
 if [[ "$output_root" != /output || ! -d "$output_root" ]]; then
   printf 'Build output must be the isolated /output bind mount.\n' >&2
@@ -41,41 +43,56 @@ for copy in first second; do
     # merely reusing the first Go executable or intermediate object files.
     export GOCACHE="$build_root/go-cache-$copy"
     mkdir -p build
-    go build -o build/weather-native-check ./cmd/weather-native-check
-    go build -o build/weather-package ./cmd/weather-package
+    run_phase "$copy-native-tools" go build -o build/weather-native-check ./cmd/weather-native-check
+    run_phase "$copy-package-tools" go build -o build/weather-package ./cmd/weather-package
     if [[ "$copy" == first ]]; then
-      make lint
-      go test -race ./...
-      go vet ./...
-      make -C native/qt test
-      make check-native-qml
-      bash packaging/check_native_sanitizers.sh
-      bash packaging/check_qt_sanitizers.sh
+      run_phase release-log-tests bash packaging/test_release_log_retention.sh
+      run_phase release-phase-tests bash packaging/test_release_phases.sh
+      run_phase vulnerability-policy-tests bash packaging/vulnerability_policy.sh test
+      run_phase vulnerability-adapter-tests bash packaging/test_govulncheck_adapter.sh
+      run_phase native-linkage-tests bash packaging/test_native_linkage.sh
+      run_phase vulnerability-source bash packaging/check_release_vulnerabilities.sh source "$output_root/evidence"
+      run_phase vulnerability-known-fixture bash packaging/test_govulncheck_fixture.sh /tmp/weather-release-scanner/govulncheck "$output_root/evidence/known-fixture"
+      run_phase png-memory-budget bash packaging/test_map_png_budget.sh
+      run_phase go-lint make lint
+      run_phase go-race go test -race ./...
+      run_phase go-vet go vet ./...
+      run_phase qt-tests make -C native/qt test
+      run_phase native-format make check-native-qml-format
+      run_phase native-analysis make check-native-analysis
+      run_phase qml-analysis make check-qml-analysis
+      run_phase native-sanitizers bash packaging/check_native_sanitizers.sh
+      run_phase qt-sanitizers bash packaging/check_qt_sanitizers.sh
     fi
-    build/weather-native-check shaders --root "$checkout"
-    make go APP_MODE=package APP_VERSION="$release_version"
+    run_phase "$copy-shaders" build/weather-native-check shaders --root "$checkout"
+    run_phase "$copy-go-build" make go APP_MODE=package APP_VERSION="$release_version"
     (
       cd native/qt
-      qmake6 a-weather-app-qt.pro -o .build.mk \
+      run_phase "$copy-qmake" qmake6 a-weather-app-qt.pro -o .build.mk \
         "QMAKE_CXXFLAGS+=-ffile-prefix-map=$checkout=. -fstack-protector-strong -D_FORTIFY_SOURCE=3" \
         'QMAKE_LFLAGS+=-Wl,-z,relro,-z,now,-z,noexecstack'
-      make -B -f .build.mk
+      run_phase "$copy-qt-build" make -B -f .build.mk
     )
-    make -B -C native/frame-alignment
-    make -B -C native/atmosphere
-    strip --strip-unneeded native/qt/a-weather-app-qt native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere
-    build/weather-native-check symbols native/frame-alignment/a-weather-app-frame-alignment.so
-    build/weather-native-check hardening build/a-weather-app native/qt/a-weather-app-qt native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere
-    native/atmosphere/a-weather-app-atmosphere --self-test
-    build/weather-native-check inputs native/atmosphere/a-weather-app-atmosphere
+    run_phase "$copy-plugin-build" make -B -C native/frame-alignment
+    run_phase "$copy-atmosphere-build" make -B -C native/atmosphere
+    if [[ "$copy" == first ]]; then
+      run_phase vulnerability-binary bash packaging/check_release_vulnerabilities.sh binary "$output_root/evidence" build/a-weather-app
+    fi
+    run_phase "$copy-strip" strip --strip-unneeded native/qt/a-weather-app-qt native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere
+    run_phase "$copy-symbols" build/weather-native-check symbols native/frame-alignment/a-weather-app-frame-alignment.so
+    run_phase "$copy-hardening" build/weather-native-check hardening build/a-weather-app native/qt/a-weather-app-qt native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere
+    run_phase "$copy-atmosphere-self-test" native/atmosphere/a-weather-app-atmosphere --self-test
+    run_phase "$copy-native-inputs" build/weather-native-check inputs native/atmosphere/a-weather-app-atmosphere
     for executable in native/qt/a-weather-app-qt native/atmosphere/a-weather-app-atmosphere; do
-      ldd "$executable" > "$build_root/$(basename "$executable")-$copy.dependencies"
+      run_phase "$copy-dependencies-$(basename "$executable")" bash -c 'ldd "$1" > "$2"' bash "$executable" "$build_root/$(basename "$executable")-$copy.dependencies"
       if grep -q 'not found' "$build_root/$(basename "$executable")-$copy.dependencies"; then exit 1; fi
     done
     # QML resource loading is display-free; actual compositor/shader QA remains a desktop check.
     status=0
+    qml_start=$(date +%s%N)
     env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software \
       timeout 3s native/qt/a-weather-app-qt --socket "$build_root/absent.sock" --diagnostic > "$build_root/qml-$copy.log" 2>&1 || status=$?
+    printf '%s-qml-smoke\t%s\t%s\n' "$copy" "$((($(date +%s%N)-qml_start)/1000000))" "$status" >> "$PHASE_TIMINGS"
     cat "$build_root/qml-$copy.log"
     if [[ "$status" != 124 ]] || ! grep -Fxq 'Weather frontend roots: 1' "$build_root/qml-$copy.log"; then
       printf 'Offscreen QML smoke check failed (status %s).\n' "$status" >&2; exit 1
@@ -88,7 +105,7 @@ done
 for artifact in "${artifacts[@]}"; do
   relative=$artifact
   [[ "$relative" == a-weather-app ]] && relative=build/a-weather-app
-  cmp "$build_root/first/$relative" "$build_root/second/$relative"
+  run_phase "compare-$artifact" cmp "$build_root/first/$relative" "$build_root/second/$relative"
 done
 printf 'PASS: five artifacts byte-identical across independent build paths.\n'
 runtime_root="$build_root/runtime"
@@ -106,10 +123,14 @@ sed -i "s/\"version\": \"$source_version\"/\"version\": \"$release_version\"/" "
 cp -a --no-preserve=ownership "$build_root/first/licenses" "$runtime_root/licenses"
 install -m 644 "$build_root/first/packaging/go-README.md" "$runtime_root/README.md"
 git -c safe.directory=/source -C /source status --porcelain --untracked-files=all
-"$build_root/first/build/weather-package" create --root "$runtime_root" --source /source
-make -C "$build_root/first/native/qt" test-e2e GO_APP="$runtime_root/a-weather-app"
-bash "$build_root/first/scripts/verify_go_runtime.sh" "$runtime_root" /source "$build_root/first/build/weather-package"
-tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
+run_phase package-manifest "$build_root/first/build/weather-package" create --root "$runtime_root" --source /source
+run_phase native-linkage bash "$build_root/first/packaging/collect_native_linkage.sh" "$runtime_root" "$output_root/evidence/native-linkage"
+run_phase packaged-integration make -C "$build_root/first/native/qt" test-e2e GO_APP="$runtime_root/a-weather-app"
+run_phase runtime-verification bash "$build_root/first/scripts/verify_go_runtime.sh" "$runtime_root" /source "$build_root/first/build/weather-package"
+# Complete runtime validation before the reviewed native-coverage gate. A
+# coverage failure still prevents creating the release archive.
+run_phase vulnerability-native bash "$build_root/first/packaging/check_release_vulnerabilities.sh" native "$output_root/evidence" "$runtime_root/packaging/runtime.json"
+run_phase archive tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner \
   -C "$runtime_root" -cf "$output_root/a-weather-app-go-qt-linux-x86_64.tar" .
 (
   cd "$output_root"

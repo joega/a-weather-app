@@ -1,0 +1,57 @@
+name: Audit validation (no publishing)
+
+# A dedicated review branch can run this workflow without changing main or
+# activating the main-only release job. No tags, releases or installs are made.
+on:
+  push:
+    branches: [codex/audit-061-validation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        jobs: [1, 2]
+    name: Build with ${{ matrix.jobs }} compiler jobs
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record comparison identity
+        shell: bash
+        env:
+          BUILD_JOBS: ${{ matrix.jobs }}
+        run: |
+          set -euo pipefail
+          mkdir -p validation-evidence
+          {
+            printf 'source_commit\t%s\n' "$GITHUB_SHA"
+            printf 'runner_os\t%s\n' "$RUNNER_OS"
+            printf 'runner_arch\t%s\n' "$RUNNER_ARCH"
+            printf 'runner_image\t%s\n' "${ImageOS:-unknown}"
+            printf 'runner_image_version\t%s\n' "${ImageVersion:-unknown}"
+            printf 'build_jobs\t%s\n' "$BUILD_JOBS"
+            printf 'logical_cpus\t%s\n' "$(nproc)"
+          } > validation-evidence/comparison.tsv
+      - name: Run every release gate and both independent builds
+        shell: bash
+        env:
+          WEATHER_BUILD_JOBS: ${{ matrix.jobs }}
+        run: bash scripts/run_go_migration_build.sh
+      - name: Retain results even when a gate blocks acceptance
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: audit-validation-${{ github.run_id }}-jobs-${{ matrix.jobs }}
+          path: |
+            validation-evidence/
+            dist/go-migration.*/evidence/
+          if-no-files-found: error
+          retention-days: 30
