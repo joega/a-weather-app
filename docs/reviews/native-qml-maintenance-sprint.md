@@ -126,11 +126,18 @@ gate adds a direct duplicate-pragma check.
 
 ## Pending user checks
 
-Docker access is denied to the current user and `sudo -n docker info` requires a
-password. The final release-build attempt cannot obtain interactive sudo in this
-session. No new archive, checksum, source inventory, packaged startup/shutdown or
-independent-build reproducibility result is claimed. Earlier Go artifacts do not
-cover these native/QML changes. Run from the final clean checkout:
+The user ran the final Docker build from commit `6d76bd0`. Go checks and Qt
+protocol/frontend tests passed, but the native/QML gate stopped because the
+container lacked Omarchy modules. The container now downloads the real Omarchy
+4.0.4-1 package, verifies its pinned SHA-256, and extracts only its shell modules
+for analysis; it does not install or configure the desktop. The downloaded
+package checksum and QML analysis against those extracted modules pass locally
+(the same six exact upstream enum metadata diagnostics). Shell syntax and diff
+checks pass. A full container rerun is still pending: `sudo -n docker info`
+continues to require a password in this session. No new archive, checksum, source
+inventory, packaged startup/shutdown or independent-build reproducibility result
+is claimed. Earlier Go artifacts do not cover these native/QML changes. Run from
+the final clean checkout:
 
 ```sh
 cd /home/joeg/Projects/a-weather-app
