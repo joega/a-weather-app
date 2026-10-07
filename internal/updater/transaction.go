@@ -14,6 +14,7 @@ import (
 const recoveryBudget = 120 * time.Second
 const journalFile = "update-transaction.json"
 
+// ErrBusy indicates that another process owns the installation transaction lock.
 var ErrBusy = errors.New("an update is already in progress")
 
 // Transaction is durable before the running app is stopped. The implementation
@@ -43,6 +44,8 @@ type Installation interface {
 	Ready(context.Context, Transaction, bool) error
 }
 
+// Engine runs durable installation/recovery transactions through Installation.
+// Config and Installation must describe the same private state and runtime.
 type Engine struct {
 	Config       Config
 	Installation Installation
@@ -114,6 +117,7 @@ func (e Engine) lock() (*safeio.Directory, func(), error) {
 	return d, func() { f.Close(); d.Close() }, nil
 }
 
+// NeedsRecovery reports an unfinished durable journal without changing installation.
 func (e Engine) NeedsRecovery() (bool, error) {
 	_, unlock, err := e.lock()
 	if errors.Is(err, ErrBusy) {
@@ -153,6 +157,9 @@ func (e Engine) Recover(ctx context.Context) error {
 	return e.rollback(ctx, t, errors.New("the previous update was interrupted"))
 }
 
+// Run installs an available verified pin under exclusive transaction locks.
+// It journals before stopping the app; subsequent failures attempt rollback
+// with an independent recovery deadline. Status-persistence errors are retained.
 func (e Engine) Run(ctx context.Context) (err error) {
 	if e.Config.Development {
 		return errors.New("development checkouts are built locally")

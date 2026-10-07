@@ -8,7 +8,7 @@ Go module minimum: 1.24.0; local verification toolchain: 1.27.1.
 - [x] Add concise conventions, formatting/import checks, and pinned Staticcheck to local/CI validation.
 - [x] Group imports, simplify terminating branches, and make larger functions' returns explicit.
 - [x] Audit cloning and discarded errors; handle fallible boundaries and document invariants.
-- [ ] Document important package/API ownership, concurrency, cancellation, defaults, and failures.
+- [x] Document important package/API ownership, concurrency, cancellation, defaults, and failures.
 - [ ] Extract coherent CLI, benchmark, and effects helpers without changing lifecycle behavior.
 - [ ] Improve affected test isolation, independent case reporting, and meaningful regressions.
 - [ ] Run final format/lint/vet/race checks, applicable display-free integration tests, benchmarks, and diff review.
@@ -57,3 +57,13 @@ primary operation/durable journal errors already determine success.
 Release target: v0.61.0, requested by the user. Runtime pins remain tied to
 published verified artifacts; the release-series setting will be updated at
 completion, with release notes prepared but no release published.
+
+Stage 3: documented private-directory descriptor/lock ownership, IPC framing
+and cancellation, immutable callback dependencies, application snapshots and
+shutdown, updater pin/status/transaction contracts, notification serialization,
+and native manager admission. Added the missing notifications package comment.
+Reviewed rendered `go doc` output for safeio and app.Options; lint passes.
+Existing JSON map aliases are retained to avoid broad protocol churn. Existing
+useful lifecycle comments and named errors modified by deferred cleanup remain.
+Missing comments on trivial constants/private command implementation methods
+are not treated as a mandatory documentation quota.

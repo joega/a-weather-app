@@ -14,16 +14,22 @@ import (
 	"github.com/joega/a-weather-app/internal/safeio"
 )
 
+// RequestLimit bounds an encoded request, excluding the newline delimiter.
 const RequestLimit = 8192
+
+// ResponseLimit bounds an encoded reply, excluding the newline delimiter.
 const ResponseLimit = 262144
 
+// M is a JSON protocol object; decoded numbers use float64.
 type M = map[string]any
 
+// Peer verifies that a Unix connection belongs to the current effective user.
 func Peer(conn *net.UnixConn) error {
 	_, e := PeerPID(conn)
 	return e
 }
 
+// PeerPID authenticates Unix peer credentials and returns a non-init PID.
 func PeerPID(conn *net.UnixConn) (int, error) {
 	raw, e := conn.SyscallConn()
 	if e != nil {
@@ -48,6 +54,9 @@ func PeerPID(conn *net.UnixConn) (int, error) {
 	}
 	return pid, inner
 }
+
+// Send encodes and writes one bounded JSON line. Callers serialize connection
+// writes; WriteEncoded sets a two-second write deadline.
 func Send(conn net.Conn, v any, limit int) error {
 	b, e := Encode(v, limit)
 	if e != nil {
@@ -55,6 +64,9 @@ func Send(conn net.Conn, v any, limit int) error {
 	}
 	return WriteEncoded(conn, b)
 }
+
+// Encode returns a JSON line within limit bytes, excluding its final newline.
+// Unencodable values and oversized payloads return an error.
 func Encode(v any, limit int) ([]byte, error) {
 	b, e := json.Marshal(v)
 	if e != nil {
@@ -83,11 +95,18 @@ func WriteEncoded(conn net.Conn, b []byte) error {
 	}
 	return nil
 }
+
+// Scanner frames bounded newline-delimited messages. Callers check Err after
+// Scan stops and separately validate each message with safeio.Object.
 func Scanner(conn net.Conn, limit int) *bufio.Scanner {
 	s := bufio.NewScanner(conn)
 	s.Buffer(make([]byte, 4096), limit+2)
 	return s
 }
+
+// Call authenticates a Unix peer, sends one request, and validates its reply.
+// It does not mutate request. Cancellation closes the connection; callers
+// should provide a deadline to bound waits for an otherwise silent peer.
 func Call(ctx context.Context, path string, request M) (M, error) {
 	return CallVerified(ctx, path, request, nil)
 }

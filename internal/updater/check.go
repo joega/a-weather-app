@@ -17,11 +17,14 @@ import (
 	"github.com/joega/a-weather-app/internal/safeio"
 )
 
+// CheckInterval is the minimum interval between automatic release checks.
 const CheckInterval = 24 * time.Hour
 const statusFile = "update-status.json"
 
 var versionPattern = regexp.MustCompile(`^v?(0)\.([1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
+// Pin binds a stable release tag to its archive digest and source revision.
+// Validate it before trusting its paths, revision, or digest.
 type Pin struct {
 	SchemaVersion int    `json:"schemaVersion"`
 	Tag           string `json:"tag"`
@@ -29,6 +32,7 @@ type Pin struct {
 	SourceCommit  string `json:"source_commit"`
 }
 
+// Validate rejects unsupported schemas, unstable versions, and malformed hashes.
 func (p Pin) Validate() error {
 	if p.SchemaVersion != 1 || !strings.HasPrefix(p.Tag, "v") || versionPattern.FindStringSubmatch(p.Tag) == nil ||
 		!regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(p.ArchiveSHA256) || !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(p.SourceCommit) {
@@ -59,6 +63,8 @@ func Compare(a, b string) (int, error) {
 	return 0, nil
 }
 
+// Status is the persisted updater notice. CheckedAt is Unix seconds.
+// Pin is retained internally and deliberately omitted by Map.
 type Status struct {
 	State     string `json:"state"`
 	Installed string `json:"installed"`
@@ -68,13 +74,20 @@ type Status struct {
 	Pin       *Pin   `json:"pin,omitempty"`
 }
 
+// Map returns a fresh UI status object without the internal release pin.
 func (s Status) Map() map[string]any {
 	return map[string]any{"state": s.State, "installed": s.Installed, "available": s.Available, "message": s.Message, "checked_at": s.CheckedAt}
 }
 
+// Source resolves the supported release pin and latest published stable tag.
+// Published must honor cancellation and must not return an unverified pin.
 type Source interface {
 	Published(context.Context) (Pin, string, error)
 }
+
+// Config describes a release installation and its private saved state.
+// Nil Source uses GitHubSource; nil Now uses time.Now. Development disables
+// release installation/checks. File locks serialize checks across processes.
 type Config struct {
 	Installed   string
 	Development bool
@@ -98,6 +111,8 @@ func (c Config) base() Status {
 	return s
 }
 
+// Status reads a validated notice or returns a safe default if it is absent
+// or corrupt. Stale worker progress becomes a retryable failure notice.
 func (c Config) Status() Status {
 	base := c.base()
 	if c.Development {
@@ -152,6 +167,7 @@ func (c Config) workerActive() bool {
 	return errors.Is(e, syscall.EWOULDBLOCK)
 }
 
+// Save atomically persists a bounded updater notice in the private state directory.
 func (c Config) Save(s Status) error { return safeio.Write(c.StatePath+"/"+statusFile, s, 16384) }
 
 // Check serializes bar and application checks. A failed automatic check preserves
@@ -224,6 +240,9 @@ func (c Config) Check(ctx context.Context, force bool) (Status, error) {
 	return s, c.Save(s)
 }
 
+// GitHubSource reads the official repository supported pin and stable release.
+// Nil Client uses a bounded client with redirects refused; injected clients
+// are responsible for equivalent timeout and redirect protections.
 type GitHubSource struct{ Client *http.Client }
 
 func (g GitHubSource) get(ctx context.Context, url string, limit int64) ([]byte, error) {
@@ -260,6 +279,7 @@ func (g GitHubSource) get(ctx context.Context, url string, limit int64) ([]byte,
 	return raw, nil
 }
 
+// Published resolves a pin whose tag is supported by a published stable release.
 func (g GitHubSource) Published(ctx context.Context) (Pin, string, error) {
 	raw, e := g.get(ctx, "https://api.github.com/repos/joega/a-weather-app/releases/latest", 1024*1024)
 	if e != nil {

@@ -26,6 +26,9 @@ const replyLimit = 32768
 const RecoveryBudget = 50 * time.Second
 const WorkerEOFGrace = 35 * time.Second
 
+// Manager owns one native effects worker and its recovery state.
+// Methods serialize worker operations with a mutex. The app effects coordinator
+// additionally controls cancellation before admission and independent heartbeats.
 type Manager struct {
 	mu                               sync.Mutex
 	root, stateDir, instance, output string
@@ -38,17 +41,24 @@ type Manager struct {
 	recover                          func(context.Context, object) error
 }
 
+// New configures a native manager without starting desktop effects.
+// root is the verified asset root; state is private state; instance and output
+// identify the compositor and connector used by subsequent checks.
 func New(root, state, instance, output string) *Manager {
 	m := &Manager{root: root, stateDir: state, instance: instance, output: output, setup: object{"status": "unchecked", "reason": "not_checked", "outputs": []any{}, "selected_output": nil}, current: object{"state": "stopped", "error": nil, "session_generation": nil, "remaining_seconds": 0, "persistent": false}}
 	m.backendFactory = func() *nativeBackend { return newBackend(root) }
 	m.recover = m.fallback
 	return m
 }
+
+// SetupSnapshot returns an independent copy of the latest compatibility result.
 func (m *Manager) SetupSnapshot() object {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return safeio.Clone(m.setup)
 }
+
+// Check verifies compositor/output compatibility without activating effects.
 func (m *Manager) Check(ctx context.Context) object {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -126,6 +136,8 @@ func (m *Manager) Check(ctx context.Context) object {
 	}
 	return safeio.Clone(m.setup)
 }
+
+// SelectOutput selects an enabled connector from the latest compatibility result.
 func (m *Manager) SelectOutput(ctx context.Context, output string) (object, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -145,6 +157,8 @@ func (m *Manager) SelectOutput(ctx context.Context, output string) (object, erro
 	}
 	return nil, errors.New("output unavailable")
 }
+
+// Status refreshes worker status and returns an independent JSON snapshot.
 func (m *Manager) Status() object {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -212,6 +226,9 @@ func (m *Manager) rpc(ctx context.Context, op string, args object) error {
 	}
 	return nil
 }
+
+// Start activates an owned effects generation after compatibility checks.
+// Persistent sessions renew finite leases; flags must satisfy controls validation.
 func (m *Manager) Start(ctx context.Context, duration int, persistent bool, flags object) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -274,6 +291,9 @@ func (m *Manager) Start(ctx context.Context, duration int, persistent bool, flag
 	}
 	return nil
 }
+
+// Tick updates the owned session and policy heartbeat from selected weather.
+// Failures trigger bounded ownership recovery before returning.
 func (m *Manager) Tick(ctx context.Context, selected, flags object) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -305,6 +325,9 @@ func (m *Manager) Tick(ctx context.Context, selected, flags object) error {
 	}
 	return nil
 }
+
+// Stop stops the owned effects generation and verifies bounded cleanup.
+// It does not unload an unrelated generation.
 func (m *Manager) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -15,7 +15,12 @@ import (
 	"github.com/joega/a-weather-app/internal/weathermap"
 )
 
+// M is an application JSON object with float64 wire numbers.
 type M = map[string]any
+
+// Effects supplies the native backend used exclusively by the effects coordinator.
+// Methods must respect cancellation; the coordinator serializes calls and
+// maintains the independent heartbeat and bounded recovery lifecycle.
 type Effects interface {
 	SetupSnapshot() M
 	Check(context.Context) M
@@ -25,6 +30,14 @@ type Effects interface {
 	Tick(context.Context, M, M) error
 	Stop(context.Context) error
 }
+
+// Options supplies immutable dependencies and runtime behavior to New.
+// Now defaults to time.Now; weather fetch and location resolution have defaults.
+// Optional callbacks may run on workers and must honor their contexts.
+// Callbacks returning JSON objects must provide compatible trees and transfer
+// ownership to App.
+// UpdateStatus returns a caller-owned snapshot and should not block.
+// Offline suppresses automatic fetches and update checks.
 type Options struct {
 	UpdateStatus     func() M
 	CheckUpdates     func(context.Context, bool) error
@@ -50,6 +63,10 @@ type completion struct {
 	country                       any
 	place                         M
 }
+
+// App serializes state mutations and exposes independent cached snapshots.
+// Use Handle, Tick, Snapshot, and Close rather than sharing its internal state.
+// The caller retains ownership of the safeio.Directory passed to New.
 type App struct {
 	mu                                    contextMutex
 	cacheMu                               sync.RWMutex
@@ -82,11 +99,15 @@ type App struct {
 	closeErr                              error
 }
 
+// DefaultControls returns a fresh controls object in the persisted JSON format.
 func DefaultControls() M {
 	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto", "wind_units": "auto"}
 }
 func stringOf(v any) string { s, _ := v.(string); return s }
 func object(v any) M        { m, _ := v.(map[string]any); return m }
+
+// PatchControls validates and merges a patch into an independent copy of old.
+// The old object must already satisfy the trusted internal JSON contract.
 func PatchControls(old, patch M) (M, error) {
 	if patch == nil {
 		return nil, errors.New("controls object")
@@ -134,6 +155,8 @@ func PatchControls(old, patch M) (M, error) {
 	}
 	return v, nil
 }
+
+// ValidateProfile checks a persisted location identity and its forecast together.
 func ValidateProfile(v M) error {
 	v1 := v["schema_version"] == float64(1) && len(v) == 5
 	v2 := v["schema_version"] == float64(2) && len(v) == 7
@@ -230,6 +253,10 @@ func readSaved(state *safeio.Directory) (location, forecast, profile M, mode str
 	}
 	return location, forecast, profile, mode, zip, err
 }
+
+// New restores bounded saved state and starts configured asynchronous work.
+// The caller closes the App before closing state. Options are copied and must
+// not be changed after construction; backend objects must outlive Close.
 func New(state *safeio.Directory, o Options) (*App, error) {
 	if o.Now == nil {
 		o.Now = time.Now
@@ -503,6 +530,9 @@ func (a *App) selected(live bool) M {
 	}
 	return v
 }
+
+// Tick advances timers and admits asynchronous weather/effects work.
+// It respects cancellation before acquiring the application mutation lock.
 func (a *App) Tick(ctx context.Context) {
 	if a.mu.LockContext(ctx) != nil {
 		return
@@ -575,7 +605,8 @@ func (a *App) snapshotLocked() M {
 	return weather.Clone(v).(M)
 }
 
-// Native commands never run while the app mutex is held. If a filesystem
+// Snapshot returns an independent JSON snapshot without running native commands
+// while the app mutex is held. If a filesystem
 // mutation is in progress, readers receive the last complete snapshot.
 func (a *App) Snapshot() M {
 	if a.mu.TryLock() {
@@ -590,6 +621,11 @@ func (a *App) Snapshot() M {
 	}
 	return weather.Clone(a.cached).(M)
 }
+
+// Handle validates a protocol request and serializes its state mutation.
+// Cancellation before admission prevents mutation. The returned bool requests
+// service shutdown; a successful response does not itself close the App.
+// Callers must not mutate request until Handle returns.
 func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
@@ -752,6 +788,10 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 	}
 	return reply, false
 }
+
+// Close cancels owned work and stops effects within CloseBudget or the caller deadline.
+// Concurrent calls wait for the same cleanup result. It does not close the
+// caller-owned state directory; native recovery may reserve independent time.
 func (a *App) Close(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, CloseBudget)
 	defer cancel()

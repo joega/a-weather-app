@@ -321,6 +321,9 @@ func (s *Server) handle(p *peer) {
 }
 
 // Serve requires the caller to hold a runtime-directory lock for this socket.
+// Serve owns the private Unix socket, bounded peer queues, and event loop.
+// It closes a on shutdown and waits for owned peer work; callers retain the
+// state directory. onReady runs after socket setup and must not block.
 func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 	if info, e := os.Lstat(path); e == nil {
 		st, ok := info.Sys().(*syscall.Stat_t)

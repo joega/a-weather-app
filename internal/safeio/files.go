@@ -12,11 +12,17 @@ import (
 	"syscall"
 )
 
+// Directory anchors private state operations to an owned, mode-0700 directory.
+// The caller owns FD and must close it after all operations and locks finish.
+// Do not modify its fields or race Close with another operation.
 type Directory struct {
 	FD   int
 	Path string
 }
 
+// OpenDir opens an absolute normalized directory without following symlinks.
+// It checks ancestor ownership/permissions and requires mode 0700 at the leaf.
+// If create is true, missing components are created with mode 0700.
 func OpenDir(path string, create bool) (*Directory, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || path == "/" {
 		return nil, errors.New("absolute normalized directory required")
@@ -65,10 +71,15 @@ func OpenDir(path string, create bool) (*Directory, error) {
 	}
 	return &Directory{fd, path}, nil
 }
+
+// Close releases the owned directory descriptor. Call it exactly once.
 func (d *Directory) Close() error { return syscall.Close(d.FD) }
 func validName(name string) bool {
 	return name != "" && name != "." && name != ".." && !strings.ContainsAny(name, "/\x00")
 }
+
+// Read returns a bounded JSON object from an owned, mode-0600 regular file.
+// A missing file returns nil, nil; links and unsafe metadata are rejected.
 func (d *Directory) Read(name string, limit int) (map[string]any, error) {
 	if !validName(name) {
 		return nil, errors.New("state name")
@@ -95,6 +106,9 @@ func (d *Directory) Read(name string, limit int) (map[string]any, error) {
 	}
 	return Object(raw, limit)
 }
+
+// Write atomically replaces a state file with bounded JSON and syncs the file
+// and directory. It replaces a destination symlink rather than following it.
 func (d *Directory) Write(name string, v any, limit int) error {
 	if !validName(name) {
 		return errors.New("state name")
@@ -132,6 +146,10 @@ func (d *Directory) Write(name string, v any, limit int) error {
 	}
 	return syscall.Fsync(d.FD)
 }
+
+// Lock acquires a nonblocking exclusive flock on an owned empty lock file,
+// creating it if absent. The caller releases the lock by closing the returned
+// file; contention returns syscall.EWOULDBLOCK.
 func (d *Directory) Lock(name string) (*os.File, error) {
 	return d.lock(name, true)
 }
@@ -165,6 +183,8 @@ func (d *Directory) lock(name string, create bool) (*os.File, error) {
 	}
 	return f, nil
 }
+
+// Read opens private state at path and applies Directory.Read protections.
 func Read(path string, limit int) (map[string]any, error) {
 	d, e := OpenDir(filepath.Dir(path), false)
 	if e != nil {
@@ -173,6 +193,8 @@ func Read(path string, limit int) (map[string]any, error) {
 	defer d.Close()
 	return d.Read(filepath.Base(path), limit)
 }
+
+// Write opens private state at path and applies Directory.Write protections.
 func Write(path string, v any, limit int) error {
 	d, e := OpenDir(filepath.Dir(path), false)
 	if e != nil {

@@ -1,3 +1,4 @@
+// Package notifications evaluates bounded precipitation forecasts and owns cancellable desktop delivery.
 package notifications
 
 import (
@@ -15,14 +16,19 @@ import (
 	"github.com/joega/a-weather-app/internal/safeio"
 )
 
+// M is a notification JSON object with float64 persisted numbers.
 type M = map[string]any
 
 const limit = 32768
 const retention = 14 * 86400
 
+// Defaults returns fresh notification settings; delivery is disabled initially.
 func Defaults() M {
 	return M{"enabled": false, "quiet_enabled": true, "quiet_start": float64(22), "quiet_end": float64(7), "probability": float64(50)}
 }
+
+// Patch validates settings changes without mutating old.
+// The old object must satisfy the trusted internal JSON contract.
 func Patch(old, patch M) (M, error) {
 	if len(patch) == 0 {
 		return nil, errors.New("empty settings")
@@ -53,6 +59,8 @@ func Patch(old, patch M) (M, error) {
 	}
 	return v, nil
 }
+
+// DefaultDocument returns fresh settings, snooze state, and delivery history.
 func DefaultDocument() M {
 	return M{"schema_version": float64(1), "settings": Defaults(), "snoozed_until": nil, "events": []any{}}
 }
@@ -63,6 +71,7 @@ func timestamp(v any) bool {
 
 var fingerprint = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
+// Validate checks a bounded persisted notification document and its settings.
 func Validate(v M) error {
 	if len(v) != 4 || v["schema_version"] != float64(1) {
 		return errors.New("notification schema")
@@ -103,6 +112,8 @@ func Validate(v M) error {
 	}
 	return nil
 }
+
+// Text removes control/markup characters and truncates to limit runes.
 func Text(s string, limit int) string {
 	out := []rune{}
 	for _, r := range s {
@@ -124,6 +135,8 @@ type interval struct {
 	hours      [][2]float64
 }
 
+// Candidate selects an upcoming precipitation interval using the location timezone.
+// Invalid or unsupported forecasts produce nil; it does not deliver notifications.
 func Candidate(forecast, location M, now time.Time, probability float64) M {
 	if forecast == nil || !reflect.DeepEqual(forecast["location"], location) {
 		return nil
@@ -141,9 +154,12 @@ func Candidate(forecast, location M, now time.Time, probability float64) M {
 	return event
 }
 
-// Sender completes asynchronously and must respect cancellation.
+// Sender is invoked on a delivery worker and must return when its context is canceled.
+// Its result determines delivery status; the Watcher serializes worker admission.
 type Sender func(context.Context, string, string) error
 
+// Send invokes notify-send with sanitized text and bounded subprocess cleanup.
+// The command inherits only the environment needed for desktop delivery.
 func Send(ctx context.Context, title, body string) error {
 	cmd := exec.CommandContext(ctx, "/usr/bin/notify-send", "--app-name=A Weather App", "--urgency=low", "--expire-time=8000", "--transient", "--hint=boolean:suppress-sound:true", "--", Text(title, 80), Text(body, 320))
 	cmd.WaitDelay = 500 * time.Millisecond
@@ -157,6 +173,8 @@ func Send(ctx context.Context, title, body string) error {
 	return cmd.Run()
 }
 
+// Watcher owns notification history, its delivery lock, and at most one worker.
+// Its owner must serialize all methods and close it before closing state.
 type Watcher struct {
 	state          *safeio.Directory
 	document       M
@@ -178,6 +196,8 @@ type Watcher struct {
 	nextEvaluation time.Time
 }
 
+// New restores private notification state and acquires delivery ownership when
+// enabled. Nil sender uses Send; invalid state is reflected in Snapshot.
 func New(state *safeio.Directory, sender Sender) *Watcher {
 	supported := true
 	if sender == nil {
@@ -216,6 +236,8 @@ func New(state *safeio.Directory, sender Sender) *Watcher {
 	}
 	return w
 }
+
+// Enabled reports whether saved settings enable notification delivery.
 func (w *Watcher) Enabled() bool { return w.document["settings"].(M)["enabled"] == true }
 func (w *Watcher) acquire() error {
 	if w.lock != nil {
@@ -249,6 +271,8 @@ func (w *Watcher) cancelDelivery() {
 		w.cancel()
 	}
 }
+
+// Configure validates and persists settings before changing delivery state.
 func (w *Watcher) Configure(patch M) error {
 	if w.closing || w.problem {
 		return errors.New("watcher unavailable")
@@ -302,6 +326,8 @@ func (w *Watcher) Configure(patch M) error {
 	}
 	return nil
 }
+
+// Snooze pauses delivery for one hour, or resumes it immediately when resume is true.
 func (w *Watcher) Snooze(now time.Time, resume bool) error {
 	if !w.Enabled() || w.closing || w.problem || w.lock == nil {
 		return errors.New("watcher unavailable")
@@ -493,9 +519,13 @@ func (w *Watcher) Interval(now time.Time) time.Duration {
 	return d
 }
 
+// Snapshot returns caller-owned settings and current delivery state.
 func (w *Watcher) Snapshot() M {
 	return M{"settings": safeio.Clone(w.document["settings"].(M)), "state": w.mode, "snoozed_until": w.document["snoozed_until"], "delivery": w.delivery, "supported": w.supported}
 }
+
+// Close cancels delivery and waits up to four seconds before releasing the lock.
+// A timeout reports unconfirmed cleanup rather than claiming delivery stopped.
 func (w *Watcher) Close() error {
 	w.closing = true
 	w.cancelDelivery()
