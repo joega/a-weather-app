@@ -20,7 +20,7 @@ test-go: lint
 lint: check-go-format $(STATICCHECK)
 	XDG_CACHE_HOME="$(CURDIR)/build/tools/cache" $(STATICCHECK) ./...
 check-go-format: $(GOIMPORTS)
-	@files="$$(find cmd internal -name '*.go' -print0 | xargs -0 $(GOIMPORTS) -l)"; \
+	@files="$$(find cmd internal -name '*.go' -print0 | xargs -0 $(GOIMPORTS) -l)" || exit $$?; \
 	if [ -n "$$files" ]; then printf 'Run goimports on these files:\n%s\n' "$$files"; exit 1; fi
 $(STATICCHECK):
 	GOBIN="$(dir $(STATICCHECK))" $(GO) install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)

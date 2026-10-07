@@ -34,6 +34,8 @@ type Transaction struct {
 
 // Installation separates platform operations from the durable transaction so
 // shutdown, activation, restart and recovery can be tested without the desktop.
+// Prepare must invoke its progress callback serially and finish all callbacks
+// before returning. A failed Prepare must not activate or stop an installation.
 type Installation interface {
 	Prepare(context.Context, Pin, func(string)) (Transaction, error)
 	Validate(Transaction) error

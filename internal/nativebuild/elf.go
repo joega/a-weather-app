@@ -37,6 +37,10 @@ func openELF(path string, limit int) (*elf.File, error) {
 	}
 	return elfsafe.NewFile(raw, limit)
 }
+
+// dyn receives only in-memory files from openELF: elfsafe has checked all
+// dynamic section extents/layout and excluded compression before DynValue reads.
+// An absent tag has no values and contributes no hardening flags.
 func dyn(file *elf.File, tag elf.DynTag) []uint64 { v, _ := file.DynValue(tag); return v }
 func flags(file *elf.File, tag elf.DynTag) uint64 {
 	var result uint64

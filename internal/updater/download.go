@@ -35,6 +35,8 @@ func (g GitHubSource) Prepare(ctx context.Context, pin Pin, parent string, progr
 	ok := false
 	defer func() {
 		if !ok {
+			// Preserve the download/verification error. This fresh private staging
+			// directory is never selected as an installed runtime on failure.
 			_ = os.RemoveAll(stage)
 		}
 	}()

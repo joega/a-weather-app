@@ -431,12 +431,17 @@ func mayStartAfterIPCError(socket string, err error) bool {
 	return ok && info.Mode()&os.ModeSocket != 0 && info.Mode().Perm() == 0600 && st.Uid == uint32(os.Geteuid()) && st.Nlink == 1
 }
 func prepareLocation(state *safeio.Directory, zip, demo string) error {
+	return prepareLocationWithResolver(state, zip, demo, weather.Resolve)
+}
+
+// resolve returns a validated location; the default retains provider restrictions.
+func prepareLocationWithResolver(state *safeio.Directory, zip, demo string, resolve func(context.Context, M) (M, error)) error {
 	var loc M
 	var e error
 	if zip != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
-		loc, e = weather.Resolve(ctx, M{"mode": "zip", "zip_code": zip})
+		loc, e = resolve(ctx, M{"mode": "zip", "zip_code": zip})
 		if e != nil {
 			return e
 		}

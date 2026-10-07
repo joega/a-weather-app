@@ -2,34 +2,15 @@ package main
 
 import (
 	"context"
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
 	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 func TestPreparedCLIZIPRetainsCountryWithoutSecondLookup(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/search" || r.URL.Query().Get("countryCode") != "US" || r.URL.Query().Get("name") != "02108" {
-			t.Error("unexpected ZIP request")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"results":[{"name":"Boston","admin1":"Massachusetts","country_code":"US","latitude":42.36,"longitude":-71.05,"timezone":"America/New_York","postcodes":["02108"]}]}`))
-	}))
-	defer server.Close()
-	transport := server.Client().Transport.(*http.Transport).Clone()
-	transport.Proxy = nil
-	transport.TLSClientConfig.ServerName = "example.com"
-	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
-	}
-	old := http.DefaultTransport
-	http.DefaultTransport = transport
-	defer func() { http.DefaultTransport = old; transport.CloseIdleConnections() }()
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0700); err != nil {
 		t.Fatal(err)
@@ -39,8 +20,22 @@ func TestPreparedCLIZIPRetainsCountryWithoutSecondLookup(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer state.Close()
-	if err = prepareLocation(state, "02108", ""); err != nil {
+	resolved := false
+	resolve := func(ctx context.Context, selection M) (M, error) {
+		if selection["mode"] != "zip" || selection["zip_code"] != "02108" {
+			t.Fatalf("unexpected CLI selection: %v", selection)
+		}
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatal("CLI resolution lacks its request deadline")
+		}
+		resolved = true
+		return weather.ParseZIP(M{"results": []any{M{"name": "Boston", "admin1": "Massachusetts", "country_code": "US", "latitude": 42.36, "longitude": -71.05, "timezone": "America/New_York", "postcodes": []any{"02108"}}}}, "02108")
+	}
+	if err = prepareLocationWithResolver(state, "02108", "", resolve); err != nil {
 		t.Fatal(err)
+	}
+	if !resolved {
+		t.Fatal("CLI skipped ZIP resolution")
 	}
 	a, err := app.New(state, app.Options{Offline: true, ResolveSelection: func(context.Context, M) (M, error) {
 		t.Fatal("repeated geocoding after guardian restart")
