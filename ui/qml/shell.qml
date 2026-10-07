@@ -147,12 +147,12 @@ QtObject {
                 }
                 PlainLabel { objectName:"forecastOutlook";visible:root.hours.length>0;Layout.fillWidth:true;text:Forecast.outlook(root.hours,root.units,root.windUnits);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 HourlyPanel { Layout.fillWidth:true;hours:root.hours;units:root.units;timezone:root.timezone;onHourSelected:hour=>details.showHour(hour) }
-                WeatherMap {id:mapSection;Layout.fillWidth:true;mapState:bridge.weatherMap;location:root.city;units:root.units;windUnits:root.windUnits;hasLocation:root.hasMapLocation;active:root.mapActive;viewportTop:forecastScroll.contentItem.contentY-(mapSection.y+18);viewportHeight:forecastScroll.height}
                 GridLayout {
                     Layout.fillWidth:true;columns:window.width<950?1:2;columnSpacing:16;rowSpacing:16
                     DailyPanel { id:daily;Layout.fillWidth:true;Layout.preferredWidth:window.width<950?window.width:window.width*0.54;days:root.days;units:root.units;onDaySelected:day=>details.showDay(day) }
                     MetricsPanel { windUnits:root.windUnits;Layout.fillWidth:true;Layout.preferredWidth:window.width*0.44;Layout.alignment:Qt.AlignTop;current:root.current;day:root.days.length?root.days[0]:null;units:root.units;timezone:root.timezone }
                 }
+                WeatherMap {id:mapSection;Layout.fillWidth:true;mapState:bridge.weatherMap;location:root.city;units:root.units;windUnits:root.windUnits;hasLocation:root.hasMapLocation;active:root.mapActive;viewportTop:forecastScroll.contentItem.contentY-(mapSection.y+18);viewportHeight:forecastScroll.height}
                 AirQualityPanel { Layout.fillWidth:true;airQuality:bridge.snapshot?bridge.snapshot.air_quality:Forecast.airQuality() }
                 PlainLabel { objectName:"sourceAttribution";Layout.fillWidth:true;horizontalAlignment:Text.AlignRight;text:bridge.snapshot?bridge.snapshot.source.attribution+(bridge.snapshot.alerts.source?" · Alerts: "+bridge.snapshot.alerts.source:""):"Forecast: Open-Meteo";color:Tokens.secondary;font.pixelSize:11;wrapMode:Text.Wrap;elide:Text.ElideNone }
                 Item { Layout.preferredHeight:24 }

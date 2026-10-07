@@ -317,6 +317,7 @@ private slots:
         root->setProperty("effectsOpen",false);
         auto *scroll=root->findChild<QObject*>("forecastScroll");QVERIFY(scroll);
         auto *flick=scroll->property("contentItem").value<QObject*>();QVERIFY(flick);
+        QTest::qWait(100); // Let the snapshot and forecast sections settle before scrolling to the maps.
         flick->setProperty("contentY",panel->property("y").toReal()+40);
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine,root,"backend.mapWanted").toBool(),3000);
         QCOMPARE(transport.requests.size(),1);QCOMPARE(transport.requests.last()["op"].toString(),QString("map_open"));
