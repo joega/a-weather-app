@@ -53,12 +53,65 @@ It does not install packages, change shell configuration, or start desktop effec
 The native window uses Omarchy's Qt 6, GTK4, gtk4-layer-shell, JSON-GLib,
 libepoxy, Mesa, and Hyprland libraries; notifications use `notify-send`.
 
-To update, stop desktop effects and quit the app, then run
-`omarchy plugin update a-weather-app.weather` and rerun the setup script. Each
-plugin update carries the exact version and digest of its supported runtime.
-The installer keeps previous runtime versions for rollback. The plugin checkout
-stays unmodified, so Omarchy can fast-forward it. Run `omarchy restart shell`
-after updating the plugin so the bar creates a widget from the new QML code.
+After the first updater-enabled release is installed, use **Update and restart**
+in the app or bar. Routine updates need no GitHub visit, terminal command, or
+administrator password.
+
+## Updates
+
+The app checks published stable GitHub releases automatically once per day while
+the app or bar widget is running. They share the saved check deadline; keeping
+only the bar open is enough. Automatic checks stay quiet when offline and retain
+the last useful notice. Nothing is downloaded or installed until you choose to
+update. Open **Settings → Application → Check for updates** for a manual check.
+Right-click the weather widget to open its update panel, or click its update
+notice. The panel also has **Open forecast**.
+
+An available-update notice shows both the installed and available versions.
+Choose **Update and restart** to download and verify the release, stop owned
+desktop effects, close the app, refresh the bar, and open the new app. The app
+shows progress and the newly running version after startup is verified. Saved
+settings, location, units and bar placement are retained. Effects are stopped
+during the update; choose **Live desktop** again when you want them running.
+
+The updater uses the reviewed repository release pin, archive checksum and
+runtime inventory. During the interval between GitHub publication and a pin
+update, it waits for the supported pin instead of installing an unpinned build.
+For Omarchy installations, it fast-forwards only this plugin's official, clean
+main checkout and checks that its pin matches the runtime being installed.
+Linked development plugins, custom branches and local edits are preserved;
+resolve those changes locally before retrying an update.
+
+A separate helper survives app shutdown and bar reloads. Updates are serialized,
+previous runtime versions are retained, and failed startup restores the previous
+runtime. Reopening the app after an interrupted transaction starts recovery.
+Failures show a retry or recovery message. If plugin edits prevent its rollback,
+the edits are retained and the previous runtime reopens with a message asking you
+to review the plugin.
+
+Standalone pristine release bundles are copied into
+`$XDG_DATA_HOME/a-weather-app/releases` (or
+`~/.local/share/a-weather-app/releases`) on their first update. The original
+download is retained. Generated application-menu launchers and default command
+symlinks that point to the exact previous executable follow the managed
+`current` selector after an update or rollback. Custom launcher files and
+commands are preserved.
+
+### One-time bootstrap for existing installations
+
+These controls become available with the first release containing this updater.
+Earlier binaries cannot acquire new update controls just by being reopened.
+For an existing Omarchy installation, update **a-weather-app.weather** through
+Omarchy once after that release is published. The updated bar shows a notice
+when its supported runtime is newer than your installed runtime. Click
+**Update and restart** there: it stages a verified new helper while leaving the
+old app running, then performs the normal update and restart. This also handles
+users who already updated the plugin but still have an older native runtime.
+
+For an older standalone installation, install the first updater-enabled release
+once using the verified download procedure below. Subsequent releases use the
+in-app controls. Source development builds continue to use local builds and do
+not contact the release service or update themselves.
 
 ## Build and install manually
 
@@ -322,6 +375,12 @@ available in saved offline forecasts. Older caches show `—` until refreshed.
 Private settings, locations, forecasts and bounded notification reservations
 live in `$XDG_STATE_HOME/a-weather-app`, or `~/.local/state/a-weather-app`.
 The app does not store notification body history; your desktop daemon may.
+Daily release checks contact GitHub's release API and the repository release pin.
+They send no weather location or saved settings. Downloads contact GitHub release
+asset servers only when you choose to update. Private update state includes
+`update-status.json`, `update-transaction.json`, and empty lock files in the
+configured state directory. Runtime versions, staging directories and the
+installation lock live under the managed data directory.
 Location profiles use schema 2. Schema-1 profiles and older separate location
 and forecast files remain readable; a profile upgrades after a successful saved
 forecast. Before upgrading a schema-1 profile, the app keeps
