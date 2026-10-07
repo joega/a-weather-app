@@ -85,11 +85,16 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RELEASE_DIRECTORY"
+          notes_file="$GITHUB_WORKSPACE/packaging/releases/v${RELEASE_VERSION}.md"
+          notes_args=(--notes "Linux x86_64 package for Omarchy. Verify the archive with SHA256SUMS before extracting.")
+          if [[ -f "$notes_file" ]]; then
+            notes_args=(--notes-file "$notes_file")
+          fi
           gh release create "v${RELEASE_VERSION}" \
             "$RELEASE_ARCHIVE" SHA256SUMS go-runtime.json \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "v${RELEASE_VERSION}" --latest --generate-notes \
-            --notes "Linux x86_64 package for Omarchy. Verify the archive with SHA256SUMS before extracting."
+            "${notes_args[@]}"
       - name: Pin the published runtime for plugin installs
         shell: bash
         env:

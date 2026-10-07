@@ -12,6 +12,7 @@ weather effects across your Hyprland desktop. Designed for Omarchy.
 - Official US weather alerts with individual instructions and expiry times.
 - Worldwide city search, saved US ZIP locations and optional approximate local detection.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
+- Daily update checks and one-click verified updates from the app or weather bar.
 - Optional desktop rain, runoff and pooling; snow accumulation and melting.
 
 ## Screenshots
@@ -53,7 +54,7 @@ It does not install packages, change shell configuration, or start desktop effec
 The native window uses Omarchy's Qt 6, GTK4, gtk4-layer-shell, JSON-GLib,
 libepoxy, Mesa, and Hyprland libraries; notifications use `notify-send`.
 
-After the first updater-enabled release is installed, use **Update and restart**
+Version **0.60.0** introduces in-app updates. Once it is installed, use **Update and restart**
 in the app or bar. Routine updates need no GitHub visit, terminal command, or
 administrator password.
 
@@ -99,19 +100,54 @@ commands are preserved.
 
 ### One-time bootstrap for existing installations
 
-These controls become available with the first release containing this updater.
-Earlier binaries cannot acquire new update controls just by being reopened.
-For an existing Omarchy installation, update **a-weather-app.weather** through
-Omarchy once after that release is published. The updated bar shows a notice
-when its supported runtime is newer than your installed runtime. Click
-**Update and restart** there: it stages a verified new helper while leaving the
-old app running, then performs the normal update and restart. This also handles
-users who already updated the plugin but still have an older native runtime.
+**Upgrading from 0.51.x or earlier:** reopening the old app does not upgrade it.
+Existing users need this one-time step to reach **0.60.0 or newer**.
 
-For an older standalone installation, install the first updater-enabled release
-once using the verified download procedure below. Subsequent releases use the
-in-app controls. Source development builds continue to use local builds and do
-not contact the release service or update themselves.
+For an existing Omarchy plugin installation:
+
+1. Update this plugin through Omarchy's plugin interface, or run:
+
+   ```sh
+   omarchy plugin update a-weather-app.weather
+   ```
+
+2. Right-click the weather widget. It shows your installed version and the
+   supported newer version. Click **Update and restart** in that panel.
+3. Wait for the forecast window to reopen. Under **Settings → Application**,
+   confirm that the installed version is **0.60.0 or newer**.
+
+The updated bar can stage a verified helper even when the old app has no update
+controls. It then stops the old app, installs the supported runtime, refreshes
+the bar, and reopens the new app with your saved location and settings. If you
+already updated the plugin but still have an older runtime, start at step 2.
+The new bar handles this first migration.
+
+If you previously set the widget's **projectPath** directly to an extracted
+runtime directory, change that setting to the installed plugin folder
+(`~/.config/omarchy/plugins/a-weather-app.weather`). This lets the new plugin
+launcher handle the older binary. Keep your existing state directory and bar
+placement.
+
+If the widget still shows **Install weather app**, complete the initial runtime
+installation using the command in [Install on Omarchy](#install-on-omarchy),
+then click the widget. If publication is still finishing, wait for the repository
+release pin to advance and update the plugin again. Do not bypass checksum or
+pin verification. The plugin must be an official, clean main checkout; linked
+development checkouts and local edits are preserved and need a local build or
+manual review.
+
+For an older standalone installation, stop **Live desktop** and quit the old
+app. Download and verify **0.60.0 or newer** using the procedure below, extract it
+into a new directory, and run that directory's compiled `./a-weather-app`.
+Keep the previous directory and your saved data. If you use a launcher pointing
+to the old directory, update that exact launcher to the new executable; simply
+reopening the old shortcut will still open the old version. The optional
+application-menu launcher is available under **Settings → Application**.
+
+After this migration, daily notices and **Update and restart** handle subsequent
+published releases without terminal commands. Source development builds
+continue to use local builds and do not contact the release service or update
+themselves.
 
 ## Build and install manually
 
@@ -122,9 +158,10 @@ Each release has a versioned `a-weather-app-v0.MINOR.PATCH-linux-x86_64.tar`, a
 `SHA256SUMS` file, and `go-runtime.json` with the source commit and build details.
 Check the archive against both the committed digest and `SHA256SUMS` before
 extracting it. Releases begin at
-`v0.50.0`; each successful build of a new main commit advances the patch version
-(`v0.51.1`, `v0.51.2`, and so on). A feature release starts a new minor series
-by changing `packaging/release-series.txt` (for example, `0.52` produces `v0.52.0`).
+`v0.50.0`; **v0.60.0** starts the self-updating release series. Each successful
+build of a new main commit advances the patch version (`v0.60.1`, `v0.60.2`,
+and so on). A feature release starts a new minor series by changing
+`packaging/release-series.txt`.
 The release marked **Latest** normally matches the plugin's pinned version;
 the pin remains the authority if a newer build is still being published.
 Run `sha256sum --check SHA256SUMS` beside the downloaded archive, then compare
