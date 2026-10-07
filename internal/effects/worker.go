@@ -7,12 +7,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 // RunWorker is an internal dispatch target. Its private input pipe is the sole

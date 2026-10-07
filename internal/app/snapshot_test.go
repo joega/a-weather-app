@@ -3,15 +3,16 @@ package app
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/ipc"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/weather"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"github.com/joega/a-weather-app/internal/ipc"
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 func appFixture(now time.Time) M {

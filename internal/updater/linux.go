@@ -317,9 +317,11 @@ func (l *LinuxInstallation) Stop(ctx context.Context, t Transaction) error {
 	if e := l.Validate(t); e != nil {
 		return e
 	}
-	if _, e := os.Lstat(l.Socket); errors.Is(e, os.ErrNotExist) {
+	_, e := os.Lstat(l.Socket)
+	if errors.Is(e, os.ErrNotExist) {
 		return nil
-	} else if e != nil {
+	}
+	if e != nil {
 		return e
 	}
 	reply, e := ipc.CallVerified(ctx, l.Socket, map[string]any{"op": "quit"}, func(pid int) error {

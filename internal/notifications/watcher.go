@@ -3,7 +3,6 @@ package notifications
 import (
 	"context"
 	"errors"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"math"
 	"os"
 	"os/exec"
@@ -12,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 type M = map[string]any

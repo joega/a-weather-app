@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 const LocalURL = "https://ipwho.is/?fields=success,city,region,region_code,country_code,latitude,longitude,timezone.id"

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"io"
 	"math"
 	"os"
@@ -18,6 +17,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 // The service may spend 70s closing effects, 2s flushing terminal events, and

@@ -181,7 +181,7 @@ func extract(archive, destination string) error {
 			if e = os.MkdirAll(file, 0700); e != nil {
 				return e
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg, 0: // NUL is the legacy regular-file type; preserve archive compatibility.
 			if h.Size < 0 || h.Size > release.MaxArtifact {
 				return errors.New("archive file exceeds bound")
 			}

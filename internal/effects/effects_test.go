@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/supervision"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +14,9 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/supervision"
 )
 
 type fakeNative struct {

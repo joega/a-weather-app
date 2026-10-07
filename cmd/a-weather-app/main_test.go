@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/joega/a-weather-app/internal/safeio"
 	"net"
 	"os"
 	"path/filepath"
@@ -9,6 +8,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 func TestBootstrapRequiresPackagedWorker(t *testing.T) {

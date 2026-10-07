@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/joega/a-weather-app/internal/ipc"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"net"
 	"os"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/ipc"
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 const peerQueueLimit = 4

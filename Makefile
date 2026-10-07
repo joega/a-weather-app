@@ -1,17 +1,31 @@
 GO ?= go
 APP_MODE ?= development
 APP_VERSION ?= 0.60.0
-.PHONY: all go qt test native shaders native-tools
+STATICCHECK_VERSION := v0.8.1
+GOIMPORTS_VERSION := v0.44.0
+STATICCHECK := $(CURDIR)/build/tools/staticcheck-$(STATICCHECK_VERSION)/staticcheck
+GOIMPORTS := $(CURDIR)/build/tools/goimports-$(GOIMPORTS_VERSION)/goimports
+.PHONY: all go qt test test-go lint check-go-format native shaders native-tools
 all: go qt
 go:
 	mkdir -p build
 	CGO_ENABLED=1 $(GO) build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid= -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-z,noexecstack -X main.buildMode=$(APP_MODE) -X main.appVersion=$(APP_VERSION)' -o build/a-weather-app ./cmd/a-weather-app
 qt:
 	$(MAKE) -C native/qt
-test:
+test: test-go
+	$(MAKE) -C native/qt test
+test-go: lint
 	$(GO) test -race ./...
 	$(GO) vet ./...
-	$(MAKE) -C native/qt test
+lint: check-go-format $(STATICCHECK)
+	XDG_CACHE_HOME="$(CURDIR)/build/tools/cache" $(STATICCHECK) ./...
+check-go-format: $(GOIMPORTS)
+	@files="$$(find cmd internal -name '*.go' -print0 | xargs -0 $(GOIMPORTS) -l)"; \
+	if [ -n "$$files" ]; then printf 'Run goimports on these files:\n%s\n' "$$files"; exit 1; fi
+$(STATICCHECK):
+	GOBIN="$(dir $(STATICCHECK))" $(GO) install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+$(GOIMPORTS):
+	GOBIN="$(dir $(GOIMPORTS))" $(GO) install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
 # Development preparation only; these targets never install host packages.
 native: native-tools
 	$(MAKE) -B -C native/frame-alignment

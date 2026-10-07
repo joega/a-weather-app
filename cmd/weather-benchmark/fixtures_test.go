@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/joega/a-weather-app/internal/safeio"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 func TestPrivateFixtureFreshnessBothClocksAndNoMutation(t *testing.T) {

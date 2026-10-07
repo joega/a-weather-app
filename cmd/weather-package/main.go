@@ -6,9 +6,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/buildmeta"
 	"os"
 	"path/filepath"
+
+	"github.com/joega/a-weather-app/internal/buildmeta"
 )
 
 func run(args []string) error {

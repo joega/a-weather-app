@@ -4,14 +4,15 @@ package app
 import (
 	"context"
 	"errors"
-	"github.com/joega/a-weather-app/internal/notifications"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/weather"
-	"github.com/joega/a-weather-app/internal/weathermap"
 	"math"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/notifications"
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
+	"github.com/joega/a-weather-app/internal/weathermap"
 )
 
 type M = map[string]any
@@ -180,22 +181,22 @@ func ValidateProfile(v M) error {
 func readSaved(state *safeio.Directory) (location, forecast, profile M, mode string, zip any, err error) {
 	profile, err = state.Read("location-profile.json", weather.MaxBytes)
 	if err != nil {
-		return
+		return location, forecast, profile, mode, zip, err
 	}
 	if profile != nil {
 		err = ValidateProfile(profile)
 		if err != nil {
-			return
+			return location, forecast, profile, mode, zip, err
 		}
 		location = object(profile["location"])
 		forecast = object(profile["forecast"])
 		mode = stringOf(profile["mode"])
 		zip = profile["zip_code"]
-		return
+		return location, forecast, profile, mode, zip, err
 	}
 	location, err = state.Read("location.json", 8192)
 	if err != nil {
-		return
+		return location, forecast, profile, mode, zip, err
 	}
 	mode = "default"
 	if location == nil {
@@ -204,30 +205,30 @@ func readSaved(state *safeio.Directory) (location, forecast, profile M, mode str
 		mode = "custom"
 		location, err = weather.ValidateLocation(location)
 		if err != nil {
-			return
+			return location, forecast, profile, mode, zip, err
 		}
 	}
 	var identity M
 	identity, err = readZIPIdentity(state, location)
 	if err != nil {
-		return
+		return location, forecast, profile, mode, zip, err
 	}
 	if identity != nil {
 		mode, zip = "zip", identity["zip_code"]
 	}
 	forecast, err = state.Read("forecast.json", weather.MaxBytes)
 	if err != nil {
-		return
+		return location, forecast, profile, mode, zip, err
 	}
 	if forecast != nil {
 		if mode == "default" && !reflect.DeepEqual(forecast["location"], location) {
 			err = weather.ValidateSnapshot(forecast, object(forecast["location"]))
 			forecast = nil
-			return
+			return location, forecast, profile, mode, zip, err
 		}
 		err = weather.ValidateSnapshot(forecast, location)
 	}
-	return
+	return location, forecast, profile, mode, zip, err
 }
 func New(state *safeio.Directory, o Options) (*App, error) {
 	if o.Now == nil {

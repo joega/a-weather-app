@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 func publicDirectory(path string) (int, error) {

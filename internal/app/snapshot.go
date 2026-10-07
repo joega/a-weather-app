@@ -2,12 +2,13 @@ package app
 
 import (
 	"encoding/json"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/weather"
 	"reflect"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 // Leave room for the protocol reply/event envelope below its 256 KiB limit.

@@ -19,7 +19,7 @@ func main() {
 }
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: weather-native-check shaders|shader-header|translate-qt|hardening|symbols|inputs ...")
+		return errors.New("usage: weather-native-check shaders|shader-header|translate-qt|hardening|symbols|inputs")
 	}
 	switch args[0] {
 	case "shaders":

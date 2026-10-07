@@ -3,9 +3,10 @@ package app
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
-	"time"
 )
 
 // BarRefreshDue avoids network access for a fresh forecast or an installation

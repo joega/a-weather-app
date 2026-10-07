@@ -2,9 +2,10 @@ package app
 
 import (
 	"context"
-	"github.com/joega/a-weather-app/internal/weather"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 func TestBarRefreshRequiresSavedLocationAndThrottles(t *testing.T) {

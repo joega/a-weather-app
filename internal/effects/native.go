@@ -7,9 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/elfsafe"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/supervision"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,6 +15,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/elfsafe"
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/supervision"
 )
 
 const pluginRelative = "native/frame-alignment/a-weather-app-frame-alignment.so"

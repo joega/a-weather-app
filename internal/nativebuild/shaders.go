@@ -237,7 +237,7 @@ func Shaders(root string) error {
 		return err
 	}
 	if !bytes.Equal(translated, current) {
-		return errors.New("Qt shader source is stale; use translate-qt to regenerate")
+		return errors.New("shader source is stale; use translate-qt to regenerate")
 	}
 	directory, err := ownedDirectory(filepath.Join(root, "ui/shaders"))
 	if err != nil {

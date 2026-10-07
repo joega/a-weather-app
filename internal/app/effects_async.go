@@ -3,10 +3,11 @@ package app
 import (
 	"context"
 	"errors"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 // CloseBudget includes notification cancellation (4s), effects Stop admission

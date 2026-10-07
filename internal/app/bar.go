@@ -2,11 +2,12 @@ package app
 
 import (
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/weather"
 	"math"
 	"strings"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 var friendlyConditions = map[string]string{"clear": "Clear", "partly_cloudy": "Partly cloudy", "cloudy": "Cloudy", "fog": "Fog", "drizzle": "Drizzle", "rain": "Rain", "snow": "Snow", "sleet": "Sleet", "thunderstorm": "Thunderstorm", "unknown": "Unavailable"}

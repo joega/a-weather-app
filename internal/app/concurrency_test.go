@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"github.com/joega/a-weather-app/internal/ipc"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/weather"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,6 +13,10 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/ipc"
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 type coordinatedEffects struct {

@@ -7,13 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
-	"github.com/joega/a-weather-app/internal/supervision"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/supervision"
 )
 
 const requestLimit = 8192

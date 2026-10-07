@@ -2,8 +2,9 @@ package main
 
 import (
 	"errors"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 // Freshness uses both timestamps. Refresh only this deep private fixture so

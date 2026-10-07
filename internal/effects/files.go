@@ -3,7 +3,6 @@ package effects
 import (
 	"errors"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 func openDirectory(path string) (int, error) {

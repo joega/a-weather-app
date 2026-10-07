@@ -6,11 +6,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"net"
 	"os"
 	"syscall"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 const RequestLimit = 8192

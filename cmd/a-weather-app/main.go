@@ -7,6 +7,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"regexp"
+	"syscall"
+	"time"
+
 	"github.com/joega/a-weather-app/internal/airquality"
 	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/effects"
@@ -17,12 +24,6 @@ import (
 	"github.com/joega/a-weather-app/internal/updater"
 	"github.com/joega/a-weather-app/internal/weather"
 	"github.com/joega/a-weather-app/internal/weathermap"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"regexp"
-	"syscall"
-	"time"
 )
 
 type M = map[string]any
@@ -544,9 +545,11 @@ func prepareLocation(state *safeio.Directory, zip, demo string) error {
 	} else {
 		loc = M{"name": "Boston, MA", "latitude": 42.3601, "longitude": -71.0589, "timezone": "America/New_York"}
 	}
-	if profile, e := state.Read("location-profile.json", weather.MaxBytes); e != nil {
+	profile, e := state.Read("location-profile.json", weather.MaxBytes)
+	if e != nil {
 		return e
-	} else if profile != nil {
+	}
+	if profile != nil {
 		if e = app.ValidateProfile(profile); e != nil {
 			return e
 		}
@@ -557,18 +560,22 @@ func prepareLocation(state *safeio.Directory, zip, demo string) error {
 		}
 		return nil
 	}
-	if old, e := state.Read("location.json", 8192); e != nil {
+	old, e := state.Read("location.json", 8192)
+	if e != nil {
 		return e
-	} else if old != nil {
+	}
+	if old != nil {
 		b, _ := json.Marshal(old)
 		c, _ := json.Marshal(loc)
 		if string(b) != string(c) {
 			return errors.New("state belongs to another location")
 		}
 	}
-	if cached, e := state.Read("forecast.json", weather.MaxBytes); e != nil {
+	cached, e := state.Read("forecast.json", weather.MaxBytes)
+	if e != nil {
 		return e
-	} else if cached != nil {
+	}
+	if cached != nil {
 		if e = weather.ValidateSnapshot(cached, loc); e != nil {
 			return e
 		}

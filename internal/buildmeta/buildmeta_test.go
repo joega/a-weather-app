@@ -3,14 +3,15 @@ package buildmeta
 import (
 	"context"
 	"encoding/json"
-	"github.com/joega/a-weather-app/internal/release"
-	"github.com/joega/a-weather-app/internal/safeio"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/joega/a-weather-app/internal/release"
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 func fixture(t *testing.T) (string, string, Metadata) {

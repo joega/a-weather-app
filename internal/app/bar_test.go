@@ -2,10 +2,11 @@ package app
 
 import (
 	"context"
-	"github.com/joega/a-weather-app/internal/weather"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 func TestBarFollowsSavedTemperatureUnits(t *testing.T) {

@@ -54,7 +54,7 @@ func fixtureReleaseProxy(t *testing.T, root string, source GitHubSource, pin Pin
 	var connections sync.Map
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodConnect {
-			http.Error(w, "fixture only", 503)
+			http.Error(w, "fixture only", http.StatusServiceUnavailable)
 			return
 		}
 		raw, buffer, e := w.(http.Hijacker).Hijack()

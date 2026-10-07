@@ -44,6 +44,7 @@ for copy in first second; do
     go build -o build/weather-native-check ./cmd/weather-native-check
     go build -o build/weather-package ./cmd/weather-package
     if [[ "$copy" == first ]]; then
+      make lint
       go test -race ./...
       go vet ./...
       make -C native/qt test

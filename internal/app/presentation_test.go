@@ -2,10 +2,11 @@ package app
 
 import (
 	"bufio"
-	"github.com/joega/a-weather-app/internal/ipc"
-	"github.com/joega/a-weather-app/internal/weather"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/ipc"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 func TestPresentationSubscriptionAndRestore(t *testing.T) {
