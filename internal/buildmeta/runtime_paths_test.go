@@ -55,6 +55,42 @@ fi
 	}
 }
 
+func TestRuntimePrepareOnlyPreservesRunningSelection(t *testing.T) {
+	for _, corrupt := range []bool{false, true} {
+		t.Run(map[bool]string{false: "verified", true: "bad_checksum"}[corrupt], func(t *testing.T) {
+			f := newRuntimePathFixture(t)
+			old := filepath.Join(f.app, "releases/v0.50.0")
+			writeRuntimeFixture(t, filepath.Join(old, "saved-marker"), []byte("retain old installation"), 0600)
+			if e := os.Symlink("releases/v0.50.0", filepath.Join(f.app, "current")); e != nil {
+				t.Fatal(e)
+			}
+			if corrupt {
+				writeRuntimeFixture(t, filepath.Join(f.downloads, "a-weather-app-v0.1.0-linux-x86_64.tar"), []byte("corrupt download"), 0600)
+			}
+			output, e := f.run(t, "scripts/install_release_runtime.sh", "--prepare-only")
+			if (e != nil) != corrupt {
+				t.Fatal("unexpected preparation result", e, string(output))
+			}
+			selection, e := os.Readlink(filepath.Join(f.app, "current"))
+			if e != nil || selection != "releases/v0.50.0" {
+				t.Fatal("preparation changed current runtime", selection, e)
+			}
+			raw, e := os.ReadFile(filepath.Join(old, "saved-marker"))
+			if e != nil || string(raw) != "retain old installation" {
+				t.Fatal("old installation changed", e)
+			}
+			if !corrupt {
+				if !strings.Contains(string(output), "Prepared v0.1.0") {
+					t.Fatal(string(output))
+				}
+				if _, e := os.Stat(filepath.Join(f.app, "releases/v0.1.0/a-weather-app")); e != nil {
+					t.Fatal("verified helper was not staged", e)
+				}
+			}
+		})
+	}
+}
+
 func newRuntimePathFixture(t *testing.T) runtimePathFixture {
 	t.Helper()
 	// All fixtures and download stubs are private, disposable, and offline.
@@ -65,7 +101,7 @@ func newRuntimePathFixture(t *testing.T) runtimePathFixture {
 	t.Cleanup(func() { os.RemoveAll(root) })
 	f := runtimePathFixture{root: root, source: filepath.Join(root, "source"), data: filepath.Join(root, "data"), downloads: filepath.Join(root, "downloads"), marker: filepath.Join(root, "download-called")}
 	f.app = filepath.Join(f.data, "a-weather-app")
-	for _, name := range []string{"a-weather-app", "scripts/install_release_runtime.sh", "scripts/runtime_paths.sh"} {
+	for _, name := range []string{"a-weather-app", "scripts/install_release_runtime.sh", "scripts/runtime_paths.sh", "scripts/bootstrap_update.sh"} {
 		raw, err := os.ReadFile(filepath.Join("../..", name))
 		if err != nil {
 			t.Fatal(err)
@@ -120,6 +156,84 @@ cp -- "$WEATHER_TEST_DOWNLOADS/${url##*/}" "$output"
 	}
 	writeRuntimeFixture(t, filepath.Join(f.source, "packaging/release-lock.json"), pin, 0600)
 	return f
+}
+
+func TestOldRuntimeLauncherBootstrapsDetachedVerifiedHelper(t *testing.T) {
+	f := newRuntimePathFixture(t)
+	config := filepath.Join(f.root, "config")
+	plugin := filepath.Join(config, "omarchy/plugins/a-weather-app.weather")
+	if e := os.MkdirAll(filepath.Dir(plugin), 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.Rename(f.source, plugin); e != nil {
+		t.Fatal(e)
+	}
+	f.source = plugin
+	t.Setenv("XDG_CONFIG_HOME", config)
+	oldBinary := []byte("#!/usr/bin/bash\nprintf 'old runtime help\\n'\n")
+	writeRuntimeFixture(t, filepath.Join(f.app, "releases/v0.50.0/a-weather-app"), oldBinary, 0700)
+	if e := os.Symlink("releases/v0.50.0", filepath.Join(f.app, "current")); e != nil {
+		t.Fatal(e)
+	}
+	// The downloaded helper waits until the launcher has exited, proving it
+	// survives that boundary. Every modified fixture byte is pinned anew.
+	binary := []byte(`#!/usr/bin/bash
+set -euo pipefail
+if [[ ${1:-} == --help ]]; then printf '%s\n' '-bootstrap-update'; exit 0; fi
+while [[ ! -e "$WEATHER_TEST_DOWNLOAD_MARKER.gate" ]]; do sleep 0.02; done
+printf '%s\n' "$@" > "$WEATHER_TEST_DOWNLOAD_MARKER.bootstrap"
+`)
+	runtime := filepath.Join(f.root, "runtime")
+	writeRuntimeFixture(t, filepath.Join(runtime, "a-weather-app"), binary, 0700)
+	raw, e := os.ReadFile(filepath.Join(runtime, "packaging/runtime.json"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	var metadata map[string]any
+	if e = json.Unmarshal(raw, &metadata); e != nil {
+		t.Fatal(e)
+	}
+	metadata["artifacts"].(map[string]any)["a-weather-app"].(map[string]any)["sha256"] = fmt.Sprintf("%x", sha256.Sum256(binary))
+	raw, e = json.Marshal(metadata)
+	if e != nil {
+		t.Fatal(e)
+	}
+	writeRuntimeFixture(t, filepath.Join(runtime, "packaging/runtime.json"), raw, 0600)
+	writeRuntimeFixture(t, filepath.Join(f.downloads, "go-runtime.json"), raw, 0600)
+	archiveName := "a-weather-app-v0.1.0-linux-x86_64.tar"
+	archive := filepath.Join(f.downloads, archiveName)
+	if out, e := exec.Command("tar", "-C", runtime, "-cf", archive, ".").CombinedOutput(); e != nil {
+		t.Fatal(e, string(out))
+	}
+	raw, e = os.ReadFile(archive)
+	if e != nil {
+		t.Fatal(e)
+	}
+	hash := fmt.Sprintf("%x", sha256.Sum256(raw))
+	writeRuntimeFixture(t, filepath.Join(f.downloads, "SHA256SUMS"), []byte(hash+"  "+archiveName+"\n"), 0600)
+	pin, _ := json.Marshal(map[string]any{"schemaVersion": 1, "tag": "v0.1.0", "source_commit": strings.Repeat("a", 40), "archive_sha256": hash})
+	writeRuntimeFixture(t, filepath.Join(f.source, "packaging/release-lock.json"), pin, 0600)
+	state := filepath.Join(f.root, "state")
+	output, e := f.run(t, "a-weather-app", "--state-dir", state, "--install-update")
+	if e != nil || !strings.Contains(string(output), "Update helper started") {
+		t.Fatal(e, string(output))
+	}
+	if got, e := os.Readlink(filepath.Join(f.app, "current")); e != nil || got != "releases/v0.50.0" {
+		t.Fatal("bootstrap closed or replaced old runtime prematurely", got, e)
+	}
+	writeRuntimeFixture(t, f.marker+".gate", []byte("launcher exited"), 0600)
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		raw, e := os.ReadFile(f.marker + ".bootstrap")
+		if e == nil {
+			if string(raw) != "--update-worker\n--bootstrap-update\n--state-dir\n"+state+"\n" {
+				t.Fatal("wrong detached helper arguments", string(raw))
+			}
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("staged helper did not survive launcher shutdown")
 }
 
 func (f runtimePathFixture) run(t *testing.T, script string, args ...string) ([]byte, error) {

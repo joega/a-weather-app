@@ -118,6 +118,7 @@ func launch(args []string) error {
 	forceUpdateCheck := fs.Bool("force-update-check", false, "check even if checked today")
 	installUpdate := fs.Bool("install-update", false, "install the available release and restart")
 	updateWorker := fs.Bool("update-worker", false, "internal detached update worker")
+	bootstrapUpdate := fs.Bool("bootstrap-update", false, "internal staged updater for older runtimes")
 	recoverUpdates := fs.Bool("recover-updates", false, "internal interrupted-update recovery")
 	service := fs.Bool("service", false, "internal service mode")
 	headless := fs.Bool("headless", false, "service without a window for testing")
@@ -136,6 +137,9 @@ func launch(args []string) error {
 	}
 	if fs.NArg() != 0 {
 		return errors.New("unexpected arguments")
+	}
+	if *bootstrapUpdate && (!*updateWorker || buildMode == "development") {
+		return errors.New("bootstrap requires a packaged update worker")
 	}
 	if *version {
 		fmt.Println("A Weather App " + appVersion)
@@ -246,8 +250,26 @@ func launch(args []string) error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
+		if *bootstrapUpdate {
+			updates, e = installation.Bootstrap()
+			if e != nil {
+				return e
+			}
+			engine.Config = updates
+		}
 		if *recoverUpdates {
 			return engine.Recover(ctx)
+		}
+		if *bootstrapUpdate {
+			// Never install merely because a plugin contains a pin. Confirm that
+			// it is supported by the currently published stable release first.
+			var status updater.Status
+			if status, e = updates.Check(ctx, true); e != nil {
+				return e
+			}
+			if status.State != "available" {
+				return errors.New("no newer verified release is ready to install; check for updates again later")
+			}
 		}
 		return engine.Run(ctx)
 	}

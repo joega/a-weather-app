@@ -2,12 +2,12 @@
 # Explicit, unprivileged setup for the native runtime used by the Omarchy bar plugin.
 set -euo pipefail
 umask 077
-if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --help ]]; }; then
-  printf 'Usage: bash scripts/install_release_runtime.sh\n' >&2
+if (( $# > 1 )) || { (( $# == 1 )) && [[ $1 != --help && $1 != --prepare-only ]]; }; then
+  printf 'Usage: bash scripts/install_release_runtime.sh [--prepare-only]\n' >&2
   exit 2
 fi
 if [[ ${1:-} == --help ]]; then
-  printf 'Usage: bash scripts/install_release_runtime.sh\n'
+  printf 'Usage: bash scripts/install_release_runtime.sh [--prepare-only]\n'
   exit 0
 fi
 for tool in curl jq sha256sum tar flock stat; do
@@ -131,6 +131,13 @@ if [[ -e $target || -L $target ]]; then
   fi
 else
   mv -- "$temporary/runtime" "$target"
+fi
+# A bootstrap helper must be verified before closing the old application. This
+# mode deliberately leaves the runtime selector unchanged; the detached worker
+# owns shutdown, switching, restart and recovery.
+if [[ ${1:-} == --prepare-only ]]; then
+  printf 'Prepared %s at %s/releases/%s\n' "$release_tag" "$app_root" "$release_tag"
+  exit 0
 fi
 current="$app_path/current"
 if [[ -e $current || -L $current ]]; then

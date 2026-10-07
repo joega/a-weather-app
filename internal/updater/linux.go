@@ -131,6 +131,29 @@ func (l *LinuxInstallation) current() (string, string, error) {
 	return root, selection, nil
 }
 
+// Bootstrap selects the installed runtime independently of the newer helper's
+// executable. The helper is staged and verified before the old app is stopped.
+func (l *LinuxInstallation) Bootstrap() (Config, error) {
+	if l.Config.Development {
+		return l.Config, errors.New("development checkouts are built locally")
+	}
+	root, selection, e := l.current()
+	if e != nil {
+		return l.Config, e
+	}
+	version := strings.TrimPrefix(filepath.Base(selection), "v")
+	manifest, e := safeio.ReadFile(filepath.Join(root, "manifest.json"), 8192)
+	var value struct {
+		Version string `json:"version"`
+	}
+	if e != nil || json.Unmarshal(manifest, &value) != nil || value.Version != version {
+		return l.Config, errors.New("installed runtime version does not match its selector")
+	}
+	l.RuntimeRoot = root
+	l.Config.Installed = version
+	return l.Config, nil
+}
+
 func (l *LinuxInstallation) pluginPreflight(ctx context.Context) (string, error) {
 	if l.PluginRoot == "" {
 		return "", nil

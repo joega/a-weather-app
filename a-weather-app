@@ -23,6 +23,14 @@ if [[ "$data_home" == /* && ( -e "$data_home/a-weather-app" || -L "$data_home/a-
     weather_check_tree "$release_fd"
     weather_open_file "$release_fd" a-weather-app
     [[ -x /proc/self/fd/$weather_file_fd ]] || { weather_path_error a-weather-app; exit 1; }
+    for argument in "$@"; do
+      if [[ $argument == --install-update ]]; then
+        runtime_help=$("/proc/self/fd/$weather_file_fd" --help 2>&1)
+        if [[ $runtime_help != *-install-update* ]]; then
+          exec bash "$app_source/scripts/bootstrap_update.sh" "$@"
+        fi
+      fi
+    done
     exec "/proc/self/fd/$weather_file_fd" "$@"
   fi
 fi

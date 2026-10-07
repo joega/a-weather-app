@@ -11,6 +11,14 @@ import (
 	"time"
 )
 
+func TestBootstrapRequiresPackagedWorker(t *testing.T) {
+	for _, args := range [][]string{{"--bootstrap-update"}, {"--bootstrap-update", "--update-worker"}} {
+		if err := launch(args); err == nil {
+			t.Fatal("development or non-worker bootstrap accepted", args)
+		}
+	}
+}
+
 func TestServiceWaitsForBarRefreshLock(t *testing.T) {
 	root := t.TempDir()
 	if err := os.Chmod(root, 0700); err != nil {
