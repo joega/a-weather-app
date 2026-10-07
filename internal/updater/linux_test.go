@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -142,6 +143,40 @@ func managedFixture(t *testing.T) (*LinuxInstallation, Pin) {
 		t.Fatal(e)
 	}
 	return &LinuxInstallation{Config: c, RuntimeRoot: old, DataRoot: data, Socket: filepath.Join(privateState(t), "absent.sock"), Source: source}, pin
+}
+
+func TestStopPreservesOwnedStaleSocketForRestart(t *testing.T) {
+	l, pin := managedFixture(t)
+	unlock, e := l.LockInstallation()
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer unlock()
+	transaction, e := l.Prepare(context.Background(), pin, func(string) {})
+	if e != nil {
+		t.Fatal(e)
+	}
+	listener, e := net.ListenUnix("unix", &net.UnixAddr{Name: l.Socket, Net: "unix"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	listener.SetUnlinkOnClose(false)
+	if e = os.Chmod(l.Socket, 0600); e != nil {
+		t.Fatal(e)
+	}
+	listener.Close()
+	if e = l.Stop(context.Background(), transaction); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = os.Lstat(l.Socket); e != nil {
+		t.Fatal("updater removed stale socket:", e)
+	}
+	if e = os.Chmod(l.Socket, 0666); e != nil {
+		t.Fatal(e)
+	}
+	if e = l.Stop(context.Background(), transaction); e == nil {
+		t.Fatal("accepted unsafe stale socket")
+	}
 }
 
 type fileInstallation struct {

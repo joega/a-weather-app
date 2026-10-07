@@ -273,6 +273,16 @@ func (l *LinuxInstallation) Prepare(ctx context.Context, pin Pin, progress func(
 	} else {
 		return t, e
 	}
+	if e = release.SyncVerified(t.NewRuntime); e != nil {
+		return t, e
+	}
+	releases, e := safeio.OpenDir(filepath.Join(l.DataRoot, "releases"), false)
+	if e != nil {
+		return t, e
+	}
+	if e = releasesSync(releases); e != nil {
+		return t, e
+	}
 	return t, l.Validate(t)
 }
 
@@ -323,6 +333,21 @@ func (l *LinuxInstallation) Stop(ctx context.Context, t Transaction) error {
 		return nil
 	})
 	if e != nil {
+		// A killed service can leave its socket behind. The replacement service
+		// removes it under its own runtime lock; the updater never unlinks it.
+		if errors.Is(e, syscall.ECONNREFUSED) {
+			d, dirErr := safeio.OpenDir(filepath.Dir(l.Socket), false)
+			if dirErr == nil {
+				defer d.Close()
+				info, statErr := os.Lstat(l.Socket)
+				if statErr == nil {
+					st, ok := info.Sys().(*syscall.Stat_t)
+					if ok && info.Mode()&os.ModeSocket != 0 && info.Mode().Perm() == 0600 && st.Uid == uint32(os.Geteuid()) && st.Nlink == 1 {
+						return nil
+					}
+				}
+			}
+		}
 		return e
 	}
 	if reply["ok"] != true {

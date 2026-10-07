@@ -20,6 +20,9 @@ func TestCopyVerifiedPreservesOriginal(t *testing.T) {
 	if e = Verify(destination); e != nil {
 		t.Fatal(e)
 	}
+	if e = SyncVerified(destination); e != nil {
+		t.Fatal("verified import could not be made durable", e)
+	}
 	if e = CopyVerified(root, destination); e == nil {
 		t.Fatal("existing import was overwritten")
 	}
@@ -29,6 +32,9 @@ func TestCopyVerifiedPreservesOriginal(t *testing.T) {
 	}
 	if e = os.WriteFile(filepath.Join(destination, "a-weather-app"), []byte("changed copy"), 0700); e != nil {
 		t.Fatal(e)
+	}
+	if e = SyncVerified(destination); e == nil {
+		t.Fatal("changed import was accepted for activation")
 	}
 	after, e = os.ReadFile(filepath.Join(root, "a-weather-app"))
 	if e != nil || !bytes.Equal(before, after) {

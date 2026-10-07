@@ -14,6 +14,38 @@ import (
 	"syscall"
 )
 
+// SyncVerified makes the complete verified bundle durable before its selector
+// and transaction journal can promise that it is installed.
+func SyncVerified(root string) error {
+	if e := Verify(root); e != nil {
+		return e
+	}
+	t, e := openRoot(root)
+	if e != nil {
+		return e
+	}
+	defer t.close()
+	names := append(append([]string{}, artifactNames...), runtimeNames...)
+	names = append(names, manifestPath)
+	for _, name := range names {
+		f, _, e := t.openFile(name)
+		if e != nil {
+			return e
+		}
+		e = f.Sync()
+		f.Close()
+		if e != nil {
+			return e
+		}
+	}
+	for _, fd := range t.dirs {
+		if e := syscall.Fsync(fd); e != nil {
+			return e
+		}
+	}
+	return Verify(root)
+}
+
 // CopyVerified imports a pristine extracted bundle into a fresh private
 // directory. Reads and writes are anchored to descriptors; originals are never
 // changed. Every copied byte is verified before the result can be activated.
