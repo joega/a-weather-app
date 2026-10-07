@@ -133,10 +133,23 @@ func (d *Directory) Write(name string, v any, limit int) error {
 	return syscall.Fsync(d.FD)
 }
 func (d *Directory) Lock(name string) (*os.File, error) {
+	return d.lock(name, true)
+}
+
+// LockExisting tests an existing lock without creating or changing a file.
+func (d *Directory) LockExisting(name string) (*os.File, error) {
+	return d.lock(name, false)
+}
+
+func (d *Directory) lock(name string, create bool) (*os.File, error) {
 	if !validName(name) {
 		return nil, errors.New("lock name")
 	}
-	fd, e := syscall.Openat(d.FD, name, syscall.O_RDWR|syscall.O_CREAT|syscall.O_NOFOLLOW|syscall.O_NONBLOCK|syscall.O_CLOEXEC, 0600)
+	flags := syscall.O_RDWR | syscall.O_NOFOLLOW | syscall.O_NONBLOCK | syscall.O_CLOEXEC
+	if create {
+		flags |= syscall.O_CREAT
+	}
+	fd, e := syscall.Openat(d.FD, name, flags, 0600)
 	if e != nil {
 		return nil, e
 	}

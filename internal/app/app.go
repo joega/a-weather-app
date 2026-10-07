@@ -731,6 +731,8 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 			return reply, false
 		}
 		a.updates.installing = true
+		a.updates.installStarted = a.options.Now()
+		a.updates.installError = ""
 	case "install_launcher":
 		a.launcherStatus = InstallLauncher(a.options.Root)
 	case "quit":

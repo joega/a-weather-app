@@ -126,6 +126,10 @@ func (c Config) Status() Status {
 	if len(s.Message) > 512 || len(s.Available) > 32 {
 		return base
 	}
+	if (s.State == "downloading" || s.State == "verifying" || s.State == "restarting") && !c.workerActive() {
+		s.State = "failed"
+		s.Message = "The previous update stopped. Open the app to recover, or retry the update."
+	}
 	if s.Installed != c.Installed {
 		if s.State == "restarting" && s.Pin != nil && strings.TrimPrefix(s.Pin.Tag, "v") == c.Installed {
 			return Status{State: "restarting", Installed: c.Installed, Message: "Completing the update…", CheckedAt: s.CheckedAt}
@@ -133,6 +137,19 @@ func (c Config) Status() Status {
 		return base
 	}
 	return s
+}
+
+func (c Config) workerActive() bool {
+	d, e := safeio.OpenDir(c.StatePath, false)
+	if e != nil {
+		return false
+	}
+	defer d.Close()
+	f, e := d.LockExisting("update-install.lock")
+	if f != nil {
+		f.Close()
+	}
+	return errors.Is(e, syscall.EWOULDBLOCK)
 }
 
 func (c Config) Save(s Status) error { return safeio.Write(c.StatePath+"/"+statusFile, s, 16384) }

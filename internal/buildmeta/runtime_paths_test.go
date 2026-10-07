@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/safeio"
 )
 
 type runtimePathFixture struct {
@@ -159,7 +161,7 @@ cp -- "$WEATHER_TEST_DOWNLOADS/${url##*/}" "$output"
 }
 
 func TestOldRuntimeBarReportsPinnedMismatchAndHelperProgress(t *testing.T) {
-	for _, cached := range []string{"", "{bad json", `{"state":"verifying","installed":"0.51.5","available":"0.51.9","message":"Verifying the downloaded release…","checked_at":1791300000}`} {
+	for _, cached := range []string{"", "{bad json", `{"state":"verifying","installed":"0.51.5","available":"0.51.9","message":"Verifying the downloaded release…","checked_at":1791300000}`, `{"state":"downloading","installed":"0.51.5","available":"0.51.9","message":"Downloading","checked_at":1791300000}`} {
 		t.Run(cached, func(t *testing.T) {
 			f := newRuntimePathFixture(t)
 			binary := []byte("#!/usr/bin/bash\nprintf '%s\\n' '{\"schema_version\":1,\"label\":\"20°C\",\"tooltip\":\"Saved weather\",\"freshness\":\"fresh\"}'\n")
@@ -173,6 +175,18 @@ func TestOldRuntimeBarReportsPinnedMismatchAndHelperProgress(t *testing.T) {
 			if cached != "" {
 				writeRuntimeFixture(t, filepath.Join(state, "update-status.json"), []byte(cached), 0600)
 			}
+			if strings.Contains(cached, "verifying") {
+				d, e := safeio.OpenDir(state, false)
+				if e != nil {
+					t.Fatal(e)
+				}
+				defer d.Close()
+				f, e := d.Lock("update-install.lock")
+				if e != nil {
+					t.Fatal(e)
+				}
+				defer f.Close()
+			}
 			output, e := f.run(t, "a-weather-app", "--state-dir", state, "--bar")
 			if e != nil {
 				t.Fatal(e, string(output))
@@ -185,6 +199,9 @@ func TestOldRuntimeBarReportsPinnedMismatchAndHelperProgress(t *testing.T) {
 			want := "available"
 			if strings.Contains(cached, "verifying") {
 				want = "verifying"
+			}
+			if strings.Contains(cached, "downloading") {
+				want = "failed"
 			}
 			if u["state"] != want || u["installed"] != "0.51.5" || u["available"] != "0.51.9" {
 				t.Fatal("wrong update notice", u)

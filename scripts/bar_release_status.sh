@@ -25,6 +25,18 @@ if [[ -d $state && ! -L $state && -f $state/update-status.json && ! -L $state/up
 fi
 jq -e 'type == "object"' <<<"$cached" >/dev/null 2>&1 || cached='{}'
 jq -e 'type == "object"' <<<"$pin" >/dev/null 2>&1 || pin='{}'
+case $(jq -r '.state // ""' <<<"$cached") in
+  downloading|verifying|restarting)
+    if ! (
+      weather_open_directory "$state" 0
+      weather_open_file "$weather_dir_fd" update-install.lock
+      [[ $(stat -L --printf='%a %u %h %s' "/proc/self/fd/$weather_file_fd") == "600 $EUID 1 0" ]]
+      if flock -n "$weather_file_fd"; then exit 1; else [[ $? == 1 ]]; fi
+    ) 2>/dev/null; then
+      cached=$(jq '.state="failed" | .message="The previous update stopped. Open the app to recover, or retry the update."' <<<"$cached")
+    fi
+    ;;
+esac
 jq --arg installed "$installed" --argjson pin "$pin" --argjson cached "$cached" '
   def version: type == "string" and test("^0\\.[1-9][0-9]*\\.(0|[1-9][0-9]*)$");
   def validpin: type == "object" and keys == ["archive_sha256", "schemaVersion", "source_commit", "tag"]

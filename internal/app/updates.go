@@ -7,11 +7,13 @@ import (
 )
 
 type updateState struct {
-	checking   bool
-	next       time.Time
-	done       chan struct{}
-	installing bool
-	lastStatus M
+	checking       bool
+	next           time.Time
+	done           chan struct{}
+	installing     bool
+	installStarted time.Time
+	installError   string
+	lastStatus     M
 }
 
 func (a *App) beginUpdateCheck(force bool) {
@@ -22,6 +24,9 @@ func (a *App) beginUpdateCheck(force bool) {
 		return
 	}
 	a.updates.checking = true
+	if force {
+		a.updates.installError = ""
+	}
 	a.updates.next = a.options.Now().Add(time.Minute)
 	if a.updates.done == nil {
 		a.updates.done = make(chan struct{}, 1)
@@ -46,8 +51,11 @@ func (a *App) pollUpdates() {
 	}
 	if a.updates.installing && a.options.UpdateStatus != nil {
 		state := stringOf(a.options.UpdateStatus()["state"])
-		if state == "failed" || state == "rolled_back" || state == "updated" {
+		if state == "failed" || state == "rolled_back" || state == "updated" || updateInProgress(a.options.UpdateStatus()) {
 			a.updates.installing = false
+		} else if a.options.Now().Sub(a.updates.installStarted) >= time.Minute {
+			a.updates.installing = false
+			a.updates.installError = "The updater did not start. Check for updates and try again."
 		}
 	}
 	if a.updates.done == nil {
@@ -64,6 +72,11 @@ func (a *App) updateSnapshot() M {
 	v := M{"state": "unsupported", "installed": "", "available": "", "message": "Updates are unavailable for this installation", "checked_at": 0.0}
 	if a.options.UpdateStatus != nil {
 		v = a.options.UpdateStatus()
+	}
+	if a.updates.installError != "" {
+		v = safeUpdateCopy(v)
+		v["state"] = "failed"
+		v["message"] = a.updates.installError
 	}
 	if a.updates.checking {
 		v = safeUpdateCopy(v)

@@ -286,7 +286,11 @@ func (e Engine) rollback(ctx context.Context, t Transaction, cause error) error 
 	if t.OldVersion != "" {
 		restored.Config.Installed = t.OldVersion
 	}
-	return restored.status("rolled_back", "Restored the previous version. "+boundedError(cause)+". You can retry the update.", &t.Pin)
+	message := "Restored the previous version. " + boundedError(cause) + ". You can retry the update."
+	if w, ok := e.Installation.(interface{ RecoveryWarning() string }); ok && w.RecoveryWarning() != "" {
+		message = "Restored the previous version. " + w.RecoveryWarning()
+	}
+	return restored.status("rolled_back", message, &t.Pin)
 }
 
 func boundedError(err error) string {

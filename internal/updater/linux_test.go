@@ -148,6 +148,16 @@ type fileInstallation struct {
 	*LinuxInstallation
 	failStartup bool
 	started     []bool
+	beforeStop  func()
+}
+
+func (f *fileInstallation) Stop(ctx context.Context, t Transaction) error {
+	if f.beforeStop != nil {
+		hook := f.beforeStop
+		f.beforeStop = nil
+		hook()
+	}
+	return f.LinuxInstallation.Stop(ctx, t)
 }
 
 func (f *fileInstallation) Start(_ context.Context, _ Transaction, rollback bool) error {

@@ -21,15 +21,18 @@ import (
 // LinuxInstallation updates only our managed release directory and, when
 // present, the unmodified Omarchy checkout for this one plugin.
 type LinuxInstallation struct {
-	Config      Config
-	RuntimeRoot string
-	DataRoot    string
-	PluginRoot  string
-	Socket      string
-	Source      GitHubSource
-	command     func(context.Context, string, ...string) (string, error)
-	installLock *os.File
+	Config          Config
+	RuntimeRoot     string
+	DataRoot        string
+	PluginRoot      string
+	Socket          string
+	Source          GitHubSource
+	command         func(context.Context, string, ...string) (string, error)
+	installLock     *os.File
+	recoveryWarning string
 }
+
+func (l *LinuxInstallation) RecoveryWarning() string { return l.recoveryWarning }
 
 func DefaultDataRoot() string {
 	base := os.Getenv("XDG_DATA_HOME")
@@ -160,8 +163,7 @@ func (l *LinuxInstallation) pluginPreflight(ctx context.Context) (string, error)
 	}
 	info, e := os.Lstat(l.PluginRoot)
 	if errors.Is(e, os.ErrNotExist) {
-		l.PluginRoot = ""
-		return "", nil
+		return "", errors.New("the plugin checkout is missing; reinstall it before updating")
 	}
 	if e != nil {
 		return "", e
@@ -404,21 +406,21 @@ func (l *LinuxInstallation) Restore(ctx context.Context, t Transaction) error {
 	if e := l.Validate(t); e != nil {
 		return e
 	}
+	selection, e := os.Readlink(filepath.Join(l.DataRoot, "current"))
+	if e != nil || selection != t.OldCurrent && selection != "releases/"+t.Pin.Tag {
+		return errors.New("the runtime selector changed outside this update; reopen your selected version")
+	}
 	if e := l.Stop(ctx, t); e != nil {
 		return e
 	}
 	if t.PluginRoot != "" {
 		revision, e := l.pluginPreflight(ctx)
-		if e != nil {
-			return e
-		}
-		if revision != t.OldCommit && revision != t.NewCommit {
-			return errors.New("plugin changed after the update; user work was preserved")
-		}
-		if revision == t.NewCommit {
+		if e != nil || revision != t.OldCommit && revision != t.NewCommit {
+			l.recoveryWarning = "Plugin changes were preserved. Review them before trying another update."
+		} else if revision == t.NewCommit {
 			// Reset only our exact fast-forward, after proving the checkout is clean.
 			if _, e = l.git(ctx, "reset", "--hard", t.OldCommit); e != nil {
-				return e
+				l.recoveryWarning = "The runtime was restored, but the plugin could not be restored. Review the plugin before trying another update."
 			}
 		}
 	}
@@ -431,7 +433,10 @@ func (l *LinuxInstallation) Start(ctx context.Context, t Transaction, rollback b
 	}
 	if t.PluginRoot != "" {
 		if _, e := l.run(ctx, "omarchy", "restart", "shell"); e != nil {
-			return errors.New("could not refresh the Omarchy bar")
+			if !rollback {
+				return errors.New("could not refresh the Omarchy bar")
+			}
+			l.recoveryWarning += " The bar could not refresh. Reopen it after reviewing the plugin."
 		}
 	}
 	root := t.NewRuntime

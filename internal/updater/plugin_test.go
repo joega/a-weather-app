@@ -15,7 +15,7 @@ import (
 // The network fetch is redirected to a private repository, but preflight,
 // fast-forward, validation and rollback use the real git commands.
 func TestPluginRuntimeUpdateAndRollback(t *testing.T) {
-	for _, scenario := range []string{"success", "validation_failure", "dirty"} {
+	for _, scenario := range []string{"success", "validation_failure", "dirty", "dirty_at_activation", "dirty_after_merge", "removed_at_activation"} {
 		t.Run(scenario, func(t *testing.T) {
 			l, pin := managedFixture(t)
 			remote := filepath.Join(privateState(t), "upstream")
@@ -53,9 +53,16 @@ func TestPluginRuntimeUpdateAndRollback(t *testing.T) {
 			git("-C", remote, "add", ".")
 			git("-C", remote, "commit", "-m", "supported release")
 			newCommit := git("-C", remote, "rev-parse", "HEAD")
+			userFile := filepath.Join(plugin, "my-notes")
 			l.PluginRoot = plugin
 			l.command = func(ctx context.Context, name string, args ...string) (string, error) {
 				if name == "omarchy-plugin-validate" {
+					if scenario == "dirty_after_merge" {
+						if e := os.WriteFile(userFile, []byte("preserve my work"), 0600); e != nil {
+							t.Fatal(e)
+						}
+						return "", errors.New("plugin changed during validation")
+					}
 					if scenario == "validation_failure" {
 						return "", errors.New("fixture validator rejected plugin")
 					}
@@ -66,13 +73,26 @@ func TestPluginRuntimeUpdateAndRollback(t *testing.T) {
 				}
 				return (&LinuxInstallation{}).run(ctx, name, args...)
 			}
-			userFile := filepath.Join(plugin, "my-notes")
 			if scenario == "dirty" {
 				if e := os.WriteFile(userFile, []byte("preserve my work"), 0600); e != nil {
 					t.Fatal(e)
 				}
 			}
 			f := &fileInstallation{LinuxInstallation: l}
+			if scenario == "dirty_at_activation" {
+				f.beforeStop = func() {
+					if e := os.WriteFile(userFile, []byte("preserve my work"), 0600); e != nil {
+						t.Fatal(e)
+					}
+				}
+			}
+			if scenario == "removed_at_activation" {
+				f.beforeStop = func() {
+					if e := os.Rename(plugin, plugin+"-preserved"); e != nil {
+						t.Fatal(e)
+					}
+				}
+			}
 			err := (Engine{Config: l.Config, Installation: f}).Run(context.Background())
 			if (err != nil) != (scenario != "success") {
 				t.Fatal("unexpected result", err)
@@ -81,19 +101,31 @@ func TestPluginRuntimeUpdateAndRollback(t *testing.T) {
 			if scenario == "success" {
 				wantCommit, wantRuntime = newCommit, "releases/v0.51.9"
 			}
-			if got := git("-C", plugin, "rev-parse", "HEAD"); got != wantCommit {
+			if scenario == "dirty_after_merge" {
+				wantCommit = newCommit
+			}
+			checkPlugin := plugin
+			if scenario == "removed_at_activation" {
+				checkPlugin = plugin + "-preserved"
+			}
+			if got := git("-C", checkPlugin, "rev-parse", "HEAD"); got != wantCommit {
 				t.Fatal("plugin revision", got, wantCommit)
 			}
 			if got, e := os.Readlink(filepath.Join(l.DataRoot, "current")); e != nil || got != wantRuntime {
 				t.Fatal("runtime selection", got, e)
 			}
-			if scenario == "dirty" {
+			if scenario == "dirty" || scenario == "dirty_at_activation" || scenario == "dirty_after_merge" {
 				raw, e := os.ReadFile(userFile)
 				if e != nil || !bytes.Equal(raw, []byte("preserve my work")) {
 					t.Fatal("user changes lost", e)
 				}
-				if len(f.started) != 0 {
+				if scenario == "dirty" && len(f.started) != 0 {
 					t.Fatal("dirty plugin caused app restart")
+				}
+			}
+			if scenario == "dirty_at_activation" || scenario == "dirty_after_merge" || scenario == "removed_at_activation" {
+				if len(f.started) != 1 || !f.started[0] || l.Config.Status().State != "rolled_back" || !strings.Contains(l.Config.Status().Message, "preserved") {
+					t.Fatal("user changes prevented prior app restarting", f.started, l.Config.Status())
 				}
 			}
 			if scenario == "validation_failure" && l.Config.Status().State != "rolled_back" {
