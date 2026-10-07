@@ -46,3 +46,8 @@ check-native-qml-format:
 .PHONY: check-native-analysis
 check-native-analysis:
 	bash scripts/check_native_analysis.sh
+
+.PHONY: check-qml-analysis check-native-qml
+check-qml-analysis:
+	bash scripts/check_qml_analysis.sh
+check-native-qml: check-native-qml-format check-native-analysis check-qml-analysis

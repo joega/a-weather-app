@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import "Forecast.js" as Forecast
@@ -40,6 +42,7 @@ GlassPanel {
             Repeater {
                 model: root.hours
                 delegate: Button {
+                    id: hourButton
                     required property var modelData
                     required property int index
                     objectName: "forecastHour_" + index
@@ -55,8 +58,8 @@ GlassPanel {
                     onClicked: root.hourSelected(modelData)
                     background: Rectangle {
                         radius: 9
-                        color: parent.hovered || parent.activeFocus ? "#305e819a" : "transparent"
-                        border.color: parent.activeFocus ? Tokens.accent : "transparent"
+                        color: hourButton.hovered || hourButton.activeFocus ? "#305e819a" : "transparent"
+                        border.color: hourButton.activeFocus ? Tokens.accent : "transparent"
                     }
                     Rectangle {
                         anchors.right: parent.right
@@ -64,29 +67,29 @@ GlassPanel {
                         width: 1
                         height: 108
                         color: Tokens.border
-                        visible: index < root.hours.length - 1
+                        visible: hourButton.index < root.hours.length - 1
                     }
                     Column {
                         anchors.horizontalCenter: parent.horizontalCenter
                         spacing: 4
                         PlainLabel {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: modelData.local_hour
+                            text: hourButton.modelData.local_hour
                             font.pixelSize: 14
                         }
                         WeatherIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            condition: modelData.condition
-                            isDay: modelData.is_day
+                            condition: hourButton.modelData.condition
+                            isDay: hourButton.modelData.is_day
                         }
                         PlainLabel {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: Forecast.temp(modelData.temperature_c, root.units)
+                            text: Forecast.temp(hourButton.modelData.temperature_c, root.units)
                             font.pixelSize: 23
                         }
                         PlainLabel {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: Forecast.percent(modelData.precipitation_probability)
+                            text: Forecast.percent(hourButton.modelData.precipitation_probability)
                             color: Tokens.accent
                             font.pixelSize: 14
                         }
@@ -97,7 +100,7 @@ GlassPanel {
                             color: "#36566e"
                             anchors.horizontalCenter: parent.horizontalCenter
                             Rectangle {
-                                width: parent.width * (modelData.precipitation_probability || 0)
+                                width: parent.width * (hourButton.modelData.precipitation_probability || 0)
                                 height: parent.height
                                 radius: 2
                                 color: Tokens.accent

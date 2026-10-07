@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import "Forecast.js" as Forecast
 
 Item {

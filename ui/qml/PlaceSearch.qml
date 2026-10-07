@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -54,14 +56,19 @@ ColumnLayout {
     }
     onVisibleChanged: if (!visible)
         invalidate()
+    onServiceAvailableChanged: if (!serviceAvailable)
+        invalidate()
+    onLocationBusyChanged: if (locationBusy)
+        invalidate()
     Timer {
         id: debounce
+        objectName: "placeSearchDebounce"
         interval: 350
         repeat: false
         onTriggered: {
             let query = cityInput.text.trim();
             let code = countryInput.text.trim().toUpperCase();
-            if (!root.serviceAvailable || query.length < 2 || query.length > 120 || (code !== "" && !/^[A-Z]{2}$/.test(code)))
+            if (!root.visible || !root.serviceAvailable || root.locationBusy || query.length < 2 || query.length > 120 || (code !== "" && !/^[A-Z]{2}$/.test(code)))
                 return;
             root.previousGeneration = root.search.generation;
             root.currentClientToken = root.nextClientToken;
@@ -179,6 +186,7 @@ ColumnLayout {
         onCurrentIndexChanged: if (currentIndex >= 0)
             positionViewAtIndex(currentIndex, ListView.Contain)
         delegate: Button {
+            id: placeResult
             required property var modelData
             required property int index
             width: results.width
@@ -189,8 +197,8 @@ ColumnLayout {
             onClicked: root.pick(modelData)
             background: Rectangle {
                 radius: 8
-                color: parent.activeFocus || parent.hovered || results.activeFocus && results.currentIndex === index ? "#304b667e" : "#18283b50"
-                border.color: parent.activeFocus || results.activeFocus && results.currentIndex === index ? Tokens.accent : "transparent"
+                color: placeResult.activeFocus || placeResult.hovered || results.activeFocus && results.currentIndex === placeResult.index ? "#304b667e" : "#18283b50"
+                border.color: placeResult.activeFocus || results.activeFocus && results.currentIndex === placeResult.index ? Tokens.accent : "transparent"
             }
             contentItem: PlainLabel {
                 id: resultLabel

@@ -16,3 +16,6 @@ NotificationsPanel 1.0 NotificationsPanel.qml
 AlertsPanel 1.0 AlertsPanel.qml
 ForecastChart 1.0 ForecastChart.qml
 ForecastDetails 1.0 ForecastDetails.qml
+PlaceSearch 1.0 PlaceSearch.qml
+WeatherMap 1.0 WeatherMap.qml
+WeatherMapCard 1.0 WeatherMapCard.qml

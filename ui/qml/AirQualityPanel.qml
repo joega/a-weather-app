@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
 import "Forecast.js" as Forecast
@@ -80,22 +82,23 @@ GlassPanel {
                     }
                 ]
                 delegate: ColumnLayout {
+                    id: pollutantRow
                     required property var modelData
                     Layout.fillWidth: true
                     Layout.preferredWidth: 1
                     spacing: 4
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: modelData.title
+                        text: pollutantRow.modelData.title
                         color: Tokens.secondary
                         font.pixelSize: 13
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
                     PlainLabel {
-                        objectName: "airQualityValue_" + modelData.kind
+                        objectName: "airQualityValue_" + pollutantRow.modelData.kind
                         Layout.fillWidth: true
-                        text: modelData.value
+                        text: pollutantRow.modelData.value
                         font.pixelSize: 22
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone

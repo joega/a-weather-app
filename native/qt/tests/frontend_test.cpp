@@ -138,10 +138,20 @@ class FrontendTest : public QObject {
         return v;
     }
   private slots:
+    void init() {
+        QTest::failOnWarning(
+            QRegularExpression(".*(TypeError:|ReferenceError:|Binding loop|Unable to assign|Cannot "
+                               "assign|failed to load component).*"));
+    }
     void updateNoticeAndActions() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -503,6 +513,11 @@ class FrontendTest : public QObject {
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.rootContext()->setContextProperty("mapTiles", &tiles);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -632,6 +647,11 @@ class FrontendTest : public QObject {
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.rootContext()->setContextProperty("mapTiles", &tiles);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -867,7 +887,8 @@ class FrontendTest : public QObject {
         QQmlEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-        QScopedPointer<QObject> bridge(component.create());
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
         QVERIFY2(bridge, qPrintable(component.errorString()));
         QVERIFY(evaluate(engine, bridge.data(), "openMap()").toBool());
         QCOMPARE(transport.requests.size(), 1);
@@ -900,6 +921,11 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         QWindow* window = nullptr;
@@ -914,6 +940,11 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -938,7 +969,8 @@ class FrontendTest : public QObject {
         QQmlEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-        QScopedPointer<QObject> bridge(component.create());
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
         QVERIFY2(bridge, qPrintable(component.errorString()));
         emit transport.ready();
         QCOMPARE(transport.requests.size(), 1);
@@ -987,7 +1019,8 @@ class FrontendTest : public QObject {
         QQmlEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-        QScopedPointer<QObject> bridge(component.create());
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
         QVERIFY2(bridge, qPrintable(component.errorString()));
         bridge->setProperty("presentationActive", false);
         QCOMPARE(transport.requests.size(), 0);
@@ -1047,6 +1080,11 @@ class FrontendTest : public QObject {
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.rootContext()->setContextProperty("mapTiles", &tiles);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -1090,7 +1128,8 @@ class FrontendTest : public QObject {
             QQmlEngine engine;
             engine.rootContext()->setContextProperty("weatherTransport", &transport);
             QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-            QScopedPointer<QObject> bridge(component.create());
+            QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+                {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
             QVERIFY2(bridge, qPrintable(component.errorString()));
             QSignalSpy closed(bridge.data(), SIGNAL(closed(int)));
             QJsonObject event{{"version", 1}, {"event", "service_stopped"}, {"ok", ok}};
@@ -1107,7 +1146,8 @@ class FrontendTest : public QObject {
         QQmlEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-        QScopedPointer<QObject> bridge(component.create());
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
         QVERIFY2(bridge, qPrintable(component.errorString()));
         auto valid = snapshot(1, "São Paulo, São Paulo, Brazil");
         valid["location_settings"] =
@@ -1154,7 +1194,9 @@ class FrontendTest : public QObject {
             QQmlEngine localEngine;
             localEngine.rootContext()->setContextProperty("weatherTransport", &local);
             QQmlComponent localComponent(&localEngine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-            QScopedPointer<QObject> localBridge(localComponent.create());
+            QScopedPointer<QObject> localBridge(localComponent.createWithInitialProperties(
+                {{"weatherTransport",
+                  localEngine.rootContext()->contextProperty("weatherTransport")}}));
             if (!localBridge)
                 return false;
             deliver(local, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
@@ -1185,7 +1227,8 @@ class FrontendTest : public QObject {
         QQmlEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-        QScopedPointer<QObject> bridge(component.create());
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
         QVERIFY2(bridge, qPrintable(component.errorString()));
         emit transport.ready();
         QCOMPARE(transport.requests.size(), 1);
@@ -1217,6 +1260,65 @@ class FrontendTest : public QObject {
         QCOMPARE(transport.requests.last()["search"].toMap()["query"].toString(), QString("Tokyo"));
         QCOMPARE(transport.requests.last()["search"].toMap()["client_token"].toInt(), 3);
         QVERIFY(!bridge->property("busy").toBool());
+    }
+    void placeSearchInactiveCancelsDebounce_data() {
+        QTest::addColumn<QString>("property");
+        QTest::addColumn<bool>("value");
+        QTest::newRow("hidden") << QString("visible") << false;
+        QTest::newRow("disconnected") << QString("serviceAvailable") << false;
+        QTest::newRow("location-changing") << QString("locationBusy") << true;
+    }
+    void placeSearchInactiveCancelsDebounce() {
+        QFETCH(QString, property);
+        QFETCH(bool, value);
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/PlaceSearch.qml"));
+        QScopedPointer<QObject> picker(component.create());
+        QVERIFY2(picker, qPrintable(component.errorString()));
+        QSignalSpy searches(picker.data(), SIGNAL(searchRequested(QVariant)));
+        auto* query = picker->findChild<QObject*>("placeQuery");
+        auto* timer = picker->findChild<QObject*>("placeSearchDebounce");
+        QVERIFY(query);
+        QVERIFY(timer);
+        query->setProperty("text", "Berlin");
+        QVERIFY(timer->property("running").toBool());
+        picker->setProperty(property.toUtf8().constData(), value);
+        QVERIFY(!timer->property("running").toBool());
+        QVERIFY(!picker->property("armed").toBool());
+        // Even an already queued trigger or a programmatic edit cannot issue work.
+        query->setProperty("text", "Tokyo");
+        QVERIFY(QMetaObject::invokeMethod(timer, "triggered"));
+        QCOMPARE(searches.size(), 0);
+    }
+    void bridgeReportsCloseOnce_data() {
+        QTest::addColumn<QString>("completion");
+        QTest::newRow("synchronous-disconnect-in-fail") << QString("fail('test')");
+        QTest::newRow("service-stopped-before-EOF")
+            << QString("accept({event:'service_stopped',ok:false})");
+        QTest::newRow("quit-rejected-before-EOF")
+            << QString("accept({request_id:0,ok:false,error:'cleanup_failed'})");
+    }
+    void bridgeReportsCloseOnce() {
+        QFETCH(QString, completion);
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        QSignalSpy closed(bridge.data(), SIGNAL(closed(int)));
+        evaluate(engine, bridge.data(), "shutdown()");
+        evaluate(engine, bridge.data(), completion);
+        QCOMPARE(closed.size(), 1);
+        QCOMPARE(closed.first().first().toInt(), 1);
+        emit transport.unavailable("Disconnected");
+        QCOMPARE(closed.size(), 1);
+        auto* closeTimer = bridge->findChild<QObject*>("bridgeCloseDeadline");
+        auto* requestTimer = bridge->findChild<QObject*>("bridgeRequestDeadline");
+        QVERIFY(closeTimer);
+        QVERIFY(requestTimer);
+        QVERIFY(!closeTimer->property("running").toBool());
+        QVERIFY(!requestTimer->property("running").toBool());
     }
     void placeSearchDebouncesAndSelectsIssuedGeneration() {
         QQmlEngine engine;
@@ -1332,7 +1434,8 @@ class FrontendTest : public QObject {
         QQmlEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-        QScopedPointer<QObject> bridge(component.create());
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
         QVERIFY2(bridge, qPrintable(component.errorString()));
         QString astral;
         for (int i = 0; i < 120; i++)
@@ -1349,7 +1452,8 @@ class FrontendTest : public QObject {
             QQmlEngine engine;
             engine.rootContext()->setContextProperty("weatherTransport", &transport);
             QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-            QScopedPointer<QObject> bridge(component.create());
+            QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+                {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
             if (!bridge)
                 return false;
             deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
@@ -1401,7 +1505,8 @@ class FrontendTest : public QObject {
             QQmlEngine engine;
             engine.rootContext()->setContextProperty("weatherTransport", &transport);
             QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
-            QScopedPointer<QObject> bridge(component.create());
+            QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+                {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")}}));
             if (!bridge)
                 return false;
             deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
@@ -1512,6 +1617,11 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -1541,6 +1651,11 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -1633,6 +1748,11 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
@@ -1708,6 +1828,11 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
+        engine.setInitialProperties(
+            {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
+             {"mapTiles", engine.rootContext()->contextProperty("mapTiles").isValid()
+                              ? engine.rootContext()->contextProperty("mapTiles")
+                              : QVariant::fromValue<QObject*>(nullptr)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();

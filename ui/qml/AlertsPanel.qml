@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 
@@ -92,8 +94,8 @@ GlassPanel {
                         }
                         background: Rectangle {
                             radius: 8
-                            color: parent.hovered ? "#304b667e" : "#18283b50"
-                            border.color: parent.activeFocus ? Tokens.accent : "transparent"
+                            color: alertButton.hovered ? "#304b667e" : "#18283b50"
+                            border.color: alertButton.activeFocus ? Tokens.accent : "transparent"
                             Rectangle {
                                 width: 3
                                 height: parent.height - 12
@@ -125,7 +127,7 @@ GlassPanel {
                     PlainLabel {
                         visible: entry.expanded
                         width: parent.width
-                        text: modelData.headline || modelData.event
+                        text: entry.modelData.headline || entry.modelData.event
                         font.weight: Font.DemiBold
                         font.pixelSize: 15
                         wrapMode: Text.Wrap
@@ -133,7 +135,7 @@ GlassPanel {
                     }
                     PlainLabel {
                         objectName: "alertShortened_" + entry.index
-                        visible: entry.expanded && modelData.text_truncated === true
+                        visible: entry.expanded && entry.modelData.text_truncated === true
                         width: parent.width
                         text: root.source === "National Weather Service" ? "This alert text has been shortened. Read the complete warning and instructions from the National Weather Service." : "This alert text has been shortened. Check the official alert source for complete details."
                         wrapMode: Text.Wrap
@@ -142,9 +144,9 @@ GlassPanel {
                         color: Tokens.gold
                     }
                     PlainLabel {
-                        visible: entry.expanded && modelData.instruction !== ""
+                        visible: entry.expanded && entry.modelData.instruction !== ""
                         width: parent.width
-                        text: modelData.instruction
+                        text: entry.modelData.instruction
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                         font.pixelSize: 14
@@ -152,7 +154,7 @@ GlassPanel {
                     PlainLabel {
                         visible: entry.expanded
                         width: parent.width
-                        text: modelData.description + (root.source ? "\nSource: " + root.source : "")
+                        text: entry.modelData.description + (root.source ? "\nSource: " + root.source : "")
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                         color: Tokens.secondary

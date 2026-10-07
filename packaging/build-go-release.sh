@@ -48,7 +48,9 @@ for copy in first second; do
       go test -race ./...
       go vet ./...
       make -C native/qt test
+      make check-native-qml
       bash packaging/check_native_sanitizers.sh
+      bash packaging/check_qt_sanitizers.sh
     fi
     build/weather-native-check shaders --root "$checkout"
     make go APP_MODE=package APP_VERSION="$release_version"

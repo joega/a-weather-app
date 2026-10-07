@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -175,12 +177,13 @@ ColumnLayout {
                     border.color: quietStart.activeFocus ? Tokens.accent : Tokens.border
                 }
                 delegate: ItemDelegate {
+                    id: unitOption
                     required property int index
                     required property string modelData
                     width: quietStart.width
                     enabled: index !== root.settings.quiet_end
                     contentItem: PlainLabel {
-                        text: modelData
+                        text: unitOption.modelData
                     }
                 }
             }
@@ -220,12 +223,13 @@ ColumnLayout {
                     border.color: quietEnd.activeFocus ? Tokens.accent : Tokens.border
                 }
                 delegate: ItemDelegate {
+                    id: leadOption
                     required property int index
                     required property string modelData
                     width: quietEnd.width
                     enabled: index !== root.settings.quiet_start
                     contentItem: PlainLabel {
-                        text: modelData
+                        text: leadOption.modelData
                     }
                 }
             }

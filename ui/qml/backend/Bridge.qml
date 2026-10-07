@@ -3,6 +3,8 @@ import "../Forecast.js" as Forecast
 
 Item {
     id: root
+    // Contract: connected/diagnostic, start/send/disconnectService and lifecycle signals.
+    required property var weatherTransport
     visible: false
     property var snapshot: null
     property var weatherMap: ({
@@ -25,7 +27,7 @@ Item {
     property string error: ""
     readonly property int operationGraceMs: 120000
     readonly property int shutdownGraceMs: 90000
-    readonly property bool diagnostic: weatherTransport.diagnostic
+    readonly property bool diagnostic: root.weatherTransport.diagnostic
     property int nextId: 0
     property int pending: -1
     property string pendingOp: ""
@@ -33,7 +35,8 @@ Item {
     property bool disconnected: false
     property bool shutdownFailed: false
     property bool quitAcknowledged: false
-    readonly property bool available: weatherTransport.connected && !disconnected && !closing
+    property bool closeReported: false
+    readonly property bool available: root.weatherTransport.connected && !disconnected && !closing
     property bool stopQueued: false
     property string queuedUserOp: ""
     property var queuedUserPatch: null
@@ -46,7 +49,7 @@ Item {
     function send(op, patch) {
         if (closing && op !== "quit")
             return false;
-        if (!weatherTransport.connected || disconnected) {
+        if (!root.weatherTransport.connected || disconnected) {
             if (op !== "snapshot")
                 error = "Weather service is unavailable for this action";
             return false;
@@ -115,7 +118,7 @@ Item {
             request.output = patch.output;
         if (op === "start_effects")
             request.duration = 300;
-        if (!weatherTransport.send(request)) {
+        if (!root.weatherTransport.send(request)) {
             fail("Weather service could not accept the action");
             return false;
         }
@@ -185,13 +188,7 @@ Item {
             send("search_places", search);
         }
     }
-    function fail(message) {
-        if (diagnostic)
-            console.log("Weather service bridge failed:", message);
-        shutdownFailed = true;
-        disconnected = true;
-        error = message;
-        pending = -1;
+    function clearQueuedActions() {
         queuedPresentation = null;
         queuedUserOp = "";
         queuedUserPatch = null;
@@ -199,10 +196,29 @@ Item {
         queuedSearch = null;
         cancelSearchQueued = false;
         stopQueued = false;
+    }
+    function finishClose(exitCode) {
+        if (closeReported)
+            return;
+        closeReported = true;
         deadline.stop();
-        weatherTransport.disconnectService();
+        closeTimer.stop();
+        clearQueuedActions();
+        closed(exitCode);
+    }
+    function fail(message) {
+        if (diagnostic)
+            console.log("Weather service bridge failed:", message);
+        shutdownFailed = true;
+        disconnected = true;
+        error = message;
+        pending = -1;
+        pendingOp = "";
+        clearQueuedActions();
+        deadline.stop();
+        root.weatherTransport.disconnectService();
         if (closing)
-            closed(1);
+            finishClose(1);
     }
     function applySnapshot(raw) {
         let revision = raw.snapshot_revision;
@@ -217,7 +233,7 @@ Item {
             console.log("Weather service snapshot accepted:", snapshot.source.freshness);
     }
     function accept(value) {
-        if (disconnected)
+        if (disconnected || closeReported)
             return;
         try {
             Forecast.boundedTree(value);
@@ -231,9 +247,7 @@ Item {
                     closing = true;
                     quitAcknowledged = value.ok;
                     shutdownFailed = !value.ok;
-                    deadline.stop();
-                    closeTimer.stop();
-                    closed(value.ok ? 0 : 1);
+                    finishClose(value.ok ? 0 : 1);
                 } else
                     applySnapshot(value.snapshot);
                 return;
@@ -241,6 +255,7 @@ Item {
             if (value.request_id !== pending)
                 throw Error("Unexpected response");
             let completedOp = pendingOp;
+            pendingOp = "";
             pending = -1;
             deadline.stop();
             if (completedOp === "subscribe" && value.ok) {
@@ -253,7 +268,7 @@ Item {
                 quitAcknowledged = value.ok;
                 shutdownFailed = !value.ok;
                 if (!value.ok)
-                    closed(1);
+                    finishClose(1);
                 return;
             }
             if (!closing) {
@@ -274,15 +289,9 @@ Item {
             return;
         closing = true;
         error = "Closing weather app…";
-        stopQueued = false;
-        queuedPresentation = null;
-        queuedUserOp = "";
-        queuedUserPatch = null;
-        queuedMapOp = "";
-        queuedSearch = null;
-        cancelSearchQueued = false;
-        if (!weatherTransport.connected || disconnected) {
-            closed(shutdownFailed || disconnected ? 1 : 0);
+        clearQueuedActions();
+        if (!root.weatherTransport.connected || disconnected) {
+            finishClose(shutdownFailed || disconnected ? 1 : 0);
             return;
         }
         closeTimer.restart();
@@ -290,7 +299,7 @@ Item {
             send("quit");
     }
     Connections {
-        target: weatherTransport
+        target: root.weatherTransport
         function onReady() {
             root.subscribed = false;
             root.lastSnapshotRevision = 0;
@@ -305,17 +314,11 @@ Item {
         function onUnavailable(message) {
             root.disconnected = true;
             root.pending = -1;
-            root.queuedPresentation = null;
-            root.queuedUserOp = "";
-            root.queuedUserPatch = null;
-            root.queuedMapOp = "";
-            root.queuedSearch = null;
-            root.cancelSearchQueued = false;
-            root.stopQueued = false;
+            root.pendingOp = "";
+            root.clearQueuedActions();
             deadline.stop();
             if (root.closing) {
-                closeTimer.stop();
-                root.closed(root.shutdownFailed || !root.quitAcknowledged ? 1 : 0);
+                root.finishClose(root.shutdownFailed || !root.quitAcknowledged ? 1 : 0);
             } else
                 root.error = message;
         }
@@ -332,5 +335,5 @@ Item {
         interval: root.shutdownGraceMs
         onTriggered: root.fail("Weather service shutdown timed out")
     }
-    Component.onCompleted: weatherTransport.start()
+    Component.onCompleted: root.weatherTransport.start()
 }

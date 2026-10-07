@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import "Forecast.js" as Forecast
@@ -53,14 +55,14 @@ GlassPanel {
                 onClicked: root.daySelected(modelData)
                 background: Rectangle {
                     radius: 7
-                    color: parent.hovered || parent.activeFocus ? "#305e819a" : "transparent"
-                    border.color: parent.activeFocus ? Tokens.accent : "transparent"
+                    color: dayRow.hovered || dayRow.activeFocus ? "#305e819a" : "transparent"
+                    border.color: dayRow.activeFocus ? Tokens.accent : "transparent"
                 }
                 PlainLabel {
                     x: 0
                     anchors.verticalCenter: parent.verticalCenter
                     width: 58
-                    text: modelData.day_label
+                    text: dayRow.modelData.day_label
                     font.pixelSize: 15
                 }
                 WeatherIcon {
@@ -68,21 +70,21 @@ GlassPanel {
                     anchors.verticalCenter: parent.verticalCenter
                     width: 34
                     height: 31
-                    condition: modelData.condition
+                    condition: dayRow.modelData.condition
                 }
                 PlainLabel {
                     x: 102
                     anchors.verticalCenter: parent.verticalCenter
                     width: Math.max(0, parent.width * 0.34 - 102)
                     visible: parent.width > 400
-                    text: Forecast.title(modelData.condition)
+                    text: Forecast.title(dayRow.modelData.condition)
                     font.pixelSize: 13
                     color: Tokens.secondary
                 }
                 PlainLabel {
                     x: parent.width * 0.47 - 30
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Forecast.temp(modelData.low_c, root.units)
+                    text: Forecast.temp(dayRow.modelData.low_c, root.units)
                     font.pixelSize: 15
                 }
                 Rectangle {
@@ -93,9 +95,9 @@ GlassPanel {
                     radius: 3
                     color: "#507d94a9"
                     Rectangle {
-                        visible: modelData.low_c !== null && modelData.high_c !== null
-                        x: (modelData.low_c - root.rangeLow) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width
-                        width: Math.max(3, (modelData.high_c - modelData.low_c) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width)
+                        visible: dayRow.modelData.low_c !== null && dayRow.modelData.high_c !== null
+                        x: (dayRow.modelData.low_c - root.rangeLow) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width
+                        width: Math.max(3, (dayRow.modelData.high_c - dayRow.modelData.low_c) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width)
                         height: 5
                         radius: 3
                         gradient: Gradient {
@@ -114,7 +116,7 @@ GlassPanel {
                 PlainLabel {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Forecast.temp(modelData.high_c, root.units)
+                    text: Forecast.temp(dayRow.modelData.high_c, root.units)
                     font.pixelSize: 15
                 }
                 Rectangle {

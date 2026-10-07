@@ -81,8 +81,8 @@ int main(int argc, char** argv) {
     WeatherTransport transport(args.value("socket"), args.isSet("diagnostic"));
     MapTiles mapTiles;
     QQmlApplicationEngine engine;
-    engine.rootContext()->setContextProperty("weatherTransport", &transport);
-    engine.rootContext()->setContextProperty("mapTiles", &mapTiles);
+    engine.setInitialProperties({{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+                                 {"mapTiles", QVariant::fromValue<QObject*>(&mapTiles)}});
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);

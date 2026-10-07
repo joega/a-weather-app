@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -223,22 +225,23 @@ Popup {
                         }
                     ] : []
                     delegate: ColumnLayout {
+                        id: metricRow
                         required property var modelData
                         Layout.fillWidth: true
                         Layout.preferredWidth: 1
                         spacing: 4
                         PlainLabel {
                             Layout.fillWidth: true
-                            text: modelData.title
+                            text: metricRow.modelData.title
                             font.pixelSize: 13
                             color: Tokens.secondary
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
                         PlainLabel {
-                            objectName: modelData.kind ? "detailMetricValue_" + modelData.kind : ""
+                            objectName: metricRow.modelData.kind ? "detailMetricValue_" + metricRow.modelData.kind : ""
                             Layout.fillWidth: true
-                            text: modelData.value
+                            text: metricRow.modelData.value
                             font.pixelSize: 20
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone

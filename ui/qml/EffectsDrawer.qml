@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -245,7 +247,7 @@ GlassPanel {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: Tokens.border
             }
             RowLayout {
@@ -356,7 +358,7 @@ GlassPanel {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: Tokens.border
             }
             PlainLabel {
@@ -399,7 +401,7 @@ GlassPanel {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: Tokens.border
             }
             NotificationsPanel {
@@ -417,7 +419,7 @@ GlassPanel {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: Tokens.border
             }
             PlainLabel {
@@ -488,12 +490,13 @@ GlassPanel {
                     border.color: monitorChoice.activeFocus ? Tokens.accent : Tokens.border
                 }
                 delegate: ItemDelegate {
+                    id: countryOption
                     required property int index
                     required property string modelData
                     width: monitorChoice.width
                     enabled: root.setup.outputs[index].enabled
                     contentItem: PlainLabel {
-                        text: modelData
+                        text: countryOption.modelData
                     }
                 }
             }
@@ -544,7 +547,7 @@ GlassPanel {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: Tokens.border
             }
             PlainLabel {
@@ -606,9 +609,11 @@ GlassPanel {
                     border.color: conditionChoice.activeFocus ? Tokens.accent : Tokens.border
                 }
                 delegate: ItemDelegate {
+                    id: outputOption
+                    required property string modelData
                     width: conditionChoice.width
                     contentItem: PlainLabel {
-                        text: modelData
+                        text: outputOption.modelData
                     }
                 }
             }
@@ -622,7 +627,7 @@ GlassPanel {
             }
             Rectangle {
                 Layout.fillWidth: true
-                height: 1
+                Layout.preferredHeight: 1
                 color: Tokens.border
             }
             PlainLabel {

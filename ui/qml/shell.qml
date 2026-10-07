@@ -6,13 +6,15 @@ import "Forecast.js" as Forecast
 
 QtObject {
     id: root
+    required property var weatherTransport
+    property var mapTiles: null
     property string units: bridge.snapshot ? bridge.snapshot.controls.units : "F"
     readonly property string windUnits: bridge.snapshot ? bridge.snapshot.controls.wind_units : "auto"
     readonly property bool automaticUnits: bridge.snapshot ? bridge.snapshot.controls.units_mode === "auto" : true
     property bool effectsOpen: false
     property bool initialLocationChecked: false
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
-    readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.contentItem.contentY - 64 && mapSection.y + 18 < forecastScroll.contentItem.contentY + forecastScroll.height + 64
+    readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
     readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     onMapActiveChanged: {
         if (mapActive && !bridge.mapWanted)
@@ -89,6 +91,7 @@ QtObject {
     }
     property QtObject backend: Bridge {
         id: bridge
+        weatherTransport: root.weatherTransport
         presentationActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized
         onClosed: exitCode => Qt.exit(exitCode)
         onToggleWindow: {
@@ -143,7 +146,7 @@ QtObject {
         onVisibleChanged: if (visible)
             Qt.callLater(() => {
                 if (forecastScroll.contentItem)
-                    forecastScroll.contentItem.contentY = 0;
+                    forecastScroll.flickable.contentY = 0;
             })
         onClosing: event => {
             event.accepted = false;
@@ -171,6 +174,7 @@ QtObject {
         }
         ScrollView {
             id: forecastScroll
+            readonly property Flickable flickable: contentItem as Flickable
             objectName: "forecastScroll"
             enabled: !root.effectsOpen
             anchors.fill: parent
@@ -379,6 +383,7 @@ QtObject {
                 }
                 WeatherMap {
                     id: mapSection
+                    tileClient: root.mapTiles
                     Layout.fillWidth: true
                     mapState: bridge.weatherMap
                     location: root.city
@@ -386,7 +391,7 @@ QtObject {
                     windUnits: root.windUnits
                     hasLocation: root.hasMapLocation
                     active: root.mapActive
-                    viewportTop: forecastScroll.contentItem.contentY - (mapSection.y + 18)
+                    viewportTop: forecastScroll.flickable.contentY - (mapSection.y + 18)
                     viewportHeight: forecastScroll.height
                 }
                 AirQualityPanel {

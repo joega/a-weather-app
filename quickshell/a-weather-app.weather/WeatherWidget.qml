@@ -7,6 +7,9 @@ import qs.Ui as OmarchyUi
 OmarchyUi.BarWidget {
     id: root
     moduleName: "a-weather-app.weather"
+    // Omarchy injects a host with colors/font/tooltip methods; its base API is QtObject.
+    readonly property var barHost: root.bar
+    readonly property var fontTokens: Style.font
     // Resolve from this entry point, never the shared shell's working directory.
     // Explicit settings remain supported for earlier development installations.
     readonly property string projectPath: safePath(setting("projectPath", sourceRoot()))
@@ -295,7 +298,7 @@ OmarchyUi.BarWidget {
         id: windowToggle
         // Let the launcher resolve symlinks just as it does when starting Qt.
         command: [root.projectPath + "/a-weather-app", "--toggle-window", "--state-dir", root.statePath]
-        onExited: (code, status) => toggleDeadline.stop()
+        onExited: code => toggleDeadline.stop()
     }
     Process {
         id: reader
@@ -316,7 +319,7 @@ OmarchyUi.BarWidget {
         }
         // The fixed helper emits only a bounded fixed failure message; never
         // collect arbitrary stderr inside the shared shell process.
-        onExited: (code, status) => {
+        onExited: code => {
             readDeadline.stop();
             readKill.stop();
             if (code === 0 && !root.rejected)
@@ -338,7 +341,7 @@ OmarchyUi.BarWidget {
                 args.push("--force-update-check");
             return args;
         }
-        onExited: (code, status) => {
+        onExited: code => {
             updateDeadline.stop();
             updateKill.stop();
             if (code !== 0 && root.manualUpdateCheck)
@@ -349,7 +352,7 @@ OmarchyUi.BarWidget {
     Process {
         id: updateInstaller
         command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--install-update"]
-        onExited: (code, status) => {
+        onExited: code => {
             if (code === 0) {
                 root.waitingForUpdater = true;
                 updaterStartDeadline.restart();
@@ -361,7 +364,7 @@ OmarchyUi.BarWidget {
     Process {
         id: backgroundRefresh
         command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--refresh-bar"]
-        onExited: (code, status) => {
+        onExited: code => {
             refreshDeadline.stop();
             refreshKill.stop();
             root.refresh();
@@ -381,16 +384,16 @@ OmarchyUi.BarWidget {
                 args.push("--output", root.output);
             return args;
         }
-        onExited: (code, status) => root.refresh()
+        onExited: code => root.refresh()
     }
     Text {
         id: textItem
         anchors.centerIn: parent
         textFormat: Text.PlainText
         text: (root.vertical ? "☁" : root.label) + (root.updateNotice ? " ↑" : "")
-        color: root.bar ? root.bar.barForeground : "#eef4fc"
-        font.family: root.bar ? root.bar.fontFamily : "sans-serif"
-        font.pixelSize: Style.font.body
+        color: root.barHost ? root.barHost.barForeground : "#eef4fc"
+        font.family: root.barHost ? root.barHost.fontFamily : "sans-serif"
+        font.pixelSize: root.fontTokens.body
     }
     MouseArea {
         anchors.fill: parent
@@ -405,12 +408,12 @@ OmarchyUi.BarWidget {
                 root.activateWidget();
         }
         onEntered: {
-            if (root.bar)
-                root.bar.showTooltip(root, root.plain(root.tooltip, 256));
+            if (root.barHost)
+                root.barHost.showTooltip(root, root.plain(root.tooltip, 256));
         }
         onExited: {
-            if (root.bar)
-                root.bar.hideTooltip(root);
+            if (root.barHost)
+                root.barHost.hideTooltip(root);
         }
     }
     OmarchyUi.PopupCard {
@@ -428,7 +431,7 @@ OmarchyUi.BarWidget {
                 text: "A Weather App updates"
                 textFormat: Text.PlainText
                 color: Color.foreground
-                font.pixelSize: Style.font.body
+                font.pixelSize: root.fontTokens.body
                 font.bold: true
             }
             Text {
@@ -437,7 +440,7 @@ OmarchyUi.BarWidget {
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
                 color: Color.foreground
-                font.pixelSize: Style.font.body
+                font.pixelSize: root.fontTokens.body
             }
             Text {
                 width: parent.width
@@ -445,7 +448,7 @@ OmarchyUi.BarWidget {
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
                 color: Color.foreground
-                font.pixelSize: Style.font.body
+                font.pixelSize: root.fontTokens.body
             }
             OmarchyUi.Button {
                 text: "Update and restart"

@@ -107,3 +107,34 @@ select portable correctness checks instead. No blanket suppressions planned.
   simulation tests; external/compiler diagnostics outside selected checks are
   reported by Clang, not hidden with source suppressions. Qt protocol and map
   fixtures pass ASan/UBSan/leak detection (43 protocol, seven map cases).
+
+### QML contracts, binding and lifecycle stage
+
+- P2: shell/Bridge take explicit required transport input; optional tile input
+  defaults to null. C++ and fixtures inject initial properties. Dynamic API
+  properties deliberately support real and fake QObject implementations with
+  documented contracts, without fabricated runtime type stubs.
+- Qualified delegate fields/outer IDs and control hover/focus references;
+  ComponentBehavior Bound preserves intended lexical dependencies. Corrected
+  six layout divider sizes, removed unused import and completed qmldir entries.
+  Typed Flickable access preserves scrolling writes as well as reads.
+- P2: inactive search rejects queued debounce triggers and cancels on hidden,
+  disconnected or location-busy transitions. Existing actual 350ms cadence,
+  client-token/generation ordering and stop/search coalescing tests retained.
+- P2: extracted queued-action cleanup and guarded final close notification;
+  service-stopped, rejected quit, synchronous disconnect and deadline failures
+  report once, stop both deadlines and discard queued work. Six new regression
+  cases cover close and inactive search. Frontend QML runtime/binding errors
+  now fail tests instead of being buried in warning output.
+- Main QML/Forecast.js qmllint: zero diagnostics, no suppressions. Widget uses
+  actual Omarchy qs imports with documented dynamic host/font contracts.
+  Its six exact missing QProcess::ExitStatus diagnostics are an upstream
+  Quickshell metadata defect; gate classifies only that exact message/ID and
+  fails all other diagnostics. No host configs or external modules edited.
+- Isolated Quickshell update-action fixture passes. Offscreen captures taken
+  before QML edits and after; pixel/byte comparison will be repeated after the
+  final writable-scroll correction. Shader/simulation algorithms remain unchanged.
+- Final QML stage: 43 protocol / 37 frontend cases pass (four optional captures
+  skip in the standard suite); all 12 explicit private capture images match
+  byte-for-byte after writable-scroll fix, with no runtime warnings. Main
+  qmllint, widget classification, format and shell syntax checks pass.

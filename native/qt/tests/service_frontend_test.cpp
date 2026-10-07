@@ -330,8 +330,9 @@ class ServiceFrontendTest : public QObject {
         transport = std::make_unique<WeatherTransport>(fixture.socket, false);
         mapTiles = std::make_unique<MapTiles>();
         engine = std::make_unique<QQmlApplicationEngine>();
-        engine->rootContext()->setContextProperty("weatherTransport", transport.get());
-        engine->rootContext()->setContextProperty("mapTiles", mapTiles.get());
+        engine->setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(transport.get())},
+             {"mapTiles", QVariant::fromValue<QObject*>(mapTiles.get())}});
         // Capture exit requests without stopping the QtTest application's event loop.
         QObject::disconnect(engine.get(), nullptr, QCoreApplication::instance(), nullptr);
         engine->load(QUrl("qrc:/ui/qml/shell.qml"));

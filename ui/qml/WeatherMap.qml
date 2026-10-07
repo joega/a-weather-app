@@ -26,7 +26,8 @@ ColumnLayout {
     property bool playing: false
     property var tileImages: ({})
     property var failedTiles: ({})
-    readonly property var tileClient: typeof mapTiles === "undefined" ? null : mapTiles
+    // Contract: request/close and tileReady/tileFailed signals; null disables tiles.
+    property var tileClient: null
     readonly property var mapData: mapState.data || null
     readonly property bool canPlay: active && mapData !== null && mapData.hours.length > 1
     function startPlayback() {
