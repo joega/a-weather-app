@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "a-weather-app.weather",
   "name": "A Weather App",
-  "version": "0.60.0",
+  "version": "0.61.0",
   "author": "Joe Gaetano",
   "license": "MIT",
   "description": "Saved-location weather status with background refresh and a native forecast window",
