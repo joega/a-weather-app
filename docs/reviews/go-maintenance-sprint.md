@@ -45,6 +45,17 @@ final verification, audit corrections, and release preparation follow them.
 - Native display-free input checks pass using the existing atmosphere executable
   and the updated Go `weather-native-check inputs` command.
 - Release-version script tests pass; the selector chooses `version=0.61.0`.
+- October 7 Docker release build: exit 0 against clean source
+  `141bbd922e939cc67835ccdffc40a688681c1546`, with Go 1.27.1 in the pinned
+  Arch container. Lint, race/vet, Qt tests, native address/undefined-behavior/leak
+  sanitizers, symbols/hardening, input validation, inventory checks, and packaged
+  offline startup/shutdown pass. Five artifacts are byte-identical across two
+  independent builds. Archive metadata declares 0.61.0; SHA256SUMS verifies.
+  Archive SHA-256: `29f60068a71e5ff17677be475e91c7b785ccb61011d24a89b554f6d955ff87b4`.
+  Local artifacts: `dist/go-migration.aqrjWqpv/`;
+  log: `/tmp/weather-go-migration.pI9pa5Kc.log` (temporary).
+- User reports live desktop effects also work correctly. This is manual,
+  user-verified evidence; the agent did not operate the live compositor.
 - `git diff --check` passes. Reviewed changed boundaries, lifecycle extraction,
   protocol keys, default provider routing, saved-state handling, and release pins.
 
@@ -76,8 +87,10 @@ and failed-staging cleanup errors remain best effort; durable write errors are
 handled. ELF dynamic-tag reads rely on the existing bounded in-memory preflight.
 Lint tools need Go 1.26+; Go can select that toolchain automatically.
 
-Verification used isolated/offscreen fixtures. Live compositor effects,
-optional visual/provider checks, and the complete Docker release/reproducibility
-build were not run. Existing runtime pins and source version defaults remain
-at the published 0.60.0 until the release workflow verifies and pins new artifacts.
+Automated verification used isolated/offscreen fixtures and the complete
+Docker release/reproducibility build. Live effects were checked by the user;
+optional private visual captures and live-provider checks remain skipped.
+Existing runtime pins and source version defaults remain at the published
+0.60.0 until the release workflow verifies and pins new artifacts. Repeat the
+release build against final source after the separate C/C++ cleanup.
 No tag, push, or release publication was performed.
