@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "tag": "v0.51.9",
-  "archive_sha256": "aa7b18ea78356d0cc8cf9516d072aa32ccd0a63093d7a2c0996715ff3caac1f3",
-  "source_commit": "6bc3594539a8eb08d8a04bcc4d91e7fc2d197954"
+  "tag": "v0.60.0",
+  "archive_sha256": "645c87cc00509ab648ca659167c8122b6e8ae628390239a18a16b8a2f6bc4600",
+  "source_commit": "7fbbea463212757c929e36f99173a8f8c5874abe"
 }
