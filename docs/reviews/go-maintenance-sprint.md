@@ -2,7 +2,8 @@
 
 Completed against baseline `a8671eceeaeba0d15a71e4786f4f6218050b36d3`
 (clean checkout), using Go 1.27.1. The application minimum remains Go 1.24.0.
-Release target: **v0.61.0**. C/C++ cleanup remains a separate follow-up.
+Release target: **v0.61.0**. The subsequent native/QML cleanup is recorded in
+[its review](native-qml-maintenance-sprint.md).
 
 ## Completed work
 
@@ -91,6 +92,6 @@ Automated verification used isolated/offscreen fixtures and the complete
 Docker release/reproducibility build. Live effects were checked by the user;
 optional private visual captures and live-provider checks remain skipped.
 Existing runtime pins and source version defaults remain at the published
-0.60.0 until the release workflow verifies and pins new artifacts. Repeat the
-release build against final source after the separate C/C++ cleanup.
+0.60.0 until the release workflow verifies and pins new artifacts. The final combined source still needs the
+Docker/live checks recorded in the native/QML review.
 No tag, push, or release publication was performed.

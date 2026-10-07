@@ -1261,6 +1261,23 @@ class FrontendTest : public QObject {
         QCOMPARE(transport.requests.last()["search"].toMap()["client_token"].toInt(), 3);
         QVERIFY(!bridge->property("busy").toBool());
     }
+    void searchAcknowledgmentDoesNotPulseBusy() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        QVERIFY(evaluate(engine, bridge.data(),
+                         "send('search_places',{query:'Berlin',country_code:'DE',client_token:1})")
+                    .toBool());
+        QVERIFY(!bridge->property("busy").toBool());
+        QSignalSpy busy(bridge.data(), SIGNAL(busyChanged()));
+        deliver(transport, {{"version", 1}, {"request_id", 0}, {"ok", true}});
+        QCOMPARE(busy.size(), 0);
+        QVERIFY(!bridge->property("busy").toBool());
+        QCOMPARE(bridge->property("pending").toInt(), -1);
+    }
     void placeSearchInactiveCancelsDebounce_data() {
         QTest::addColumn<QString>("property");
         QTest::addColumn<bool>("value");
@@ -1287,6 +1304,7 @@ class FrontendTest : public QObject {
         QVERIFY(!picker->property("armed").toBool());
         // Even an already queued trigger or a programmatic edit cannot issue work.
         query->setProperty("text", "Tokyo");
+        QVERIFY(!timer->property("running").toBool());
         QVERIFY(QMetaObject::invokeMethod(timer, "triggered"));
         QCOMPARE(searches.size(), 0);
     }

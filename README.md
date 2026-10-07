@@ -201,7 +201,11 @@ interpreter are required.
 
 For source development with dependencies already present, `make` builds the core
 and frontend; `make shaders native` prepares shader/native artifacts. Then use
-`./a-weather-app`.
+`./a-weather-app`. Native/QML conventions are in [NATIVE_QML_STYLE.md](NATIVE_QML_STYLE.md).
+Run `make check-native-qml` for formatting and static checks and `make test-go`,
+`make -C native/qt test`, and `make -C native/qt test-e2e` for regression checks.
+The QML gate needs Quickshell and the actual Omarchy modules; unavailable tools
+fail explicitly. `make format-native-qml` applies the configured formatting.
 
 ### Optional launcher
 

@@ -1,140 +1,155 @@
 # Native and QML maintenance sprint — October 7, 2026
 
-Release target: **v0.61.0**. Baseline: `49e63ee` (clean checkout).
-The completed [Go review](go-maintenance-sprint.md) and its Docker/live evidence
-are the baseline, not verification of this sprint's changed source.
-No repository AGENTS.md applies. Preserve C17, Qt C++17, compositor C++23.
+Completed independently available implementation and validation for **v0.61.0**,
+against clean baseline `49e63ee8296a3f9268264b9ae2aac1aa1afdc78b` (the completed Go sprint).
+[Go review](go-maintenance-sprint.md) records earlier Docker/live evidence;
+that evidence does not verify this sprint's changed code. Final Docker and live
+checks remain explicitly pending below. No push, repository tag or publication.
 
-## Working checklist
+## Completed review and fixes
 
-- [ ] Audit maintained native/atmosphere, frame-alignment, physics, snow, Qt,
-  tests, ui/qml, Forecast.js, and Quickshell widget; establish conventions.
-- [ ] Evaluate and scope clang-format/tidy and qmlformat/qmllint gates.
-- [ ] C: fix option ownership on early exits (P2; leaked GOption strings),
-  review sources/timers, GL resources, bounded input and numeric conversions.
-- [ ] C++: investigate map reply teardown (P1; manager is destroyed after
-  callback state), review transport, signal pipe, scene graph/plugin unload,
-  simulation invariants; add ownership/cancellation regressions.
-- [ ] QML: audit bridge coalescing, stale search replies/debounce, map playback,
-  presentation/reduced motion, settings/update controls and bar subprocesses.
-- [ ] Keep mechanical formatting separate; run focused checks and commit stages.
-- [ ] Combined Go/native/Qt/offscreen verification, generated consistency,
-  release notes, final diff/status review and clean-source Docker build.
-- [ ] Record exact unavailable/manual checks and finish a lasting report.
+- [x] Established [conventions](../../NATIVE_QML_STYLE.md), scoped format/static
+  gates, and release-container gates. Preserved C17, Qt C++17 and plugin C++23.
+  Mechanical formatting is a separate commit, without include/import/attribute
+  reordering. No applicable repository AGENTS.md or unrelated changes existed.
+- [x] C atmosphere: scoped GOption allocations on every exit (P2), separated
+  finite-expiry and signal callbacks to retain accurate source ownership (P2),
+  wrapped lightning cycles before uint32 conversion (P2), and replaced
+  padding-sensitive test memcmp with field comparison. Added extreme-time and
+  allocated-option early-return sanitizer regressions.
+- [x] Qt: quiesced reply callbacks before MapTiles member destruction (P1);
+  guarded owner/reply/generation around synchronous delivery so listener close
+  or destruction cancels tileReady (P2). Added active-download teardown and both
+  reentrant regressions. Scoped signal-pipe descriptors cover early main returns.
+- [x] Compositor: checked fadeout doubles before narrowing (P2). Reviewed
+  listener/timer removal, retained-pass purge, shared GPU ownership, EGL context
+  restoration and unload. Existing ABI symbols and -fno-gnu-unique preserved.
+- [x] QML: explicit required transport and optional tile dependencies with initial
+  property injection; qualified delegate/control references and bound lexical
+  IDs; typed writable Flickable access; six layout divider corrections and
+  completed qmldir. Appearance, accessibility and object names retained.
+- [x] Search/shutdown: inactive edits no longer schedule debounce; queued triggers
+  reject hidden/disconnected/location-busy state (P2). Final close is exactly
+  once, clears queues and stops both deadlines (P2). Integration found a brief
+  busy pulse when clearing pendingOp before pending ID; corrected order and
+  added a dedicated binding regression. Preserved stop/shutdown priority,
+  search tokens, snapshot revisions and map/presentation coalescing.
+- [x] Reviewed Forecast.js, maps/playback, Atmosphere, settings/update controls,
+  and bar subprocess deadlines/size bounds. Main frontend runtime/binding
+  warnings now fail tests. No simulation or shader algorithm changes, broad
+  component migration, saved-state changes or arbitrary cleanup quotas.
+- [x] Updated combined [release notes](../../packaging/releases/v0.61.0.md),
+  refreshed tracked native binaries, checked final diff and generated resources.
 
-## Inventory and tooling baseline
+Stage commits: `1779d84` conventions; `48d047e` formatting;
+`5decdd6` C ownership/conversion; `e0392b9` Qt ownership/native analysis;
+`3d96eb6` QML contracts/lifecycle. Final audit corrections, generated binaries
+and release documentation follow these commits.
 
-Maintained source: the directories above, including test fixtures. Generated:
-`native/atmosphere/sky_shader.h` from the Godot shader, QSB shader from
-`ui/shaders/atmosphere.frag`, qmake/moc/rcc objects and binaries (ignored).
-Third-party headers/libraries are external (Qt, GLib/GTK, Hyprland); do not
-format or rewrite them. Godot is the retained shader/reference implementation,
-not a reason to delete code from the native/QML scope. No inactive code has
-been established by evidence.
+## Scope and retained invariants
 
-Host tools: LLVM 22.1.8, Qt 6.11.2; Qt tooling is under `/usr/lib/qt6/bin`.
-Release container uses the existing September 26 Arch snapshot. Tool gates
-must report missing tools, not silently pass. Docker availability is being
-checked separately.
+| Area | Audit outcome |
+| --- | --- |
+| atmosphere and tests | Checked bounded no-follow owned-file reads, strict duplicate/depth/type validation, atomic last-good outputs, policy freshness, finite renewable leases, sources/references and current-context GL cleanup. |
+| frame-alignment and headers | Checked request limits, generation guards, callbacks/exception boundaries, weak monitor references, queued scene passes, unload/symbol behavior, geometry and cadence. At most 64 supports plus masks bound exposed-top spans below the 65-slot array. |
+| physics/snow and native tests | Checked finite/bounded parameters before indices, fixed-capacity pools, nonallocating steps, conservation sinks, topology clipping, reset/suppression, residual activity and temperature leases. No substantive simulation changes justified. |
+| Qt/protocol/frontend tests | Reviewed QObject and member destruction order, context-bound connections, thread affinity, socket buffering/peer checks, strict JSON, cancellation, disk cache ownership, download/decode budgets and shutdown acknowledgments. |
+| QML/JS/widget | Reviewed bindings, lexical dependencies, async ordering, search generation/token latches, timers, hidden/minimized and reduced-motion gating, layout/implicit sizes, forecast validation, maps and bar process ownership. |
 
-## Guidance
+Maintained source includes all named native directories, tests, ui/qml and
+Quickshell widget. Generated deliverables: tracked sky_shader.h (Godot shader
+source), QSB, native executable/plugin; qmake/moc/rcc/compiler outputs are local
+build products. External Qt/GTK/GLib/Hyprland code was not edited or formatted.
+Godot remains the shader/reference implementation. No genuinely inactive code
+was established, so none was removed.
 
-Use [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
-R.1/R.12 for ownership and scoped cleanup;
-[SEI CERT C](https://wiki.sei.cmu.edu/confluence/display/c/SEI+CERT+C+Coding+Standard)
-MEM31-C, INT31-C, FLP34-C for allocations and conversions;
-[Qt ownership](https://doc.qt.io/qt-6/objecttrees.html),
-[Qt coding style](https://wiki.qt.io/Qt_Coding_Style),
-[QML conventions](https://doc.qt.io/qt-6/qml-codingconventions.html), and
-[Qt Quick practices](https://doc.qt.io/qt-6/qtquick-bestpractices.html).
-Apply stable guidance compatible with installed/supported Qt; no framework
-migration or blanket ownership/exception rules at ABI boundaries.
+## Verification
 
-Conventions are in [NATIVE_QML_STYLE.md](../../NATIVE_QML_STYLE.md).
-Formatting gates cover Git-tracked maintained C/C++/QML/JS only, excluding
-sky_shader.h. qmlformat supports the existing library JS. Keep ordering intact.
-Baseline qmllint: 105 unqualified references, six missing-property findings,
-six layout-size findings, one unused import; investigate with runtime types.
-clang-tidy wildcard evaluation includes unsuitable WebKit ownership checks;
-select portable correctness checks instead. No blanket suppressions planned.
+Host: LLVM 22.1.8, Qt 6.11.2, GCC 16.2.1, Go 1.27.1, Hyprland 0.56.2.
 
-### Formatting stage
+- `make check-native-qml`: format checks, scoped clang-tidy on production native
+  translation units plus native simulation tests, and QML checks pass. Main
+  QML/Forecast.js has zero diagnostics. Widget uses actual Omarchy modules.
+- `make test-go`: pinned goimports/Staticcheck, race tests and vet pass. The
+  isolated Quickshell update-action fixture also passed explicitly.
+- `make -C native/qt test`: **43 protocol / 38 frontend** cases pass; four
+  optional live/private capture cases skip. Actual debounce timing retained;
+  new teardown/cancellation/binding checks use direct deterministic transitions.
+- Fresh `make go APP_VERSION=0.61.0` and hardened Qt build succeed; executable
+  reports 0.61.0. `make -C native/qt test-e2e`: **24 pass**, two optional
+  private-map/live-provider cases skip, against that freshly built executable.
+- Native simulation/self-tests/adversarial inputs pass ASan, UBSan and leak
+  detection; new option-error cases included. Qt protocol and seven map ownership
+  cases also pass all three sanitizers in disposable offline copies. System Qt,
+  its renderer/plugins and the Go service are not sanitizer-instrumented.
+- `make native shaders`, fresh atmosphere self-test/input checks, plugin symbols
+  and hardening for Go/Qt/plugin/atmosphere pass. Generated shader header and QSB
+  remain consistent. Tracked native binaries were rebuilt with the host tools;
+  the release container independently rebuilds them before packaging.
+- Twelve deterministic offscreen screenshots before/after QML cleanup are
+  byte-identical, with final runtime warnings treated as failures. No rendering
+  or simulation hot-path algorithm was changed; no performance gain claimed.
+- Release selector tests pass and choose 0.61.0. `git diff --check` passes.
+  Implementation is committed before the final Docker attempt.
 
-- Expanded maintained native/QML/JS code with the configured tools; preserved
-  include/import/attribute order and excluded generated files.
-- `make check-native-qml-format` passes with LLVM 22.1.8 / Qt 6.11.2.
-- Qt offscreen tests: 43 protocol, 28 frontend pass; four private/live captures
-  skip. First sandbox attempt failed local socket creation; unrestricted rerun
-  passes. Native sanitizer validation reruns outside ptrace restrictions.
-- Native simulation/self-test/adversarial input checks pass with ASan, UBSan
-  and leak detection outside the sandbox; no sanitizer findings.
+Initial sandbox runs could not create local sockets or run LeakSanitizer under
+ptrace; unrestricted reruns passed. These failures were environmental, not
+counted as passing checks. Go compiler caches also required writable/host access.
 
-### C lifecycle and conversion stage
+## Guidance and justified exceptions
 
-- P2: GOption strings now use scoped GLib cleanup on parse failures, self-test,
-  policy/validation modes and invalid CLI exits; State borrows them only while
-  the application runs. Removed repeated frees.
-- P2: expiry callback clears its one-shot source ID; signal sources remain
-  registered until teardown, avoiding stale IDs. Tick already clears its ID.
-- P2: lightning cycle wraps before float-to-uint32 conversion, avoiding undefined
-  conversion for extreme finite input; normal envelopes/shader behavior unchanged.
-- Added extreme-time self-tests and sanitizer regressions for allocated-option
-  early exits. Strict JSON duplicate/depth/type/freshness, no-follow bounded file
-  reads, GL-context deletion and finite renewable policy leases remain intact.
-- C focused build/self-test/adversarial input tests and full native
-  address/undefined/leak sanitizer suite (including new early-return cases)
-  pass. Formatting and diff checks pass.
+Applied [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
+R.1/R.12, [CERT MEM31-C](https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/memory-management-mem/mem31-c/),
+[CERT FLP34-C](https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/floating-point-flp/flp34-c/),
+[Qt style](https://wiki.qt.io/Qt_Coding_Style),
+[Qt 6.11 ownership](https://doc.qt.io/qt-6.11/objecttrees.html),
+[QML conventions](https://doc.qt.io/qt-6/qml-codingconventions.html) and
+[Qt 6.11 performance guidance](https://doc.qt.io/qt-6.11/qtquick-performance.html)
+with judgment. Qt/GLib framework ownership, raw GL handles with context-aware
+cleanup, strict JSON numeric representation, finite budgets, existing ABI/error
+handling and real cadence tests remain appropriate.
 
-### C++ ownership and analysis stage
+clang-tidy selects portable correctness checks, not all guideline/style rules or
+external WebKit ownership conventions. External includes are system headers;
+GCC-only -fno-gnu-unique is excluded from Clang parsing, retained in real builds.
+No source suppressions. Tests are covered by compiler/regression/sanitizer checks;
+Qt generated test moc files are not part of the static-analysis scope.
 
-- P1: MapTiles disconnects/aborts replies before derived callback state dies;
-  includes replies waiting for deferred deletion. Added active-download
-  destruction tests. Transport already correctly disconnects before abort.
-- P2: guard owner/reply and generation across synchronous drain/tileReply
-  callbacks; close or destruction by a listener cancels tileReady. Added both
-  reentrant regressions. Limits, cooldowns and offline caching are unchanged.
-- P2: scoped signal-pipe descriptors now close on all main() returns, after
-  notifier destruction. Fadeout geometry is range-checked before double-to-float
-  conversion. No simulation/rendering hot-path algorithm changes.
-- Scoped clang-tidy correctness checks use system includes for external headers,
-  C17/C++17/C++23 per target. GCC-only -fno-gnu-unique stays in real plugin builds,
-  not Clang analysis. Replaced padding-sensitive Weather memcmp with field
-  equality; no suppressions. Full Qt tests: 43 protocol / 31 frontend pass,
-  four optional capture cases skip. Plugin rebuild and symbol checks pass.
-- Correction to inventory: native executables/plugin and QSB are tracked
-  generated deliverables, not ignored; refresh and verify before final commit.
-- Scoped clang-tidy passes all production native translation units and native
-  simulation tests; external/compiler diagnostics outside selected checks are
-  reported by Clang, not hidden with source suppressions. Qt protocol and map
-  fixtures pass ASan/UBSan/leak detection (43 protocol, seven map cases).
+Quickshell Io metadata omits QProcess::ExitStatus. Widget analysis records six
+exact upstream signal-parameter diagnostics. The gate permits only that exact
+ID/message and fails every other diagnostic; no blanket suppression or fake
+runtime type. Dynamic injected transport/tile and Omarchy host/font APIs retain
+documented duck-typed contracts, verified with real runtime/offline fixtures.
+Tools must be present; missing tooling/modules fail explicitly. qmlformat and
+qmllint accept duplicate ComponentBehavior pragmas that runtime rejects, so the
+gate adds a direct duplicate-pragma check.
 
-### QML contracts, binding and lifecycle stage
+## Pending user checks
 
-- P2: shell/Bridge take explicit required transport input; optional tile input
-  defaults to null. C++ and fixtures inject initial properties. Dynamic API
-  properties deliberately support real and fake QObject implementations with
-  documented contracts, without fabricated runtime type stubs.
-- Qualified delegate fields/outer IDs and control hover/focus references;
-  ComponentBehavior Bound preserves intended lexical dependencies. Corrected
-  six layout divider sizes, removed unused import and completed qmldir entries.
-  Typed Flickable access preserves scrolling writes as well as reads.
-- P2: inactive search rejects queued debounce triggers and cancels on hidden,
-  disconnected or location-busy transitions. Existing actual 350ms cadence,
-  client-token/generation ordering and stop/search coalescing tests retained.
-- P2: extracted queued-action cleanup and guarded final close notification;
-  service-stopped, rejected quit, synchronous disconnect and deadline failures
-  report once, stop both deadlines and discard queued work. Six new regression
-  cases cover close and inactive search. Frontend QML runtime/binding errors
-  now fail tests instead of being buried in warning output.
-- Main QML/Forecast.js qmllint: zero diagnostics, no suppressions. Widget uses
-  actual Omarchy qs imports with documented dynamic host/font contracts.
-  Its six exact missing QProcess::ExitStatus diagnostics are an upstream
-  Quickshell metadata defect; gate classifies only that exact message/ID and
-  fails all other diagnostics. No host configs or external modules edited.
-- Isolated Quickshell update-action fixture passes. Offscreen captures taken
-  before QML edits and after; pixel/byte comparison will be repeated after the
-  final writable-scroll correction. Shader/simulation algorithms remain unchanged.
-- Final QML stage: 43 protocol / 37 frontend cases pass (four optional captures
-  skip in the standard suite); all 12 explicit private capture images match
-  byte-for-byte after writable-scroll fix, with no runtime warnings. Main
-  qmllint, widget classification, format and shell syntax checks pass.
+Docker access is denied to the current user and `sudo -n docker info` requires a
+password. The final release-build attempt cannot obtain interactive sudo in this
+session. No new archive, checksum, source inventory, packaged startup/shutdown or
+independent-build reproducibility result is claimed. Earlier Go artifacts do not
+cover these native/QML changes. Run from the final clean checkout:
+
+```sh
+cd /home/joeg/Projects/a-weather-app
+WEATHER_RELEASE_VERSION=0.61.0 bash scripts/run_go_migration_build.sh
+```
+
+The build performs independent builds, compares five artifacts, checks source
+metadata/version, and tests packaged startup/shutdown. In its printed output
+directory run `sha256sum --check SHA256SUMS`; verify go-runtime.json has
+`source_dirty=false`, empty source_status and the final checkout's source_commit,
+and the archive manifest declares 0.61.0. Do not push, tag or publish.
+
+On the live desktop: open the current build, rapidly edit/select city searches,
+hide/reopen Settings, disconnect/close with work pending, open/close maps during
+downloads and verify keyboard scrolling. Check finite rain/snow/sky effects,
+reduced motion, hidden/minimized presentation, Stop and clean unload. Check bar
+updates/open/close against the normal Omarchy host. Earlier user-reported live
+checks remain baseline evidence only. Optional live-provider/private map checks
+and live GPU/performance measurements remain unrun.
+
+Published runtime pins/source defaults remain 0.60.0 until the existing release
+workflow verifies and pins new artifacts; the release target stays 0.61.0.

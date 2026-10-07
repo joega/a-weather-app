@@ -255,8 +255,10 @@ Item {
             if (value.request_id !== pending)
                 throw Error("Unexpected response");
             let completedOp = pendingOp;
-            pendingOp = "";
+            // Clear the ID first: an empty op with a live ID would briefly
+            // make busy true and cancel a search through locationBusy bindings.
             pending = -1;
+            pendingOp = "";
             deadline.stop();
             if (completedOp === "subscribe" && value.ok) {
                 subscribed = true;

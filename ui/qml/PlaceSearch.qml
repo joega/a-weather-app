@@ -36,6 +36,11 @@ ColumnLayout {
         if (serviceAvailable && hadSearch)
             cancelRequested();
     }
+    function scheduleSearch() {
+        invalidate();
+        if (visible && serviceAvailable && !locationBusy)
+            debounce.restart();
+    }
     function pick(row) {
         if (!showingSearch || search.status !== "ready" || locationBusy || !serviceAvailable)
             return;
@@ -106,10 +111,7 @@ ColumnLayout {
                 color: "#30435e72"
                 border.color: cityInput.activeFocus ? Tokens.accent : Tokens.border
             }
-            onTextChanged: {
-                root.invalidate();
-                debounce.restart();
-            }
+            onTextChanged: root.scheduleSearch()
             Keys.onDownPressed: event => {
                 if (results.count > 0) {
                     results.currentIndex = 0;
@@ -141,10 +143,7 @@ ColumnLayout {
                 color: "#30435e72"
                 border.color: countryInput.activeFocus ? Tokens.accent : Tokens.border
             }
-            onTextChanged: {
-                root.invalidate();
-                debounce.restart();
-            }
+            onTextChanged: root.scheduleSearch()
         }
     }
     PlainLabel {
