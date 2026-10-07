@@ -146,6 +146,15 @@ QtObject {
                     PlainLabel { visible:root.controls.mode==="manual"&&!root.liveDesktop;text:"Manual effects preview · "+Forecast.title(root.controls.manual.condition);font.pixelSize:13;color:Tokens.accent }
                 }
                 PlainLabel { objectName:"forecastOutlook";visible:root.hours.length>0;Layout.fillWidth:true;text:Forecast.outlook(root.hours,root.units,root.windUnits);font.pixelSize:18;wrapMode:Text.Wrap;elide:Text.ElideNone }
+                UpdatePanel {
+                    objectName:"updateNotice"
+                    Layout.fillWidth:true
+                    status:bridge.snapshot?bridge.snapshot.update:Forecast.updateStatus(null)
+                    visible:["available","publishing","failed","downloading","verifying","restarting","updated","rolled_back"].indexOf(status.state)>=0
+                    enabled:bridge.available&&!bridge.busy
+                    onCheckRequested:bridge.send("check_updates")
+                    onInstallRequested:bridge.send("install_update")
+                }
                 HourlyPanel { Layout.fillWidth:true;hours:root.hours;units:root.units;timezone:root.timezone;onHourSelected:hour=>details.showHour(hour) }
                 GridLayout {
                     Layout.fillWidth:true;columns:window.width<950?1:2;columnSpacing:16;rowSpacing:16
@@ -202,6 +211,9 @@ QtObject {
             onNotificationPauseRequested:bridge.send("snooze_notifications")
             onNotificationResumeRequested:bridge.send("resume_notifications")
             launcherStatus:bridge.snapshot?bridge.snapshot.launcher_status:"ready"
+            updateStatus:bridge.snapshot?bridge.snapshot.update:Forecast.updateStatus(null)
+            onCheckUpdatesRequested:bridge.send("check_updates")
+            onInstallUpdateRequested:bridge.send("install_update")
             onInstallLauncherRequested:bridge.send("install_launcher")
             onQuitRequested:bridge.shutdown()
         }

@@ -7,6 +7,7 @@ WeatherIcon 1.0 WeatherIcon.qml
 Atmosphere 1.0 Atmosphere.qml
 HourlyPanel 1.0 HourlyPanel.qml
 DailyPanel 1.0 DailyPanel.qml
+UpdatePanel 1.0 UpdatePanel.qml
 MetricsPanel 1.0 MetricsPanel.qml
 ChoiceControl 1.0 ChoiceControl.qml
 ToggleControl 1.0 ToggleControl.qml

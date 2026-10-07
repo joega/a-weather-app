@@ -211,7 +211,7 @@ function snapshot(v) {
         settings={mode:s.mode,zip_code:s.zip_code,busy:s.busy,error:s.error,country_code:countryCode(s.country_code),place:place};
     }
     if(v.launcher_status!==undefined&&["ready","installed","conflict","failed","unsupported_path"].indexOf(v.launcher_status)<0)throw Error("Invalid launcher status");
-    return {launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,place_search:placeSearch(v.place_search),air_quality:airQuality(v.air_quality),effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts,source:alertSource,coverage:coverage,fetched_at:alertsFetchedAt},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
+    return {update:updateStatus(v.update),launcher_status:v.launcher_status||"ready",forecast:f,location:string(v.location.name,244),location_settings:settings,place_search:placeSearch(v.place_search),air_quality:airQuality(v.air_quality),effects_setup:effectsSetup(v.effects_setup),notifications:notifications(v.notifications),timezone:string(v.location.timezone,80),controls:controls,atmosphere:atmosphere(v.atmosphere),alerts:{status:v.alerts.status,items:alerts,source:alertSource,coverage:coverage,fetched_at:alertsFetchedAt},source:{name:string(v.source.name,80),attribution:string(v.source.attribution,240),freshness:fresh,age_seconds:optional(v.source.age_seconds,0,315360000),refreshing:v.source.refreshing,error:v.source.error===null?null:string(v.source.error,80)},effect_status:v.effect_status.state,effect_remaining_seconds:remaining,effect_persistent:v.effect_status.persistent===true};
 }
 function temp(v,units) { return v===null||v===undefined ? "—" : Math.round(units==="F" ? v*9/5+32:v)+"°"; }
 function uv(v) { return v===null||v===undefined ? "—" : v.toFixed(1); }
@@ -251,4 +251,10 @@ function outlook(hours,units,windUnits) {
         if(peak>=8)parts.push("Gusts up to "+wind(peak,units,windUnits)+".");
     }
     return parts.join(" ");
+}
+
+function updateStatus(v) {
+    if(v===undefined||v===null)return {state:"unsupported",installed:"",available:"",message:"Updates are unavailable for this installation",checked_at:0};
+    if(!object(v)||Object.keys(v).length!==5||["idle","current","available","publishing","failed","checking","downloading","verifying","restarting","updated","rolled_back","development","unsupported"].indexOf(v.state)<0)throw Error("Invalid update status");
+    return {state:v.state,installed:string(v.installed,32),available:string(v.available,32),message:string(v.message,512),checked_at:integer(v.checked_at,0,253402300799)};
 }

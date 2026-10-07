@@ -2,17 +2,23 @@ package app
 
 import (
 	"context"
+	"reflect"
 	"time"
 )
 
 type updateState struct {
-	checking bool
-	next     time.Time
-	done     chan struct{}
+	checking   bool
+	next       time.Time
+	done       chan struct{}
+	installing bool
+	lastStatus M
 }
 
 func (a *App) beginUpdateCheck(force bool) {
 	if a.options.CheckUpdates == nil || a.options.Offline || a.updates.checking || (!force && a.options.Now().Before(a.updates.next)) {
+		return
+	}
+	if updateInProgress(a.updateSnapshot()) {
 		return
 	}
 	a.updates.checking = true
@@ -31,6 +37,19 @@ func (a *App) beginUpdateCheck(force bool) {
 }
 
 func (a *App) pollUpdates() {
+	if a.options.UpdateStatus != nil {
+		status := a.options.UpdateStatus()
+		if !reflect.DeepEqual(status, a.updates.lastStatus) {
+			a.updates.lastStatus = status
+			a.signal()
+		}
+	}
+	if a.updates.installing && a.options.UpdateStatus != nil {
+		state := stringOf(a.options.UpdateStatus()["state"])
+		if state == "failed" || state == "rolled_back" || state == "updated" {
+			a.updates.installing = false
+		}
+	}
 	if a.updates.done == nil {
 		return
 	}
@@ -51,7 +70,20 @@ func (a *App) updateSnapshot() M {
 		v["state"] = "checking"
 		v["message"] = "Checking for updates…"
 	}
+	if a.updates.installing && !updateInProgress(v) && v["state"] != "failed" {
+		v = safeUpdateCopy(v)
+		v["state"] = "downloading"
+		v["message"] = "Preparing the update…"
+	}
 	return v
+}
+
+func updateInProgress(v M) bool {
+	switch stringOf(v["state"]) {
+	case "downloading", "verifying", "restarting":
+		return true
+	}
+	return false
 }
 func safeUpdateCopy(v M) M {
 	r := M{}

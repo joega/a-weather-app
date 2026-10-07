@@ -68,6 +68,9 @@ GlassPanel {
     signal notificationPauseRequested()
     signal notificationResumeRequested()
     property string launcherStatus:"ready"
+    property var updateStatus:Forecast.updateStatus(null)
+    signal checkUpdatesRequested()
+    signal installUpdateRequested()
     signal installLauncherRequested()
     signal quitRequested()
     function showSection(section) { settingsScroll.contentY=Math.max(0,Math.min(section.y,Math.max(0,settingsScroll.contentHeight-settingsScroll.height))) }
@@ -96,7 +99,9 @@ GlassPanel {
         ScrollBar.vertical:ScrollBar { }
         ColumnLayout {
             id:body;width:parent.width;spacing:16
-            PlainLabel { id:applicationSection;text:"Application launcher";font.pixelSize:23;font.weight:Font.DemiBold }
+            PlainLabel { id:applicationSection;text:"Application";font.pixelSize:23;font.weight:Font.DemiBold }
+            UpdatePanel { Layout.fillWidth:true;status:root.updateStatus;enabled:root.serviceAvailable&&!root.busy;onCheckRequested:root.checkUpdatesRequested();onInstallRequested:root.installUpdateRequested() }
+            PlainLabel { text:"Application launcher";font.pixelSize:19;font.weight:Font.DemiBold }
             PlainLabel { Layout.fillWidth:true;text:"Add A Weather App and its icon to your application menu. This opens the same app without using the bar widget.";wrapMode:Text.Wrap;elide:Text.ElideNone;font.pixelSize:14;color:Tokens.secondary }
             ActionButton { objectName:"installLauncher";text:root.launcherStatus==="installed"?"Launcher installed":"Install application launcher";enabled:root.serviceAvailable&&!root.busy&&root.launcherStatus!=="installed";onClicked:root.installLauncherRequested() }
             PlainLabel { objectName:"launcherStatus";Layout.fillWidth:true;text:({ready:"Installed for your user only. Keep this app in its current location.",installed:"Ready. Reopen your application menu and search for A Weather App.",conflict:"An existing launcher or icon differs. Nothing was overwritten. See the README launcher instructions to resolve it.",unsupported_path:"Move the app to a path without quotes, backslashes, dollar signs, percent signs, equals signs or backticks, then try again.",failed:"Could not install the launcher. Check your user application directory permissions and try again."})[root.launcherStatus];wrapMode:Text.Wrap;elide:Text.ElideNone;font.pixelSize:14;color:Tokens.secondary }

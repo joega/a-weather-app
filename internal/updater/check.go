@@ -112,7 +112,7 @@ func (c Config) Status() Status {
 		return base
 	}
 	var s Status
-	if json.Unmarshal(raw, &s) != nil || s.CheckedAt < 0 || s.CheckedAt > c.now().Add(time.Minute).Unix() || s.Installed != c.Installed {
+	if json.Unmarshal(raw, &s) != nil || s.CheckedAt < 0 || s.CheckedAt > c.now().Add(time.Minute).Unix() {
 		return base
 	}
 	switch s.State {
@@ -124,6 +124,12 @@ func (c Config) Status() Status {
 		return base
 	}
 	if len(s.Message) > 512 || len(s.Available) > 32 {
+		return base
+	}
+	if s.Installed != c.Installed {
+		if s.State == "restarting" && s.Pin != nil && strings.TrimPrefix(s.Pin.Tag, "v") == c.Installed {
+			return Status{State: "restarting", Installed: c.Installed, Message: "Completing the update…", CheckedAt: s.CheckedAt}
+		}
 		return base
 	}
 	return s

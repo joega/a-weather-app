@@ -524,6 +524,9 @@ func (a *App) interval(presented bool) time.Duration {
 		return 100 * time.Millisecond
 	}
 	defer a.mu.Unlock()
+	if updateInProgress(a.updateSnapshot()) {
+		return time.Second
+	}
 	if a.effectsStatus()["state"] == "running" {
 		// Native policy/status has its own independent 500 ms coordinator.
 		// Poll weather and notification inputs at 1 Hz; fresh data is forwarded
@@ -719,10 +722,15 @@ func (a *App) Handle(ctx context.Context, request M) (M, bool) {
 		}
 		a.beginUpdateCheck(true)
 	case "install_update":
+		if a.updates.installing || updateInProgress(a.updateSnapshot()) {
+			reply["error"] = "update_in_progress"
+			return reply, false
+		}
 		if a.options.StartUpdate == nil || a.options.StartUpdate() != nil {
 			reply["error"] = "update_start_failed"
 			return reply, false
 		}
+		a.updates.installing = true
 	case "install_launcher":
 		a.launcherStatus = InstallLauncher(a.options.Root)
 	case "quit":

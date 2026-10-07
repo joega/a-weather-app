@@ -116,6 +116,9 @@ func launch(args []string) error {
 	version := fs.Bool("version", false, "show version")
 	checkUpdates := fs.Bool("check-updates", false, "check for a published release")
 	forceUpdateCheck := fs.Bool("force-update-check", false, "check even if checked today")
+	installUpdate := fs.Bool("install-update", false, "install the available release and restart")
+	updateWorker := fs.Bool("update-worker", false, "internal detached update worker")
+	recoverUpdates := fs.Bool("recover-updates", false, "internal interrupted-update recovery")
 	service := fs.Bool("service", false, "internal service mode")
 	headless := fs.Bool("headless", false, "service without a window for testing")
 	offline := fs.Bool("offline", false, "use only saved weather")
@@ -185,15 +188,6 @@ func launch(args []string) error {
 	}
 	runtimeDir := runtimePath(statePath)
 	updates := updater.Config{Installed: appVersion, Development: buildMode == "development", StatePath: statePath}
-	if *checkUpdates {
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		defer cancel()
-		status, err := updates.Check(ctx, *forceUpdateCheck)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(os.Stdout).Encode(status.Map())
-	}
 	socket := filepath.Join(runtimeDir, "service.sock")
 	if *socketOnly {
 		fmt.Println(socket)
@@ -222,6 +216,61 @@ func launch(args []string) error {
 	root, e := filepath.EvalSymlinks(root)
 	if e != nil {
 		return e
+	}
+	pluginRoot := updater.DefaultPluginRoot()
+	if _, err := os.Lstat(pluginRoot); errors.Is(err, os.ErrNotExist) {
+		pluginRoot = ""
+	}
+	installation := &updater.LinuxInstallation{Config: updates, RuntimeRoot: root, DataRoot: updater.DefaultDataRoot(), PluginRoot: pluginRoot, Socket: socket}
+	engine := updater.Engine{Config: updates, Installation: installation}
+	startUpdate := func(recover bool) error {
+		if updates.Development {
+			return errors.New("development checkouts are built locally")
+		}
+		if err := verifyRuntime(root); err != nil {
+			return err
+		}
+		executable, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		args := []string{"--update-worker", "--state-dir", statePath}
+		if recover {
+			args = append(args, "--recover-updates")
+		}
+		return updater.StartDetached(executable, args, serviceEnvironment())
+	}
+	if *updateWorker {
+		if e = verifyRuntime(root); e != nil {
+			return e
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		if *recoverUpdates {
+			return engine.Recover(ctx)
+		}
+		return engine.Run(ctx)
+	}
+	if *installUpdate {
+		return startUpdate(false)
+	}
+	if !updates.Development {
+		needed, err := engine.NeedsRecovery()
+		if err != nil {
+			return fmt.Errorf("update recovery: %w", err)
+		}
+		if needed {
+			return startUpdate(true)
+		}
+	}
+	if *checkUpdates {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+		status, err := updates.Check(ctx, *forceUpdateCheck)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(status.Map())
 	}
 	if *refreshBar {
 		state, err := safeio.OpenDir(statePath, false)
@@ -347,6 +396,7 @@ func launch(args []string) error {
 	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: *offline,
 		UpdateStatus:    func() M { return updates.Status().Map() },
 		CheckUpdates:    func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
+		StartUpdate:     func() error { return startUpdate(false) },
 		FetchAirQuality: airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
 			return weathermap.Fetch(ctx, nil, lat, lon, country, now)
 		}})

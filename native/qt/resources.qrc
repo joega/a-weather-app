@@ -15,6 +15,7 @@
 <file alias="qml/ForecastDetails.qml">../../ui/qml/ForecastDetails.qml</file>
 <file alias="qml/GlassPanel.qml">../../ui/qml/GlassPanel.qml</file>
 <file alias="qml/HourlyPanel.qml">../../ui/qml/HourlyPanel.qml</file>
+<file alias="qml/UpdatePanel.qml">../../ui/qml/UpdatePanel.qml</file>
 <file alias="qml/MetricsPanel.qml">../../ui/qml/MetricsPanel.qml</file>
 <file alias="qml/NotificationsPanel.qml">../../ui/qml/NotificationsPanel.qml</file>
 <file alias="qml/PlainLabel.qml">../../ui/qml/PlainLabel.qml</file>

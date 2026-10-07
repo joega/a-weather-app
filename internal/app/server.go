@@ -283,6 +283,9 @@ func (s *Server) handle(p *peer) {
 		ctx, cancel := context.WithTimeout(p.ctx, 45*time.Second)
 		reply, quit := s.app.Handle(ctx, request)
 		cancel()
+		if request["op"] == "snapshot" && reply["ok"] == true {
+			reply["frontend_ready"] = s.hasPresentation()
+		}
 		if request["op"] == "subscribe" && reply["ok"] == true {
 			if s.subscribe(p, reply) != nil {
 				return

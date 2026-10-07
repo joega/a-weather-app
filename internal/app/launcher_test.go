@@ -79,6 +79,36 @@ func TestLauncherDevelopmentTargetsCompiledGo(t *testing.T) {
 	}
 }
 
+func TestLauncherManagedSelectorAndManualTemplate(t *testing.T) {
+	for _, manual := range []bool{false, true} {
+		t.Run(map[bool]string{false: "generated", true: "manual"}[manual], func(t *testing.T) {
+			root, data, running := launcherFixture(t)
+			managed := filepath.Join(data, "a-weather-app")
+			if e := os.Mkdir(managed, 0755); e != nil {
+				t.Fatal(e)
+			}
+			if e := os.Symlink(root, filepath.Join(managed, "current")); e != nil {
+				t.Fatal(e)
+			}
+			desktop := filepath.Join(data, "applications/a-weather-app.desktop")
+			if manual {
+				launcherWrite(t, desktop, []byte(launcherTemplate), 0644)
+			}
+			if got := installLauncher(root, running); got != "installed" {
+				t.Fatal(got)
+			}
+			raw := launcherBytes(t, desktop)
+			if manual {
+				if string(raw) != launcherTemplate {
+					t.Fatal("manual template changed")
+				}
+			} else if !strings.Contains(string(raw), "Exec=\""+filepath.Join(managed, "current/a-weather-app")+"\"") {
+				t.Fatal("managed launcher does not use stable selector", string(raw))
+			}
+		})
+	}
+}
+
 func TestLauncherConflictPreserved(t *testing.T) {
 	root, data, running := launcherFixture(t)
 	desktop := filepath.Join(data, "applications/a-weather-app.desktop")

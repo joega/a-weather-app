@@ -78,6 +78,50 @@ class FrontendTest:public QObject {
     void deliver(FakeTransport &transport,const QJsonObject &v){emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));}
     QVariant evaluate(QQmlEngine &engine,QObject *bridge,const QString &expression){QQmlExpression e(engine.rootContext(),bridge,expression);auto v=e.evaluate();if(e.hasError())qFatal("%s",qPrintable(e.error().toString()));return v;}
 private slots:
+    void updateNoticeAndActions(){
+        FakeTransport transport;QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("weatherTransport",&transport);
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));QCOMPARE(engine.rootObjects().size(),1);
+        auto *root=engine.rootObjects().first();
+        auto state=snapshot(1,"Update fixture");
+        QJsonObject update{{"state","available"},{"installed","0.51.5"},{"available","0.51.9"},{"message","A new version is ready to install"},{"checked_at",1791333900}};
+        state["update"]=update;
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",state}});
+        root->setProperty("effectsOpen",false);
+        auto *notice=qobject_cast<QQuickItem*>(root->findChild<QObject*>("updateNotice"));QVERIFY(notice);
+        QTRY_VERIFY(notice->isVisible());
+        auto *install=notice->findChild<QObject*>("installUpdate");auto *check=notice->findChild<QObject*>("checkUpdates");QVERIFY(install);QVERIFY(check);
+        QCOMPARE(notice->findChild<QObject*>("installedAppVersion")->property("text").toString(),QString("A Weather App · 0.51.5"));
+        QVERIFY(install->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(check,"clicked"));
+        QCOMPARE(transport.requests.last()["op"].toString(),QString("check_updates"));
+        auto requestID=transport.requests.last()["request_id"].toInt();
+        deliver(transport,{{"version",1},{"request_id",requestID},{"ok",true}});
+        QVERIFY(QMetaObject::invokeMethod(install,"clicked"));
+        QCOMPARE(transport.requests.last()["op"].toString(),QString("install_update"));
+        requestID=transport.requests.last()["request_id"].toInt();
+        deliver(transport,{{"version",1},{"request_id",requestID},{"ok",true}});
+        auto *window=qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());QVERIFY(window);
+        const auto prefix=qEnvironmentVariable("WEATHER_QT_UPDATE_SCREENSHOT_PREFIX");
+        for(int width:{1200,700}){
+            window->resize(width,850);QTest::qWait(100);
+            auto *scroll=root->findChild<QObject*>("forecastScroll");auto *flick=scroll->property("contentItem").value<QQuickItem*>();QVERIFY(flick);
+            flick->setProperty("contentY",notice->y()+18);QTest::qWait(100);
+            QVERIFY(notice->width()>600);QVERIFY(notice->height()>100);
+            if(!prefix.isEmpty())QVERIFY(window->grabWindow().save(prefix+QString("-%1-available.png").arg(width)));
+        }
+        update["state"]="downloading";update["message"]="Downloading the new version…";
+        state["update"]=update;state["snapshot_revision"]=2;
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",state}});
+        QTRY_VERIFY(!install->property("enabled").toBool());QVERIFY(!check->property("enabled").toBool());
+        QCOMPARE(install->property("text").toString(),QString("Updating…"));
+        update["state"]="updated";update["installed"]="0.51.9";update["available"]="";update["message"]="Updated successfully";
+        state["update"]=update;state["snapshot_revision"]=3;
+        deliver(transport,{{"version",1},{"event","snapshot"},{"snapshot",state}});
+        QTRY_COMPARE(notice->findChild<QObject*>("installedAppVersion")->property("text").toString(),QString("A Weather App · 0.51.9"));
+        QVERIFY(check->property("enabled").toBool());QVERIFY(!install->property("visible").toBool());
+        if(!prefix.isEmpty()){QTest::qWait(100);QVERIFY(window->grabWindow().save(prefix+"-updated.png"));}
+    }
     void mapTileInvalidPNGs_data(){
         QTest::addColumn<QByteArray>("payload");
         QImage oversized(4096,4096,QImage::Format_ARGB32);oversized.fill(Qt::blue);

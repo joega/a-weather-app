@@ -141,6 +141,12 @@ func installLauncher(root, running string) string {
 		data = filepath.Join(home, ".local/share")
 	}
 	executable := filepath.Join(root, "a-weather-app")
+	// Managed releases use a stable selector so future menu launches follow an
+	// update or rollback instead of reopening the version that created the file.
+	managed := filepath.Join(data, "a-weather-app", "current", "a-weather-app")
+	if resolved, err := filepath.EvalSymlinks(managed); err == nil && resolved == executable {
+		executable = managed
+	}
 	// Development launchers point directly to the compiled Go entry point.
 	resolvedRunning, _ := filepath.EvalSymlinks(running)
 	if resolvedRunning == filepath.Join(root, "build", "a-weather-app") {
@@ -158,8 +164,8 @@ func installLauncher(root, running string) string {
 	var alternatives [][]byte
 	// Preserve a manually installed template only when PATH names this exact
 	// running Go executable, never an unrelated or former script launcher.
-	if current, e := exec.LookPath("a-weather-app"); e == nil && resolvedRunning == executable {
-		if resolved, e := filepath.EvalSymlinks(current); e == nil && resolved == executable {
+	if current, e := exec.LookPath("a-weather-app"); e == nil && resolvedRunning == filepath.Join(root, "a-weather-app") {
+		if resolved, e := filepath.EvalSymlinks(current); e == nil && resolved == resolvedRunning {
 			alternatives = append(alternatives, template)
 		}
 	}

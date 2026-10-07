@@ -14,11 +14,14 @@ import (
 const recoveryBudget = 120 * time.Second
 const journalFile = "update-transaction.json"
 
+var ErrBusy = errors.New("an update is already in progress")
+
 // Transaction is durable before the running app is stopped. The implementation
 // validates its paths and revisions again before every mutation or recovery.
 type Transaction struct {
 	Phase      string `json:"phase"`
 	OldRuntime string `json:"old_runtime"`
+	OldVersion string `json:"old_version"`
 	NewRuntime string `json:"new_runtime"`
 	OldCurrent string `json:"old_current"`
 	PluginRoot string `json:"plugin_root"`
@@ -44,6 +47,15 @@ type Engine struct {
 	Installation Installation
 }
 
+type installationLocker interface{ LockInstallation() (func(), error) }
+
+func (e Engine) installationLock() (func(), error) {
+	if l, ok := e.Installation.(installationLocker); ok {
+		return l.LockInstallation()
+	}
+	return func() {}, nil
+}
+
 func (e Engine) journal() (Transaction, error) {
 	v, err := safeio.Read(e.Config.StatePath+"/"+journalFile, 16384)
 	if err != nil || v == nil {
@@ -64,6 +76,9 @@ func (e Engine) journal() (Transaction, error) {
 	}
 	if err = t.Pin.Validate(); err != nil {
 		return t, err
+	}
+	if t.Phase == "complete" || t.Phase == "rolled_back" {
+		return t, nil
 	}
 	return t, e.Installation.Validate(t)
 }
@@ -91,11 +106,27 @@ func (e Engine) lock() (*safeio.Directory, func(), error) {
 	if err != nil {
 		d.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
-			return nil, nil, errors.New("an update is already in progress")
+			return nil, nil, ErrBusy
 		}
 		return nil, nil, err
 	}
 	return d, func() { f.Close(); d.Close() }, nil
+}
+
+func (e Engine) NeedsRecovery() (bool, error) {
+	_, unlock, err := e.lock()
+	if errors.Is(err, ErrBusy) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer unlock()
+	t, err := e.journal()
+	if err != nil {
+		return false, err
+	}
+	return t.Phase != "" && t.Phase != "complete" && t.Phase != "rolled_back", nil
 }
 
 // Recover uses the same lock as installation. A running worker prevents another
@@ -106,6 +137,11 @@ func (e Engine) Recover(ctx context.Context) error {
 		return err
 	}
 	defer unlock()
+	finish, err := e.installationLock()
+	if err != nil {
+		return err
+	}
+	defer finish()
 	t, err := e.journal()
 	if err != nil {
 		return err
@@ -123,11 +159,24 @@ func (e Engine) Run(ctx context.Context) (err error) {
 	if e.Installation == nil {
 		return errors.New("installer unavailable")
 	}
+	defer func() {
+		if err != nil && !errors.Is(err, ErrBusy) {
+			s := e.Config.Status()
+			if s.State != "failed" && s.State != "rolled_back" {
+				_ = e.status("failed", "Update could not finish: "+boundedError(err)+". Try again.", s.Pin)
+			}
+		}
+	}()
 	_, unlock, err := e.lock()
 	if err != nil {
 		return err
 	}
 	defer unlock()
+	finish, err := e.installationLock()
+	if err != nil {
+		return err
+	}
+	defer finish()
 	t, err := e.journal()
 	if err != nil {
 		return err
@@ -160,6 +209,7 @@ func (e Engine) Run(ctx context.Context) (err error) {
 		return err
 	}
 	t.Pin = pin
+	t.OldVersion = e.Config.Installed
 	t.Phase = "prepared"
 	if err = e.Installation.Validate(t); err != nil {
 		return err
@@ -231,7 +281,11 @@ func (e Engine) rollback(ctx context.Context, t Transaction, cause error) error 
 	if err := e.saveJournal(t); err != nil {
 		return err
 	}
-	return e.status("rolled_back", "Restored the previous version. "+boundedError(cause)+". You can retry the update.", &t.Pin)
+	restored := e
+	if t.OldVersion != "" {
+		restored.Config.Installed = t.OldVersion
+	}
+	return restored.status("rolled_back", "Restored the previous version. "+boundedError(cause)+". You can retry the update.", &t.Pin)
 }
 
 func boundedError(err error) string {
