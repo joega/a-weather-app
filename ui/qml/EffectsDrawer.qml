@@ -382,6 +382,27 @@ GlassPanel {
                 color: Tokens.border
             }
             PlainLabel {
+                text: "Measurement units"
+                font.pixelSize: 18
+            }
+            UnitsChoice {
+                objectName: "settingsUnitsChoice"
+                Layout.fillWidth: true
+                compact: false
+                units: root.controls.units || "F"
+                automaticUnits: (root.controls.units_mode || "auto") === "auto"
+                enabled: !root.busy && root.serviceAvailable
+                onChosen: values => root.patch(values)
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Auto follows the location. Manual units apply throughout the app and are saved."
+                font.pixelSize: 13
+                color: Tokens.secondary
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+            }
+            PlainLabel {
                 text: "Wind speed units"
                 font.pixelSize: 18
             }

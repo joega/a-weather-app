@@ -6,6 +6,8 @@ import QtQuick.Controls
 ComboBox {
     id: root
     property var enabledOptions: []
+    property real popupWidth: width
+    font.pixelSize: 17
     implicitHeight: 42
     implicitWidth: 240
     leftPadding: 12
@@ -13,6 +15,7 @@ ComboBox {
     topPadding: 10
     bottomPadding: 10
     contentItem: PlainLabel {
+        font.pixelSize: root.font.pixelSize
         text: root.displayText
         verticalAlignment: Text.AlignVCenter
         opacity: root.enabled ? 1 : 0.5
@@ -33,11 +36,12 @@ ComboBox {
         id: option
         required property int index
         required property var modelData
-        width: root.width - 12
+        width: root.popup.width - root.popup.leftPadding - root.popup.rightPadding
         height: 40
         enabled: root.enabledOptions.length === 0 || root.enabledOptions[option.index]
         highlighted: root.highlightedIndex === option.index
         contentItem: PlainLabel {
+            font.pixelSize: root.font.pixelSize
             text: root.textRole ? option.modelData[root.textRole] : option.modelData
             verticalAlignment: Text.AlignVCenter
             color: root.currentIndex === option.index ? Tokens.accent : Tokens.foreground
@@ -50,7 +54,7 @@ ComboBox {
     }
     popup: Popup {
         y: root.height + 6
-        width: root.width
+        width: root.popupWidth
         padding: 6
         implicitHeight: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, 300)
         background: Rectangle {

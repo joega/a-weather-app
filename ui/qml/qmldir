@@ -2,6 +2,7 @@ singleton Tokens 1.0 Tokens.qml
 PlainLabel 1.0 PlainLabel.qml
 ActionButton 1.0 ActionButton.qml
 SettingsComboBox 1.0 SettingsComboBox.qml
+UnitsChoice 1.0 UnitsChoice.qml
 UiIcon 1.0 UiIcon.qml
 GlassPanel 1.0 GlassPanel.qml
 WeatherIcon 1.0 WeatherIcon.qml

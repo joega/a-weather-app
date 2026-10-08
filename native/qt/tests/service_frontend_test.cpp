@@ -372,6 +372,23 @@ class ServiceFrontendTest : public QObject {
         auto point = item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, point);
     }
+    void selectUnits(const QString& units, const char* name = "unitsChoice") {
+        QTRY_VERIFY_WITH_TIMEOUT(!eval("bridge.busy").toBool(), 3000);
+        auto* choice = qobject_cast<QQuickItem*>(named(name));
+        QVERIFY(choice);
+        choice->forceActiveFocus();
+        click(name);
+        auto* popup = choice->property("popup").value<QObject*>();
+        QVERIFY(popup);
+        QTRY_VERIFY(popup->property("visible").toBool());
+        QTest::keyClick(window, Qt::Key_Home);
+        const int index = units == "auto" ? 0 : units == "F" ? 1 : 2;
+        for (int step = 0; step < index; ++step)
+            QTest::keyClick(window, Qt::Key_Down);
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_VERIFY(!popup->property("visible").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(!eval("bridge.busy").toBool(), 3000);
+    }
     void toggle(const char* name, bool checked) {
         auto object = named(name);
         QVERIFY(object->property("enabled").toBool());
@@ -697,21 +714,26 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(eval("root.units").toString(), QString("C"));
         QVERIFY(eval("root.automaticUnits").toBool());
         checkBar(celsiusLabel);
+        QCOMPARE(named("unitsChoice")->property("displayText").toString(), QString("Auto (°C)"));
         QVERIFY(!QFile::exists(fixture.state + "/controls.json"));
         for (const auto& units : QStringList{"F", "C", "F", "C"}) {
-            click(units == "C" ? "unitsC" : "unitsF");
+            selectUnits(units);
             QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), units, 3000);
             QVERIFY(!eval("root.automaticUnits").toBool());
             QCOMPARE(fixture.saved("controls.json")["units_mode"].toString(), QString("manual"));
             QCOMPARE(fixture.saved("controls.json")["units"].toString(), units);
             checkBar(units == "C" ? celsiusLabel : fahrenheitLabel);
         }
-        click("unitsAuto");
+        selectUnits("auto");
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.automaticUnits").toBool(), 3000);
         checkBar(celsiusLabel);
         QCOMPARE(fixture.saved("controls.json")["units_mode"].toString(), QString("auto"));
-        click("unitsC");
+        root->setProperty("effectsOpen", true);
+        selectUnits("C", "settingsUnitsChoice");
         QTRY_VERIFY_WITH_TIMEOUT(!eval("root.automaticUnits").toBool(), 3000);
+        QCOMPARE(named("unitsChoice")->property("displayText").toString(), QString("°C"));
+        QCOMPARE(named("settingsUnitsChoice")->property("displayText").toString(),
+                 QString("Celsius (°C)"));
         QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
         eval("bridge.shutdown()");
         QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
@@ -722,6 +744,8 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(), 5000);
         QCOMPARE(eval("root.units").toString(), QString("C"));
+        QVERIFY(!eval("root.automaticUnits").toBool());
+        QCOMPARE(named("unitsChoice")->property("displayText").toString(), QString("°C"));
         checkBar(celsiusLabel);
         QSignalSpy finalExit(engine.get(), SIGNAL(exit(int)));
         eval("bridge.shutdown()");
@@ -817,7 +841,7 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(), QString("49°"));
         click("closeForecastDetails");
         root->setProperty("effectsOpen", false);
-        click("unitsC");
+        selectUnits("C");
         QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), QString("C"), 3000);
         QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),
                  QString("Dew point 13°"));
@@ -894,7 +918,7 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(validLabel.contains("(-04:00)") || validLabel.contains("(-05:00)"));
         if (freshness == "fresh") {
             root->setProperty("effectsOpen", false);
-            click("unitsC");
+            selectUnits("C");
             QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), QString("C"), 3000);
             QCOMPARE(named("airQualityValue_us")->property("text").toString(), QString("0"));
             QCOMPARE(named("airQualityValue_eu")->property("text").toString(), QString("125"));
@@ -1004,7 +1028,7 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(eval("root.freshness").toString().startsWith("Stale forecast"));
         QCOMPARE(eval("root.hours.length").toInt(), 1);
         root->setProperty("effectsOpen", false);
-        click("unitsC");
+        selectUnits("C");
         QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), QString("C"), 3000);
         QCOMPARE(fixture.saved("controls.json")["units"].toString(), QString("C"));
         eval("details.showHour(root.hours[0])");

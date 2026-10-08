@@ -253,33 +253,12 @@ QtObject {
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.topMargin: headerBody.actionsBelowLocation ? locationHeading.height + regionHeading.height + 12 : 0
-                                ActionButton {
-                                    objectName: "unitsAuto"
-                                    text: root.automaticUnits ? "Auto (°" + root.units + ")" : "Auto"
-                                    accessibleLabel: "Use location’s measurement units"
-                                    selected: root.automaticUnits
-                                    enabled: !bridge.busy
-                                    onClicked: bridge.send("set_controls", {
-                                        units_mode: "auto"
-                                    })
-                                }
-                                ActionButton {
-                                    objectName: "unitsF"
-                                    text: "°F"
-                                    selected: !root.automaticUnits && root.units === "F"
-                                    enabled: !bridge.busy
-                                    onClicked: bridge.send("set_controls", {
-                                        units: "F"
-                                    })
-                                }
-                                ActionButton {
-                                    objectName: "unitsC"
-                                    text: "°C"
-                                    selected: !root.automaticUnits && root.units === "C"
-                                    enabled: !bridge.busy
-                                    onClicked: bridge.send("set_controls", {
-                                        units: "C"
-                                    })
+                                UnitsChoice {
+                                    objectName: "unitsChoice"
+                                    units: root.units
+                                    automaticUnits: root.automaticUnits
+                                    enabled: bridge.available && !bridge.busy
+                                    onChosen: values => bridge.send("set_controls", values)
                                 }
                                 ActionButton {
                                     objectName: "refreshForecast"
