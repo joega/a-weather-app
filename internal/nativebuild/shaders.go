@@ -65,7 +65,7 @@ float window_snow(vec2 uv, float aspect, float time, float depth) {
 // Window-only wisps leave nearly clear skies mostly blue. The shared desktop
 // shader and its cloud-cover response remain unchanged.
 const cloudAdapter = `
-    float wisp_strength = smoothstep(0.01, 0.16, cover) * (1.0 - smoothstep(0.20, 0.50, cover));
+    float wisp_strength = smoothstep(0.01, 0.16, cover) * (1.0 - smoothstep(0.35, 0.65, cover));
     if (wisp_strength > 0.0) {
         vec4 wisps = cloud_layer(sky_point * vec2(2.0, 8.0) + vec2(-drift * 0.45, 39.1),
                                 light_direction, 0.52, daylight, dusk, 0.0, 0.18);
