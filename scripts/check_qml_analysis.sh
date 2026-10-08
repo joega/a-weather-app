@@ -17,7 +17,7 @@ if [[ ! -f $shell_root/Ui/BarWidget.qml || ! -f $shell_root/Commons/qmldir ]]; t
   printf 'Omarchy modules unavailable; widget analysis did not run. Set OMARCHY_SHELL_ROOT.\n' >&2
   exit 2
 fi
-imports=$(mktemp -d /tmp/weather-qml-analysis.XXXXXXXX)
+imports=$(mktemp -d "${TMPDIR:-/tmp}/weather-qml-analysis.XXXXXXXX")
 trap 'rm -rf -- "$imports"' EXIT
 mkdir "$imports/qs"
 ln -s "$shell_root/Ui" "$imports/qs/Ui"
