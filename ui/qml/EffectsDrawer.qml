@@ -113,8 +113,21 @@ GlassPanel {
     signal installUpdateRequested
     signal installLauncherRequested
     signal quitRequested
+    property Item activeSection: applicationSection
+    function updateActiveSection() {
+        const sections = [applicationSection, locationSection, notificationsSection, effectsSection, previewSection, appearanceSection];
+        let current = applicationSection;
+        if (settingsScroll.contentY > 0 && settingsScroll.contentY + settingsScroll.height >= settingsScroll.contentHeight - 1)
+            current = appearanceSection;
+        else
+            for (const section of sections)
+                if (section.y <= settingsScroll.contentY + 24)
+                    current = section;
+        activeSection = current;
+    }
     function showSection(section) {
         settingsScroll.contentY = Math.max(0, Math.min(section.y, Math.max(0, settingsScroll.contentHeight - settingsScroll.height)));
+        activeSection = section;
     }
     ColumnLayout {
         id: settingsHeader
@@ -152,31 +165,37 @@ GlassPanel {
             ActionButton {
                 objectName: "settingsApplicationSection"
                 text: "Application"
+                selected: root.activeSection === applicationSection
                 onClicked: root.showSection(applicationSection)
             }
             ActionButton {
                 objectName: "settingsLocationSection"
                 text: "Location"
+                selected: root.activeSection === locationSection
                 onClicked: root.showSection(locationSection)
             }
             ActionButton {
                 objectName: "settingsNotificationsSection"
                 text: "Notifications"
+                selected: root.activeSection === notificationsSection
                 onClicked: root.showSection(notificationsSection)
             }
             ActionButton {
                 objectName: "settingsEffectsSection"
                 text: "Effects"
+                selected: root.activeSection === effectsSection
                 onClicked: root.showSection(effectsSection)
             }
             ActionButton {
                 objectName: "settingsPreviewSection"
                 text: "Preview"
+                selected: root.activeSection === previewSection
                 onClicked: root.showSection(previewSection)
             }
             ActionButton {
                 objectName: "settingsAppearanceSection"
                 text: "Appearance"
+                selected: root.activeSection === appearanceSection
                 onClicked: root.showSection(appearanceSection)
             }
         }
@@ -192,11 +211,12 @@ GlassPanel {
         anchors.topMargin: 18
         clip: true
         contentHeight: body.height
+        onContentYChanged: root.updateActiveSection()
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
         ColumnLayout {
             id: body
-            width: parent.width
+            width: parent.width - 18
             spacing: 16
             PlainLabel {
                 id: applicationSection
