@@ -7,6 +7,7 @@
 #include <QWindow>
 #include <QQuickWindow>
 #include <QQuickItem>
+#include <QSGRendererInterface>
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
@@ -204,7 +205,8 @@ class FrontendTest : public QObject {
         emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));
     }
     QVariant evaluate(QQmlEngine& engine, QObject* bridge, const QString& expression) {
-        QQmlExpression e(engine.rootContext(), bridge, expression);
+        QQmlExpression e(qmlContext(bridge) ? qmlContext(bridge) : engine.rootContext(), bridge,
+                         expression);
         auto v = e.evaluate();
         if (e.hasError())
             qFatal("%s", qPrintable(e.error().toString()));
@@ -267,6 +269,330 @@ class FrontendTest : public QObject {
         QTest::failOnWarning(
             QRegularExpression(".*(TypeError:|ReferenceError:|Binding loop|Unable to assign|Cannot "
                                "assign|failed to load component).*"));
+    }
+    void atmosphereLifecycleAndFallback() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/Atmosphere.qml"));
+        std::unique_ptr<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* sky = qobject_cast<QQuickItem*>(owner.get());
+        QVERIFY(sky);
+        QQuickWindow window;
+        sky->setParentItem(window.contentItem());
+        sky->setSize(QSizeF(700, 650));
+        window.resize(700, 650);
+        window.show();
+        QTRY_VERIFY(window.isExposed());
+        sky->setProperty("windSpeed", 8);
+        for (const double wind : {0.0, 180.0, -180.0}) {
+            sky->setProperty("wind", wind);
+            QVERIFY(std::abs(sky->property("driftRate").toDouble()) > 0.001);
+            QCOMPARE(sky->property("driftRate").toDouble() < 0, wind < 0);
+        }
+        sky->setProperty("wind", 0); // Both north and south have zero east/west component.
+        if (sky->property("shaderAvailable").toBool()) {
+            const double offset = sky->property("cloudOffset").toDouble();
+            QTRY_VERIFY(sky->property("cloudOffset").toDouble() > offset);
+        }
+        sky->setProperty("reducedMotion", true);
+        QVERIFY(!sky->property("animationActive").toBool());
+        const double frozen = sky->property("cloudOffset").toDouble();
+        QTest::qWait(120);
+        QCOMPARE(sky->property("cloudOffset").toDouble(), frozen);
+        sky->setProperty("reducedMotion", false);
+        sky->setProperty("presentationActive", false);
+        QVERIFY(!sky->property("animationActive").toBool());
+        sky->setProperty("presentationActive", true);
+        window.showMinimized();
+        QTRY_VERIFY(!sky->property("animationActive").toBool());
+        window.hide();
+        QVERIFY(!sky->property("animationActive").toBool());
+        sky->setProperty("shaderSupported", false);
+        QVERIFY(!sky->property("shaderAvailable").toBool());
+        window.showNormal();
+        QTRY_VERIFY(window.isExposed());
+        QVERIFY(!sky->property("animationActive").toBool());
+        const auto image = window.grabWindow();
+        QVERIFY(!image.isNull());
+        QVERIFY(image.pixelColor(100, 50) != image.pixelColor(100, 600));
+    }
+    void windInterpolationAndBounds() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/WeatherMapCard.qml"));
+        std::unique_ptr<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* card = owner.get();
+        QVERIFY(evaluate(engine, card, "WindField.vector(10, 0).y > 9.99").toBool());
+        QVERIFY(evaluate(engine, card, "WindField.vector(10, 90).x < -9.99").toBool());
+        QVERIFY(evaluate(engine, card, "WindField.vector(10, 180).y < -9.99").toBool());
+        QVERIFY(evaluate(engine, card, "WindField.vector(10, 270).x > 9.99").toBool());
+        // A north bearing must interpolate across zero, rather than turning south.
+        QVERIFY(evaluate(engine, card, R"((function() {
+            const a = WindField.vector(10, 359), b = WindField.vector(10, 1);
+            const samples = [{x: 0, y: 0, vx: a.x, vy: a.y}, {x: 100, y: 0, vx: b.x, vy: b.y}];
+            const v = WindField.interpolate(samples, 50, 0);
+            return Math.abs(v.x) < 0.001 && v.y > 9.99;
+        })())")
+                    .toBool());
+        QVERIFY(evaluate(engine, card, R"((function() {
+            const samples = [{x: 0, y: 0, vx: 10, vy: 0}, {x: 100, y: 0, vx: -10, vy: 0}];
+            const v = WindField.interpolate(samples, 50, 0);
+            const field = WindField.build(samples.concat(samples[0]), 100, 100);
+            return WindField.speed(v) < 0.001 && field.samples.length === 2
+                && field.values.length === 825 && WindField.sample(field, 0, 0).x === 10
+                && WindField.sample(field, 50, 0).x < 0.001;
+        })())")
+                    .toBool());
+        QVERIFY(evaluate(engine, card, R"((function() {
+            const field = WindField.build([{x: 50, y: 50, vx: 0, vy: 150}], 100, 100);
+            const p = [WindField.seed(0, 100, 100, 43, 0)];
+            for (let i = 0; i < 1000; ++i) WindField.advance(p, field, 0.08, 43);
+            return p.length === 1 && p[0].points.length <= 20
+                && WindField.inside(p[0].x, p[0].y, 100, 100, 43)
+                && WindField.velocity({x: 150, y: 0}) * 150 <= 48;
+        })())")
+                    .toBool());
+    }
+    void windAnimationLifecycleAndInspection() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/WeatherMapCard.qml"));
+        std::unique_ptr<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* card = qobject_cast<QQuickItem*>(owner.get());
+        QQuickWindow window;
+        window.resize(600, 396);
+        card->setParentItem(window.contentItem());
+        card->setSize(QSizeF(600, 396));
+        card->setProperty("mapLayer", "wind");
+        card->setProperty("mapData", mapFixture().toVariantMap());
+        card->setProperty("tileActive", true);
+        window.show();
+        QTRY_VERIFY(window.isExposed());
+        auto* timer = card->findChild<QObject*>("windAnimationTimer");
+        QVERIFY(timer);
+        QTRY_VERIFY(timer->property("running").toBool());
+        QTRY_VERIFY(evaluate(engine, card, "particles[0].points.length > 1").toBool());
+        QVERIFY(evaluate(engine, card, "particles.length <= 96").toBool());
+        QVERIFY(card->property("pointReadout").toString().contains("from N (0°)"));
+        card->setProperty("windUnits", "m/s");
+        QCOMPARE(card->property("pointReadout").toString(), QString("3.0 m/s · from N (0°)"));
+        auto* area = card->findChild<QQuickItem*>("mapArea");
+        QVERIFY(area);
+        area->forceActiveFocus();
+        QTest::keyClick(&window, Qt::Key_Right);
+        QVERIFY(card->property("pointSelected").toBool());
+        QVERIFY(card->property("inspectionX").toReal() > 0.5);
+        card->setProperty("hourIndex", 1);
+        QTRY_COMPARE(card->property("pointReadout").toString(), QString("4.0 m/s · from E (90°)"));
+        card->setProperty("reducedMotion", true);
+        QVERIFY(!timer->property("running").toBool());
+        QVERIFY(evaluate(engine, card, "particles.some(p => p.points.length > 2)").toBool());
+        const auto frozen = evaluate(engine, card, "JSON.stringify(particles)").toString();
+        QTest::qWait(150);
+        QCOMPARE(evaluate(engine, card, "JSON.stringify(particles)").toString(), frozen);
+        card->setProperty("reducedMotion", false);
+        QTRY_VERIFY(timer->property("running").toBool());
+        card->setProperty("presentationActive", false); // Map pixels are outside the viewport.
+        QVERIFY(!timer->property("running").toBool());
+        card->setProperty("presentationActive", true);
+        QTRY_VERIFY(timer->property("running").toBool());
+        card->setProperty("tileActive", false);
+        QVERIFY(!timer->property("running").toBool());
+        card->setProperty("tileActive", true);
+        QTRY_VERIFY(timer->property("running").toBool());
+        window.showMinimized();
+        QTRY_VERIFY(!timer->property("running").toBool());
+        window.showNormal();
+        QTRY_VERIFY(timer->property("running").toBool());
+        window.hide();
+        QTRY_VERIFY(!timer->property("running").toBool());
+        window.showNormal();
+        QTRY_VERIFY(window.isExposed());
+        auto relocated = mapFixture(42.3, -71.1);
+        QJsonArray relocatedCells;
+        for (const auto& value : relocated["cells"].toArray()) {
+            auto cell = value.toObject();
+            cell["wind_speed_m_s"] = QJsonArray{7, 7, 7};
+            cell["wind_from_deg"] = QJsonArray{270, 270, 270};
+            relocatedCells.append(cell);
+        }
+        relocated["cells"] = relocatedCells;
+        card->setProperty("mapData", relocated.toVariantMap());
+        QVERIFY(evaluate(engine, card, "windField === null && particles.length === 0").toBool());
+        QTRY_COMPARE(card->property("pointReadout").toString(), QString("7.0 m/s · from W (270°)"));
+        QTRY_VERIFY(timer->property("running").toBool());
+        QVERIFY(!window.grabWindow().isNull());
+        QTRY_VERIFY(!card->property("pointSelected").toBool());
+        QCOMPARE(card->property("inspectionX").toReal(), 0.5);
+        evaluate(engine, card, "mapData = null");
+        QTRY_VERIFY(
+            evaluate(engine, card, "windField === null && particles.length === 0").toBool());
+        QVERIFY(!timer->property("running").toBool());
+    }
+    void renderAtmosphereAndWindReview() {
+        const auto output = qEnvironmentVariable("WEATHER_QT_FLOW_SCREENSHOTS");
+        if (output.isEmpty())
+            QSKIP("Set WEATHER_QT_FLOW_SCREENSHOTS for native visual review");
+        QVERIFY(QDir().mkpath(output));
+        FakeTransport transport;
+        MapTiles tiles;
+        QTemporaryDir temporary;
+        const auto tileCache = qEnvironmentVariable("WEATHER_QT_FLOW_TILE_CACHE");
+        tiles.cache = new QNetworkDiskCache(&tiles);
+        tiles.cache->setCacheDirectory(tileCache.isEmpty() ? temporary.path() : tileCache);
+        tiles.cache->setMaximumCacheSize(32 * 1024 * 1024);
+        tiles.manager.setCache(tiles.cache);
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(&tiles)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window);
+        qInfo() << "Native review graphics API:" << window->rendererInterface()->graphicsApi();
+        auto state = metricSnapshot(1);
+        state["location_settings"] = selectedSnapshot(1, "")["location_settings"];
+        state["location"] =
+            QJsonObject{{"name", "Demo forecast, MA"}, {"timezone", "America/New_York"}};
+        auto current = state["current"].toObject();
+        current["temperature_c"] = 20;
+        current["wind_speed_m_s"] = 6;
+        current["wind_direction_deg"] = 0;
+        QJsonArray hours, days;
+        for (int i = 0; i < 24; ++i) {
+            auto hour = current;
+            hour["time"] = QDateTime::fromSecsSinceEpoch(1791475200 + i * 3600, QTimeZone::UTC)
+                               .toString(Qt::ISODate);
+            hour["local_hour"] = QString("%1 %2").arg((i + 12) % 12 + 1).arg(i < 11 ? "PM" : "AM");
+            hours.append(hour);
+        }
+        for (int i = 0; i < 10; ++i)
+            days.append(QJsonObject{
+                {"date", QDate(2026, 10, 8).addDays(i).toString(Qt::ISODate)},
+                {"day_label", i == 0 ? "Today" : QDate(2026, 10, 8).addDays(i).toString("ddd")},
+                {"condition", i % 3 ? "clear" : "partly_cloudy"},
+                {"low_c", 9 + i % 3},
+                {"high_c", 20 + i % 4},
+                {"sunrise", QJsonValue::Null},
+                {"sunset", QJsonValue::Null},
+                {"sunrise_label", "7:01 AM"},
+                {"sunset_label", "6:14 PM"},
+                {"precipitation_probability", 0}});
+        state["hourly"] = hours;
+        state["daily"] = days;
+        auto atmosphere = state["atmosphere"].toObject();
+        atmosphere["sun_elevation"] = 35;
+        auto* sky = root->findChild<QObject*>("forecastAtmosphere");
+        QVERIFY(sky);
+        qint64 revision = 0;
+        const auto present = [&](const QString& condition, double cover, double wind,
+                                 bool reduced) {
+            state["snapshot_revision"] = ++revision;
+            current["condition"] = condition;
+            state["current"] = current;
+            atmosphere["cloud_cover"] = cover;
+            atmosphere["wind_x"] = wind;
+            state["atmosphere"] = atmosphere;
+            auto controls = state["controls"].toObject();
+            controls["reduced_motion"] = reduced;
+            state["controls"] = controls;
+            deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+            root->setProperty("effectsOpen", false);
+        };
+        const auto capture = [&](const QString& name) {
+            QTest::qWait(250);
+            const auto image = window->grabWindow();
+            QVERIFY(!image.isNull());
+            QVERIFY(image.save(output + "/" + name + ".png"));
+        };
+        for (const int width : {1200, 700}) {
+            window->setMaximumSize(QSize(1600, 1200));
+            window->setMinimumSize(QSize(width, 850));
+            window->setMaximumSize(QSize(width, 850));
+            window->resize(width, 850);
+            window->showNormal();
+            QTRY_VERIFY(window->isExposed());
+            QTRY_COMPARE(window->width(), width);
+            QTRY_COMPARE(window->height(), 850);
+            present("clear", 0.06, 0, false);
+            capture(QString("clear-%1").arg(width));
+            present("partly_cloudy", 0.48, 0, false);
+            QTest::qWait(1200);
+            capture(QString("partly-north-%1").arg(width));
+            present("partly_cloudy", 0.48, -180, false);
+            capture(QString("partly-east-%1").arg(width));
+            present("partly_cloudy", 0.48, 180, false);
+            capture(QString("partly-west-%1").arg(width));
+            present("partly_cloudy", 0.48, 0, true);
+            capture(QString("partly-reduced-%1").arg(width));
+        }
+        sky->setProperty("shaderSupported", false);
+        capture("static-fallback-700");
+        sky->setProperty("shaderSupported", true);
+        present("partly_cloudy", 0.48, 0, false);
+        auto data = mapFixture();
+        const auto mapPath = qEnvironmentVariable("WEATHER_QT_FLOW_MAP");
+        if (!mapPath.isEmpty()) {
+            QFile file(mapPath);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            data = QJsonDocument::fromJson(file.readAll()).object();
+        }
+        auto event = mapEvent(data, true);
+        auto mapState = event["map"].toObject();
+        QJsonArray labels;
+        for (const auto value : data["hours"].toArray())
+            labels.append(
+                QDateTime::fromSecsSinceEpoch(value.toInteger(), QTimeZone("America/New_York"))
+                    .toString("ddd MMM d, h:mm AP t"));
+        mapState["hour_labels"] = labels;
+        mapState["fetched_label"] =
+            QDateTime::fromString(data["fetched_at"].toString(), Qt::ISODate)
+                .toTimeZone(QTimeZone("America/New_York"))
+                .toString("ddd MMM d, h:mm AP t");
+        event["map"] = mapState;
+        auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));
+        auto* wind = qobject_cast<QQuickItem*>(root->findChild<QObject*>("mapWindModule"));
+        auto* scroll = root->findChild<QObject*>("forecastScroll");
+        auto* flick = scroll->property("contentItem").value<QObject*>();
+        QVERIFY(panel && wind && flick);
+        for (const int width : {1200, 700}) {
+            window->setMaximumSize(QSize(1600, 1200));
+            window->setMinimumSize(QSize(width, 850));
+            window->setMaximumSize(QSize(width, 850));
+            window->resize(width, 850);
+            QTRY_COMPARE(window->width(), width);
+            QTRY_COMPARE(window->height(), 850);
+            QTest::qWait(100);
+            flick->setProperty("contentY", panel->y() - 12);
+            QTRY_VERIFY(root->property("mapActive").toBool());
+            deliver(transport, event);
+            QTest::qWait(100);
+            if (width == 700)
+                flick->setProperty("contentY",
+                                   panel->y() + wind->parentItem()->y() + wind->y() - 24);
+            QTRY_VERIFY(wind->property("animationActive").toBool());
+            QTest::qWait(1600);
+            capture(QString("wind-%1").arg(width));
+            auto* area = wind->findChild<QQuickItem*>("mapArea");
+            QVERIFY(area);
+            const auto point =
+                area->mapToScene(QPointF(area->width() / 2 + 20, area->height() / 2));
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, point.toPoint());
+            QVERIFY(wind->property("pointSelected").toBool());
+            capture(QString("wind-inspected-%1").arg(width));
+            panel->setProperty("hourIndex", 1);
+            QTest::qWait(1400);
+            capture(QString("wind-next-hour-%1").arg(width));
+            present("partly_cloudy", 0.48, 0, true);
+            QVERIFY(!wind->property("animationActive").toBool());
+            QVERIFY(!panel->property("canPlay").toBool());
+            capture(QString("wind-reduced-%1").arg(width));
+            present("partly_cloudy", 0.48, 0, false);
+        }
+        window->hide();
     }
     void updateNoticeAndActions() {
         FakeTransport transport;
@@ -1215,7 +1541,7 @@ class FrontendTest : public QObject {
         QCOMPARE(wind->property("units").toString(), QString("C"));
         QCOMPARE(evaluate(engine, wind, "windSpeed(10)").toString(), QString("36 km/h"));
         QCOMPARE(wind->findChild<QObject*>("mapLegend")->property("text").toString(),
-                 QString("Arrow points where wind blows · speeds in km/h"));
+                 QString("Trails flow downwind · tap to inspect · km/h"));
         QVERIFY(temperature->findChild<QObject*>("mapCredit")
                     ->property("text")
                     .toString()
@@ -1230,7 +1556,7 @@ class FrontendTest : public QObject {
         QVERIFY(wind->findChild<QObject*>("mapLegend")
                     ->property("text")
                     .toString()
-                    .endsWith("speeds in kn"));
+                    .endsWith("tap to inspect · kn"));
         QTRY_VERIFY_WITH_TIMEOUT(painted.size() > 0, 3000);
         // Changing the display units must reuse the loaded map and tiles.
         QCOMPARE(transport.requests.size(), 1);

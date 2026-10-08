@@ -184,8 +184,9 @@ QtObject {
             onActivated: root.effectsOpen = false
         }
         Atmosphere {
+            objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -193,6 +194,7 @@ QtObject {
             sunElevation: root.atmosphere ? root.atmosphere.sun_elevation : 20
             sunAzimuth: root.atmosphere ? root.atmosphere.sun_azimuth : 180
             wind: root.atmosphere ? root.atmosphere.wind_x : 0
+            windSpeed: root.current && root.current.wind_speed_m_s !== null ? root.current.wind_speed_m_s : 0
             rainAmount: root.atmosphere ? root.atmosphere.rain_intensity : 0
             snowAmount: root.atmosphere ? root.atmosphere.snow_intensity : 0
             reducedMotion: root.controls.reduced_motion
@@ -222,11 +224,11 @@ QtObject {
                         gradient: Gradient {
                             GradientStop {
                                 position: 0
-                                color: "#b30b1c30"
+                                color: "#990b1c30"
                             }
                             GradientStop {
                                 position: 0.66
-                                color: "#b30b1c30"
+                                color: "#990b1c30"
                             }
                             GradientStop {
                                 position: 1
@@ -453,6 +455,7 @@ QtObject {
                     windUnits: root.windUnits
                     hasLocation: root.hasMapLocation
                     active: root.mapActive
+                    reducedMotion: root.controls.reduced_motion
                     viewportTop: forecastScroll.flickable.contentY - (mapSection.y + 18)
                     viewportHeight: forecastScroll.height
                 }

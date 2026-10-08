@@ -1,6 +1,7 @@
 <RCC><qresource prefix="/ui">
 <file alias="qml/shell.qml">../../ui/qml/shell.qml</file>
 <file alias="qml/qmldir">../../ui/qml/qmldir</file>
+<file alias="qml/WindField.js">../../ui/qml/WindField.js</file>
 <file alias="qml/Forecast.js">../../ui/qml/Forecast.js</file>
 <file alias="qml/backend/Bridge.qml">../../ui/qml/backend/Bridge.qml</file>
 <file alias="qml/ActionButton.qml">../../ui/qml/ActionButton.qml</file>

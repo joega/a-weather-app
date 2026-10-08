@@ -291,7 +291,12 @@ are unverified. Short isolated tests do not establish broad hardware support.
 The bar reads cached weather when saved data changes and every 30 seconds.
 Its bounded background helper can refresh saved weather without opening the window or starting desktop
 effects. Forecast animation runs only while the window is
-visible and not minimized. Enable Reduced motion to stop that animation and
+visible and not minimized; wind trails additionally require the map itself to be
+in the viewport. The sky uses a capped half-resolution Qt shader buffer, and wind
+trails use at most 96 paths of 20 points at 25 updates per second. Nearly clear
+skies retain faint wisps rather than a blanket of cloud; gentle cloud drift also
+continues with north/south winds. In-app rendering does not require Live desktop
+or compositor compatibility. Unsupported shader backends use a static sky. Enable Reduced motion to stop that animation and
 disable precipitation/lightning effects. Closing a forecast-only window quits
 its UI/service; explicitly enabled watching or live effects keep the app running
 while hidden. No autostart service is installed.
@@ -342,14 +347,23 @@ by Open-Meteo; values are rounded for display.
 
 Scroll to **Local weather maps** on the main forecast screen for three modules
 centered on the saved location, each showing a fixed 10-mile radius. Temperature
-shading, static wind arrows with speeds, and modeled hourly precipitation share
+shading, restrained wind trails, and modeled hourly precipitation share
 one discrete timeline. Previous/Next and the slider switch hours locally.
 Play advances every second and loops through the available hours; Stop
 returns to the first available hour. Manual timeline changes stop playback at
 your selection. Playback also stops when you leave the map section or new map
 data loads. Playback reuses the loaded forecast without extra data requests.
-The section shows the selected local time and timezone, units, legends, model,
+Reduced motion keeps the selected hour available and replaces wind animation with
+static, tapered trails; timeline Play is disabled. The section shows the selected local time and timezone, units, legends, model,
 approximate native grid resolution, fetch time and attribution.
+Wind trails flow downwind using interpolated forecast vector components. Faster
+winds move farther, up to a visual speed cap; motion is illustrative rather than
+a simulation of travel time. Click within the radius to inspect the interpolated
+speed and meteorological **from** direction above the map. Keyboard users can Tab
+to the wind map, use arrow keys to move the selected point, and Home to return to
+center. Inspection follows the existing wind-unit preference and needs no request.
+Trails fade at birth and expiry and reset when the forecast hour or location changes.
+
 Precipitation is the model total for the hour ending at the selected time, not
 radar or a live measurement. Zero precipitation has no shading.
 
@@ -368,7 +382,11 @@ The map requests one 5×5 lattice (25 points over a 20-mile diameter) and up to
 DWD ICON-D2 in central Europe (~2 km), or ECCC GEM HRDPS in Canada (~2.5 km).
 Outside those areas, or when the regional model returns no usable coverage,
 it uses explicit NOAA GFS global (~13 km). GFS shows only a broad pattern. The
-display interpolates between sampled model cells; even regional shading does
+25 requested points are about five miles (8 km) apart, independent of the model
+resolution. The display labels both distances. Wind components are interpolated
+from the returned model-cell coordinates, deduplicating snapped cells, and then
+sampled smoothly for rendering. Visual interpolation adds no forecast detail;
+even regional shading does
 not resolve conditions on a particular street. A shorter available horizon
 shortens the timeline. The current provider request may fail or be delayed;
 the rest of the weather app remains available.

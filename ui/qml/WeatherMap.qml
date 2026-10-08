@@ -20,6 +20,7 @@ ColumnLayout {
     property string windUnits: "auto"
     property bool hasLocation: false
     property bool active: false
+    property bool reducedMotion: false
     property real viewportTop: 0
     property real viewportHeight: 0
     property int hourIndex: 0
@@ -30,7 +31,7 @@ ColumnLayout {
     // Contract: request/close and tileReady/tileFailed signals; null disables tiles.
     property var tileClient: null
     readonly property var mapData: mapState.data || null
-    readonly property bool canPlay: active && mapData !== null && mapData.hours.length > 1
+    readonly property bool canPlay: active && !reducedMotion && mapData !== null && mapData.hours.length > 1
     function startPlayback() {
         if (canPlay)
             playing = true;
@@ -46,6 +47,10 @@ ColumnLayout {
     function cardVisible(card) {
         return active && mapData !== null && cards.y + card.y + card.height >= viewportTop - 32 && cards.y + card.y <= viewportTop + viewportHeight + 32;
     }
+    function flowVisible(card) {
+        const top = cards.y + card.y + card.mapTop;
+        return active && top + card.mapHeight > viewportTop && top < viewportTop + viewportHeight;
+    }
     function clearTiles() {
         if (tileClient)
             tileClient.close();
@@ -57,6 +62,8 @@ ColumnLayout {
         stopPlayback();
         clearTiles();
     }
+    onReducedMotionChanged: if (reducedMotion)
+        playing = false
     onMapDataChanged: {
         stopPlayback();
         clearTiles();
@@ -169,6 +176,8 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2
             mapLayer: "wind"
+            reducedMotion: root.reducedMotion
+            presentationActive: root.flowVisible(windCard)
             mapData: root.mapData
             mapStatus: root.mapState.status
             hasLocation: root.hasLocation
@@ -206,7 +215,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         visible: root.mapData !== null
-        text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km * 1000, root.units) + " · sampled/interpolated model forecast · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""
+        text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km * 1000, root.units) + " · 5×5 samples requested ~" + Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units) + " apart · smooth visual interpolation, no added forecast detail · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""
         font.pixelSize: 12
         color: Tokens.secondary
         wrapMode: Text.Wrap

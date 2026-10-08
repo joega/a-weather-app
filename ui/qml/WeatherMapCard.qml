@@ -2,7 +2,9 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Window
 import "Forecast.js" as Forecast
+import "WindField.js" as WindField
 
 GlassPanel {
     id: root
@@ -12,6 +14,81 @@ GlassPanel {
     property bool hasLocation: false
     property bool offline: false
     property bool tileActive: false
+    property bool reducedMotion: false
+    property bool presentationActive: true
+    readonly property real mapTop: mapArea.y
+    readonly property real mapHeight: mapArea.height
+    readonly property bool animationActive: mapLayer === "wind" && mapData !== null && tileActive && presentationActive && visible && !reducedMotion && mapArea.width > 0 && mapArea.height > 0 && (!Window.window || (Window.window.visibility !== Window.Minimized && Window.window.visibility !== Window.Hidden))
+    property var windField: null
+    property var particles: []
+    property double lastTick: 0
+    property real inspectionX: 0.5
+    property real inspectionY: 0.5
+    property bool pointSelected: false
+    readonly property real flowRadius: desiredScale * 16093.44
+    readonly property int trailCount: Math.max(24, Math.min(96, Math.round(mapArea.width * mapArea.height / 2200)))
+    readonly property var inspectedVector: windField ? WindField.interpolate(windField.samples, inspectionX * mapArea.width, inspectionY * mapArea.height) : ({
+            x: 0,
+            y: 0
+        })
+    readonly property string pointReadout: windField ? windSpeed(WindField.speed(inspectedVector)) + " · " + WindField.direction(inspectedVector) : "—"
+    function invalidateWind() {
+        // Stop the old field immediately, before the coalesced rebuild runs.
+        windField = null;
+        particles = [];
+        Qt.callLater(root.rebuildWind);
+        overlay.requestPaint();
+    }
+    function rebuildWind() {
+        windField = null;
+        particles = [];
+        if (mapLayer !== "wind" || !mapData || hourIndex >= mapData.hours.length || mapArea.width <= 0 || mapArea.height <= 0) {
+            overlay.requestPaint();
+            return;
+        }
+        const samples = mapData.cells.map(cell => {
+            const v = WindField.vector(cell.wind_speed_m_s[hourIndex], cell.wind_from_deg[hourIndex]);
+            return {
+                x: mapX(cell.longitude),
+                y: mapY(cell.latitude),
+                vx: v.x,
+                vy: v.y
+            };
+        });
+        windField = WindField.build(samples, mapArea.width, mapArea.height);
+        resetTrails();
+    }
+    function resetTrails() {
+        if (windField) {
+            particles = animationActive ? Array.from({
+                length: trailCount
+            }, (_, i) => WindField.seed(i, mapArea.width, mapArea.height, flowRadius, 0)) : WindField.staticTrails(trailCount, windField, flowRadius);
+        }
+        lastTick = Date.now();
+        overlay.requestPaint();
+    }
+    function inspectPoint(x, y) {
+        if (!WindField.inside(x, y, mapArea.width, mapArea.height, flowRadius))
+            return;
+        inspectionX = x / mapArea.width;
+        inspectionY = y / mapArea.height;
+        pointSelected = true;
+    }
+    onAnimationActiveChanged: resetTrails()
+    Timer {
+        objectName: "windAnimationTimer"
+        interval: 40
+        repeat: true
+        running: root.animationActive && root.windField !== null
+        onRunningChanged: root.lastTick = Date.now()
+        onTriggered: {
+            const now = Date.now();
+            const dt = Math.max(0, Math.min(0.08, (now - root.lastTick) / 1000));
+            root.lastTick = now;
+            WindField.advance(root.particles, root.windField, dt, root.flowRadius);
+            overlay.requestPaint();
+        }
+    }
     property string units: "F"
     property string windUnits: "auto"
     property int hourIndex: 0
@@ -125,63 +202,45 @@ GlassPanel {
                         ctx.fillRect(Math.min(xl, xr), Math.min(yt, yb), Math.abs(xr - xl) + 1, Math.abs(yb - yt) + 1);
                     }
         } else {
-            let placed = [];
-            ctx.font = "bold 12px sans-serif";
-            ctx.textBaseline = "middle";
-            for (let i = 0; i < cells.length; i++) {
-                let cell = cells[i], x = mapX(cell.longitude), y = mapY(cell.latitude);
-                if (x < 0 || x > overlay.width || y < 0 || y > overlay.height)
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(overlay.width / 2, overlay.height / 2, root.flowRadius, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.lineCap = "round";
+            ctx.lineWidth = 1.3;
+            for (const particle of root.particles) {
+                const points = particle.points;
+                if (points.length < 2)
                     continue;
-                const label = windSpeed(cell.wind_speed_m_s[hourIndex]);
-                const labelWidth = ctx.measureText(label).width + 12, labelHeight = 22;
-                const left = Math.max(6, Math.min(overlay.width - labelWidth - 6, x - labelWidth / 2));
-                const top = Math.max(6, Math.min(overlay.height - labelHeight - 6, y - 36 < 6 ? y + 14 : y - 36));
-                const right = left + labelWidth, bottom = top + labelHeight;
-                if (placed.some(p => left < p.right + 8 && right > p.left - 8 && top < p.bottom + 8 && bottom > p.top - 8))
+                const head = points[points.length - 1];
+                if (WindField.speed(WindField.sample(root.windField, head.x, head.y)) < 0.2)
                     continue;
-                placed.push({
-                    left: left,
-                    right: right,
-                    top: top,
-                    bottom: bottom
-                });
-                let radians = (cell.wind_from_deg[hourIndex] + 90) * Math.PI / 180, dx = Math.cos(radians) * 9, dy = Math.sin(radians) * 9;
-                ctx.strokeStyle = "#11334a";
-                ctx.fillStyle = "#11334a";
-                ctx.lineWidth = 2;
+                const fade = root.animationActive ? Math.max(0, Math.min(1, particle.age / 0.7, (particle.life - particle.age) / 1.2)) : 1;
+                for (let i = 1; i < points.length; ++i) {
+                    ctx.strokeStyle = "rgba(16,72,91," + (fade * (0.08 + 0.58 * i / points.length)) + ")";
+                    ctx.beginPath();
+                    ctx.moveTo(points[i - 1].x, points[i - 1].y);
+                    ctx.lineTo(points[i].x, points[i].y);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = "rgba(12,57,77," + fade * 0.75 + ")";
                 ctx.beginPath();
-                ctx.moveTo(x - dx, y - dy);
-                ctx.lineTo(x + dx, y + dy);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(x + dx, y + dy);
-                ctx.lineTo(x + dx - Math.cos(radians - 0.6) * 5, y + dy - Math.sin(radians - 0.6) * 5);
-                ctx.lineTo(x + dx - Math.cos(radians + 0.6) * 5, y + dy - Math.sin(radians + 0.6) * 5);
-                ctx.closePath();
+                ctx.arc(head.x, head.y, 1.2, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(left + 4, top);
-                ctx.lineTo(right - 4, top);
-                ctx.quadraticCurveTo(right, top, right, top + 4);
-                ctx.lineTo(right, bottom - 4);
-                ctx.quadraticCurveTo(right, bottom, right - 4, bottom);
-                ctx.lineTo(left + 4, bottom);
-                ctx.quadraticCurveTo(left, bottom, left, bottom - 4);
-                ctx.lineTo(left, top + 4);
-                ctx.quadraticCurveTo(left, top, left + 4, top);
-                ctx.closePath();
-                ctx.fillStyle = "rgba(237,247,251,0.94)";
-                ctx.fill();
-                ctx.fillStyle = "#102d42";
-                ctx.fillText(label, left + 6, top + labelHeight / 2);
             }
+            ctx.restore();
         }
     }
     onUnitsChanged: overlay.requestPaint()
     onWindUnitsChanged: overlay.requestPaint()
-    onMapDataChanged: overlay.requestPaint()
-    onHourIndexChanged: overlay.requestPaint()
-    onMapLayerChanged: overlay.requestPaint()
+    onMapDataChanged: {
+        inspectionX = 0.5;
+        inspectionY = 0.5;
+        pointSelected = false;
+        invalidateWind();
+    }
+    onHourIndexChanged: invalidateWind()
+    onMapLayerChanged: invalidateWind()
     onWidthChanged: overlay.requestPaint()
     onHeightChanged: overlay.requestPaint()
     ColumnLayout {
@@ -197,9 +256,12 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: !root.mapData ? "" : root.mapLayer === "temperature" ? "At center · " + root.temperature(root.mapData.cells[12].temperature_c[root.hourIndex]) : root.mapLayer === "wind" ? "From direction · " + root.windSpeed(root.mapData.cells[12].wind_speed_m_s[root.hourIndex]) : "Modeled total in preceding hour · " + root.rain(root.mapData.cells[12].precipitation_mm[root.hourIndex])
+            text: !root.mapData ? "" : root.mapLayer === "temperature" ? "At center · " + root.temperature(root.mapData.cells[12].temperature_c[root.hourIndex]) : root.mapLayer === "wind" ? (root.pointSelected ? "Selected point · " : "At center · ") + root.pointReadout : "Modeled total in preceding hour · " + root.rain(root.mapData.cells[12].precipitation_mm[root.hourIndex])
+            objectName: "mapPointReadout"
             font.pixelSize: 13
             color: Tokens.secondary
+            wrapMode: Text.Wrap
+            elide: Text.ElideNone
         }
         Item {
             id: mapArea
@@ -207,6 +269,33 @@ GlassPanel {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
+            activeFocusOnTab: root.mapLayer === "wind"
+            enabled: root.mapLayer !== "wind" || root.mapData !== null
+            Accessible.role: Accessible.Canvas
+            Accessible.name: "Wind map. " + root.pointReadout
+            Accessible.description: "Interpolated forecast. Click a point or use arrow keys to inspect wind; Home returns to center."
+            onWidthChanged: root.invalidateWind()
+            onHeightChanged: root.invalidateWind()
+            Keys.onPressed: event => {
+                let dx = 0, dy = 0;
+                if (event.key === Qt.Key_Left)
+                    dx = -0.04;
+                else if (event.key === Qt.Key_Right)
+                    dx = 0.04;
+                else if (event.key === Qt.Key_Up)
+                    dy = -0.04;
+                else if (event.key === Qt.Key_Down)
+                    dy = 0.04;
+                else if (event.key === Qt.Key_Home) {
+                    root.inspectionX = 0.5;
+                    root.inspectionY = 0.5;
+                    root.pointSelected = false;
+                } else
+                    return;
+                if (dx || dy)
+                    root.inspectPoint((root.inspectionX + dx) * width, (root.inspectionY + dy) * height);
+                event.accepted = true;
+            }
             Rectangle {
                 anchors.fill: parent
                 color: "#dce8e7"
@@ -229,6 +318,33 @@ GlassPanel {
                 objectName: "mapOverlay"
                 anchors.fill: parent
                 onPaint: root.paint()
+            }
+            MouseArea {
+                anchors.fill: parent
+                enabled: root.mapLayer === "wind" && root.mapData !== null
+                cursorShape: Qt.CrossCursor
+                onClicked: mouse => {
+                    mapArea.forceActiveFocus();
+                    root.inspectPoint(mouse.x, mouse.y);
+                }
+            }
+            Rectangle {
+                width: 12
+                height: 12
+                radius: 6
+                color: "#e6f4f7"
+                border.color: "#17465c"
+                border.width: 2
+                x: root.inspectionX * mapArea.width - width / 2
+                y: root.inspectionY * mapArea.height - height / 2
+                visible: root.mapLayer === "wind" && root.mapData !== null && (root.pointSelected || mapArea.activeFocus)
+            }
+            Rectangle {
+                anchors.fill: parent
+                color: "transparent"
+                border.width: 2
+                border.color: Tokens.accent
+                visible: mapArea.activeFocus
             }
             Rectangle {
                 x: parent.width / 2 - root.desiredScale * 16093.44
@@ -309,9 +425,11 @@ GlassPanel {
             visible: root.mapData !== null
             PlainLabel {
                 objectName: "mapLegend"
-                text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? "Arrow points where wind blows · speeds in " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
+                text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? (root.reducedMotion ? "Static trails" : "Trails flow downwind") + " · tap to inspect · " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
                 font.pixelSize: 12
                 color: Tokens.secondary
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
                 Layout.fillWidth: root.mapLayer === "wind" || root.dryPrecipitation
             }
             PlainLabel {
