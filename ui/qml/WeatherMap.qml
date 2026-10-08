@@ -26,6 +26,7 @@ ColumnLayout {
     property bool playing: false
     property var tileImages: ({})
     property var failedTiles: ({})
+    property int tileGeneration: 0
     // Contract: request/close and tileReady/tileFailed signals; null disables tiles.
     property var tileClient: null
     readonly property var mapData: mapState.data || null
@@ -50,6 +51,7 @@ ColumnLayout {
             tileClient.close();
         tileImages = {};
         failedTiles = {};
+        ++tileGeneration;
     }
     onActiveChanged: if (!active) {
         stopPlayback();
@@ -158,6 +160,7 @@ ColumnLayout {
             tileImages: root.tileImages
             failedTiles: root.failedTiles
             tileClient: root.tileClient
+            tileGeneration: root.tileGeneration
             tileActive: root.cardVisible(temperatureCard)
         }
         WeatherMapCard {
@@ -177,6 +180,7 @@ ColumnLayout {
             failedTiles: root.failedTiles
             tileClient: root.tileClient
             tileActive: root.cardVisible(windCard)
+            tileGeneration: root.tileGeneration
         }
         WeatherMapCard {
             id: precipitationCard
@@ -196,6 +200,7 @@ ColumnLayout {
             failedTiles: root.failedTiles
             tileClient: root.tileClient
             tileActive: root.cardVisible(precipitationCard)
+            tileGeneration: root.tileGeneration
         }
     }
     PlainLabel {

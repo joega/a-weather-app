@@ -164,7 +164,7 @@ void MapTiles::request(int zoom, int x, int y, bool offline) {
             reply->abort();
     };
     const auto drain = [reply, download, rejectOversized] {
-        if (download->tooLarge)
+        if (download->tooLarge || !reply->isOpen())
             return;
         const qint64 remaining = maxTileBytes - download->bytes.size();
         if (reply->bytesAvailable() > remaining) {
@@ -183,6 +183,12 @@ void MapTiles::request(int zoom, int x, int y, bool offline) {
     const quint64 issued = generation;
     connect(reply, &QNetworkReply::finished, this,
             [this, reply, key, issued, offline, download, drain] {
+                // abort() closes the device before emitting finished. A canceled
+                // generation must not drain buffered cache data from that device.
+                if (issued != generation) {
+                    reply->deleteLater();
+                    return;
+                }
                 QPointer<MapTiles> owner(this);
                 QPointer<QNetworkReply> pendingReply(reply);
                 drain();

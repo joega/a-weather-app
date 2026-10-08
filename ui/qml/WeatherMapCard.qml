@@ -19,6 +19,7 @@ GlassPanel {
     property var tileImages: ({})
     property var failedTiles: ({})
     property var tileClient: null
+    property int tileGeneration: 0
     readonly property var fieldValues: mapData && hourIndex < mapData.hours.length ? mapData.cells.map(c => mapLayer === "temperature" ? c.temperature_c[hourIndex] : mapLayer === "precipitation" ? c.precipitation_mm[hourIndex] : c.wind_speed_m_s[hourIndex]) : []
     readonly property real fieldMin: fieldValues.length ? (mapLayer === "precipitation" ? 0 : Math.min.apply(null, fieldValues)) : 0
     readonly property real fieldMax: fieldValues.length ? (mapLayer === "precipitation" ? Math.max(0.1, Math.max.apply(null, fieldValues)) : Math.max.apply(null, fieldValues)) : 1
@@ -30,6 +31,7 @@ GlassPanel {
     readonly property real tileScale: desiredScale * 40075016.686 * Math.cos(centerLat * Math.PI / 180) / (256 * Math.pow(2, zoom))
     readonly property real centerX: worldX(centerLon)
     readonly property real centerY: worldY(centerLat)
+    readonly property var visibleTiles: tileActive ? tiles() : []
     function worldX(lon) {
         return (lon + 180) / 360 * 256 * Math.pow(2, zoom);
     }
@@ -58,6 +60,7 @@ GlassPanel {
                 if (y >= 0 && y < n && result.length < 16) {
                     let wrapped = (x % n + n) % n;
                     result.push({
+                        zoom: zoom,
                         x: x,
                         y: y,
                         key: zoom + "/" + wrapped + "/" + y,
@@ -69,6 +72,21 @@ GlassPanel {
                 }
         return result;
     }
+    function requestTiles() {
+        if (!tileActive || !tileClient)
+            return;
+        for (const tile of visibleTiles)
+            tileClient.request(tile.zoom, tile.requestX, tile.y, offline);
+    }
+    // Map state propagation can reset the shared client after delegates update.
+    // Coalesce requests after that reset, using the final geometry/offline state.
+    onTileGenerationChanged: Qt.callLater(root.requestTiles)
+    onVisibleTilesChanged: Qt.callLater(root.requestTiles)
+    onTileClientChanged: Qt.callLater(root.requestTiles)
+    onOfflineChanged: Qt.callLater(root.requestTiles)
+    // A completion frees a bounded download slot for any remaining visible tiles.
+    onTileImagesChanged: Qt.callLater(root.requestTiles)
+    onFailedTilesChanged: Qt.callLater(root.requestTiles)
     function windSpeed(value) {
         return Forecast.wind(value, units, windUnits);
     }
@@ -194,7 +212,7 @@ GlassPanel {
                 color: "#dce8e7"
             }
             Repeater {
-                model: root.tileActive ? root.tiles() : []
+                model: root.visibleTiles
                 delegate: Image {
                     required property var modelData
                     x: modelData.left
@@ -204,8 +222,6 @@ GlassPanel {
                     source: root.tileImages[modelData.key] || ""
                     fillMode: Image.Stretch
                     asynchronous: true
-                    Component.onCompleted: if (root.tileClient)
-                        root.tileClient.request(root.zoom, modelData.requestX, modelData.y, root.offline)
                 }
             }
             Canvas {

@@ -18,6 +18,9 @@
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
+#include <QTemporaryDir>
+#include <QNetworkDiskCache>
+#include <QNetworkReply>
 #include "maptiles.h"
 #include <functional>
 
@@ -80,6 +83,57 @@ class FakeMapTiles : public QObject {
   signals:
     void tileReady(const QString& key, const QString& dataURL);
     void tileFailed(const QString& key, const QString& reason);
+};
+
+// A cacheable local basemap; no public tile service is needed for lifecycle tests.
+class LocalTileServer : public QTcpServer {
+  public:
+    QByteArray png;
+    QStringList requests;
+    bool hold = false;
+    QList<QPointer<QTcpSocket>> pending;
+    LocalTileServer() {
+        QImage image(256, 256, QImage::Format_ARGB32);
+        image.fill(QColor("#7ea9a2"));
+        for (int y = 0; y < 256; ++y)
+            for (int x = 0; x < 256; ++x)
+                if (x % 64 < 4 || y % 64 < 4)
+                    image.setPixelColor(x, y, QColor("#edf5ef"));
+        QBuffer buffer(&png);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "PNG");
+        connect(this, &QTcpServer::newConnection, this, [this] {
+            while (hasPendingConnections()) {
+                auto* socket = nextPendingConnection();
+                connect(socket, &QTcpSocket::readyRead, socket, [this, socket] {
+                    if (socket->property("received").toBool())
+                        return;
+                    const auto bytes =
+                        socket->property("headers").toByteArray() + socket->readAll();
+                    socket->setProperty("headers", bytes);
+                    if (!bytes.contains("\r\n\r\n"))
+                        return;
+                    socket->setProperty("received", true);
+                    requests.append(QString::fromLatin1(bytes.split(' ').value(1)));
+                    if (hold)
+                        pending.append(socket);
+                    else
+                        respond(socket);
+                });
+            }
+        });
+    }
+    QUrl url() const {
+        return QUrl(QStringLiteral("http://127.0.0.1:%1").arg(serverPort()));
+    }
+    void respond(QTcpSocket* socket) {
+        if (!socket || socket->state() != QAbstractSocket::ConnectedState)
+            return;
+        socket->write("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nCache-Control: "
+                      "max-age=3600\r\nConnection: close\r\nContent-Length: " +
+                      QByteArray::number(png.size()) + "\r\n\r\n" + png);
+        socket->disconnectFromHost();
+    }
 };
 
 class FrontendTest : public QObject {
@@ -155,6 +209,58 @@ class FrontendTest : public QObject {
         if (e.hasError())
             qFatal("%s", qPrintable(e.error().toString()));
         return v;
+    }
+    QJsonObject mapFixture(double latitude = 40.7128, double longitude = -74.006) {
+        QJsonArray cells;
+        for (int row = 0; row < 5; ++row)
+            for (int col = 0; col < 5; ++col)
+                cells.append(QJsonObject{{"latitude", latitude + (2 - row) * 0.07},
+                                         {"longitude", longitude + (col - 2) * 0.09},
+                                         {"temperature_c", QJsonArray{15, 16, 17}},
+                                         {"wind_speed_m_s", QJsonArray{3, 4, 5}},
+                                         {"wind_from_deg", QJsonArray{0, 90, 180}},
+                                         {"precipitation_mm", QJsonArray{0, 1, 2}}});
+        return {{"latitude", latitude},
+                {"longitude", longitude},
+                {"radius_miles", 10},
+                {"model_id", "ncep_nbm_conus"},
+                {"model_name", "NOAA NBM CONUS"},
+                {"resolution_km", 2.5},
+                {"fetched_at", "2026-09-28T12:00:00Z"},
+                {"hours", QJsonArray{1790596800, 1790600400, 1790604000}},
+                {"cells", cells},
+                {"attribution", "Model forecast via Open-Meteo (CC BY 4.0)"}};
+    }
+    QJsonObject mapEvent(const QJsonObject& data, bool offline) {
+        return {{"version", 1},
+                {"event", "map"},
+                {"map", QJsonObject{{"status", offline ? "stale" : "fresh"},
+                                    {"offline", offline},
+                                    {"error", ""},
+                                    {"fetched_at", data.value("fetched_at")},
+                                    {"fetched_label", "Mon Sep 28, 8:00 AM EDT"},
+                                    {"hour_labels", QJsonArray{"8 AM", "9 AM", "10 AM"}},
+                                    {"data", data}}}};
+    }
+    void useTemporaryTileCache(MapTiles& tiles, const QTemporaryDir& directory) {
+        tiles.cache = new QNetworkDiskCache(&tiles);
+        tiles.cache->setCacheDirectory(directory.path());
+        tiles.cache->setMaximumCacheSize(32 * 1024 * 1024);
+        tiles.manager.setCache(tiles.cache);
+    }
+    bool tileImagesRendered(QObject* panel) {
+        int count = 0;
+        for (auto* area : panel->findChildren<QQuickItem*>("mapArea"))
+            for (auto* item : area->childItems()) {
+                const auto source = item->property("source");
+                if (!source.isValid())
+                    continue;
+                if (!source.toUrl().toString().startsWith("data:image/png;base64,") ||
+                    item->property("status").toInt() != 1)
+                    return false;
+                ++count;
+            }
+        return count >= 2;
     }
   private slots:
     void init() {
@@ -527,6 +633,44 @@ class FrontendTest : public QObject {
             QCOMPARE(tiles->completed.size(), 0);
         }
     }
+    void mapTileCloseWithBufferedCache() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        LocalTileServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        MapTiles tiles(nullptr, server.url());
+        useTemporaryTileCache(tiles, directory);
+        QSignalSpy ready(&tiles, &MapTiles::tileReady), failed(&tiles, &MapTiles::tileFailed),
+            replies(&tiles, &MapTiles::tileReply);
+        tiles.request(0, 0, 0, false);
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 3000);
+        QCOMPARE(server.requests.size(), 1);
+        ready.clear();
+        replies.clear();
+        QTest::failOnWarning(QRegularExpression(".*QIODevice::read.*device not open.*"));
+        for (int cycle = 0; cycle < 3; ++cycle) {
+            tiles.close();
+            tiles.request(0, 0, 0, false);
+            auto* reply = tiles.active.value("0/0/0").data();
+            QVERIFY(reply);
+            connect(reply, &QNetworkReply::metaDataChanged, &tiles, [&tiles, reply] {
+                QVERIFY(reply->bytesAvailable() > 0);
+                tiles.close();
+            });
+            QTRY_VERIFY(tiles.active.isEmpty());
+        }
+        QCoreApplication::processEvents();
+        QCOMPARE(ready.size(), 0);
+        QCOMPARE(failed.size(), 0);
+        QCOMPARE(replies.size(), 0);
+        QCOMPARE(tiles.active.size(), 0);
+        QCOMPARE(tiles.retryAfter.size(), 0);
+        tiles.request(0, 0, 0, true);
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 3000);
+        QCOMPARE(replies.size(), 1);
+        QVERIFY(replies.first().at(1).toBool());
+        QCOMPARE(server.requests.size(), 1);
+    }
     void mapTileDownloadLimit() {
         QImage image(256, 256, QImage::Format_ARGB32);
         image.fill(Qt::blue);
@@ -618,6 +762,163 @@ class FrontendTest : public QObject {
             QCOMPARE(ready.size(), 0);
             QVERIFY(sent < 1024 * 1024);
         }
+    }
+    void mapTileReloadLifecycle_data() {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<bool>("reopen");
+        QTest::addColumn<bool>("coldOffline");
+        QTest::newRow("wide-refresh") << 1200 << false << false;
+        QTest::newRow("narrow-refresh") << 700 << false << false;
+        QTest::newRow("wide-offline-reopen") << 1200 << true << false;
+        QTest::newRow("narrow-offline-reopen") << 700 << true << false;
+        QTest::newRow("wide-cold-offline") << 1200 << false << true;
+        QTest::newRow("narrow-cold-offline") << 700 << false << true;
+    }
+    void mapTileReloadLifecycle() {
+        QFETCH(int, width);
+        QFETCH(bool, reopen);
+        QFETCH(bool, coldOffline);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        LocalTileServer server;
+        QVERIFY(server.listen(QHostAddress::LocalHost));
+        FakeTransport transport;
+        MapTiles tiles(nullptr, server.url());
+        useTemporaryTileCache(tiles, directory);
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
+                                     {"mapTiles", QVariant::fromValue(&tiles)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window);
+        window->resize(width, 850);
+        deliver(transport, {{"version", 1},
+                            {"event", "snapshot"},
+                            {"snapshot", selectedSnapshot(1, "New York, NY")}});
+        root->setProperty("effectsOpen", false);
+        QTRY_VERIFY(window->isExposed());
+        auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));
+        auto* scroll = root->findChild<QObject*>("forecastScroll");
+        QVERIFY(panel);
+        QVERIFY(scroll);
+        auto* flick = scroll->property("contentItem").value<QQuickItem*>();
+        QVERIFY(flick);
+        QTest::qWait(100);
+        flick->setProperty("contentY", panel->y() + 20);
+        QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
+        QSignalSpy ready(&tiles, &MapTiles::tileReady), replies(&tiles, &MapTiles::tileReply),
+            failed(&tiles, &MapTiles::tileFailed);
+        deliver(transport, mapEvent(mapFixture(), coldOffline));
+        const auto screenshotPrefix =
+            qEnvironmentVariable("WEATHER_QT_TILE_RELOAD_SCREENSHOT_PREFIX");
+        if (coldOffline) {
+            QTRY_VERIFY_WITH_TIMEOUT(failed.size() >= 2, 3000);
+            QTRY_VERIFY(tiles.active.isEmpty());
+            QCOMPARE(server.requests.size(), 0);
+            QCOMPARE(ready.size(), 0);
+            QVERIFY(evaluate(engine, panel, "Object.keys(tileImages).length === 0").toBool());
+            auto backgroundUnavailable = [panel] {
+                for (auto* label : panel->findChildren<QQuickItem*>())
+                    if (label->property("text").toString() == "Geographic background unavailable" &&
+                        label->isVisible())
+                        return true;
+                return false;
+            };
+            QTRY_VERIFY(backgroundUnavailable());
+            if (!screenshotPrefix.isEmpty()) {
+                QTest::qWait(50);
+                QVERIFY(window->grabWindow().save(screenshotPrefix +
+                                                  QString("-%1-cold-offline.png").arg(width)));
+            }
+            window->hide();
+            return;
+        }
+        QTRY_VERIFY_WITH_TIMEOUT(ready.size() >= 2, 3000);
+        QTRY_VERIFY(tiles.active.isEmpty());
+        QCOMPARE(failed.size(), 0);
+        const auto networkRequests = server.requests.size();
+        QVERIFY(networkRequests >= 2);
+        for (int cycle = 0; cycle < 3; ++cycle) {
+            if (reopen) {
+                window->hide();
+                QTRY_VERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
+                window->show();
+                QTRY_VERIFY(window->isExposed());
+                // The shell deliberately returns to the top in a deferred show handler.
+                QTRY_COMPARE(flick->property("contentY").toReal(), 0);
+                flick->setProperty("contentY", panel->y() + 20);
+                QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
+            }
+            ready.clear();
+            replies.clear();
+            auto data = mapFixture();
+            data["fetched_at"] = QString("2026-09-28T12:0%1:00Z").arg(cycle + 1);
+            deliver(transport, mapEvent(data, reopen));
+            QTRY_VERIFY_WITH_TIMEOUT(ready.size() >= 2, 3000);
+            QTRY_VERIFY(tiles.active.isEmpty());
+            QCOMPARE(failed.size(), 0);
+            QCOMPARE(server.requests.size(), networkRequests);
+            for (const auto& reply : replies)
+                QVERIFY(reply.at(1).toBool());
+            QVERIFY(evaluate(engine, panel, "Object.keys(tileImages).length >= 2").toBool());
+            QTRY_VERIFY(tileImagesRendered(panel));
+            if (cycle == 2 && !screenshotPrefix.isEmpty()) {
+                QTest::qWait(50);
+                QVERIFY(window->grabWindow().save(
+                    screenshotPrefix +
+                    QString("-%1-%2.png").arg(width).arg(reopen ? "offline" : "refresh")));
+            }
+        }
+        if (reopen) {
+            // Hold replies for a new region, then cancel and rapidly reopen before they finish.
+            server.hold = true;
+            ready.clear();
+            replies.clear();
+            deliver(transport, mapEvent(mapFixture(42, -71), false));
+            QTRY_VERIFY(server.pending.size() >= 2);
+            QVERIFY(tiles.active.size() <= 16);
+            const auto canceledKeys = QSet<QString>(tiles.active.keyBegin(), tiles.active.keyEnd());
+            for (int cycle = 0; cycle < 3; ++cycle) {
+                window->hide();
+                QCOMPARE(tiles.active.size(), 0);
+                window->show();
+                window->hide();
+            }
+            QVERIFY(evaluate(engine, panel, "Object.keys(tileImages).length === 0").toBool());
+            for (auto socket : server.pending)
+                if (socket)
+                    server.respond(socket);
+            QCoreApplication::processEvents();
+            QCOMPARE(ready.size(), 0);
+            QCOMPARE(failed.size(), 0);
+            QCOMPARE(tiles.retryAfter.size(), 0);
+            server.hold = false;
+            window->show();
+            QTRY_VERIFY(window->isExposed());
+            QTRY_COMPARE(flick->property("contentY").toReal(), 0);
+            flick->setProperty("contentY", panel->y() + 20);
+            QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
+            deliver(transport, mapEvent(mapFixture(35, 139), false));
+            QTRY_VERIFY_WITH_TIMEOUT(ready.size() >= 2, 3000);
+            QTRY_VERIFY(tiles.active.isEmpty());
+            QTRY_VERIFY(tileImagesRendered(panel));
+            auto* card = panel->findChild<QObject*>("mapTemperatureModule");
+            QVERIFY(card);
+            QSet<QString> expected;
+            for (const auto& value :
+                 evaluate(engine, card, "visibleTiles").value<QJSValue>().toVariant().toList())
+                expected.insert(value.toMap().value("key").toString());
+            QVERIFY(!expected.isEmpty());
+            for (const auto& key : expected)
+                QVERIFY(tiles.completed.contains(key));
+            for (const auto& reply : ready)
+                QVERIFY(!canceledKeys.contains(reply.at(0).toString()));
+            QCOMPARE(failed.size(), 0);
+        }
+        window->hide();
     }
     void renderLiveMapCapture() {
         const auto capture = qEnvironmentVariable("WEATHER_QT_MAP_CAPTURE");
@@ -720,6 +1021,8 @@ class FrontendTest : public QObject {
         deliver(transport, {{"version", 1}, {"request_id", 1}, {"ok", true}});
         window->show();
         QTRY_VERIFY(window->isExposed());
+        // Wait for the shell's deferred scroll-to-top before returning to the maps.
+        QTRY_COMPARE(flick->property("contentY").toReal(), 0);
         flick->setProperty("contentY", panel->y() + 20);
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, root, "backend.mapWanted").toBool(), 3000);
         QSignalSpy offlineTiles(&tiles, &MapTiles::tileReady);
