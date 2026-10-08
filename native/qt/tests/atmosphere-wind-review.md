@@ -59,13 +59,28 @@ and forecast files remain in ignored build output, not in the repository.
   rendering case was run separately and passed on the real desktop.
 - `make -C native/qt test-e2e`: 24 passed, two opt-in live-provider cases skipped.
   This includes cached/offline map lifecycle coverage.
-- Go lint, race tests for all packages except six updater restart scenarios,
-  and `go vet ./...` passed. The unfiltered `make test-go` was attempted: six
-  existing updater restart tests failed while copying their fixture binaries
-  into their hardcoded `/tmp/awu-*` paths because of the user's temporary-file
-  storage quota. They were explicitly excluded for the passing remainder run;
-  their failures were not suppressed or changed in source. Short private scratch
-  directories resolved separate compiler-space and Unix socket-length issues.
+- Follow-up verification: Go lint, **all** Go race tests (`-count=1`, no
+  exclusions), and `go vet ./...` passed. The six updater restart/rollback
+  scenarios also passed in a separate targeted run with the real Qt frontend.
+  The earlier `/tmp` quota limitation is resolved for verification: the fixture
+  now honors `TMPDIR` instead of hardcoding `/tmp`, and its copied runtime
+  bundles were placed in a short private directory on the main disk. The short
+  path also accommodates nested Unix socket names. No system quota or mount
+  setting was changed.
+
+The `/tmp` mount on this machine is a separate 7.2 GiB tmpfs with user quotas,
+independent of the main disk's free space. To repeat Go checks using disk space:
+
+```sh
+(
+    weather_test_tmp=$(mktemp -d "$HOME/w.XXX")
+    trap 'rm -rf -- "$weather_test_tmp"' EXIT
+    TMPDIR="$weather_test_tmp" GOTMPDIR="$weather_test_tmp" make test-go
+)
+```
+
+Keep the scratch path short because some tests create Unix sockets under it.
+The fixture and shell cleanup remove their temporary files after the run.
 
 Hardware/backend coverage is limited to this machine's Wayland/OpenGL setup
 and Qt's offscreen software renderer. The forced shader-unavailable state was

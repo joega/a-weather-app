@@ -51,7 +51,9 @@ func testDesktopUpdate(t *testing.T, standalone bool, failure string) {
 	if err != nil {
 		t.Skip("build the native Qt frontend with make qt for the isolated restart test")
 	}
-	root, err := os.MkdirTemp("/tmp", "awu-")
+	// Honor TMPDIR so the copied runtime bundles need not consume a quota-limited
+	// tmpfs. Keep the prefix short for the fixture's nested Unix socket path.
+	root, err := os.MkdirTemp("", "awu-")
 	if err != nil {
 		t.Fatal(err)
 	}
