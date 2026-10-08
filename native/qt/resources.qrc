@@ -29,4 +29,6 @@
 <file alias="qml/WeatherMap.qml">../../ui/qml/WeatherMap.qml</file>
 <file alias="qml/WeatherMapCard.qml">../../ui/qml/WeatherMapCard.qml</file>
 <file alias="shaders/atmosphere.frag.qsb">../../ui/shaders/atmosphere.frag.qsb</file>
+<file alias="shaders/atmosphere.gl330.frag">../../ui/shaders/atmosphere.gl330.frag</file>
+<file alias="shaders/atmosphere.gles300.frag">../../ui/shaders/atmosphere.gles300.frag</file>
 </qresource></RCC>

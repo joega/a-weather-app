@@ -306,6 +306,13 @@ func Shaders(root string) error {
 	if err = atomicWrite(filepath.Join(root, "ui/shaders/atmosphere.frag.qsb"), data, 2*1024*1024); err != nil {
 		return err
 	}
+	// Embed the exact GL variants for a one-time driver compile/link preflight.
+	// Keep qsb output on an unlinked, held descriptor as for the shader pack.
+	for _, variant := range []struct{ key, name string }{{"glsl,330", "atmosphere.gl330.frag"}, {"glsl,300 es", "atmosphere.gles300.frag"}} {
+		if err := extractGLShader(output, filepath.Join(root, "ui/shaders", variant.name), variant.key); err != nil {
+			return err
+		}
+	}
 	return ShaderHeader(filepath.Join(root, "godot/shaders/atmosphere.gdshader"), filepath.Join(root, "native/atmosphere/sky_shader.h"))
 }
 func TranslateQtFile(source, output string) error {
@@ -318,4 +325,30 @@ func TranslateQtFile(source, output string) error {
 		return err
 	}
 	return atomicWrite(output, translated, 65536)
+}
+
+func extractGLShader(pack, target, key string) error {
+	file, err := os.CreateTemp("", "weather-gl-shader-*")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if err = os.Remove(file.Name()); err != nil {
+		return err
+	}
+	output := fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), file.Fd())
+	if _, err = run(10*time.Second, 65536, "/usr/lib/qt6/bin/qsb", "--extract", key, "-o", output, pack); err != nil {
+		return err
+	}
+	if _, err = file.Seek(0, 0); err != nil {
+		return err
+	}
+	data, err := io.ReadAll(io.LimitReader(file, 2*1024*1024+1))
+	if err != nil {
+		return err
+	}
+	if len(data) == 0 {
+		return errors.New("empty GL shader")
+	}
+	return atomicWrite(target, data, 2*1024*1024)
 }

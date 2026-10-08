@@ -190,6 +190,9 @@ func selectWeather(snapshot Object, now time.Time, mode string, manual Object, s
 		} else if e != nil || age < 0 || age > StaleSeconds {
 			alerts["status"] = "unavailable"
 			alerts["items"] = []any{}
+			if alerts["freshness"] != "pending" {
+				alerts["freshness"] = "unavailable"
+			}
 		} else {
 			items := []any{}
 			rows, _ := alerts["items"].([]any)
@@ -201,6 +204,13 @@ func selectWeather(snapshot Object, now time.Time, mode string, manual Object, s
 				}
 			}
 			alerts["items"] = items
+			if alerts["status"] == "available" {
+				if age > RefreshSeconds || alerts["freshness"] == "stale" {
+					alerts["freshness"] = "stale"
+				} else {
+					alerts["freshness"] = "current"
+				}
+			}
 		}
 		forecast["alerts"] = alerts
 	}

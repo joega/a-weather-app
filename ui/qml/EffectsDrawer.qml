@@ -7,6 +7,7 @@ import "Forecast.js" as Forecast
 
 GlassPanel {
     id: root
+    property string effectiveVisualQuality: "static"
     // A settings surface must obscure the forecast's text, not layer two
     // readable text grids on top of one another.
     color: "#fa2c455a"
@@ -724,6 +725,28 @@ GlassPanel {
                 onToggled: v => root.patch({
                         lightning_enabled: v
                     })
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Window visual quality"
+                font.pixelSize: 16
+            }
+            SettingsComboBox {
+                objectName: "visualQualityChoice"
+                Layout.fillWidth: true
+                model: ["Auto", "Full", "Economical", "Static"]
+                currentIndex: Math.max(0, ["auto", "full", "economical", "static"].indexOf(root.controls.visual_quality || "auto"))
+                enabled: !root.busy
+                onActivated: index => root.patch({
+                        visual_quality: ["auto", "full", "economical", "static"][index]
+                    })
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Current mode: " + root.effectiveVisualQuality.charAt(0).toUpperCase() + root.effectiveVisualQuality.slice(1) + ". Auto uses full visuals on supported hardware and a static sky and wind on software graphics. Economical reduces animation cadence and wind trail density. Unsupported graphics always use Static. Reduced motion always takes priority."
+                wrapMode: Text.Wrap
+                color: Tokens.secondary
+                font.pixelSize: 12
             }
             ToggleControl {
                 Layout.fillWidth: true

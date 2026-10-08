@@ -91,6 +91,11 @@ func Bar(state *safeio.Directory, now time.Time) M {
 			alertText = "No active alerts in cached feed"
 		}
 	}
+	if country == "US" && alerts["freshness"] == "pending" {
+		alertText = "Checking official alerts"
+	} else if country == "US" && alerts["freshness"] == "stale" {
+		alertText = "Cached alert feed; current status unavailable"
+	}
 	r["label"] = plainText(label, 96)
 	r["tooltip"] = plainText(plainText(location["name"], 244)+" · "+condition+" · "+alertText, 256)
 	return r

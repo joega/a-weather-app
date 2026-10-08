@@ -23,6 +23,7 @@
 #include <QNetworkDiskCache>
 #include <QNetworkReply>
 #include "maptiles.h"
+#include "graphicscapabilities.h"
 #include <functional>
 
 // Build exact PNG framing without asking an image decoder to parse metadata.
@@ -269,6 +270,33 @@ class FrontendTest : public QObject {
         QTest::failOnWarning(
             QRegularExpression(".*(TypeError:|ReferenceError:|Binding loop|Unable to assign|Cannot "
                                "assign|failed to load component).*"));
+    }
+    void graphicsPolicyCannotBypassUnsupportedPipeline() {
+        for (const auto& name : {"llvmpipe (LLVM)", "softpipe", "Software Rasterizer",
+                                 "SwiftShader", "GDI Generic", ""})
+            QVERIFY(GraphicsCapabilities::softwareRenderer(QString::fromLatin1(name)));
+        QVERIFY(!GraphicsCapabilities::softwareRenderer("AMD Radeon 740M"));
+        QSurfaceFormat format;
+        format.setVersion(3, 3);
+        format.setProfile(QSurfaceFormat::CoreProfile);
+        QVERIFY(GraphicsCapabilities::supportedFormat(format, false));
+        format.setProfile(QSurfaceFormat::CompatibilityProfile);
+        QVERIFY(!GraphicsCapabilities::supportedFormat(format, false));
+        format.setVersion(2, 0);
+        QVERIFY(!GraphicsCapabilities::supportedFormat(format, true));
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/Atmosphere.qml"));
+        std::unique_ptr<QObject> sky(component.create());
+        QVERIFY(sky);
+        for (const auto& quality : {"auto", "full", "economical", "static"}) {
+            sky->setProperty("visualQuality", quality);
+            QCOMPARE(sky->property("effectiveQuality").toString(), QString("static"));
+            QVERIFY(!sky->property("shaderAvailable").toBool());
+            QVERIFY(!sky->property("animationActive").toBool());
+        }
+        sky->setProperty("pipelineFailed", true);
+        sky->setProperty("visualQuality", "full");
+        QVERIFY(!sky->property("shaderAvailable").toBool());
     }
     void atmosphereLifecycleAndFallback() {
         QQmlEngine engine;
@@ -1671,6 +1699,9 @@ class FrontendTest : public QObject {
         QCOMPARE(precipitation->property("hourIndex").toInt(), 2);
         QCOMPARE(tiles.requests, tiles.active.size());
         QCOMPARE(transport.requests.size(), 1);
+        // Exercise timeline mechanics independently of the shell's raster
+        // Auto policy; that policy is covered by the graphics fallback test.
+        panel->setProperty("visualQuality", "full");
         QVERIFY(playback->property("enabled").toBool());
         QVERIFY(QMetaObject::invokeMethod(playback, "clicked"));
         QVERIFY(panel->property("playing").toBool());
@@ -1717,7 +1748,9 @@ class FrontendTest : public QObject {
         QCOMPARE(wind->property("units").toString(), QString("C"));
         QCOMPARE(evaluate(engine, wind, "windSpeed(10)").toString(), QString("36 km/h"));
         QCOMPARE(wind->findChild<QObject*>("mapLegend")->property("text").toString(),
-                 QString("Trails flow downwind · tap to inspect · km/h"));
+                 QString(wind->property("animationActive").toBool()
+                             ? "Trails flow downwind · tap to inspect · km/h"
+                             : "Static trails · tap to inspect · km/h"));
         QVERIFY(temperature->findChild<QObject*>("mapCredit")
                     ->property("text")
                     .toString()
@@ -2081,6 +2114,44 @@ class FrontendTest : public QObject {
             QCOMPARE(closed.first().first().toInt(), ok ? 0 : 1);
             QCOMPARE(transport.requests.size(), 0);
         }
+    }
+    void pendingAlertsKeepForecastUsable() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        root->setProperty("effectsOpen", false);
+        auto value = metricSnapshot(1);
+        auto alerts = QJsonObject{{"status", "unavailable"}, {"freshness", "pending"},
+                                  {"refreshing", true},      {"source", "National Weather Service"},
+                                  {"coverage", "US"},        {"fetched_at", QJsonValue::Null},
+                                  {"items", QJsonArray{}}};
+        value["alerts"] = alerts;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        QVERIFY(evaluate(engine, root, "forecast !== null && current !== null").toBool());
+        QCOMPARE(root->property("alertsStatusText").toString(),
+                 QString::fromUtf8("Checking official alerts…"));
+        const auto current = evaluate(engine, root, "JSON.stringify(current)").toString();
+        value["snapshot_revision"] = 2;
+        alerts["status"] = "available";
+        alerts["freshness"] = "stale";
+        alerts["refreshing"] = false;
+        alerts["fetched_at"] = "2026-09-27T12:00:00Z";
+        value["alerts"] = alerts;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        QVERIFY(root->property("alertsStatusText")
+                    .toString()
+                    .contains("current alert status unavailable"));
+        QCOMPARE(evaluate(engine, root, "JSON.stringify(current)").toString(), current);
+        value["snapshot_revision"] = 3;
+        alerts["freshness"] = "current";
+        value["alerts"] = alerts;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        QCOMPARE(root->property("alertsStatusText").toString(),
+                 QString("No active NWS alerts reported"));
     }
     void searchValidationAndAlertCoverage() {
         FakeTransport transport;

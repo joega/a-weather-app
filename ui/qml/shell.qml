@@ -6,6 +6,7 @@ import "Forecast.js" as Forecast
 
 QtObject {
     id: root
+    property var graphicsCapabilities: null
     required property var weatherTransport
     property var mapTiles: null
     property string units: bridge.snapshot ? bridge.snapshot.controls.units : "F"
@@ -59,6 +60,10 @@ QtObject {
         let a = bridge.snapshot.alerts;
         if (a.status === "not_supported_here")
             return "Official alerts are not supported here";
+        if (a.freshness === "pending")
+            return "Checking official alerts…";
+        if (a.freshness === "stale")
+            return a.refreshing ? "Cached alert feed · checking for updates…" : "Cached alert feed · current alert status unavailable";
         if (a.status === "unavailable")
             return "Alert status unavailable";
         return a.items.length === 0 ? (a.source === "National Weather Service" ? "No active NWS alerts reported" : "Alert status unavailable") : "";
@@ -184,6 +189,7 @@ QtObject {
             onActivated: root.effectsOpen = false
         }
         Atmosphere {
+            id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
             presentationActive: bridge.available && window.visible && !root.effectsOpen
@@ -197,6 +203,8 @@ QtObject {
             windSpeed: root.current && root.current.wind_speed_m_s !== null ? root.current.wind_speed_m_s : 0
             rainAmount: root.atmosphere ? root.atmosphere.rain_intensity : 0
             snowAmount: root.atmosphere ? root.atmosphere.snow_intensity : 0
+            graphicsCapabilities: root.graphicsCapabilities
+            visualQuality: root.controls.visual_quality || "auto"
             reducedMotion: root.controls.reduced_motion
             lightningEnabled: root.atmosphere ? root.atmosphere.lightning_enabled : false
         }
@@ -455,6 +463,7 @@ QtObject {
                     windUnits: root.windUnits
                     hasLocation: root.hasMapLocation
                     active: root.mapActive
+                    visualQuality: forecastAtmosphere.effectiveQuality
                     reducedMotion: root.controls.reduced_motion
                     viewportTop: forecastScroll.flickable.contentY - (mapSection.y + 18)
                     viewportHeight: forecastScroll.height
@@ -496,6 +505,7 @@ QtObject {
         }
         EffectsDrawer {
             id: effects
+            effectiveVisualQuality: forecastAtmosphere.effectiveQuality
             enabled: !bridge.closing
             objectName: "effectsDrawer"
             visible: root.effectsOpen

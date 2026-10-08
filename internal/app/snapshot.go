@@ -201,6 +201,19 @@ func (a *App) snapshot() M {
 	result["update"] = a.updateSnapshot()
 	result["air_quality"] = a.airQualitySnapshot()
 	result["alerts"] = M{"status": status, "items": display, "source": alertSource, "coverage": coverage, "fetched_at": alertFetched}
+	envelope := object(result["alerts"])
+	freshness := alerts["freshness"]
+	if freshness == nil {
+		if status == "available" {
+			freshness = "current"
+		} else {
+			freshness = status
+		}
+	}
+	if a.country != "US" {
+		freshness = status
+	}
+	envelope["freshness"], envelope["refreshing"] = freshness, alerts["refreshing"] == true
 	capSnapshotAlertText(result)
 	return result
 }

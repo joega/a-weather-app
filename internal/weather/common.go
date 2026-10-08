@@ -258,7 +258,11 @@ func ValidateSnapshot(s, location Object) error {
 			}
 		}
 	}
-	a := obj(s["alerts"])
+	return ValidateAlerts(obj(s["alerts"]))
+}
+
+// ValidateAlerts checks an independent feed using the same persisted bounds.
+func ValidateAlerts(a Object) error {
 	if a == nil || (a["status"] != "available" && a["status"] != "unavailable" && a["status"] != "not_supported_here") {
 		return errors.New("invalid alerts")
 	}
@@ -281,6 +285,34 @@ func ValidateSnapshot(s, location Object) error {
 	if fetched, present := a["fetched_at"]; present && fetched != nil {
 		if _, e := Instant(fetched); e != nil {
 			return e
+		}
+	}
+	if freshness, present := a["freshness"]; present {
+		if freshness != "pending" && freshness != "unavailable" && freshness != "stale" && freshness != "current" && freshness != "not_supported_here" {
+			return errors.New("invalid alert freshness")
+		}
+	}
+	switch a["freshness"] {
+	case "current", "stale":
+		if a["status"] != "available" || a["fetched_at"] == nil {
+			return errors.New("inconsistent alert freshness")
+		}
+	case "pending":
+		if a["status"] != "unavailable" || a["refreshing"] != true || a["fetched_at"] != nil {
+			return errors.New("inconsistent pending alerts")
+		}
+	case "unavailable":
+		if a["status"] != "unavailable" {
+			return errors.New("inconsistent unavailable alerts")
+		}
+	case "not_supported_here":
+		if a["status"] != "not_supported_here" {
+			return errors.New("inconsistent unsupported alerts")
+		}
+	}
+	if refreshing, present := a["refreshing"]; present {
+		if _, ok := refreshing.(bool); !ok {
+			return errors.New("invalid alert refresh")
 		}
 	}
 	rows, ok := a["items"].([]any)

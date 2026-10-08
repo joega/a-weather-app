@@ -14,11 +14,12 @@ GlassPanel {
     property bool hasLocation: false
     property bool offline: false
     property bool tileActive: false
+    property string visualQuality: "full"
     property bool reducedMotion: false
     property bool presentationActive: true
     readonly property real mapTop: mapArea.y
     readonly property real mapHeight: mapArea.height
-    readonly property bool animationActive: mapLayer === "wind" && mapData !== null && tileActive && presentationActive && visible && !reducedMotion && mapArea.width > 0 && mapArea.height > 0 && (!Window.window || (Window.window.visibility !== Window.Minimized && Window.window.visibility !== Window.Hidden))
+    readonly property bool animationActive: mapLayer === "wind" && mapData !== null && tileActive && presentationActive && visible && !reducedMotion && visualQuality !== "static" && mapArea.width > 0 && mapArea.height > 0 && (!Window.window || (Window.window.visibility !== Window.Minimized && Window.window.visibility !== Window.Hidden))
     property var windField: null
     property var particles: []
     property double lastTick: 0
@@ -26,7 +27,8 @@ GlassPanel {
     property real inspectionY: 0.5
     property bool pointSelected: false
     readonly property real flowRadius: desiredScale * 16093.44
-    readonly property int trailCount: Math.max(16, Math.min(64, Math.round(mapArea.width * mapArea.height / 3200)))
+    readonly property int fullTrailCount: Math.max(16, Math.min(64, Math.round(mapArea.width * mapArea.height / 3200)))
+    readonly property int trailCount: visualQuality === "economical" ? Math.ceil(fullTrailCount / 2) : fullTrailCount
     readonly property var inspectedVector: windField ? WindField.interpolate(windField.samples, inspectionX * mapArea.width, inspectionY * mapArea.height) : ({
             x: 0,
             y: 0
@@ -74,10 +76,11 @@ GlassPanel {
         inspectionY = y / mapArea.height;
         pointSelected = true;
     }
+    onVisualQualityChanged: resetTrails()
     onAnimationActiveChanged: resetTrails()
     Timer {
         objectName: "windAnimationTimer"
-        interval: 67
+        interval: root.visualQuality === "economical" ? 100 : 67
         repeat: true
         running: root.animationActive && root.windField !== null
         onRunningChanged: root.lastTick = Date.now()
@@ -421,7 +424,7 @@ GlassPanel {
             visible: root.mapData !== null
             PlainLabel {
                 objectName: "mapLegend"
-                text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? (root.reducedMotion ? "Static trails" : "Trails flow downwind") + " · tap to inspect · " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
+                text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? (!root.animationActive ? "Static trails" : "Trails flow downwind") + " · tap to inspect · " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
                 font.pixelSize: 12
                 color: Tokens.secondary
                 wrapMode: Text.Wrap

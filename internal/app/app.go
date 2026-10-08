@@ -49,6 +49,8 @@ type Options struct {
 	Resolve           func(context.Context, M) (M, error)
 	ResolveSelection  func(context.Context, M) (M, error)
 	FetchCountry      func(context.Context, M, time.Time, string) (M, error)
+	// FetchAlerts is independent when supplied; nil preserves custom combined fetches.
+	FetchAlerts func(context.Context, M, time.Time) (M, error)
 	// Nil leaves air quality cache-only. The production service supplies Fetch.
 	FetchAirQuality func(context.Context, M, time.Time) (M, error)
 	FetchMap        func(context.Context, float64, float64, string, time.Time) (weathermap.Data, error)
@@ -63,6 +65,8 @@ type completion struct {
 	err                           error
 	country                       any
 	place                         M
+	alerts                        M
+	alertsPending                 bool
 }
 
 // App serializes state mutations and exposes independent cached snapshots.
@@ -92,6 +96,7 @@ type App struct {
 	fetchCancel                           context.CancelFunc
 	fetchBusy, locationBusy               bool
 	generation                            uint64
+	forecastGeneration                    uint64
 	results                               chan completion
 	Changed                               chan struct{}
 	launcherStatus                        string
@@ -102,7 +107,7 @@ type App struct {
 
 // DefaultControls returns a fresh controls object in the persisted JSON format.
 func DefaultControls() M {
-	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto", "wind_units": "auto"}
+	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "visual_quality": "auto", "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto", "wind_units": "auto"}
 }
 func stringOf(v any) string { s, _ := v.(string); return s }
 func object(v any) M        { m, _ := v.(map[string]any); return m }
@@ -132,6 +137,9 @@ func PatchControls(old, patch M) (M, error) {
 	}
 	if v["strength"] != "subtle" && v["strength"] != "normal" && v["strength"] != "immersive" {
 		return nil, errors.New("strength")
+	}
+	if v["visual_quality"] != "auto" && v["visual_quality"] != "full" && v["visual_quality"] != "economical" && v["visual_quality"] != "static" {
+		return nil, errors.New("visual quality")
 	}
 	manual := object(v["manual"])
 	if len(manual) != 1 || !weather.ValidCondition(stringOf(manual["condition"])) {
@@ -263,7 +271,8 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 		o.Now = time.Now
 	}
 	if o.Fetch == nil && o.FetchCountry == nil {
-		o.FetchCountry = weather.FetchForCountry
+		o.FetchCountry = weather.FetchForecastForCountry
+		o.FetchAlerts = weather.FetchAlerts
 	}
 	if o.Resolve == nil && o.ResolveSelection == nil {
 		o.ResolveSelection = weather.ResolveSelection
@@ -276,6 +285,12 @@ func New(state *safeio.Directory, o Options) (*App, error) {
 	a.location, a.forecast, a.profile, a.mode, a.zip, e = readSaved(state)
 	if e != nil {
 		return nil, e
+	}
+	if alerts := object(a.forecast["alerts"]); alerts != nil && (alerts["refreshing"] == true || alerts["freshness"] == "pending") {
+		alerts["refreshing"] = false
+		if alerts["freshness"] == "pending" {
+			alerts["freshness"] = "unavailable"
+		}
 	}
 	a.country, a.place = profileIdentity(a.profile, a.mode)
 	a.search.init()
@@ -357,6 +372,18 @@ func (a *App) beginFetch(selection M) {
 				country, place = profileIdentity(nil, stringOf(requestSelection["mode"]))
 			}
 		}
+		var alertResults chan M
+		if e == nil && country == "US" && a.options.FetchAlerts != nil {
+			alertResults = make(chan M, 1)
+			alertLocation := safeio.Clone(location)
+			go func() {
+				alerts, err := a.options.FetchAlerts(ctx, alertLocation, a.options.Now())
+				if err != nil || weather.ValidateAlerts(alerts) != nil {
+					alerts = weather.UnavailableAlerts()
+				}
+				alertResults <- alerts
+			}()
+		}
 		var forecast M
 		if e == nil {
 			if a.options.FetchCountry != nil {
@@ -371,7 +398,7 @@ func (a *App) beginFetch(selection M) {
 		if ctx.Err() != nil {
 			e = ctx.Err()
 		}
-		c := completion{generation: gen, selection: selection, location: location, forecast: forecast, err: e, country: country, place: place}
+		c := completion{generation: gen, selection: selection, location: location, forecast: forecast, err: e, country: country, place: place, alertsPending: e == nil && alertResults != nil}
 		select {
 		case a.results <- c:
 			a.signal()
@@ -382,6 +409,30 @@ func (a *App) beginFetch(selection M) {
 			default:
 			}
 		}
+		if e == nil && alertResults != nil {
+			select {
+			case alerts := <-alertResults:
+				select {
+				case a.results <- completion{generation: gen, location: location, alerts: alerts}:
+					a.signal()
+				case <-ctx.Done():
+					select {
+					case a.results <- completion{generation: gen, location: location, alerts: weather.UnavailableAlerts()}:
+						a.signal()
+					default:
+					}
+				}
+			case <-ctx.Done():
+				// A timeout is an honest unavailable completion, provided this
+				// generation remains active. Cancellation never blocks shutdown.
+				select {
+				case a.results <- completion{generation: gen, location: location, alerts: weather.UnavailableAlerts()}:
+					a.signal()
+				default:
+				}
+			}
+		}
+
 	}()
 }
 func (a *App) poll() {
@@ -395,9 +446,24 @@ func (a *App) poll() {
 			if c.generation != a.generation || a.closed {
 				continue
 			}
+			alertOnly := c.alerts != nil
+			if alertOnly {
+				if a.forecastGeneration != c.generation || !reflect.DeepEqual(c.location, a.location) {
+					continue
+				}
+				c.forecast = safeio.Clone(a.forecast)
+				c.forecast["alerts"] = mergeAlerts(c.alerts, object(a.forecast["alerts"]), a.options.Now(), false)
+				if weather.ValidateSnapshot(c.forecast, a.location) != nil {
+					continue
+				}
+			} else if c.err == nil && c.alertsPending {
+				c.forecast["alerts"] = mergeAlerts(object(c.forecast["alerts"]), cachedAlerts(a.forecast, c.location), a.options.Now(), true)
+			}
 			a.fetchBusy = false
 			a.locationBusy = false
-			a.fetchCancel = nil
+			if !c.alertsPending {
+				a.fetchCancel = nil
+			}
 			if c.err != nil {
 				code := "refresh_failed"
 				if c.selection != nil {
@@ -471,11 +537,16 @@ func (a *App) poll() {
 				continue
 			}
 			if candidate != nil {
+				nextFetch := a.nextFetch
 				a.adopt(candidate)
+				if alertOnly {
+					a.nextFetch = nextFetch
+				}
 			} else {
 				a.forecast = c.forecast
 				a.errorCode = nil
 			}
+			a.forecastGeneration = c.generation
 			a.signal()
 		default:
 			return

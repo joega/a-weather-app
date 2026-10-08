@@ -11,8 +11,12 @@ Item {
     property real sunAzimuth: 180.0
     property real wind: 35.0
     property real windSpeed: 0.0
-    property bool shaderSupported: GraphicsInfo.api !== GraphicsInfo.Software
-    readonly property bool shaderAvailable: shaderSupported && sky.status !== ShaderEffect.Error
+    property var graphicsCapabilities: null
+    property string visualQuality: "auto"
+    property bool pipelineFailed: false
+    readonly property bool shaderSupported: graphicsCapabilities !== null && graphicsCapabilities.shaderSupported
+    readonly property string effectiveQuality: !shaderSupported || pipelineFailed || visualQuality === "static" ? "static" : visualQuality === "economical" ? "economical" : "full"
+    readonly property bool shaderAvailable: effectiveQuality !== "static" && shaderLoader.item !== null
     // Artistic scene drift stays visible within seconds, including calm and north/south
     // winds. Cap its wind response so a storm never sweeps the forecast backdrop.
     readonly property real driftRate: (wind < -3 ? -1 : 1) * (0.008 + Math.min(16, Math.max(0, windSpeed)) * 0.0007)
@@ -39,7 +43,7 @@ Item {
     property real snowAmount: condition === "snow" ? 0.7 : condition === "sleet" ? 0.35 : 0.0
     // Clouds drift slowly enough for 20 Hz; precipitation and brief lightning
     // pulses retain 30 Hz. Integrate elapsed time so cadence never changes speed.
-    readonly property int animationInterval: rainAmount > 0 || snowAmount > 0 || (lightningEnabled && condition === "thunderstorm") ? 33 : 50
+    readonly property int animationInterval: effectiveQuality === "economical" ? 100 : rainAmount > 0 || snowAmount > 0 || (lightningEnabled && condition === "thunderstorm") ? 33 : 50
     property real visualTime: 0.0
     property real cloudOffset: 0.0
     property double lastTick: 0
@@ -55,7 +59,7 @@ Item {
         onRunningChanged: root.lastTick = Date.now()
         onTriggered: {
             const now = Date.now();
-            const dt = Math.max(0, Math.min(0.1, (now - root.lastTick) / 1000));
+            const dt = Math.max(0, Math.min(root.effectiveQuality === "economical" ? 0.2 : 0.1, (now - root.lastTick) / 1000));
             root.lastTick = now;
             root.visualTime += dt;
             root.cloudOffset += root.driftRate * dt;
@@ -90,32 +94,41 @@ Item {
             }
         }
     }
-    ShaderEffect {
-        id: sky
-        visible: root.shaderAvailable
+    Loader {
+        id: shaderLoader
         anchors.fill: parent
-        property real scene_time: root.visualTime
-        property real sun_elevation: Math.max(-90, Math.min(90, root.sunElevation))
-        property real sun_azimuth: root.sunAzimuth
-        property real cloud_cover: Math.max(0, Math.min(1, root.cloudCover))
-        property real fog_density: Math.max(0, Math.min(1, root.fogDensity))
-        property real cloud_offset: root.cloudOffset
-        property real lightning: root.animationActive && root.lightningEnabled && root.condition === "thunderstorm" ? Math.max(0, Math.min(0.28, root.lightningIntensity)) : 0
-        property bool reduced_motion: root.reducedMotion
-        property real aspect_ratio: root.width / Math.max(1, root.height)
-        property real rain_amount: root.animationActive ? Math.max(0, Math.min(1, root.rainAmount)) : 0
-        property real snow_amount: root.animationActive ? Math.max(0, Math.min(1, root.snowAmount)) : 0
-        property real wind_x: Math.max(-500, Math.min(500, root.wind))
-        fragmentShader: "qrc:/ui/shaders/atmosphere.frag.qsb"
-        blending: false
-    }
-    ShaderEffectSource {
-        anchors.fill: parent
-        visible: root.shaderAvailable
-        sourceItem: sky
-        hideSource: true
-        live: true
-        smooth: true
-        textureSize: root.bufferSize
+        active: root.effectiveQuality !== "static"
+        sourceComponent: Item {
+            ShaderEffect {
+                id: sky
+                onStatusChanged: if (status === ShaderEffect.Error)
+                    root.pipelineFailed = true
+                visible: true
+                anchors.fill: parent
+                property real scene_time: root.visualTime
+                property real sun_elevation: Math.max(-90, Math.min(90, root.sunElevation))
+                property real sun_azimuth: root.sunAzimuth
+                property real cloud_cover: Math.max(0, Math.min(1, root.cloudCover))
+                property real fog_density: Math.max(0, Math.min(1, root.fogDensity))
+                property real cloud_offset: root.cloudOffset
+                property real lightning: root.animationActive && root.lightningEnabled && root.condition === "thunderstorm" ? Math.max(0, Math.min(0.28, root.lightningIntensity)) : 0
+                property bool reduced_motion: root.reducedMotion
+                property real aspect_ratio: root.width / Math.max(1, root.height)
+                property real rain_amount: root.animationActive ? Math.max(0, Math.min(1, root.rainAmount)) : 0
+                property real snow_amount: root.animationActive ? Math.max(0, Math.min(1, root.snowAmount)) : 0
+                property real wind_x: Math.max(-500, Math.min(500, root.wind))
+                fragmentShader: "qrc:/ui/shaders/atmosphere.frag.qsb"
+                blending: false
+            }
+            ShaderEffectSource {
+                anchors.fill: parent
+                visible: true
+                sourceItem: sky
+                hideSource: true
+                live: true
+                smooth: true
+                textureSize: root.bufferSize
+            }
+        }
     }
 }

@@ -1,8 +1,8 @@
 QT += testlib quick network
 CONFIG += console c++17 testcase
 TARGET = frontend-test
-SOURCES += tests/frontend_test.cpp maptiles.cpp
-HEADERS += maptiles.h
+SOURCES += tests/frontend_test.cpp maptiles.cpp graphicscapabilities.cpp
+HEADERS += maptiles.h graphicscapabilities.h
 RESOURCES += resources.qrc
 OBJECTS_DIR = .frontend-test-build
 MOC_DIR = .frontend-test-build

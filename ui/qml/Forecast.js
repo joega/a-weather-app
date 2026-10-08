@@ -455,6 +455,10 @@ function snapshot(v) {
     if (["auto", "mph", "km/h", "m/s", "kn"].indexOf(windUnits) < 0)
         throw Error("Invalid wind units");
     controls.wind_units = windUnits;
+    const quality = v.controls.visual_quality === undefined ? "auto" : v.controls.visual_quality;
+    if (["auto", "full", "economical", "static"].indexOf(quality) < 0)
+        throw Error("Invalid visual quality");
+    controls.visual_quality = quality;
     controls.units = v.controls.units;
     controls.fps = v.controls.fps;
     controls.mode = v.controls.mode;
@@ -477,6 +481,11 @@ function snapshot(v) {
         });
     else if (!Array.isArray(v.hourly) || v.hourly.length !== 0 || !Array.isArray(v.daily) || v.daily.length !== 0)
         throw Error("Invalid empty forecast");
+    const alertFreshness = v.alerts.freshness === undefined ? (v.alerts.status === "available" ? "current" : v.alerts.status) : v.alerts.freshness;
+    if (["current", "stale", "pending", "unavailable", "not_supported_here"].indexOf(alertFreshness) < 0 || (v.alerts.refreshing !== undefined && typeof v.alerts.refreshing !== "boolean"))
+        throw Error("Invalid alert freshness");
+    if (v.alerts.freshness !== undefined && (((alertFreshness === "current" || alertFreshness === "stale") && (v.alerts.status !== "available" || alertsFetchedAt === null)) || (alertFreshness === "pending" && (v.alerts.status !== "unavailable" || v.alerts.refreshing !== true || alertsFetchedAt !== null)) || (alertFreshness === "unavailable" && v.alerts.status !== "unavailable")))
+        throw Error("Inconsistent alert freshness");
     let alerts = [];
     for (let a of v.alerts.items) {
         if (!object(a))
@@ -554,6 +563,8 @@ function snapshot(v) {
         atmosphere: atmosphere(v.atmosphere),
         alerts: {
             status: v.alerts.status,
+            freshness: alertFreshness,
+            refreshing: v.alerts.refreshing === true,
             items: alerts,
             source: alertSource,
             coverage: coverage,

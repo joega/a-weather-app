@@ -139,12 +139,19 @@ func FetchForCountry(ctx context.Context, location Object, now time.Time, countr
 	return defaultJSONProvider().fetchForCountry(ctx, location, now, countryCode)
 }
 
-func (provider jsonProvider) fetchForCountry(ctx context.Context, location Object, now time.Time, countryCode string) (Object, error) {
+// FetchForecastForCountry validates weather independently of alert latency.
+// The alert envelope retains legacy status values; freshness adds pending/stale
+// detail without changing the IPC schema or existing consumers' status contract.
+func FetchForecastForCountry(ctx context.Context, location Object, now time.Time, countryCode string) (Object, error) {
+	return defaultJSONProvider().fetchForecastForCountry(ctx, location, now, countryCode)
+}
+func FetchAlerts(ctx context.Context, location Object, now time.Time) (Object, error) {
+	return defaultJSONProvider().fetchAlerts(ctx, location, now)
+}
+func (provider jsonProvider) fetchForecastForCountry(ctx context.Context, location Object, now time.Time, countryCode string) (Object, error) {
 	if countryCode != "" && !countryCodePattern.MatchString(countryCode) {
 		return nil, errors.New("invalid country code")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
-	defer cancel()
 	if now.IsZero() {
 		now = time.Now()
 	}
@@ -160,32 +167,60 @@ func (provider jsonProvider) fetchForCountry(ctx context.Context, location Objec
 	if e != nil {
 		return nil, e
 	}
-	if countryCode != "US" {
-		status, coverage := "not_supported_here", "unsupported"
-		if countryCode == "" {
-			status, coverage = "unavailable", "unknown"
-		}
-		s["alerts"] = Object{"status": status, "items": []any{}, "fetched_at": nil, "source": nil, "coverage": coverage}
-		return s, ValidateSnapshot(s, obj(s["location"]))
+	status, coverage, freshness := "not_supported_here", "unsupported", "not_supported_here"
+	var source any
+	if countryCode == "" {
+		status, coverage, freshness = "unavailable", "unknown", "unavailable"
+	}
+	if countryCode == "US" {
+		status, coverage, freshness, source = "unavailable", "US", "pending", "National Weather Service"
+	}
+	s["alerts"] = Object{"status": status, "items": []any{}, "fetched_at": nil, "source": source, "coverage": coverage, "freshness": freshness, "refreshing": countryCode == "US"}
+	return s, ValidateSnapshot(s, obj(s["location"]))
+}
+func (provider jsonProvider) fetchAlerts(ctx context.Context, location Object, now time.Time) (Object, error) {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	if _, e := ValidateLocation(location); e != nil {
+		return nil, e
 	}
 	q := url.Values{"point": {fmt.Sprint(location["latitude"]) + "," + fmt.Sprint(location["longitude"])}}
-	p, e = provider.fetchJSON(ctx, "https://api.weather.gov/alerts/active?"+q.Encode(), false)
-	var items []any
-	if e == nil {
-		items, e = ParseAlerts(p, now)
+	p, e := provider.fetchJSON(ctx, "https://api.weather.gov/alerts/active?"+q.Encode(), false)
+	if e != nil {
+		return nil, e
 	}
+	items, e := ParseAlerts(p, now)
+	if e != nil {
+		return nil, e
+	}
+	return Object{"status": "available", "items": items, "fetched_at": stamp(now), "source": "National Weather Service", "coverage": "US", "freshness": "current", "refreshing": false}, nil
+}
+
+// The combined helper remains for existing synchronous callers. App uses the
+// separate functions above and publishes each completion independently.
+func (provider jsonProvider) fetchForCountry(ctx context.Context, location Object, now time.Time, countryCode string) (Object, error) {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	s, e := provider.fetchForecastForCountry(ctx, location, now, countryCode)
+	if e != nil || countryCode != "US" {
+		return s, e
+	}
+	alerts, e := provider.fetchAlerts(ctx, location, now)
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
 	if e != nil {
-		s["alerts"] = Object{"status": "unavailable", "items": []any{}, "fetched_at": nil, "source": "National Weather Service", "coverage": "US", "error": "alert_feed_failed"}
-	} else {
-		s["alerts"] = Object{"status": "available", "items": items, "fetched_at": stamp(now), "source": "National Weather Service", "coverage": "US"}
+		alerts = UnavailableAlerts()
 	}
-	if e = ValidateSnapshot(s, obj(s["location"])); e != nil {
-		return nil, e
-	}
-	return s, nil
+	s["alerts"] = alerts
+	return s, ValidateSnapshot(s, obj(s["location"]))
+}
+func UnavailableAlerts() Object {
+	return Object{"status": "unavailable", "items": []any{}, "fetched_at": nil, "source": "National Weather Service", "coverage": "US", "freshness": "unavailable", "refreshing": false}
 }
 func ParseAlerts(payload Object, now time.Time) ([]any, error) {
 	features, ok := payload["features"].([]any)

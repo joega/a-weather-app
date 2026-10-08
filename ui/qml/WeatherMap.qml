@@ -20,6 +20,7 @@ ColumnLayout {
     property string windUnits: "auto"
     property bool hasLocation: false
     property bool active: false
+    property string visualQuality: "full"
     property bool reducedMotion: false
     property real viewportTop: 0
     property real viewportHeight: 0
@@ -31,7 +32,7 @@ ColumnLayout {
     // Contract: request/close and tileReady/tileFailed signals; null disables tiles.
     property var tileClient: null
     readonly property var mapData: mapState.data || null
-    readonly property bool canPlay: active && !reducedMotion && mapData !== null && mapData.hours.length > 1
+    readonly property bool canPlay: active && !reducedMotion && visualQuality !== "static" && mapData !== null && mapData.hours.length > 1
     function startPlayback() {
         if (canPlay)
             playing = true;
@@ -62,6 +63,8 @@ ColumnLayout {
         stopPlayback();
         clearTiles();
     }
+    onVisualQualityChanged: if (visualQuality === "static")
+        playing = false
     onReducedMotionChanged: if (reducedMotion)
         playing = false
     onMapDataChanged: {
@@ -176,6 +179,7 @@ ColumnLayout {
             Layout.fillWidth: true
             Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2
             mapLayer: "wind"
+            visualQuality: root.visualQuality
             reducedMotion: root.reducedMotion
             presentationActive: root.flowVisible(windCard)
             mapData: root.mapData

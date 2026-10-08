@@ -1,11 +1,13 @@
 #include "transport.h"
 #include "maptiles.h"
+#include "graphicscapabilities.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QCommandLineParser>
 #include <QSocketNotifier>
 #include <QQuickWindow>
+#include <QOpenGLContext>
 #include <QElapsedTimer>
 #include <QDateTime>
 #include <QTimer>
@@ -59,6 +61,23 @@ class SignalPipe final {
 } // namespace
 int main(int argc, char** argv) {
     QGuiApplication app(argc, argv);
+    // Ask for the shader package's core profile only if the driver can create
+    // it. Older contexts keep Qt's default and use the readable static path.
+    if (qEnvironmentVariable("QT_QUICK_BACKEND") != "software") {
+        QOpenGLContext candidate;
+        QSurfaceFormat format;
+        format.setVersion(3, 3);
+        format.setProfile(QSurfaceFormat::CoreProfile);
+        candidate.setFormat(format);
+        if (candidate.create() &&
+            GraphicsCapabilities::supportedFormat(candidate.format(), candidate.isOpenGLES())) {
+            QSurfaceFormat::setDefaultFormat(candidate.format());
+        } else {
+            QOpenGLContext fallback;
+            if (!fallback.create())
+                QQuickWindow::setSceneGraphBackend("software");
+        }
+    }
     app.setApplicationName("a-weather-app");
     app.setDesktopFileName("a-weather-app");
     app.setQuitOnLastWindowClosed(false);
@@ -80,8 +99,10 @@ int main(int argc, char** argv) {
         });
     WeatherTransport transport(args.value("socket"), args.isSet("diagnostic"));
     MapTiles mapTiles;
+    GraphicsCapabilities graphics;
     QQmlApplicationEngine engine;
-    engine.setInitialProperties({{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+    engine.setInitialProperties({{"graphicsCapabilities", QVariant::fromValue<QObject*>(&graphics)},
+                                 {"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
                                  {"mapTiles", QVariant::fromValue<QObject*>(&mapTiles)}});
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
@@ -99,6 +120,10 @@ int main(int argc, char** argv) {
     std::signal(SIGTERM, termination);
     std::signal(SIGINT, termination);
     engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+    if (!engine.rootObjects().isEmpty())
+        if (auto* quick = qobject_cast<QQuickWindow*>(
+                engine.rootObjects().first()->property("weatherWindow").value<QObject*>()))
+            graphics.observe(quick);
     if (args.isSet("diagnostic"))
         fprintf(stderr, "Weather frontend roots: %lld\n",
                 static_cast<long long>(engine.rootObjects().size()));
