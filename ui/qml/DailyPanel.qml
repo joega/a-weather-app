@@ -51,6 +51,10 @@ GlassPanel {
                 objectName: "forecastDay_" + index
                 width: parent.width
                 height: 37
+                leftPadding: 8
+                rightPadding: 8
+                topPadding: 3
+                bottomPadding: 3
                 Accessible.name: modelData.day_label + ", " + Forecast.title(modelData.condition) + ", low " + Forecast.temp(modelData.low_c, root.units) + ", high " + Forecast.temp(modelData.high_c, root.units) + ". Open details"
                 onClicked: root.daySelected(modelData)
                 background: Rectangle {
@@ -58,66 +62,68 @@ GlassPanel {
                     color: dayRow.hovered || dayRow.activeFocus ? "#305e819a" : "transparent"
                     border.color: dayRow.activeFocus ? Tokens.accent : "transparent"
                 }
-                PlainLabel {
-                    x: 0
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 58
-                    text: dayRow.modelData.day_label
-                    font.pixelSize: 15
-                }
-                WeatherIcon {
-                    x: 58
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 34
-                    height: 31
-                    condition: dayRow.modelData.condition
-                }
-                PlainLabel {
-                    x: 102
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(0, parent.width * 0.40 - 102)
-                    visible: parent.width > 400
-                    text: Forecast.title(dayRow.modelData.condition)
-                    font.pixelSize: 13
-                    color: Tokens.secondary
-                }
-                PlainLabel {
-                    x: parent.width * 0.47 - 30
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Forecast.temp(dayRow.modelData.low_c, root.units)
-                    font.pixelSize: 15
-                }
-                Rectangle {
-                    x: parent.width * 0.53
-                    y: 17
-                    width: parent.width * 0.31
-                    height: 5
-                    radius: 3
-                    color: "#507d94a9"
+                contentItem: Item {
+                    PlainLabel {
+                        x: 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 58
+                        text: dayRow.modelData.day_label
+                        font.pixelSize: 15
+                    }
+                    WeatherIcon {
+                        x: 58
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 34
+                        height: 31
+                        condition: dayRow.modelData.condition
+                    }
+                    PlainLabel {
+                        x: 102
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(0, parent.width * 0.40 - 102)
+                        visible: parent.width > 400
+                        text: Forecast.title(dayRow.modelData.condition)
+                        font.pixelSize: 13
+                        color: Tokens.secondary
+                    }
+                    PlainLabel {
+                        x: parent.width * 0.47 - 30
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Forecast.temp(dayRow.modelData.low_c, root.units)
+                        font.pixelSize: 15
+                    }
                     Rectangle {
-                        visible: dayRow.modelData.low_c !== null && dayRow.modelData.high_c !== null
-                        x: (dayRow.modelData.low_c - root.rangeLow) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width
-                        width: Math.max(3, (dayRow.modelData.high_c - dayRow.modelData.low_c) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width)
+                        x: parent.width * 0.53
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width * 0.31
                         height: 5
                         radius: 3
-                        gradient: Gradient {
-                            orientation: Gradient.Horizontal
-                            GradientStop {
-                                position: 0
-                                color: "#77c4f3"
-                            }
-                            GradientStop {
-                                position: 1
-                                color: Tokens.gold
+                        color: "#507d94a9"
+                        Rectangle {
+                            visible: dayRow.modelData.low_c !== null && dayRow.modelData.high_c !== null
+                            x: (dayRow.modelData.low_c - root.rangeLow) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width
+                            width: Math.max(3, (dayRow.modelData.high_c - dayRow.modelData.low_c) / Math.max(1, root.rangeHigh - root.rangeLow) * parent.width)
+                            height: 5
+                            radius: 3
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop {
+                                    position: 0
+                                    color: "#77c4f3"
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: Tokens.gold
+                                }
                             }
                         }
                     }
-                }
-                PlainLabel {
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: Forecast.temp(dayRow.modelData.high_c, root.units)
-                    font.pixelSize: 15
+                    PlainLabel {
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Forecast.temp(dayRow.modelData.high_c, root.units)
+                        font.pixelSize: 15
+                    }
                 }
                 Rectangle {
                     anchors.bottom: parent.bottom

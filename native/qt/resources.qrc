@@ -4,6 +4,7 @@
 <file alias="qml/Forecast.js">../../ui/qml/Forecast.js</file>
 <file alias="qml/backend/Bridge.qml">../../ui/qml/backend/Bridge.qml</file>
 <file alias="qml/ActionButton.qml">../../ui/qml/ActionButton.qml</file>
+<file alias="qml/SettingsComboBox.qml">../../ui/qml/SettingsComboBox.qml</file>
 <file alias="qml/AlertsPanel.qml">../../ui/qml/AlertsPanel.qml</file>
 <file alias="qml/AirQualityPanel.qml">../../ui/qml/AirQualityPanel.qml</file>
 <file alias="qml/Atmosphere.qml">../../ui/qml/Atmosphere.qml</file>

@@ -365,7 +365,7 @@ GlassPanel {
                 text: "Wind speed units"
                 font.pixelSize: 18
             }
-            ComboBox {
+            SettingsComboBox {
                 objectName: "windUnitsChoice"
                 Layout.fillWidth: true
                 model: [
@@ -464,8 +464,9 @@ GlassPanel {
                 text: "Monitor"
                 font.pixelSize: 16
             }
-            ComboBox {
+            SettingsComboBox {
                 id: monitorChoice
+                enabledOptions: root.setup.outputs.map(row => row.enabled)
                 objectName: "effectsMonitor"
                 Layout.fillWidth: true
                 visible: root.setup.outputs.length > 0
@@ -477,27 +478,6 @@ GlassPanel {
                 onActivated: index => {
                     if (root.setup.outputs[index].enabled)
                         root.outputRequested(root.setup.outputs[index].name);
-                }
-                contentItem: PlainLabel {
-                    text: monitorChoice.displayText
-                    verticalAlignment: Text.AlignVCenter
-                    leftPadding: 12
-                }
-                background: Rectangle {
-                    implicitHeight: 42
-                    radius: 10
-                    color: "#30435e72"
-                    border.color: monitorChoice.activeFocus ? Tokens.accent : Tokens.border
-                }
-                delegate: ItemDelegate {
-                    id: countryOption
-                    required property int index
-                    required property string modelData
-                    width: monitorChoice.width
-                    enabled: root.setup.outputs[index].enabled
-                    contentItem: PlainLabel {
-                        text: countryOption.modelData
-                    }
                 }
             }
             PlainLabel {
@@ -583,7 +563,7 @@ GlassPanel {
                 text: "Preview condition"
                 font.pixelSize: 16
             }
-            ComboBox {
+            SettingsComboBox {
                 id: conditionChoice
                 objectName: "previewCondition"
                 Layout.fillWidth: true
@@ -597,25 +577,6 @@ GlassPanel {
                             condition: values[index]
                         }
                     })
-                contentItem: PlainLabel {
-                    text: conditionChoice.displayText
-                    verticalAlignment: Text.AlignVCenter
-                    leftPadding: 12
-                }
-                background: Rectangle {
-                    implicitHeight: 42
-                    radius: 10
-                    color: "#30435e72"
-                    border.color: conditionChoice.activeFocus ? Tokens.accent : Tokens.border
-                }
-                delegate: ItemDelegate {
-                    id: outputOption
-                    required property string modelData
-                    width: conditionChoice.width
-                    contentItem: PlainLabel {
-                        text: outputOption.modelData
-                    }
-                }
             }
             PlainLabel {
                 Layout.fillWidth: true

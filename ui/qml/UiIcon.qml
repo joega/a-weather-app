@@ -40,18 +40,20 @@ Canvas {
             ctx.lineTo(5, 18);
             ctx.moveTo(9, 18);
             ctx.lineTo(20, 18);
-            ctx.arc(10, 6, 2, 0, Math.PI * 2);
-            ctx.arc(15, 12, 2, 0, Math.PI * 2);
-            ctx.arc(7, 18, 2, 0, Math.PI * 2);
             ctx.stroke();
+            for (const knob of [[10, 6], [15, 12], [7, 18]]) {
+                ctx.beginPath();
+                ctx.arc(knob[0], knob[1], 2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
             break;
         case "refresh":
-            ctx.arc(12, 12, 8, 0.6, 5.3, false);
+            ctx.arc(12, 12, 8, Math.PI * 0.25, Math.PI * 1.75, false);
             ctx.stroke();
             ctx.beginPath();
-            ctx.moveTo(16.4, 5.3);
-            ctx.lineTo(19.1, 5.8);
-            ctx.lineTo(18.5, 2.9);
+            ctx.moveTo(12.7, 6.3);
+            ctx.lineTo(17.7, 6.3);
+            ctx.lineTo(17.7, 1.3);
             ctx.stroke();
             break;
         case "info":
