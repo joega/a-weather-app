@@ -22,6 +22,7 @@ GlassPanel {
     readonly property var fieldValues: mapData && hourIndex < mapData.hours.length ? mapData.cells.map(c => mapLayer === "temperature" ? c.temperature_c[hourIndex] : mapLayer === "precipitation" ? c.precipitation_mm[hourIndex] : c.wind_speed_m_s[hourIndex]) : []
     readonly property real fieldMin: fieldValues.length ? (mapLayer === "precipitation" ? 0 : Math.min.apply(null, fieldValues)) : 0
     readonly property real fieldMax: fieldValues.length ? (mapLayer === "precipitation" ? Math.max(0.1, Math.max.apply(null, fieldValues)) : Math.max.apply(null, fieldValues)) : 1
+    readonly property bool dryPrecipitation: mapLayer === "precipitation" && fieldValues.length > 0 && fieldValues.every(value => value === 0)
     readonly property real centerLat: mapData ? mapData.latitude : 0
     readonly property real centerLon: mapData ? mapData.longitude : 0
     readonly property real desiredScale: Math.min(mapArea.width, mapArea.height) * 0.43 / 16093.44
@@ -77,6 +78,9 @@ GlassPanel {
     function rain(value) {
         return Forecast.amount(value, units);
     }
+    function legendRain(value) {
+        return units === "F" && value > 0 && value / 25.4 < 0.005 ? "<0.01 in" : rain(value);
+    }
     function ramp(value, min, max) {
         let p = Math.max(0, Math.min(1, (value - min) / Math.max(0.01, max - min)));
         return Qt.rgba(0.13 + 0.8 * p, 0.49 - 0.18 * p, 0.88 - 0.68 * p, 0.47);
@@ -104,13 +108,24 @@ GlassPanel {
                     }
         } else {
             let placed = [];
+            ctx.font = "bold 12px sans-serif";
+            ctx.textBaseline = "middle";
             for (let i = 0; i < cells.length; i++) {
                 let cell = cells[i], x = mapX(cell.longitude), y = mapY(cell.latitude);
-                if (placed.some(p => Math.abs(x - p.x) < 44 && Math.abs(y - p.y) < 34))
+                if (x < 0 || x > overlay.width || y < 0 || y > overlay.height)
+                    continue;
+                const label = windSpeed(cell.wind_speed_m_s[hourIndex]);
+                const labelWidth = ctx.measureText(label).width + 12, labelHeight = 22;
+                const left = Math.max(6, Math.min(overlay.width - labelWidth - 6, x - labelWidth / 2));
+                const top = Math.max(6, Math.min(overlay.height - labelHeight - 6, y - 36 < 6 ? y + 14 : y - 36));
+                const right = left + labelWidth, bottom = top + labelHeight;
+                if (placed.some(p => left < p.right + 8 && right > p.left - 8 && top < p.bottom + 8 && bottom > p.top - 8))
                     continue;
                 placed.push({
-                    x: x,
-                    y: y
+                    left: left,
+                    right: right,
+                    top: top,
+                    bottom: bottom
                 });
                 let radians = (cell.wind_from_deg[hourIndex] + 90) * Math.PI / 180, dx = Math.cos(radians) * 9, dy = Math.sin(radians) * 9;
                 ctx.strokeStyle = "#11334a";
@@ -126,10 +141,21 @@ GlassPanel {
                 ctx.lineTo(x + dx - Math.cos(radians + 0.6) * 5, y + dy - Math.sin(radians + 0.6) * 5);
                 ctx.closePath();
                 ctx.fill();
-                ctx.font = "bold 12px sans-serif";
+                ctx.beginPath();
+                ctx.moveTo(left + 4, top);
+                ctx.lineTo(right - 4, top);
+                ctx.quadraticCurveTo(right, top, right, top + 4);
+                ctx.lineTo(right, bottom - 4);
+                ctx.quadraticCurveTo(right, bottom, right - 4, bottom);
+                ctx.lineTo(left + 4, bottom);
+                ctx.quadraticCurveTo(left, bottom, left, bottom - 4);
+                ctx.lineTo(left, top + 4);
+                ctx.quadraticCurveTo(left, top, left + 4, top);
+                ctx.closePath();
+                ctx.fillStyle = "rgba(237,247,251,0.94)";
+                ctx.fill();
                 ctx.fillStyle = "#102d42";
-                let label = windSpeed(cell.wind_speed_m_s[hourIndex]);
-                ctx.fillText(label, x - ctx.measureText(label).width / 2, y - 14);
+                ctx.fillText(label, left + 6, top + labelHeight / 2);
             }
         }
     }
@@ -264,20 +290,21 @@ GlassPanel {
         }
         RowLayout {
             Layout.fillWidth: true
+            visible: root.mapData !== null
             PlainLabel {
                 objectName: "mapLegend"
-                text: root.mapLayer === "wind" ? "Arrow points where wind blows · speeds in " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
+                text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? "Arrow points where wind blows · speeds in " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
                 font.pixelSize: 12
                 color: Tokens.secondary
-                Layout.fillWidth: root.mapLayer === "wind"
+                Layout.fillWidth: root.mapLayer === "wind" || root.dryPrecipitation
             }
             PlainLabel {
-                visible: root.mapLayer !== "wind"
-                text: root.mapLayer === "temperature" ? root.temperature(root.fieldMin) : root.rain(root.fieldMin)
+                visible: root.mapLayer !== "wind" && !root.dryPrecipitation
+                text: root.mapLayer === "temperature" ? root.temperature(root.fieldMin) : root.legendRain(root.fieldMin)
                 font.pixelSize: 12
             }
             Rectangle {
-                visible: root.mapLayer !== "wind"
+                visible: root.mapLayer !== "wind" && !root.dryPrecipitation
                 Layout.fillWidth: true
                 Layout.preferredHeight: 12
                 radius: 3
@@ -294,8 +321,8 @@ GlassPanel {
                 }
             }
             PlainLabel {
-                visible: root.mapLayer !== "wind"
-                text: root.mapLayer === "temperature" ? root.temperature(root.fieldMax) : root.rain(root.fieldMax)
+                visible: root.mapLayer !== "wind" && !root.dryPrecipitation
+                text: root.mapLayer === "temperature" ? root.temperature(root.fieldMax) : root.legendRain(root.fieldMax)
                 font.pixelSize: 12
             }
         }
