@@ -236,17 +236,23 @@ QtObject {
                     }
                     ColumnLayout {
                         id: headerBody
+                        readonly property bool actionsBelowLocation: window.width < 850 || locationFont.advanceWidth(root.city) + headerActions.implicitWidth + 20 > width
+                        FontMetrics {
+                            id: locationFont
+                            font.pixelSize: 38
+                            font.family: "sans-serif"
+                        }
                         width: parent.width
                         spacing: 16
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Math.max(conditions.height, headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0) + (root.activeAlerts.length && window.width >= 850 ? headerAlerts.height + 16 : 0))
+                            Layout.preferredHeight: Math.max(conditions.height, headerActions.y + headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0), headerAlerts.visible ? headerAlerts.y + headerAlerts.height : 0)
                             RowLayout {
                                 id: headerActions
                                 objectName: "headerActions"
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.topMargin: window.width < 850 ? locationHeading.height + regionHeading.height + 12 : 0
+                                anchors.topMargin: headerBody.actionsBelowLocation ? locationHeading.height + regionHeading.height + 12 : 0
                                 ActionButton {
                                     objectName: "unitsAuto"
                                     text: root.automaticUnits ? "Auto (°" + root.units + ")" : "Auto"
@@ -327,10 +333,10 @@ QtObject {
                                     objectName: "locationHeading"
                                     text: root.city
                                     font.pixelSize: 38
-                                    minimumPixelSize: 24
-                                    fontSizeMode: Text.Fit
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 3
                                     elide: Text.ElideRight
-                                    width: window.width < 850 ? parent.width : parent.width - headerActions.width - 20
+                                    width: headerBody.actionsBelowLocation ? parent.width : parent.width - headerActions.width - 20
                                 }
                                 PlainLabel {
                                     id: regionHeading
@@ -340,7 +346,7 @@ QtObject {
                                 }
                                 Item {
                                     width: 1
-                                    height: window.width < 850 ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
+                                    height: headerBody.actionsBelowLocation ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
                                 }
                                 PlainLabel {
                                     objectName: "currentTemperature"

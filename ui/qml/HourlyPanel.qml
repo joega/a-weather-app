@@ -10,7 +10,7 @@ GlassPanel {
     property string units: "F"
     property string timezone: "America/New_York"
     signal hourSelected(var hour)
-    implicitHeight: 224
+    implicitHeight: root.hours.length === 0 ? 124 : 224
     PlainLabel {
         x: 20
         y: 14
@@ -21,12 +21,13 @@ GlassPanel {
     PlainLabel {
         visible: root.hours.length === 0
         x: 20
-        y: 80
+        y: 64
         text: "Hourly forecast unavailable"
         color: Tokens.secondary
     }
     Flickable {
         id: rail
+        visible: root.hours.length > 0
         objectName: "hourlyRail"
         x: 16
         y: 50
@@ -108,6 +109,7 @@ GlassPanel {
     }
     PlainLabel {
         x: 20
+        visible: root.hours.length > 0
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 12
         text: "Precipitation chance · Select an hour for details"

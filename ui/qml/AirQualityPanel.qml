@@ -90,6 +90,7 @@ GlassPanel {
                     PlainLabel {
                         Layout.fillWidth: true
                         text: pollutantRow.modelData.title
+                        horizontalAlignment: Text.AlignHCenter
                         color: Tokens.secondary
                         font.pixelSize: 13
                         wrapMode: Text.Wrap
@@ -99,6 +100,7 @@ GlassPanel {
                         objectName: "airQualityValue_" + pollutantRow.modelData.kind
                         Layout.fillWidth: true
                         text: pollutantRow.modelData.value
+                        horizontalAlignment: Text.AlignHCenter
                         font.pixelSize: 22
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone

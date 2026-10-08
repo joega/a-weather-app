@@ -23,7 +23,7 @@ GlassPanel {
                 n = Math.max(n, d.high_c);
         return n;
     }
-    implicitHeight: root.days.length === 0 ? 252 : 66 + Math.min(10, days.length) * 37
+    implicitHeight: root.days.length === 0 ? 124 : 66 + Math.min(10, days.length) * 37
     PlainLabel {
         x: 20
         y: 14
@@ -34,11 +34,12 @@ GlassPanel {
     PlainLabel {
         visible: root.days.length === 0
         x: 20
-        y: 92
+        y: 64
         text: "Daily forecast unavailable"
         color: Tokens.secondary
     }
     Column {
+        visible: root.days.length > 0
         x: 20
         y: 50
         width: parent.width - 40
