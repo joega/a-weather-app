@@ -56,6 +56,8 @@ Popup {
         id: scroll
         objectName: "forecastDetailsScroll"
         clip: true
+        // Keep the overlay scrollbar outside the content and controls.
+        rightPadding: 18
         contentWidth: availableWidth
         contentHeight: detailBody.implicitHeight
         ScrollBar.vertical.policy: ScrollBar.AsNeeded

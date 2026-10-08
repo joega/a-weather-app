@@ -213,176 +213,205 @@ QtObject {
                 spacing: 16
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Math.max(conditions.height, headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0) + (root.activeAlerts.length && window.width >= 850 ? headerAlerts.height + 16 : 0))
-                    RowLayout {
-                        id: headerActions
-                        objectName: "headerActions"
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.topMargin: window.width < 850 ? locationHeading.height + regionHeading.height + 12 : 0
-                        ActionButton {
-                            objectName: "unitsAuto"
-                            text: root.automaticUnits ? "Auto (°" + root.units + ")" : "Auto"
-                            accessibleLabel: "Use location’s measurement units"
-                            selected: root.automaticUnits
-                            enabled: !bridge.busy
-                            onClicked: bridge.send("set_controls", {
-                                units_mode: "auto"
-                            })
-                        }
-                        ActionButton {
-                            objectName: "unitsF"
-                            text: "°F"
-                            selected: !root.automaticUnits && root.units === "F"
-                            enabled: !bridge.busy
-                            onClicked: bridge.send("set_controls", {
-                                units: "F"
-                            })
-                        }
-                        ActionButton {
-                            objectName: "unitsC"
-                            text: "°C"
-                            selected: !root.automaticUnits && root.units === "C"
-                            enabled: !bridge.busy
-                            onClicked: bridge.send("set_controls", {
-                                units: "C"
-                            })
-                        }
-                        ActionButton {
-                            objectName: "refreshForecast"
-                            iconName: "refresh"
-                            accessibleLabel: "Refresh forecast"
-                            enabled: !bridge.busy
-                            onClicked: bridge.send("refresh")
-                        }
-                        ActionButton {
-                            objectName: "openEffects"
-                            iconName: "sliders"
-                            text: "Settings"
-                            onClicked: root.effectsOpen = true
-                        }
-                        ActionButton {
-                            objectName: "liveDesktop"
-                            text: root.liveDesktop ? "Live desktop · On" : "Live desktop"
-                            selected: root.liveDesktop
-                            enabled: bridge.available && !bridge.busy
-                            onClicked: {
-                                if (root.liveDesktop)
-                                    bridge.send("stop_effects");
-                                else
-                                    bridge.send("start_live_effects");
+                    Layout.preferredHeight: headerBody.implicitHeight
+                    Rectangle {
+                        x: -28
+                        y: -18
+                        width: window.width
+                        height: parent.height + 180
+                        gradient: Gradient {
+                            GradientStop {
+                                position: 0
+                                color: "#b30b1c30"
+                            }
+                            GradientStop {
+                                position: 0.66
+                                color: "#b30b1c30"
+                            }
+                            GradientStop {
+                                position: 1
+                                color: "transparent"
                             }
                         }
                     }
-                    GlassPanel {
-                        id: updatedNotice
-                        objectName: "updatedNotice"
-                        anchors.right: parent.right
-                        anchors.top: headerActions.bottom
-                        anchors.topMargin: 8
-                        width: Math.min(headerActions.width, updatedVersionNotice.implicitWidth + 24)
-                        height: 34
-                        visible: root.updateNoticeActive
-                        PlainLabel {
-                            id: updatedVersionNotice
-                            objectName: "updatedVersionNotice"
-                            anchors.centerIn: parent
-                            text: "Updated to " + root.shownUpdateVersion + "."
-                            font.pixelSize: 13
-                        }
-                    }
-                    Column {
-                        id: conditions
-                        spacing: 3
+                    ColumnLayout {
+                        id: headerBody
                         width: parent.width
-                        PlainLabel {
-                            id: locationHeading
-                            objectName: "locationHeading"
-                            text: root.city
-                            font.pixelSize: 38
-                            minimumPixelSize: 24
-                            fontSizeMode: Text.Fit
-                            elide: Text.ElideRight
-                            width: window.width < 850 ? parent.width : parent.width - headerActions.width - 20
-                        }
-                        PlainLabel {
-                            id: regionHeading
-                            text: root.region
-                            font.pixelSize: 19
-                            color: Tokens.secondary
-                        }
+                        spacing: 16
                         Item {
-                            width: 1
-                            height: window.width < 850 ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Math.max(conditions.height, headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0) + (root.activeAlerts.length && window.width >= 850 ? headerAlerts.height + 16 : 0))
+                            RowLayout {
+                                id: headerActions
+                                objectName: "headerActions"
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.topMargin: window.width < 850 ? locationHeading.height + regionHeading.height + 12 : 0
+                                ActionButton {
+                                    objectName: "unitsAuto"
+                                    text: root.automaticUnits ? "Auto (°" + root.units + ")" : "Auto"
+                                    accessibleLabel: "Use location’s measurement units"
+                                    selected: root.automaticUnits
+                                    enabled: !bridge.busy
+                                    onClicked: bridge.send("set_controls", {
+                                        units_mode: "auto"
+                                    })
+                                }
+                                ActionButton {
+                                    objectName: "unitsF"
+                                    text: "°F"
+                                    selected: !root.automaticUnits && root.units === "F"
+                                    enabled: !bridge.busy
+                                    onClicked: bridge.send("set_controls", {
+                                        units: "F"
+                                    })
+                                }
+                                ActionButton {
+                                    objectName: "unitsC"
+                                    text: "°C"
+                                    selected: !root.automaticUnits && root.units === "C"
+                                    enabled: !bridge.busy
+                                    onClicked: bridge.send("set_controls", {
+                                        units: "C"
+                                    })
+                                }
+                                ActionButton {
+                                    objectName: "refreshForecast"
+                                    iconName: "refresh"
+                                    accessibleLabel: "Refresh forecast"
+                                    enabled: !bridge.busy
+                                    onClicked: bridge.send("refresh")
+                                }
+                                ActionButton {
+                                    objectName: "openEffects"
+                                    iconName: "sliders"
+                                    text: "Settings"
+                                    onClicked: root.effectsOpen = true
+                                }
+                                ActionButton {
+                                    objectName: "liveDesktop"
+                                    text: root.liveDesktop ? "Live desktop · On" : "Live desktop"
+                                    selected: root.liveDesktop
+                                    enabled: bridge.available && !bridge.busy
+                                    onClicked: {
+                                        if (root.liveDesktop)
+                                            bridge.send("stop_effects");
+                                        else
+                                            bridge.send("start_live_effects");
+                                    }
+                                }
+                            }
+                            GlassPanel {
+                                id: updatedNotice
+                                objectName: "updatedNotice"
+                                anchors.right: parent.right
+                                anchors.top: headerActions.bottom
+                                anchors.topMargin: 8
+                                width: Math.min(headerActions.width, updatedVersionNotice.implicitWidth + 24)
+                                height: 34
+                                visible: root.updateNoticeActive
+                                PlainLabel {
+                                    id: updatedVersionNotice
+                                    objectName: "updatedVersionNotice"
+                                    anchors.centerIn: parent
+                                    text: "Updated to " + root.shownUpdateVersion + "."
+                                    font.pixelSize: 13
+                                }
+                            }
+                            Column {
+                                id: conditions
+                                spacing: 3
+                                width: parent.width
+                                PlainLabel {
+                                    id: locationHeading
+                                    objectName: "locationHeading"
+                                    text: root.city
+                                    font.pixelSize: 38
+                                    minimumPixelSize: 24
+                                    fontSizeMode: Text.Fit
+                                    elide: Text.ElideRight
+                                    width: window.width < 850 ? parent.width : parent.width - headerActions.width - 20
+                                }
+                                PlainLabel {
+                                    id: regionHeading
+                                    text: root.region
+                                    font.pixelSize: 19
+                                    color: "#d4e3ee"
+                                }
+                                Item {
+                                    width: 1
+                                    height: window.width < 850 ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
+                                }
+                                PlainLabel {
+                                    objectName: "currentTemperature"
+                                    text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
+                                    font.pixelSize: 96
+                                    font.weight: Font.Light
+                                }
+                                PlainLabel {
+                                    text: root.current ? Forecast.title(root.current.condition) : "Forecast unavailable"
+                                    font.pixelSize: 27
+                                }
+                                PlainLabel {
+                                    width: window.width >= 850 && root.activeAlerts.length ? parent.width * 0.48 : parent.width
+                                    text: "Feels like " + Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units) + " · High " + Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units) + " · Low " + Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)
+                                    font.pixelSize: 18
+                                    wrapMode: Text.Wrap
+                                    elide: Text.ElideNone
+                                }
+                            }
+                            AlertsPanel {
+                                id: headerAlerts
+                                visible: root.activeAlerts.length > 0 && window.width >= 850
+                                anchors.right: parent.right
+                                anchors.top: headerActions.bottom
+                                anchors.topMargin: 16 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
+                                width: parent.width * 0.49
+                                height: implicitHeight
+                                alerts: root.activeAlerts
+                                source: bridge.snapshot ? bridge.snapshot.alerts.source || "" : ""
+                            }
+                        }
+                        AlertsPanel {
+                            Layout.fillWidth: true
+                            visible: root.activeAlerts.length > 0 && window.width < 850
+                            alerts: root.activeAlerts
+                            source: bridge.snapshot ? bridge.snapshot.alerts.source || "" : ""
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            PlainLabel {
+                                Layout.fillWidth: true
+                                text: root.freshness
+                                color: "#d4e3ee"
+                                font.pixelSize: 13
+                                wrapMode: Text.Wrap
+                                elide: Text.ElideNone
+                            }
+                            PlainLabel {
+                                objectName: "alertCoverageStatus"
+                                visible: root.alertsStatusText !== ""
+                                text: root.alertsStatusText
+                                color: "#d4e3ee"
+                                font.pixelSize: 12
+                            }
+                            PlainLabel {
+                                visible: root.controls.mode === "manual" && !root.liveDesktop
+                                text: "Manual effects preview · " + Forecast.title(root.controls.manual.condition)
+                                font.pixelSize: 13
+                                color: Tokens.accent
+                            }
                         }
                         PlainLabel {
-                            objectName: "currentTemperature"
-                            text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
-                            font.pixelSize: 96
-                            font.weight: Font.Light
-                        }
-                        PlainLabel {
-                            text: root.current ? Forecast.title(root.current.condition) : "Forecast unavailable"
-                            font.pixelSize: 27
-                        }
-                        PlainLabel {
-                            width: window.width >= 850 && root.activeAlerts.length ? parent.width * 0.48 : parent.width
-                            text: "Feels like " + Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units) + " · High " + Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units) + " · Low " + Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)
+                            objectName: "forecastOutlook"
+                            visible: root.hours.length > 0
+                            Layout.fillWidth: true
+                            text: Forecast.outlook(root.hours, root.units, root.windUnits)
                             font.pixelSize: 18
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
                     }
-                    AlertsPanel {
-                        id: headerAlerts
-                        visible: root.activeAlerts.length > 0 && window.width >= 850
-                        anchors.right: parent.right
-                        anchors.top: headerActions.bottom
-                        anchors.topMargin: 16 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
-                        width: parent.width * 0.49
-                        height: implicitHeight
-                        alerts: root.activeAlerts
-                        source: bridge.snapshot ? bridge.snapshot.alerts.source || "" : ""
-                    }
-                }
-                AlertsPanel {
-                    Layout.fillWidth: true
-                    visible: root.activeAlerts.length > 0 && window.width < 850
-                    alerts: root.activeAlerts
-                    source: bridge.snapshot ? bridge.snapshot.alerts.source || "" : ""
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    PlainLabel {
-                        Layout.fillWidth: true
-                        text: root.freshness
-                        color: Tokens.secondary
-                        font.pixelSize: 13
-                        wrapMode: Text.Wrap
-                        elide: Text.ElideNone
-                    }
-                    PlainLabel {
-                        objectName: "alertCoverageStatus"
-                        visible: root.alertsStatusText !== ""
-                        text: root.alertsStatusText
-                        color: Tokens.secondary
-                        font.pixelSize: 12
-                    }
-                    PlainLabel {
-                        visible: root.controls.mode === "manual" && !root.liveDesktop
-                        text: "Manual effects preview · " + Forecast.title(root.controls.manual.condition)
-                        font.pixelSize: 13
-                        color: Tokens.accent
-                    }
-                }
-                PlainLabel {
-                    objectName: "forecastOutlook"
-                    visible: root.hours.length > 0
-                    Layout.fillWidth: true
-                    text: Forecast.outlook(root.hours, root.units, root.windUnits)
-                    font.pixelSize: 18
-                    wrapMode: Text.Wrap
-                    elide: Text.ElideNone
                 }
                 UpdatePanel {
                     objectName: "updateNotice"
@@ -401,23 +430,28 @@ QtObject {
                     onHourSelected: hour => details.showHour(hour)
                 }
                 GridLayout {
+                    id: forecastCards
                     Layout.fillWidth: true
-                    columns: window.width < 950 ? 1 : 2
+                    objectName: "forecastCards"
+                    columns: window.width < 1200 || root.days.length === 0 ? 1 : 2
                     columnSpacing: 16
                     rowSpacing: 16
                     DailyPanel {
                         id: daily
                         Layout.fillWidth: true
-                        Layout.preferredWidth: window.width < 950 ? window.width : window.width * 0.54
+                        Layout.preferredWidth: forecastCards.columns === 1 ? forecastCards.width : forecastCards.width * 0.54
+                        Layout.fillHeight: true
                         days: root.days
                         units: root.units
                         onDaySelected: day => details.showDay(day)
                     }
                     MetricsPanel {
+                        id: metrics
+                        objectName: "currentMetrics"
                         windUnits: root.windUnits
                         Layout.fillWidth: true
-                        Layout.preferredWidth: window.width * 0.44
-                        Layout.alignment: Qt.AlignTop
+                        Layout.preferredWidth: forecastCards.width * 0.44
+                        Layout.fillHeight: true
                         current: root.current
                         day: root.days.length ? root.days[0] : null
                         units: root.units

@@ -75,7 +75,7 @@ GlassPanel {
                 PlainLabel {
                     x: 102
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(0, parent.width * 0.34 - 102)
+                    width: Math.max(0, parent.width * 0.40 - 102)
                     visible: parent.width > 400
                     text: Forecast.title(dayRow.modelData.condition)
                     font.pixelSize: 13
