@@ -61,6 +61,18 @@ float window_snow(vec2 uv, float aspect, float time, float depth) {
     return flake * density * mix(0.25, 0.42, depth);
 }
 `
+
+// Window-only wisps leave nearly clear skies mostly blue. The shared desktop
+// shader and its cloud-cover response remain unchanged.
+const cloudAdapter = `
+    float wisp_strength = smoothstep(0.01, 0.16, cover) * (1.0 - smoothstep(0.20, 0.50, cover));
+    if (wisp_strength > 0.0) {
+        vec4 wisps = cloud_layer(sky_point * vec2(2.0, 8.0) + vec2(-drift * 0.45, 39.1),
+                                light_direction, 0.52, daylight, dusk, 0.0, 0.18);
+        sky = mix(sky, wisps.rgb, wisps.a * wisp_strength * cloud_horizon);
+    }
+`
+
 const rainAdapter = `
     // Two bounded depth samples per enabled precipitation kind, no CPU paint.
     if (!reduced_motion) {
@@ -108,6 +120,7 @@ func TranslateQt(raw []byte) ([]byte, error) {
 	body = strings.ReplaceAll(body, "void fragment()", "void main()")
 	body = strings.ReplaceAll(body, "vec2 uv = UV;", "vec2 uv = qt_TexCoord0;")
 	body = strings.ReplaceAll(body, "void main()", precipitation+"\nvoid main()")
+	body = strings.ReplaceAll(body, "    vec3 fog_color =", cloudAdapter+"    vec3 fog_color =")
 	body = strings.ReplaceAll(body, "    COLOR =", rainAdapter+"    fragColor =")
 	body = strings.ReplaceAll(body, "vec4(clamp(sky, vec3(0.0), vec3(1.0)), 1.0);", "vec4(clamp(sky, vec3(0.0), vec3(1.0)), 1.0) * qt_Opacity;")
 	return []byte("// Generated from godot/shaders/atmosphere.gdshader; do not edit.\n#version 440\nlayout(location = 0) in vec2 qt_TexCoord0;\nlayout(location = 0) out vec4 fragColor;\nlayout(std140, binding = 0) uniform buf {\n    mat4 qt_Matrix;\n    float qt_Opacity;\n" + strings.Join(fields, "\n") + "\n    float rain_amount;\n    float snow_amount;\n    float wind_x;\n};\n" + body), nil

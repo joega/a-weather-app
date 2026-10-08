@@ -10,11 +10,16 @@ Item {
     property real sunElevation: isDay ? 35.0 : -25.0
     property real sunAzimuth: 180.0
     property real wind: 35.0
+    property real windSpeed: 0.0
+    property bool shaderSupported: GraphicsInfo.api !== GraphicsInfo.Software
+    readonly property bool shaderAvailable: shaderSupported && sky.status !== ShaderEffect.Error
+    // Artistic drift has a small floor; north/south winds must not freeze the sky.
+    readonly property real driftRate: (wind < -3 ? -1 : 1) * (0.0007 + Math.min(40, Math.max(0, windSpeed)) * 0.00015)
     property bool reducedMotion: false
     property bool lightningEnabled: false
     // The parent may suppress fully occluded presentation without changing weather.
     property bool presentationActive: true
-    readonly property bool animationActive: visible && presentationActive && !reducedMotion && (!Window.window || (Window.window.visibility !== Window.Minimized && Window.window.visibility !== Window.Hidden))
+    readonly property bool animationActive: visible && shaderAvailable && presentationActive && !reducedMotion && (!Window.window || (Window.window.visibility !== Window.Minimized && Window.window.visibility !== Window.Hidden))
     property real lightningIntensity: animationActive && lightningEnabled && condition === "thunderstorm" ? lightningAt(visualTime) : 0.0
     // Seed-zero envelope matches internal/weather/visual.go and native atmosphere flash().
     function lightningAt(seconds) {
@@ -48,11 +53,41 @@ Item {
             const dt = Math.max(0, Math.min(0.1, (now - root.lastTick) / 1000));
             root.lastTick = now;
             root.visualTime += dt;
-            root.cloudOffset += Math.max(-500, Math.min(500, root.wind)) * dt * 0.00008;
+            root.cloudOffset += root.driftRate * dt;
+        }
+    }
+    // Software scene graphs do not support ShaderEffect. Keep a readable sky
+    // beneath it for both unsupported APIs and shader compilation failures.
+    Rectangle {
+        objectName: "staticAtmosphere"
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop {
+                position: 0
+                color: root.sunElevation < -8 ? "#071020" : root.fogDensity > 0.4 ? "#778895" : root.cloudCover > 0.72 ? "#384859" : "#285d8b"
+            }
+            GradientStop {
+                position: 1
+                color: root.sunElevation < -8 ? "#19263b" : root.fogDensity > 0.4 ? "#b8c7cc" : root.cloudCover > 0.72 ? "#71818b" : "#a5c5d3"
+            }
+        }
+        Repeater {
+            model: 3
+            delegate: Rectangle {
+                required property int index
+                x: (index * 0.37 - 0.12) * root.width
+                y: (0.12 + index * 0.18) * root.height
+                width: root.width * 0.58
+                height: root.height * 0.13
+                radius: height / 2
+                color: root.isDay ? "#dce6ec" : "#596a81"
+                opacity: Math.min(0.18, Math.max(0, root.cloudCover) * 0.22)
+            }
         }
     }
     ShaderEffect {
         id: sky
+        visible: root.shaderAvailable
         anchors.fill: parent
         property real scene_time: root.visualTime
         property real sun_elevation: Math.max(-90, Math.min(90, root.sunElevation))
@@ -71,6 +106,7 @@ Item {
     }
     ShaderEffectSource {
         anchors.fill: parent
+        visible: root.shaderAvailable
         sourceItem: sky
         hideSource: true
         live: true

@@ -192,6 +192,13 @@ void main() {
     sky = mix(sky, high_clouds.rgb, high_clouds.a * cloud_horizon);
     sky = mix(sky, low_clouds.rgb, low_clouds.a * cloud_horizon);
 
+
+    float wisp_strength = smoothstep(0.01, 0.16, cover) * (1.0 - smoothstep(0.20, 0.50, cover));
+    if (wisp_strength > 0.0) {
+        vec4 wisps = cloud_layer(sky_point * vec2(2.0, 8.0) + vec2(-drift * 0.45, 39.1),
+                                light_direction, 0.52, daylight, dusk, 0.0, 0.18);
+        sky = mix(sky, wisps.rgb, wisps.a * wisp_strength * cloud_horizon);
+    }
     vec3 fog_color = mix(vec3(0.12, 0.15, 0.21), vec3(0.72, 0.78, 0.80), daylight);
     fog_color = mix(fog_color, vec3(0.77, 0.58, 0.51), dusk * 0.38);
     // Fog veils the whole sky, with stronger extinction toward the horizon.
