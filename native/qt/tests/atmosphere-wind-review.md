@@ -185,3 +185,48 @@ rerun as well. These changes reduce the bounded map drawing budget; no
 controlled CPU/GPU before-and-after benchmark was performed. Hardware coverage
 remains limited to this machine. Network requests and tile-cache behavior are
 unchanged, and no version number or release was changed.
+
+## Follow-up: adaptive sky refresh
+
+The in-app sky now updates at 20 FPS for cloud-only conditions, including clear,
+partly cloudy, overcast, and fog. Rain or snow, and enabled thunderstorm
+lightning, select approximately 30 FPS. Both rates integrate elapsed time;
+switching between them preserves cloud position and motion speed. Existing
+hidden/minimized, inactive-presentation, Reduced motion, and shader-fallback
+gates still stop animation. The texture budget, shaders, desktop atmosphere,
+network requests, and map cache behavior are unchanged.
+
+The new native regression checks weather-driven cadence, explicit rain/snow
+amounts, dry lightning, and switching 20 → 30 → 20 FPS without resetting phase.
+On the hardware renderer it also measures timer ticks and verifies that cloud
+distance matches elapsed time at both rates. Reduced motion stays paused during
+weather changes. Native desktop/narrow review and the cloud pixel-motion check
+were repeated with the new cadence.
+
+A controlled native Wayland/OpenGL comparison used the same embedded sky,
+922 × 1030 logical window, desktop 2× scale, wind speed 8 m/s, and fixed daytime
+lighting at each rate. Each run warmed up for 1.5 seconds, then sampled for about
+10 seconds. CPU uses process CPU time as a percentage of one core; GPU uses the
+process's DRM graphics-engine busy-time counters, deduplicated by client ID.
+
+| Sky | Timer rate | CPU, one core | GPU graphics-engine busy |
+| --- | ---: | ---: | ---: |
+| Overcast | 30.30 Hz | 4.56% | 10.77% |
+| Overcast | 20.07 Hz | 2.66% | 7.19% |
+| Partly cloudy | 30.32 Hz | 4.03% | 12.60% |
+| Partly cloudy | 20.07 Hz | 2.67% | 8.52% |
+
+The cloud sky used approximately 32–33% less graphics-engine time and 34–42%
+less CPU time at the lower cadence. Measured drift remained approximately
+0.0136 phase units per second at both rates. This is one sample per condition
+and rate on this laptop, isolating the sky from forecast cards and map rendering;
+it is not a whole-app, battery-life, or cross-device result. Qt frame callbacks
+were about 60/40 Hz even though the animation timers ran at 30/20 Hz, so those
+callbacks should not be interpreted as additional animation updates.
+
+Validation passed: native/QML formatting and analysis, 43 protocol cases,
+61 frontend cases (six optional/hardware cases skipped in the software run),
+24 service/frontend end-to-end cases (two opt-in cases skipped), and seven
+native hardware review cases including setup/cleanup. The isolated development
+preview was refreshed and verified visible at 922 × 1030 logical pixels.
+No version number or release was changed.

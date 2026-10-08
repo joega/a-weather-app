@@ -292,7 +292,8 @@ The bar reads cached weather when saved data changes and every 30 seconds.
 Its bounded background helper can refresh saved weather without opening the window or starting desktop
 effects. Forecast animation runs only while the window is
 visible and not minimized; wind trails additionally require the map itself to be
-in the viewport. The sky uses a capped half-resolution Qt shader buffer, and wind
+in the viewport. The sky uses a capped half-resolution Qt shader buffer, refreshing at 20 FPS
+for clouds and 30 FPS when precipitation or lightning needs finer motion. Wind
 trails use at most 64 paths of 12 points at about 15 updates per second, with
 each soft-blue streak capped at 18 logical pixels. Nearly clear
 skies retain faint wisps rather than a blanket of cloud; gentle cloud drift also

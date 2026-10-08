@@ -324,6 +324,71 @@ class FrontendTest : public QObject {
         QVERIFY(!image.isNull());
         QVERIFY(image.pixelColor(100, 50) != image.pixelColor(100, 600));
     }
+    void atmosphereAdaptiveRefreshPreservesMotion() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/Atmosphere.qml"));
+        std::unique_ptr<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* sky = qobject_cast<QQuickItem*>(owner.get());
+        QVERIFY(sky);
+        QQuickWindow window;
+        window.resize(700, 650);
+        sky->setParentItem(window.contentItem());
+        sky->setSize(QSizeF(700, 650));
+        sky->setProperty("wind", 0);
+        sky->setProperty("windSpeed", 6);
+        sky->setProperty("rainAmount", 0);
+        sky->setProperty("snowAmount", 0);
+        auto* timer = sky->findChild<QObject*>("atmosphereAnimationTimer");
+        QVERIFY(timer);
+        for (const auto& condition : {"clear", "partly_cloudy", "cloudy", "fog"}) {
+            sky->setProperty("condition", condition);
+            QCOMPARE(timer->property("interval").toInt(), 50);
+        }
+        for (const auto& condition : {"rain", "drizzle", "snow", "sleet"}) {
+            sky->setProperty("condition", condition);
+            QCOMPARE(timer->property("interval").toInt(), 33);
+        }
+        sky->setProperty("condition", "cloudy");
+        sky->setProperty("snowAmount", 0.2);
+        QCOMPARE(timer->property("interval").toInt(), 33);
+        sky->setProperty("snowAmount", 0);
+        sky->setProperty("condition", "thunderstorm");
+        // Make dry lightning explicit; QObject writes retain the weather bindings.
+        evaluate(engine, sky, "rainAmount = 0; snowAmount = 0");
+        sky->setProperty("lightningEnabled", true);
+        QCOMPARE(timer->property("interval").toInt(), 33);
+        sky->setProperty("lightningEnabled", false);
+        QCOMPARE(timer->property("interval").toInt(), 50);
+        sky->setProperty("condition", "partly_cloudy");
+        window.show();
+        QTRY_VERIFY(window.isExposed());
+        for (const double rain : {0.0, 0.2, 0.0}) {
+            const double phase = sky->property("cloudOffset").toDouble();
+            const double clock = sky->property("visualTime").toDouble();
+            sky->setProperty("rainAmount", rain);
+            QCOMPARE(timer->property("interval").toInt(), rain > 0 ? 33 : 50);
+            // Changing cadence never resets or repositions the scene.
+            QCOMPARE(sky->property("cloudOffset").toDouble(), phase);
+            QCOMPARE(sky->property("visualTime").toDouble(), clock);
+            if (!sky->property("animationActive").toBool())
+                continue; // The regular software run still checks cadence selection.
+            QSignalSpy ticks(timer, SIGNAL(triggered()));
+            QVERIFY(ticks.isValid());
+            QTest::qWait(1100);
+            const double elapsed = sky->property("visualTime").toDouble() - clock;
+            QVERIFY(elapsed > 0.7);
+            const int minTicks = rain > 0 ? 22 : 14, maxTicks = rain > 0 ? 38 : 27;
+            QVERIFY(ticks.count() >= minTicks && ticks.count() <= maxTicks);
+            const double distance = sky->property("cloudOffset").toDouble() - phase;
+            QVERIFY(std::abs(distance - elapsed * sky->property("driftRate").toDouble()) <
+                    0.000001);
+        }
+        sky->setProperty("reducedMotion", true);
+        QVERIFY(!timer->property("running").toBool());
+        sky->setProperty("rainAmount", 0.3);
+        QVERIFY(!timer->property("running").toBool());
+    }
     void atmosphereCloudDriftIsVisible() {
         QQmlEngine engine;
         QQmlComponent component(&engine, QUrl("qrc:/ui/qml/Atmosphere.qml"));

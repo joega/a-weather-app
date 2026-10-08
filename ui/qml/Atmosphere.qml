@@ -37,6 +37,9 @@ Item {
     }
     property real rainAmount: ["rain", "drizzle", "thunderstorm", "sleet"].indexOf(condition) >= 0 ? (condition === "drizzle" ? 0.3 : 0.7) : 0.0
     property real snowAmount: condition === "snow" ? 0.7 : condition === "sleet" ? 0.35 : 0.0
+    // Clouds drift slowly enough for 20 Hz; precipitation and brief lightning
+    // pulses retain 30 Hz. Integrate elapsed time so cadence never changes speed.
+    readonly property int animationInterval: rainAmount > 0 || snowAmount > 0 || (lightningEnabled && condition === "thunderstorm") ? 33 : 50
     property real visualTime: 0.0
     property real cloudOffset: 0.0
     property double lastTick: 0
@@ -45,7 +48,8 @@ Item {
     onReducedMotionChanged: lastTick = Date.now()
     onVisibleChanged: lastTick = Date.now()
     Timer {
-        interval: 33
+        objectName: "atmosphereAnimationTimer"
+        interval: root.animationInterval
         repeat: true
         running: root.animationActive && root.width > 0 && root.height > 0
         onRunningChanged: root.lastTick = Date.now()
