@@ -26,7 +26,7 @@ GlassPanel {
     property real inspectionY: 0.5
     property bool pointSelected: false
     readonly property real flowRadius: desiredScale * 16093.44
-    readonly property int trailCount: Math.max(24, Math.min(96, Math.round(mapArea.width * mapArea.height / 2200)))
+    readonly property int trailCount: Math.max(16, Math.min(64, Math.round(mapArea.width * mapArea.height / 3200)))
     readonly property var inspectedVector: windField ? WindField.interpolate(windField.samples, inspectionX * mapArea.width, inspectionY * mapArea.height) : ({
             x: 0,
             y: 0
@@ -77,13 +77,13 @@ GlassPanel {
     onAnimationActiveChanged: resetTrails()
     Timer {
         objectName: "windAnimationTimer"
-        interval: 40
+        interval: 67
         repeat: true
         running: root.animationActive && root.windField !== null
         onRunningChanged: root.lastTick = Date.now()
         onTriggered: {
             const now = Date.now();
-            const dt = Math.max(0, Math.min(0.08, (now - root.lastTick) / 1000));
+            const dt = Math.max(0, Math.min(0.12, (now - root.lastTick) / 1000));
             root.lastTick = now;
             WindField.advance(root.particles, root.windField, dt, root.flowRadius);
             overlay.requestPaint();
@@ -188,8 +188,8 @@ GlassPanel {
         ctx.clearRect(0, 0, overlay.width, overlay.height);
         if (!mapData || hourIndex >= mapData.hours.length)
             return;
-        let cells = mapData.cells, vals = cells.map(c => mapLayer === "temperature" ? c.temperature_c[hourIndex] : mapLayer === "precipitation" ? c.precipitation_mm[hourIndex] : c.wind_speed_m_s[hourIndex]);
         if (mapLayer !== "wind") {
+            const cells = root.mapData.cells, vals = root.fieldValues;
             if (mapData.resolution_km >= 10) {
                 ctx.fillStyle = shade(vals[12], root.fieldMin, root.fieldMax);
                 ctx.fillRect(0, 0, overlay.width, overlay.height);
@@ -217,16 +217,12 @@ GlassPanel {
                     continue;
                 const fade = root.animationActive ? Math.max(0, Math.min(1, particle.age / 0.7, (particle.life - particle.age) / 1.2)) : 1;
                 for (let i = 1; i < points.length; ++i) {
-                    ctx.strokeStyle = "rgba(16,72,91," + (fade * (0.08 + 0.58 * i / points.length)) + ")";
+                    ctx.strokeStyle = "rgba(80,136,156," + (fade * (0.10 + 0.45 * i / (points.length - 1))) + ")";
                     ctx.beginPath();
                     ctx.moveTo(points[i - 1].x, points[i - 1].y);
                     ctx.lineTo(points[i].x, points[i].y);
                     ctx.stroke();
                 }
-                ctx.fillStyle = "rgba(12,57,77," + fade * 0.75 + ")";
-                ctx.beginPath();
-                ctx.arc(head.x, head.y, 1.2, 0, Math.PI * 2);
-                ctx.fill();
             }
             ctx.restore();
         }

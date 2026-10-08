@@ -107,6 +107,27 @@ function inside(x, y, width, height, radius) {
 function velocity(value) {
     return Math.min(3.6, 48 / Math.max(0.001, speed(value)));
 }
+// Bound visible length in pixels as well as history size. Lower refresh rates
+// must not turn short wind streaks into longer tails. Keep a fractional tail
+// segment so trimming stays continuous rather than dropping whole segments.
+function trimTrail(points) {
+    let length = 0;
+    for (let i = points.length - 1; i > 0; --i) {
+        const head = points[i], tail = points[i - 1];
+        const dx = tail.x - head.x, dy = tail.y - head.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (length + distance > 18) {
+            const fraction = (18 - length) / distance;
+            tail.x = head.x + dx * fraction;
+            tail.y = head.y + dy * fraction;
+            points.splice(0, i - 1);
+            break;
+        }
+        length += distance;
+    }
+    if (points.length > 12)
+        points.splice(0, points.length - 12);
+}
 function advance(particles, field, dt, radius) {
     for (let i = 0; i < particles.length; ++i) {
         const p = particles[i], v = sample(field, p.x, p.y), scale = velocity(v);
@@ -124,8 +145,7 @@ function advance(particles, field, dt, radius) {
             x: p.x,
             y: p.y
         });
-        if (p.points.length > 20)
-            p.points.shift();
+        trimTrail(p.points);
     }
 }
 function staticTrails(count, field, radius) {
@@ -133,7 +153,7 @@ function staticTrails(count, field, radius) {
     for (let i = 0; i < count; ++i) {
         const p = seed(i, field.width, field.height, radius, 0);
         // Build upstream from the head so taper conveys direction without motion.
-        for (let step = 0; step < 19; ++step) {
+        for (let step = 0; step < 11; ++step) {
             const v = sample(field, p.x, p.y), scale = velocity(v);
             p.x -= v.x * scale * 0.08;
             p.y -= v.y * scale * 0.08;
@@ -144,6 +164,7 @@ function staticTrails(count, field, radius) {
                 y: p.y
             });
         }
+        trimTrail(p.points);
         result.push(p);
     }
     return result;

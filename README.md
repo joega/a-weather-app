@@ -293,7 +293,8 @@ Its bounded background helper can refresh saved weather without opening the wind
 effects. Forecast animation runs only while the window is
 visible and not minimized; wind trails additionally require the map itself to be
 in the viewport. The sky uses a capped half-resolution Qt shader buffer, and wind
-trails use at most 96 paths of 20 points at 25 updates per second. Nearly clear
+trails use at most 64 paths of 12 points at about 15 updates per second, with
+each soft-blue streak capped at 18 logical pixels. Nearly clear
 skies retain faint wisps rather than a blanket of cloud; gentle cloud drift also
 continues with north/south winds. In-app rendering does not require Live desktop
 or compositor compatibility. Unsupported shader backends use a static sky. Enable Reduced motion to stop that animation and

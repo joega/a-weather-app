@@ -29,8 +29,9 @@ smooth model pattern, not new model detail. The UI distinguishes the native
 model grid from the 5 × 5 requested sample lattice (~5 miles / 8 km spacing).
 Inspection uses the forecast samples directly and the existing unit formatter.
 Tapered trails indicate downwind direction; pixel speed is illustrative and
-capped. Work is limited to 96 trails, 20 points each, and 25 animation ticks per
-second. Both fields and trails are immediately invalidated before coalesced
+capped. Following the softer wind-map refinement, work is limited to 64 trails,
+12 points each, and about 15 animation ticks per second. Each trail is also
+limited to 18 logical pixels, independently of refresh rate. Both fields and trails are immediately invalidated before coalesced
 rebuilds on a new hour, location, or geometry. Reduced motion retains static
 trails and point inspection, disables timeline Play, and keeps manual hours.
 
@@ -156,3 +157,31 @@ To capture another cloud recording, add `WEATHER_QT_CLOUD_CLIP` with a private
 output directory to the native review command above. It saves 24 PNG frames for
 each window width. Include `atmosphereCloudDriftIsVisible` in the test arguments
 to repeat the hardware cloud-motion regression check.
+
+## Follow-up: softer, lower-cost wind trails
+
+The wind map now uses short blue-gray streaks with no separate bright head
+dot. Opacity still tapers downwind, and motion and point inspection use the
+same forecast vectors. Trail density is reduced to at most 64, history to at
+most 12 points, and animation to about 15 updates per second. Visible arc
+length is capped at 18 logical pixels independently of update frequency;
+fractional tail trimming avoids abrupt whole-segment cuts. Reduced motion
+uses the same short trail bounds. Painting also reuses the cached field values
+for temperature/precipitation instead of allocating an unused values array
+on every wind frame. The accepted cloud background is unchanged.
+
+Native Wayland/OpenGL review at 1200 × 850 and 700 × 850 inspected the revised
+trails over copied offline map tiles, selected-point readouts, changed forecast
+hours, and Reduced motion. Updated representative wind screenshots are linked
+above. Tests cover short animated/static trails under calm, strong, and curved
+fields at different time steps, including a partial tail segment, plus existing
+viewport/minimized/hidden pausing and location/hour invalidation. The unchanged
+cloud pixel-motion check also passed on the native renderer.
+
+Validation passed: native/QML formatting and analysis, 43 Qt protocol cases,
+60 frontend cases (six optional/hardware cases skipped in the software run),
+and native hardware rendering checks. Service/frontend end-to-end checks were
+rerun as well. These changes reduce the bounded map drawing budget; no
+controlled CPU/GPU before-and-after benchmark was performed. Hardware coverage
+remains limited to this machine. Network requests and tile-cache behavior are
+unchanged, and no version number or release was changed.

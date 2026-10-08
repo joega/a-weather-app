@@ -401,9 +401,45 @@ class FrontendTest : public QObject {
             const field = WindField.build([{x: 50, y: 50, vx: 0, vy: 150}], 100, 100);
             const p = [WindField.seed(0, 100, 100, 43, 0)];
             for (let i = 0; i < 1000; ++i) WindField.advance(p, field, 0.08, 43);
-            return p.length === 1 && p[0].points.length <= 20
+            return p.length === 1 && p[0].points.length <= 12
                 && WindField.inside(p[0].x, p[0].y, 100, 100, 43)
                 && WindField.velocity({x: 150, y: 0}) * 150 <= 48;
+        })())")
+                    .toBool());
+    }
+    void windTrailsStayShortAtLowerRefreshRates() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/WeatherMapCard.qml"));
+        std::unique_ptr<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        QVERIFY(evaluate(engine, owner.get(), R"((function() {
+            function bounded(p) {
+                let length = 0;
+                for (let i = 1; i < p.points.length; ++i) {
+                    const a = p.points[i - 1], b = p.points[i];
+                    length += Math.hypot(b.x - a.x, b.y - a.y);
+                }
+                return p.points.length <= 12 && length <= 18.00001;
+            }
+            // Fast, curved, and calm fields all retain the same visual bound.
+            for (const speed of [0, 3, 15, 150]) {
+                const field = WindField.build([
+                    {x: 0, y: 0, vx: speed, vy: 0},
+                    {x: 400, y: 400, vx: 0, vy: speed}
+                ], 400, 400);
+                for (const dt of [0.04, 0.067, 0.12]) {
+                    const particles = [WindField.seed(0, 400, 400, 172, 0)];
+                    for (let i = 0; i < 1000; ++i) {
+                        WindField.advance(particles, field, dt, 172);
+                        if (!bounded(particles[0])) return false;
+                    }
+                }
+                if (!WindField.staticTrails(64, field, 172).every(bounded)) return false;
+            }
+            // Preserve a partial tail segment instead of chopping whole points.
+            const points = [{x: 0, y: 0}, {x: 10, y: 0}, {x: 20, y: 0}];
+            WindField.trimTrail(points);
+            return points[0].x === 2 && points[points.length - 1].x === 20;
         })())")
                     .toBool());
     }
@@ -424,9 +460,10 @@ class FrontendTest : public QObject {
         QTRY_VERIFY(window.isExposed());
         auto* timer = card->findChild<QObject*>("windAnimationTimer");
         QVERIFY(timer);
+        QVERIFY(timer->property("interval").toInt() >= 60);
         QTRY_VERIFY(timer->property("running").toBool());
         QTRY_VERIFY(evaluate(engine, card, "particles[0].points.length > 1").toBool());
-        QVERIFY(evaluate(engine, card, "particles.length <= 96").toBool());
+        QVERIFY(evaluate(engine, card, "particles.length <= 64").toBool());
         QVERIFY(card->property("pointReadout").toString().contains("from N (0°)"));
         card->setProperty("windUnits", "m/s");
         QCOMPARE(card->property("pointReadout").toString(), QString("3.0 m/s · from N (0°)"));
