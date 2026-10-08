@@ -996,6 +996,7 @@ class FrontendTest : public QObject {
                                                 {"data", data}}}});
         QTRY_VERIFY_WITH_TIMEOUT(started.size() > 0, 3000);
         QTRY_VERIFY_WITH_TIMEOUT(received.size() >= 2, 15000);
+        QTRY_VERIFY_WITH_TIMEOUT(tileImagesRendered(panel), 15000);
         QTest::qWait(400);
         QVERIFY(window->grabWindow().save(output));
         panel->setProperty("hourIndex", 1);
@@ -1007,6 +1008,7 @@ class FrontendTest : public QObject {
         QVERIFY(precipitation);
         flick->setProperty("contentY",
                            panel->y() + precipitation->parentItem()->y() + precipitation->y() - 24);
+        QTRY_VERIFY_WITH_TIMEOUT(tileImagesRendered(panel), 15000);
         QTest::qWait(250);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png", "-precipitation.png")));
         int onlineNetwork = 0;
@@ -1039,6 +1041,9 @@ class FrontendTest : public QObject {
         QTRY_VERIFY_WITH_TIMEOUT(offlineTiles.size() >= 2, 3000);
         for (const auto& reply : offlineReplies)
             QVERIFY(reply.at(1).toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(tileImagesRendered(panel), 3000);
+        QTest::qWait(50);
+        QVERIFY(window->grabWindow().save(QString(output).replace(".png", "-offline.png")));
         window->hide();
     }
     void measurementConversions() {
