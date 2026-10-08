@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 set -euo pipefail
 source_root=$(cd -- "$(dirname -- "$0")/.." && pwd -P)
-fixture=$(mktemp -d /tmp/weather-release-version.XXXXXXXX)
+fixture=$(mktemp -d "${TMPDIR:-/tmp}/weather-release-version.XXXXXXXX")
 trap 'find "$fixture" -depth -delete' EXIT
 mkdir "$fixture/packaging"
 printf '0.51\n' > "$fixture/packaging/release-series.txt"
