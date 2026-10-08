@@ -13,8 +13,9 @@ Item {
     property real windSpeed: 0.0
     property bool shaderSupported: GraphicsInfo.api !== GraphicsInfo.Software
     readonly property bool shaderAvailable: shaderSupported && sky.status !== ShaderEffect.Error
-    // Artistic drift has a small floor; north/south winds must not freeze the sky.
-    readonly property real driftRate: (wind < -3 ? -1 : 1) * (0.0007 + Math.min(40, Math.max(0, windSpeed)) * 0.00015)
+    // Artistic scene drift stays visible within seconds, including calm and north/south
+    // winds. Cap its wind response so a storm never sweeps the forecast backdrop.
+    readonly property real driftRate: (wind < -3 ? -1 : 1) * (0.008 + Math.min(16, Math.max(0, windSpeed)) * 0.0007)
     property bool reducedMotion: false
     property bool lightningEnabled: false
     // The parent may suppress fully occluded presentation without changing weather.

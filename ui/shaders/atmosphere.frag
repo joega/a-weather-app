@@ -188,15 +188,19 @@ void main() {
                                    light_direction, cover * 0.88, daylight, dusk, flash, 0.60);
     vec4 low_clouds = cloud_layer(sky_point * vec2(3.8, 5.2) + vec2(-drift, 21.3),
                                   light_direction, cover, daylight, dusk, flash, 0.87);
-    float cloud_horizon = 1.0 - smoothstep(0.77, 1.0, uv.y);
+    float cloud_horizon = mix(0.18, 1.0, 1.0 - smoothstep(0.77, 1.0, uv.y));
     sky = mix(sky, high_clouds.rgb, high_clouds.a * cloud_horizon);
     sky = mix(sky, low_clouds.rgb, low_clouds.a * cloud_horizon);
 
 
-    float wisp_strength = smoothstep(0.01, 0.16, cover) * (1.0 - smoothstep(0.35, 0.65, cover));
+    float wisp_strength = smoothstep(0.01, 0.16, cover) * (1.0 - smoothstep(0.55, 0.85, cover));
     if (wisp_strength > 0.0) {
-        vec4 wisps = cloud_layer(sky_point * vec2(2.0, 8.0) + vec2(-drift * 0.45, 39.1),
-                                light_direction, 0.52, daylight, dusk, 0.0, 0.18);
+        vec4 wisps = cloud_layer(sky_point * vec2(1.7, 7.5) + vec2(-drift * 0.45, 39.1),
+                                light_direction, 0.72, daylight, dusk, 0.0, 0.42);
+        // Pale feathered clouds stand apart from the blue sky through the
+        // forecast scrim; night uses the same field with subdued moonlit tones.
+        vec3 wisp_light = mix(vec3(0.35, 0.42, 0.55), vec3(0.94, 0.97, 1.0), daylight);
+        wisps.rgb = mix(wisps.rgb, wisp_light, 0.45);
         sky = mix(sky, wisps.rgb, wisps.a * wisp_strength * cloud_horizon);
     }
     vec3 fog_color = mix(vec3(0.12, 0.15, 0.21), vec3(0.72, 0.78, 0.80), daylight);

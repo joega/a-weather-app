@@ -106,3 +106,53 @@ Optionally set `WEATHER_QT_FLOW_MAP` to a copied saved `weather-map.json` and
 uses that copy in offline mode; without it, the map has the useful static
 geographic-background-unavailable presentation. Never point review tooling at
 an active cache when testing cache mutations.
+
+## Follow-up: visible cloud scene behind forecast cards
+
+The additional eight-second Apple Weather recording was inspected at the start,
+middle, and end. The original window drift and cloud contrast were too faint to
+communicate that the forecast backdrop was an animated scene.
+
+The window now has a stronger calm-wind drift floor and a capped response to
+surface wind speed. The existing feathered cloud layer has more definition for
+partly and mostly cloudy skies, while its coverage-dependent strength keeps
+nearly clear skies mostly blue. Some cloud relief remains at the bottom of the
+window, behind the lower cards. A lighter header scrim makes the sky visible
+while retaining readable white text. The shared canonical desktop shader and
+generated native header remain unchanged, as do the rendering bounds, Reduced
+motion, hidden/minimized gating, and software-renderer fallback.
+
+Native Wayland/OpenGL review again covered 1200 × 850 and 700 × 850 logical
+windows, clear/partly cloudy/overcast skies, opposing wind directions, night,
+Reduced motion, and the unsupported-shader fallback. The hardware regression
+check advances **only cloud phase** by four seconds at the calm-wind floor,
+with precipitation and lighting fixed. It checks actual rendered pixel changes
+in both partly cloudy and overcast skies, rather than merely checking that a
+timer runs. Lifecycle tests additionally enforce the motion floor and storm
+speed cap.
+
+Representative native captures (synthetic “Demo forecast,” sampled at three
+frames per second) are saved as:
+
+- [Desktop cloud recording](../../../media/flow-review/clouds-desktop.webm)
+- [Narrow cloud recording](../../../media/flow-review/clouds-narrow.webm)
+- [Animated narrow preview](../../../media/flow-review/clouds-narrow.gif)
+- [Narrow atmosphere screenshot](../../../media/flow-review/atmosphere-narrow.png)
+
+The updated development preview was rebuilt and reopened with its isolated
+saved location/settings. The production menu-bar service was verified running.
+Hardware coverage remains limited to this machine's Wayland/OpenGL renderer.
+
+Follow-up checks: shader generation and the reviewed-artifact translation test,
+Go lint plus fresh shader-translator race tests and vet, native/QML formatting
+and analysis, Qt protocol/frontend suites, service/frontend end-to-end tests,
+and the native hardware rendering checks. The regular software suite skips
+the hardware cloud pixel test; it was run successfully on the desktop alongside
+the screenshot review. The QML analysis helper now also honors `TMPDIR` for its
+temporary import tree, so all checks can use on-disk scratch space without
+changing `/tmp` quotas or mount settings.
+
+To capture another cloud recording, add `WEATHER_QT_CLOUD_CLIP` with a private
+output directory to the native review command above. It saves 24 PNG frames for
+each window width. Include `atmosphereCloudDriftIsVisible` in the test arguments
+to repeat the hardware cloud-motion regression check.

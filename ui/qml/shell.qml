@@ -224,11 +224,11 @@ QtObject {
                         gradient: Gradient {
                             GradientStop {
                                 position: 0
-                                color: "#990b1c30"
+                                color: "#800b1c30"
                             }
                             GradientStop {
                                 position: 0.66
-                                color: "#990b1c30"
+                                color: "#800b1c30"
                             }
                             GradientStop {
                                 position: 1

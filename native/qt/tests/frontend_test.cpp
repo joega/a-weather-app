@@ -283,6 +283,14 @@ class FrontendTest : public QObject {
         window.resize(700, 650);
         window.show();
         QTRY_VERIFY(window.isExposed());
+        sky->setProperty("windSpeed", 0);
+        // Even calm conditions must move the scene perceptibly within seconds.
+        QVERIFY(sky->property("driftRate").toDouble() >= 0.005);
+        sky->setProperty("windSpeed", 150);
+        const auto cappedRate = sky->property("driftRate").toDouble();
+        sky->setProperty("windSpeed", 16);
+        QCOMPARE(sky->property("driftRate").toDouble(), cappedRate);
+        QVERIFY(cappedRate < 0.025);
         sky->setProperty("windSpeed", 8);
         for (const double wind : {0.0, 180.0, -180.0}) {
             sky->setProperty("wind", wind);
@@ -315,6 +323,52 @@ class FrontendTest : public QObject {
         const auto image = window.grabWindow();
         QVERIFY(!image.isNull());
         QVERIFY(image.pixelColor(100, 50) != image.pixelColor(100, 600));
+    }
+    void atmosphereCloudDriftIsVisible() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/Atmosphere.qml"));
+        std::unique_ptr<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* sky = qobject_cast<QQuickItem*>(owner.get());
+        QVERIFY(sky);
+        QQuickWindow window;
+        window.resize(700, 650);
+        sky->setParentItem(window.contentItem());
+        sky->setSize(QSizeF(700, 650));
+        sky->setProperty("wind", 0);
+        sky->setProperty("windSpeed", 0);
+        sky->setProperty("rainAmount", 0);
+        sky->setProperty("snowAmount", 0);
+        sky->setProperty("reducedMotion", true);
+        window.show();
+        QTRY_VERIFY(window.isExposed());
+        if (!sky->property("shaderAvailable").toBool())
+            QSKIP("Cloud pixel-motion check requires a hardware ShaderEffect renderer");
+        for (const double cover : {0.48, 0.95}) {
+            sky->setProperty("cloudCover", cover);
+            sky->setProperty("cloudOffset", 0);
+            QTest::qWait(200);
+            const auto before = window.grabWindow();
+            // Advance only cloud phase by four seconds of the calm-wind floor.
+            // Time, precipitation, light, and all other scene inputs stay fixed.
+            sky->setProperty("cloudOffset", sky->property("driftRate").toDouble() * 4);
+            QTest::qWait(200);
+            const auto after = window.grabWindow();
+            QVERIFY(!before.isNull());
+            QCOMPARE(before.size(), after.size());
+            double difference = 0;
+            const int bottom = before.height() * 3 / 4;
+            for (int y = 0; y < bottom; ++y)
+                for (int x = 0; x < before.width(); ++x) {
+                    const auto a = before.pixelColor(x, y), b = after.pixelColor(x, y);
+                    difference += std::abs(a.red() - b.red()) + std::abs(a.green() - b.green()) +
+                                  std::abs(a.blue() - b.blue());
+                }
+            const double mean = difference / (before.width() * bottom * 3);
+            qInfo() << "Four-second cloud pixel change, cover" << cover << "mean" << mean;
+            QVERIFY2(mean > 0.2,
+                     "Cloud drift must visibly change the rendered scene in four seconds");
+        }
     }
     void windInterpolationAndBounds() {
         QQmlEngine engine;
@@ -522,12 +576,32 @@ class FrontendTest : public QObject {
             present("partly_cloudy", 0.48, 0, false);
             QTest::qWait(1200);
             capture(QString("partly-north-%1").arg(width));
+            const auto clip = qEnvironmentVariable("WEATHER_QT_CLOUD_CLIP");
+            if (!clip.isEmpty()) {
+                const auto directory = clip + QString("/%1").arg(width);
+                QVERIFY(QDir().mkpath(directory));
+                const double initialOffset = sky->property("cloudOffset").toDouble();
+                for (int frame = 0; frame < 24; ++frame) {
+                    QTest::qWait(333);
+                    QVERIFY(window->grabWindow().save(
+                        directory + QString("/frame-%1.png").arg(frame, 3, 10, QChar('0'))));
+                }
+                QVERIFY(sky->property("cloudOffset").toDouble() > initialOffset + 0.05);
+            }
             present("partly_cloudy", 0.48, -180, false);
             capture(QString("partly-east-%1").arg(width));
             present("partly_cloudy", 0.48, 180, false);
             capture(QString("partly-west-%1").arg(width));
             present("partly_cloudy", 0.48, 0, true);
             capture(QString("partly-reduced-%1").arg(width));
+            present("cloudy", 0.95, 0, false);
+            capture(QString("overcast-%1").arg(width));
+            atmosphere["sun_elevation"] = -25;
+            current["is_day"] = false;
+            present("partly_cloudy", 0.48, 0, false);
+            capture(QString("partly-night-%1").arg(width));
+            atmosphere["sun_elevation"] = 35;
+            current["is_day"] = true;
         }
         sky->setProperty("shaderSupported", false);
         capture("static-fallback-700");
