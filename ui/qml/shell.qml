@@ -253,19 +253,19 @@ QtObject {
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.topMargin: headerBody.actionsBelowLocation ? locationHeading.height + regionHeading.height + 12 : 0
-                                UnitsChoice {
-                                    objectName: "unitsChoice"
-                                    units: root.units
-                                    automaticUnits: root.automaticUnits
-                                    enabled: bridge.available && !bridge.busy
-                                    onChosen: values => bridge.send("set_controls", values)
-                                }
                                 ActionButton {
                                     objectName: "refreshForecast"
                                     iconName: "refresh"
                                     accessibleLabel: "Refresh forecast"
                                     enabled: !bridge.busy
                                     onClicked: bridge.send("refresh")
+                                }
+                                UnitsChoice {
+                                    objectName: "unitsChoice"
+                                    units: root.units
+                                    automaticUnits: root.automaticUnits
+                                    enabled: bridge.available && !bridge.busy
+                                    onChosen: values => bridge.send("set_controls", values)
                                 }
                                 ActionButton {
                                     objectName: "openEffects"
