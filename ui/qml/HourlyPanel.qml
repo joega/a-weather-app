@@ -47,7 +47,8 @@ GlassPanel {
                     required property int index
                     objectName: "forecastHour_" + index
                     width: Math.max(86, rail.width / 12)
-                    height: 146
+                    height: implicitContentHeight + topPadding + bottomPadding
+                    padding: 8
                     Accessible.name: modelData.local_hour + ", " + Forecast.title(modelData.condition) + ", " + Forecast.temp(modelData.temperature_c, root.units) + ", precipitation chance " + Forecast.percent(modelData.precipitation_probability) + ". Open details"
                     onActiveFocusChanged: if (activeFocus) {
                         if (x < rail.contentX)
@@ -61,19 +62,11 @@ GlassPanel {
                         color: hourButton.hovered || hourButton.activeFocus ? "#305e819a" : "transparent"
                         border.color: hourButton.activeFocus ? Tokens.accent : "transparent"
                     }
-                    Rectangle {
-                        anchors.right: parent.right
-                        y: 4
-                        width: 1
-                        height: 108
-                        color: Tokens.border
-                        visible: hourButton.index < root.hours.length - 1
-                    }
-                    Column {
-                        anchors.horizontalCenter: parent.horizontalCenter
+                    contentItem: Column {
                         spacing: 4
                         PlainLabel {
-                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
                             text: hourButton.modelData.local_hour
                             font.pixelSize: 14
                         }
@@ -83,12 +76,14 @@ GlassPanel {
                             isDay: hourButton.modelData.is_day
                         }
                         PlainLabel {
-                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
                             text: Forecast.temp(hourButton.modelData.temperature_c, root.units)
                             font.pixelSize: 23
                         }
                         PlainLabel {
-                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
                             text: Forecast.percent(hourButton.modelData.precipitation_probability)
                             color: Tokens.accent
                             font.pixelSize: 14

@@ -24,6 +24,10 @@ Item {
             const c = getContext("2d");
             c.reset();
             c.scale(width / 48, height / 42);
+            // Sun and moon coordinates sit behind clouds in composite icons.
+            // Center the standalone artwork within the same icon box.
+            if (root.condition === "clear")
+                c.translate(root.isDay ? 7 : 10, 5);
             const sun = root.condition === "clear" || root.condition === "partly_cloudy";
             if (sun && root.isDay) {
                 c.strokeStyle = "#f5d678";
@@ -103,7 +107,8 @@ Item {
             if (root.condition === "unknown") {
                 c.fillStyle = "#b7cbdc";
                 c.font = "24px sans-serif";
-                c.fillText("—", 12, 29);
+                c.textAlign = "center";
+                c.fillText("—", 24, 29);
             }
         }
     }
