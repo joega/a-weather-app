@@ -4,6 +4,7 @@ import "../Outdoor.js" as Outdoor
 import "../Dashboard.js" as Dashboard
 import "../Changes.js" as Changes
 import "../Astronomy.js" as Astronomy
+import "../Precipitation.js" as Precipitation
 
 Item {
     id: root
@@ -27,6 +28,8 @@ Item {
     property bool subscribed: false
     property var queuedPresentation: null
     onPresentationActiveChanged: {
+        if (!presentationActive && precipitationWanted)
+            closePrecipitation();
         if (subscribed)
             send("set_presentation", {
                 active: presentationActive
@@ -61,6 +64,56 @@ Item {
     property var pendingWarningTarget: null
     property var queuedWarning: null
     property var astronomyResult: null
+    property var precipitationResult: null
+    property string precipitationState: "closed"
+    property string precipitationError: ""
+    property bool precipitationWanted: false
+    property int precipitationToken: 0
+    property double lastPrecipitationRevision: 0
+    property var precipitationQuery: null
+    property var queuedPrecipitation: null
+    property int pendingPrecipitationToken: -1
+    property int lastSentPrecipitationToken: -1
+    function loadPrecipitation(date) {
+        precipitationToken = (precipitationToken + 1) % 2147483648;
+        precipitationWanted = true;
+        precipitationResult = null;
+        precipitationError = "";
+        lastPrecipitationRevision = 0;
+        precipitationState = "loading";
+        if (!Precipitation.context(snapshot) || !presentationActive) {
+            precipitationState = "unavailable";
+            return;
+        }
+        precipitationQuery = Precipitation.query(snapshot, date, precipitationToken);
+        if (!send("precipitation_open", precipitationQuery))
+            precipitationState = "unavailable";
+    }
+    function closePrecipitation(notify) {
+        const oldToken = lastSentPrecipitationToken, wasWanted = precipitationWanted;
+        lastSentPrecipitationToken = -1;
+        precipitationWanted = false;
+        precipitationToken = (precipitationToken + 1) % 2147483648;
+        precipitationResult = null;
+        precipitationQuery = null;
+        queuedPrecipitation = null;
+        precipitationState = "closed";
+        precipitationError = "";
+        if (notify !== false && wasWanted && oldToken >= 0 && available)
+            send("precipitation_close", {
+                client_token: oldToken
+            });
+    }
+    function applyPrecipitation(value) {
+        if (!precipitationWanted || !presentationActive || closing || !precipitationQuery || value.client_token !== precipitationToken)
+            return;
+        if (value.revision <= lastPrecipitationRevision)
+            return;
+        precipitationResult = Precipitation.result(value, precipitationQuery);
+        lastPrecipitationRevision = precipitationResult.revision;
+        precipitationState = precipitationResult.status;
+        precipitationError = "";
+    }
     property string astronomyState: "closed"
     property int astronomyGeneration: 0
     property int pendingAstronomyGeneration: -1
@@ -202,6 +255,13 @@ Item {
             return false;
         }
         if (pending >= 0) {
+            if (op === "precipitation_open" || op === "precipitation_close") {
+                queuedPrecipitation = {
+                    op: op,
+                    patch: JSON.parse(JSON.stringify(patch))
+                };
+                return true;
+            }
             if (op === "astronomy_day") {
                 queuedAstronomy = patch;
                 return true;
@@ -303,6 +363,12 @@ Item {
             request.day = patch;
             pendingAstronomyQuery = patch;
             pendingAstronomyGeneration = astronomyGeneration;
+        }
+        if (op === "precipitation_open" || op === "precipitation_close") {
+            request.detail = patch;
+            pendingPrecipitationToken = patch.client_token;
+            if (op === "precipitation_open")
+                lastSentPrecipitationToken = patch.client_token;
         }
         if (op === "outdoor_plan") {
             request.plan = patch;
@@ -418,6 +484,12 @@ Item {
             send("astronomy_day", next);
             return;
         }
+        if (queuedPrecipitation !== null) {
+            const next = queuedPrecipitation;
+            queuedPrecipitation = null;
+            send(next.op, next.patch);
+            return;
+        }
         if (queuedOutdoor !== null) {
             const next = queuedOutdoor;
             queuedOutdoor = null;
@@ -443,6 +515,10 @@ Item {
         }
     }
     function clearQueuedActions() {
+        const precipitationWasOpen = precipitationWanted;
+        closePrecipitation(false);
+        if (precipitationWasOpen)
+            precipitationState = "unavailable";
         const astronomyWasOpen = astronomyState !== "closed";
         closeAstronomy();
         if (astronomyWasOpen)
@@ -499,6 +575,11 @@ Item {
         if (revision <= lastSnapshotRevision)
             return;
         let next = Forecast.snapshot(raw);
+        if (precipitationWanted && Precipitation.context(snapshot) !== Precipitation.context(next)) {
+            closePrecipitation();
+            precipitationState = "unavailable";
+            precipitationError = "precipitation_context_changed";
+        }
         if (astronomyState !== "closed" && Astronomy.context(snapshot) !== Astronomy.context(next)) {
             closeAstronomy();
             astronomyState = "unavailable";
@@ -532,6 +613,8 @@ Item {
                 } else if (value.event === "map") {
                     if (mapWanted)
                         weatherMap = Forecast.weatherMap(value.map);
+                } else if (value.event === "precipitation") {
+                    applyPrecipitation(value.precipitation);
                 } else if (value.event === "radar") {
                     if (radarWanted) {
                         const next = Forecast.radarState(value.radar);
@@ -599,6 +682,20 @@ Item {
                 pendingChangesQuery = null;
                 pendingChangesKey = "";
                 pendingChangesGeneration = -1;
+                drainUserAction();
+                return;
+            }
+            if (completedOp === "precipitation_open" || completedOp === "precipitation_close") {
+                if (completedOp === "precipitation_open" && precipitationWanted && pendingPrecipitationToken === precipitationToken) {
+                    if (value.ok)
+                        applyPrecipitation(value.precipitation);
+                    else {
+                        precipitationResult = null;
+                        precipitationState = "unavailable";
+                        precipitationError = value.error || "unavailable";
+                    }
+                }
+                pendingPrecipitationToken = -1;
                 drainUserAction();
                 return;
             }

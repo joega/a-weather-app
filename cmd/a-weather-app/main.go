@@ -17,6 +17,7 @@ import (
 	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/effects"
 	"github.com/joega/a-weather-app/internal/ipc"
+	"github.com/joega/a-weather-app/internal/precipitation"
 	"github.com/joega/a-weather-app/internal/radar"
 	"github.com/joega/a-weather-app/internal/release"
 	"github.com/joega/a-weather-app/internal/safeio"
@@ -37,6 +38,7 @@ func main() { os.Exit(run(os.Args[1:])) }
 func run(args []string) int {
 	defer weather.CloseIdleConnections()
 	defer airquality.CloseIdleConnections()
+	defer precipitation.CloseIdleConnections()
 	if len(args) > 0 && args[0] == "--effects-worker" {
 		return effects.RunWorker(args[1:])
 	}
@@ -320,11 +322,12 @@ func launch(args []string) error {
 	radarClient := radar.New()
 	defer radarClient.CloseIdleConnections()
 	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: options.offline, Radar: radarClient,
-		UpdateStatus:      func() M { return updates.PresentationStatus().Map() },
-		AcknowledgeUpdate: updates.AcknowledgeUpdate,
-		CheckUpdates:      func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
-		StartUpdate:       func() error { return startUpdate(false) },
-		FetchAirQuality:   airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
+		UpdateStatus:       func() M { return updates.PresentationStatus().Map() },
+		AcknowledgeUpdate:  updates.AcknowledgeUpdate,
+		CheckUpdates:       func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
+		StartUpdate:        func() error { return startUpdate(false) },
+		FetchPrecipitation: precipitation.Fetch,
+		FetchAirQuality:    airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
 			return weathermap.Fetch(ctx, nil, lat, lon, country, now)
 		}})
 	if e != nil {

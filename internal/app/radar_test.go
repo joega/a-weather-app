@@ -125,6 +125,22 @@ func TestRadarServiceDemandChunksAndLocationOwnership(t *testing.T) {
 }
 func savedEntryAt(a *App, i int) M { return object(a.saved.doc["places"].([]any)[i]) }
 
+func TestRadarAdmissionUsesRequestingPeerPresentation(t *testing.T) {
+	a := radarApp(t, &appRadarProvider{body: []byte("frame")}, func() time.Time { return savedRuntimeNow })
+	a.setPresented(false)
+	p := &peer{subscribed: true, presentationActive: true}
+	ctx := context.WithValue(context.Background(), presentationPeerKey{}, p)
+	if r, _ := a.Handle(ctx, request("radar_open", nil)); r["ok"] != true {
+		t.Fatal("a visible subscriber depended on delayed aggregate visibility", r["error"])
+	}
+	a.closeRadar()
+	a.setPresented(true)
+	p.presentationActive = false
+	if r, _ := a.Handle(ctx, request("radar_open", nil)); r["ok"] != false {
+		t.Fatal("another visible peer authorized a hidden radar requester")
+	}
+}
+
 func TestRadarEventsFreshnessAndHiddenDemand(t *testing.T) {
 	now := savedRuntimeNow
 	provider := &appRadarProvider{body: []byte("frame")}

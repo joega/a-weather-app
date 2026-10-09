@@ -105,6 +105,7 @@ func (a *App) viewPointChanged(oldID string, oldLocation M) {
 	}
 	a.closeMap()
 	a.closeRadar()
+	a.closePrecipitation()
 	a.mapLocationChanged(oldLocation)
 	a.cancelAirQuality()
 	if !reflect.DeepEqual(oldLocation, a.location) {
@@ -171,6 +172,11 @@ func (a *App) setPresented(active bool) {
 	if !active {
 		a.closeMap()
 		a.closeRadar()
+		// Socket-owned detail demand is closed by that exact peer's hide or
+		// disconnect, not a delayed aggregate visibility notification.
+		if a.precipitation != nil && a.precipitation.owner == nil {
+			a.closePrecipitation()
+		}
 		a.cancelAirQuality()
 		if a.forecastPoint != a.primary || !a.primaryNeeded() {
 			a.cancelPointFetch(a.forecastPoint)

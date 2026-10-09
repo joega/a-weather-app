@@ -9,11 +9,11 @@ import (
 	"github.com/joega/a-weather-app/internal/radar"
 )
 
-func (a *App) openRadar(view M) error {
+func (a *App) openRadar(view M, presented bool) error {
 	if !a.dashboardVisible("maps") {
 		return errors.New("maps hidden in dashboard")
 	}
-	if !a.presented || a.locationBusy || a.mode == "default" {
+	if !presented || a.locationBusy || a.mode == "default" {
 		return errors.New("radar location unavailable")
 	}
 	lat, latOK := a.location["latitude"].(float64)

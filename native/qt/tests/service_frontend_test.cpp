@@ -1149,6 +1149,229 @@ class ServiceFrontendTest : public QObject {
         window->hide();
         QTRY_VERIFY(!eval("root.dashboardOpen || dashboardLoader.item !== null").toBool());
     }
+    void precipitationDetailsDatesAndLazyLifecycle() {
+        ServiceFixture fixture;
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60);
+        fixture.savedNewYorkPlace();
+        const auto now = QDateTime::currentDateTimeUtc();
+        auto start = now;
+        start.setTime(QTime(now.time().hour(), 0));
+        QJsonArray hours;
+        for (int i = 0; i < 290; ++i)
+            hours.append(QJsonArray{double(start.addSecs((i - 26) * 3600).toSecsSinceEpoch()), 1,
+                                    .3, .2, .4, .1, 1500, .45});
+        fixture.save("precipitation-detail.json", {{"version", 1},
+                                                   {"source", "open-meteo/hourly-precipitation/v1"},
+                                                   {"latitude", 40.7128},
+                                                   {"longitude", -74.006},
+                                                   {"grid_latitude", 40.7128},
+                                                   {"grid_longitude", -74.006},
+                                                   {"timezone", "America/New_York"},
+                                                   {"fetched_at", now.toString(Qt::ISODate)},
+                                                   {"hours", hours}});
+        const auto original = fixture.saved("forecast.json"),
+                   cache = fixture.saved("precipitation-detail.json");
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_PRECIPITATION_MEASURE");
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            if (!probe)
+                return;
+            QTest::qWait(200);
+            const auto before = swaps.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "PRECIPITATION_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        phase("initial");
+        auto* loader = named("precipitationLoader");
+        QVERIFY(loader);
+        QVERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(eval("backend.precipitationState==='closed' && backend.precipitationResult===null")
+                    .toBool());
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::qWait(50);
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        auto* entry = qobject_cast<QQuickItem*>(named("openPrecipitation"));
+        QVERIFY(entry);
+        activate("openPrecipitation");
+        QTRY_COMPARE_WITH_TIMEOUT(eval("backend.precipitationState").toString(), QString("fresh"),
+                                  5000);
+        QVERIFY(
+            eval("root.precipitationOpen && !root.mapActive && !backend.forecastVisible").toBool());
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
+        QCOMPARE(eval("backend.precipitationResult.days.length").toInt(), 10);
+        QVERIFY(named("precipitationDaily_total_mm")->property("text").toString().contains("in"));
+        QVERIFY(named("precipitationDaily_snow_cm")->property("text").toString().contains("in"));
+        QVERIFY(named("precipitationSnowDepth")
+                    ->property("text")
+                    .toString()
+                    .contains("above sea level"));
+        const auto day = eval("backend.precipitationResult.date").toString();
+        const auto interval = named("precipitationInterval")->property("text").toString();
+        activate("precipitationNextHour");
+        QVERIFY(named("precipitationInterval")->property("text").toString() != interval);
+        auto* chart = qobject_cast<QQuickItem*>(named("precipitationTrend"));
+        chart->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Home);
+        QCOMPARE(named("precipitationInterval")->property("text").toString(), interval);
+        auto* date = qobject_cast<QQuickItem*>(named("precipitationDate"));
+        date->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Down);
+        QTRY_VERIFY(eval("backend.precipitationResult && backend.precipitationResult.date !== '" +
+                         day + "'")
+                        .toBool());
+        QTRY_COMPARE(eval("backend.precipitationState").toString(), QString("fresh"));
+        activate("precipitationToday");
+        QTRY_COMPARE(
+            eval("backend.precipitationResult ? backend.precipitationResult.date : ''").toString(),
+            day);
+        // A completion event may precede the older opening reply on the socket.
+        // Its revision must keep a ready dataset from being replaced by loading.
+        QVERIFY(
+            eval("(function(){const newer=JSON.parse(JSON.stringify(backend.precipitationResult)); "
+                 "newer.revision+=2; backend.applyPrecipitation(newer); const "
+                 "older=JSON.parse(JSON.stringify(newer)); older.revision--; "
+                 "older.status='loading'; older.fetched_at=null; older.fetched_label=''; "
+                 "older.days=[]; older.hours=[]; backend.applyPrecipitation(older); return "
+                 "backend.precipitationState==='fresh' && "
+                 "backend.precipitationResult.revision===newer.revision;})()")
+                .toBool());
+        // Invalid units/coverage/intervals must not pass the native view contract.
+        QVERIFY(
+            eval("(function(){const bad=JSON.parse(JSON.stringify(backend.precipitationResult)); "
+                 "bad.revision++; bad.days[0].total_mm_coverage=1; try "
+                 "{backend.applyPrecipitation(bad);return false;} catch(e){return true;}})()")
+                .toBool());
+        auto* popup = loader->property("item").value<QObject*>();
+        QVERIFY(popup->setProperty("units", "C"));
+        QCOMPARE(named("precipitationDaily_total_mm")->property("text").toString(),
+                 QString("24.0 mm"));
+        QCOMPARE(named("precipitationDaily_snow_cm")->property("text").toString(),
+                 QString("9.6 cm"));
+        QVERIFY(named("precipitationSnowDepth")->property("text").toString().contains("10.0 cm"));
+        // Missing snow stays unknown; a partial liquid day shows its subtotal.
+        const auto complete = eval("JSON.stringify(backend.precipitationResult)").toString();
+        QVERIFY(eval("(function(){const "
+                     "partial=JSON.parse(JSON.stringify(backend.precipitationResult)); "
+                     "partial.revision++; const d=partial.days.find(d=>d.date===partial.date); "
+                     "d.total_mm=null; d.total_mm_subtotal=23; d.total_mm_coverage=23; "
+                     "d.snow_cm=null; d.snow_cm_subtotal=null; d.snow_cm_coverage=0; "
+                     "partial.hours[0].total_mm=null; partial.hours.forEach(h=>h.snow_cm=null); "
+                     "backend.applyPrecipitation(partial); return true;})()")
+                    .toBool());
+        QCOMPARE(named("precipitationDaily_total_mm")->property("text").toString(),
+                 QString("23.0 mm"));
+        QCOMPARE(named("precipitationDaily_snow_cm")->property("text").toString(),
+                 QString::fromUtf8("—"));
+        eval("(function(){const original=" + complete +
+             "; original.revision=backend.precipitationResult.revision+1; "
+             "backend.applyPrecipitation(original);})()");
+        QVERIFY(popup->setProperty("units", "F"));
+        phase("details_open");
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_PRECIPITATION_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-wide.png"));
+        }
+        activate("closePrecipitation");
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QCOMPARE(window->activeFocusItem(), entry);
+        window->resize(700, 650);
+        eval("root.openPrecipitation('')");
+        QTRY_COMPARE(eval("backend.precipitationState").toString(), QString("fresh"));
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
+        }
+        QTest::keyClick(window, Qt::Key_PageDown);
+        auto* flick = named("precipitationScroll")->property("contentItem").value<QObject*>();
+        QTRY_VERIFY(flick->property("contentY").toReal() > 0);
+        if (!prefix.isEmpty())
+            QVERIFY(window->grabWindow().save(prefix + "-footer.png"));
+        // Closing after replacing an unsent date cancels the last SENT token,
+        // not the newer queued token that the service never received.
+        eval("backend.loadPrecipitation(''); backend.loadPrecipitation(''); "
+             "root.closePrecipitation()");
+        QTRY_VERIFY(!eval("backend.busy").toBool());
+        QVERIFY(eval("backend.precipitationResult===null && !backend.precipitationWanted && "
+                     "backend.queuedPrecipitation===null")
+                    .toBool());
+        // A second subscribed peer can acquire the view only after the main
+        // bridge's queued close has actually released its service ownership.
+        QLocalSocket lease;
+        lease.connectToServer(fixture.socket);
+        QVERIFY(lease.waitForConnected(1000));
+        QByteArray incoming;
+        const auto leaseRequest = [&](const QJsonObject& request) {
+            lease.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n');
+            lease.flush();
+            QElapsedTimer deadline;
+            deadline.start();
+            while (deadline.elapsed() < 2000) {
+                incoming += lease.readAll();
+                while (incoming.contains('\n')) {
+                    const auto index = incoming.indexOf('\n');
+                    const auto message = QJsonDocument::fromJson(incoming.left(index)).object();
+                    incoming.remove(0, index + 1);
+                    if (message["request_id"] == request["request_id"])
+                        return message;
+                }
+                lease.waitForReadyRead(50);
+            }
+            return QJsonObject{};
+        };
+        QVERIFY(
+            leaseRequest({{"version", 1}, {"request_id", 91}, {"op", "subscribe"}})["ok"].toBool());
+        const auto query =
+            QJsonDocument::fromJson(
+                eval("JSON.stringify({location_id:backend.snapshot.saved_locations.viewed,latitude:"
+                     "backend.snapshot.latitude,longitude:backend.snapshot.longitude,timezone:"
+                     "backend.snapshot.timezone,date:'',client_token:90})")
+                    .toString()
+                    .toUtf8())
+                .object();
+        QVERIFY(leaseRequest({{"version", 1},
+                              {"request_id", 92},
+                              {"op", "precipitation_open"},
+                              {"detail", query}})["ok"]
+                    .toBool());
+        QVERIFY(leaseRequest({{"version", 1},
+                              {"request_id", 93},
+                              {"op", "precipitation_close"},
+                              {"detail", QJsonObject{{"client_token", 90}}}})["ok"]
+                    .toBool());
+        lease.disconnectFromServer();
+        for (int i = 0; i < (probe ? 40 : 5); i++) {
+            eval("root.openPrecipitation('')");
+            QTRY_COMPARE(eval("backend.precipitationState").toString(), QString("fresh"));
+            QPointer<QObject> popup = loader->property("item").value<QObject*>();
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(popup.isNull());
+            if (i == 19)
+                phase("closed_after_20");
+            if (i == 39)
+                phase("closed_after_40");
+        }
+        QCOMPARE(fixture.saved("forecast.json"), original);
+        QCOMPARE(fixture.saved("precipitation-detail.json"), cache);
+        eval("root.openPrecipitation('')");
+        window->hide();
+        QTRY_VERIFY(eval("!root.precipitationOpen && !backend.precipitationWanted && "
+                         "backend.precipitationResult===null && precipitationLoader.item===null")
+                        .toBool());
+        phase("hidden");
+    }
     void astronomyDateNavigationAndLazyLifecycle() {
         ServiceFixture fixture;
         fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});

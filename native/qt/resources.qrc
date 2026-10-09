@@ -10,6 +10,8 @@
 <file alias="qml/Changes.js">../../ui/qml/Changes.js</file>
 <file alias="qml/Astronomy.js">../../ui/qml/Astronomy.js</file>
 <file alias="qml/AstronomyDetails.qml">../../ui/qml/AstronomyDetails.qml</file>
+<file alias="qml/PrecipitationDetails.qml">../../ui/qml/PrecipitationDetails.qml</file>
+<file alias="qml/Precipitation.js">../../ui/qml/Precipitation.js</file>
 <file alias="qml/ForecastChanges.qml">../../ui/qml/ForecastChanges.qml</file>
 <file alias="qml/Outdoor.js">../../ui/qml/Outdoor.js</file>
 <file alias="qml/OutdoorPlanner.qml">../../ui/qml/OutdoorPlanner.qml</file>

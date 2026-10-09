@@ -39,6 +39,20 @@ you press **Find times**. Suggestions explain missing data and exceeded limits;
 UV, air quality, ice and official warnings are not included in the ranking.
 The planner loads on demand and adds no weather requests or background polling.
 
+**Rain & snow**, beside the ten-day forecast or inside a day's details, opens
+daily liquid-equivalent precipitation, rain and showers, new snowfall, and hourly
+amounts. Choose a date to see available ground-snow and freezing-level samples.
+These are modeled values for the whole local day, including earlier hours;
+missing hours produce a labeled subtotal instead of a complete daily total.
+Ground snow is distinct from new snowfall, and freezing level is altitude above
+sea level. These values do not predict road icing or travel safety.
+
+Rain and snow details load only when opened. One bounded dataset is reused for
+date changes and fresh reopenings, with an optional cache for offline use.
+Closing or hiding the window stops its requests and removes the detail view.
+The source is Open-Meteo best match; retrieval time is shown separately from the
+ordinary forecast. Minute-by-minute rain timing is not provided by this view.
+
 ## Install on Omarchy
 
 Omarchy clones this repository to install the bar widget; it does not run an

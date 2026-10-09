@@ -23,6 +23,7 @@ Popup {
     property string selectedDate: ""
     property string selectedTime: ""
     property string metric: "temperature_c"
+    signal precipitationRequested(string date)
     readonly property var day: forecast && selectedDate ? forecast.daily.find(d => d.date === selectedDate) || null : null
     readonly property var hours: !visible || !forecast ? [] : selectedDate ? forecast.hourly.filter(h => h.local_date === selectedDate) : forecast.hourly.slice(0, 24)
     readonly property int selectedIndex: Math.max(0, hours.findIndex(h => h.time === selectedTime))
@@ -129,6 +130,11 @@ Popup {
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
+            }
+            ActionButton {
+                objectName: "detailPrecipitation"
+                text: "Rain & snow totals"
+                onClicked: root.precipitationRequested(root.selectedDate || (root.hour ? root.hour.local_date : ""))
             }
             SettingsComboBox {
                 objectName: "forecastMetric"

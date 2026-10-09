@@ -196,7 +196,7 @@ func TestDashboardHiddenDataDoesNotStartAndCancelsLateAQ(t *testing.T) {
 	if a.wmap.open || a.wmap.active {
 		t.Fatal("hidden map opened")
 	}
-	if a.openRadar(nil) == nil || a.radar != nil {
+	if a.openRadar(nil, a.presented) == nil || a.radar != nil {
 		t.Fatal("hidden radar opened")
 	}
 	on := safeio.Clone(p)
@@ -248,7 +248,7 @@ func TestDashboardHidingMapsClosesDemandAndRestoreStaysIdle(t *testing.T) {
 	a.openMap()
 	canceled := false
 	a.wmap.cancel = func() { canceled = true }
-	if err := a.openRadar(nil); err != nil {
+	if err := a.openRadar(nil, a.presented); err != nil {
 		t.Fatal(err)
 	}
 	next := defaultDashboard()

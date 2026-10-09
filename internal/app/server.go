@@ -17,6 +17,10 @@ import (
 
 const peerQueueLimit = 4
 
+// The serialized peer handler supplies current presentation for request
+// admission. App.presented is asynchronously updated scheduling demand.
+type presentationPeerKey struct{}
+
 type outbound struct {
 	raw []byte
 	ack chan error
@@ -31,6 +35,7 @@ type peer struct {
 	subscribed         bool
 	presentationActive bool
 	nativeWarnings     bool
+	precipitationUsed  bool
 }
 
 func newPeer(ctx context.Context, conn *net.UnixConn) *peer {
@@ -78,17 +83,18 @@ func (p *peer) enqueue(raw []byte, ack bool) (<-chan error, error) {
 }
 
 type Server struct {
-	app               *App
-	listener          *net.UnixListener
-	mu                sync.Mutex
-	peers             map[*peer]bool
-	ctx               context.Context
-	cancel            context.CancelFunc
-	uiSeen            bool
-	last              []byte
-	lastMapRevision   uint64
-	lastRadarRevision uint64
-	presentationWake  chan struct{}
+	app                       *App
+	listener                  *net.UnixListener
+	mu                        sync.Mutex
+	peers                     map[*peer]bool
+	ctx                       context.Context
+	cancel                    context.CancelFunc
+	uiSeen                    bool
+	last                      []byte
+	lastMapRevision           uint64
+	lastRadarRevision         uint64
+	lastPrecipitationRevision uint64
+	presentationWake          chan struct{}
 }
 
 func (s *Server) mapEvent() {
@@ -107,6 +113,21 @@ func (s *Server) radarEvent() {
 	}
 	s.lastRadarRevision = revision
 	s.broadcast(M{"version": 1.0, "event": "radar", "radar": value})
+}
+
+func (s *Server) precipitationEvent() {
+	revision, value, owner := s.app.precipitationSince(&s.lastPrecipitationRevision)
+	s.lastPrecipitationRevision = revision
+	if value != nil && owner != nil {
+		// Only its owning, presented peer receives this optional dataset.
+		// A queued event still carries the client token for late-reply rejection.
+		s.mu.Lock()
+		active := s.peers[owner] && owner.subscribed && owner.presentationActive
+		s.mu.Unlock()
+		if active {
+			_ = s.send(owner, M{"version": 1.0, "event": "precipitation", "precipitation": value})
+		}
+	}
 }
 
 func (s *Server) send(p *peer, value M) error {
@@ -241,6 +262,9 @@ func (s *Server) presentation(p *peer, request M) error {
 	defer s.mu.Unlock()
 	if len(request) == 4 && request["version"] == 1.0 && validID && id >= 0 && id <= 2147483647 && id == float64(int64(id)) && validActive && p.subscribed {
 		p.presentationActive = active
+		if !active && p.precipitationUsed {
+			s.app.closePrecipitationFor(p)
+		}
 		if s.presentationWake != nil {
 			select {
 			case s.presentationWake <- struct{}{}:
@@ -257,6 +281,9 @@ func (s *Server) presentation(p *peer, request M) error {
 func (s *Server) handle(p *peer) {
 	defer func() {
 		p.close()
+		if p.precipitationUsed {
+			s.app.closePrecipitationFor(p)
+		}
 		if s.app.warningDesktop != nil {
 			s.app.warningDesktop.remove(p)
 		}
@@ -304,6 +331,12 @@ func (s *Server) handle(p *peer) {
 			}
 			continue
 		}
+		if request["op"] == "precipitation_open" && (!p.subscribed || !p.presentationActive) {
+			if s.send(p, M{"version": 1.0, "request_id": request["request_id"], "ok": false, "error": "precipitation_not_presented"}) != nil {
+				return
+			}
+			continue
+		}
 		if request["op"] == "warning_native" {
 			if len(request) != 3 || request["version"] != 1.0 || !p.nativeWarnings || s.app.warningDesktop == nil || !s.app.warningDesktop.report(p, object(request["native"])) {
 				return
@@ -327,7 +360,13 @@ func (s *Server) handle(p *peer) {
 			}
 		}
 		ctx, cancel := context.WithTimeout(p.ctx, 45*time.Second)
+		if request["op"] == "precipitation_open" || request["op"] == "precipitation_close" || request["op"] == "radar_open" || request["op"] == "radar_view" {
+			ctx = context.WithValue(ctx, presentationPeerKey{}, p)
+		}
 		reply, quit := s.app.handle(ctx, request, true)
+		if request["op"] == "precipitation_open" && reply["ok"] == true {
+			p.precipitationUsed = true
+		}
 		cancel()
 		if request["op"] == "snapshot" && reply["ok"] == true {
 			reply["frontend_ready"] = s.hasPresentation()
@@ -475,6 +514,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			}
 			s.mapEvent()
 			s.radarEvent()
+			s.precipitationEvent()
 			nextTick = time.Now().Add(a.interval(s.hasPresentation()))
 			reset()
 		}
@@ -508,9 +548,17 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 		case <-timer.C:
 			s.mapEvent()
 			s.radarEvent()
+			s.precipitationEvent()
 			continue
 		case <-s.presentationWake:
 			a.setPresented(s.hasPresentation())
+			candidate := time.Now().Add(a.interval(s.hasPresentation()))
+			if candidate.Before(nextTick) {
+				nextTick = candidate
+				reset()
+			}
+		case <-a.PrecipitationChanged:
+			s.precipitationEvent()
 			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {
 				nextTick = candidate
@@ -527,6 +575,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			s.snapshot()
 			s.mapEvent()
 			s.radarEvent()
+			s.precipitationEvent()
 			lastBroadcast = time.Now()
 			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {

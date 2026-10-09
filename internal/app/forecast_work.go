@@ -268,6 +268,7 @@ func (a *App) poll() {
 	defer a.pollAirQuality()
 	defer a.pollMap()
 	defer a.pollRadar()
+	defer a.pollPrecipitation()
 	a.pollSearch()
 	// Completions precede the done marker. Drain them first so a new request
 	// cannot reuse a consumer until its old publication has been considered.
