@@ -2737,7 +2737,13 @@ class FrontendTest : public QObject {
         root->setProperty("effectsOpen", false);
         QTRY_VERIFY(!settingsLoader->property("item").value<QObject*>());
     }
+    void warningLongSourceAndRepeatedCloseReleaseObjects_data() {
+        QTest::addColumn<bool>("multiline");
+        QTest::newRow("separate-lines") << true;
+        QTest::newRow("wrapped-paragraphs") << false;
+    }
     void warningLongSourceAndRepeatedCloseReleaseObjects() {
+        QFETCH(bool, multiline);
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.setInitialProperties(
@@ -2759,8 +2765,14 @@ class FrontendTest : public QObject {
         QVERIFY(loader);
         const QJsonObject reference{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}};
         auto detail = warningDetailFixture();
-        detail["instruction"] = QString("Original instructions.\n").repeated(800).left(16000);
-        detail["description"] = QString("Original description.\n").repeated(1600).left(32000);
+        detail["instruction"] =
+            QString(multiline ? "Original instructions.\n" : "Original instructions. ")
+                .repeated(800)
+                .left(16000);
+        detail["description"] =
+            QString(multiline ? "Original description.\n" : "Original description. ")
+                .repeated(1600)
+                .left(32000);
         for (int i = 0; i < 20; ++i) {
             deliver(transport, {{"version", 1},
                                 {"event", "warning_open"},
@@ -2776,13 +2788,19 @@ class FrontendTest : public QObject {
             QTRY_COMPARE(popup->property("state").toString(), "ready");
             QPointer<QQuickItem> instructions =
                 visualItem(window->contentItem(), "warningSource_instruction");
+            QPointer<QQuickItem> description =
+                visualItem(window->contentItem(), "warningSource_description");
             QPointer<QQuickItem> area = visualItem(window->contentItem(), "warningSource_area");
-            QVERIFY(instructions && area);
+            QVERIFY(instructions && description && area);
             QCOMPARE(instructions->property("text").toString(), detail["instruction"].toString());
             instructions->forceActiveFocus();
             QTest::keyClick(window, Qt::Key_A, Qt::ControlModifier);
             QCOMPARE(instructions->property("selectedText").toString(),
                      detail["instruction"].toString());
+            description->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_A, Qt::ControlModifier);
+            QCOMPARE(description->property("selectedText").toString(),
+                     detail["description"].toString());
             area->forceActiveFocus();
             auto* scroll = visualItem(window->contentItem(), "warningDetailsScroll");
             QVERIFY(scroll);
@@ -2794,12 +2812,13 @@ class FrontendTest : public QObject {
                 const auto prefix = qEnvironmentVariable("WEATHER_QT_WARNING_SCREENSHOT_PREFIX");
                 if (!prefix.isEmpty()) {
                     QTest::qWait(80);
-                    QVERIFY(window->grabWindow().save(prefix + "-long-source-end.png"));
+                    QVERIFY(window->grabWindow().save(
+                        prefix + (multiline ? "-long-source-end.png" : "-long-paragraph-end.png")));
                 }
             }
             QTest::keyClick(window, Qt::Key_Escape);
             QTRY_VERIFY(popup.isNull());
-            QVERIFY(instructions.isNull() && area.isNull());
+            QVERIFY(instructions.isNull() && description.isNull() && area.isNull());
             QVERIFY(!loader->property("active").toBool());
             QVERIFY(evaluate(engine, root, "backend.warningDetail === null").toBool());
         }
