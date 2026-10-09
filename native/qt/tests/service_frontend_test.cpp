@@ -1372,6 +1372,222 @@ class ServiceFrontendTest : public QObject {
                         .toBool());
         phase("hidden");
     }
+    void airQualityOutlookAndLazyLifecycle() {
+        ServiceFixture fixture;
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60);
+        fixture.savedNewYorkPlace();
+        const auto now = QDateTime::currentDateTimeUtc();
+        auto start = now;
+        start.setTime(QTime(now.time().hour(), 0));
+        QJsonArray hours;
+        for (int i = 0; i < 48; ++i) {
+            if (i == 3)
+                continue; // Missing whole hour, distinct from known zero.
+            hours.append(QJsonArray{double(start.addSecs(i * 3600).toSecsSinceEpoch()),
+                                    i == 0 ? 0 : 125, 40, 12.5, 20, 8, QJsonValue::Null, 1, 230});
+        }
+        fixture.save("air-quality-outlook.json", {{"version", 1},
+                                                  {"source", "open-meteo/cams-global-outlook/v1"},
+                                                  {"latitude", 40.7128},
+                                                  {"longitude", -74.006},
+                                                  {"grid_latitude", 40.7128},
+                                                  {"grid_longitude", -74.006},
+                                                  {"timezone", "America/New_York"},
+                                                  {"fetched_at", now.toString(Qt::ISODate)},
+                                                  {"hours", hours}});
+        const auto original = fixture.saved("forecast.json"),
+                   cache = fixture.saved("air-quality-outlook.json");
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_AIR_OUTLOOK_MEASURE");
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            if (!probe)
+                return;
+            QTest::qWait(200);
+            const auto before = swaps.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "AIR_OUTLOOK_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        phase("initial");
+        auto* loader = named("airOutlookLoader");
+        QVERIFY(loader);
+        QVERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(
+            eval("backend.airOutlookState==='closed' && backend.airOutlookResult===null").toBool());
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::qWait(50);
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        auto* entry = qobject_cast<QQuickItem*>(named("openAirOutlook"));
+        QVERIFY(entry);
+        activate("openAirOutlook");
+        QTRY_COMPARE_WITH_TIMEOUT(eval("backend.airOutlookState").toString(), QString("fresh"),
+                                  5000);
+        QVERIFY(
+            eval("root.airOutlookOpen && !root.mapActive && !backend.forecastVisible").toBool());
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
+        QCOMPARE(eval("backend.airOutlookResult.hours.length").toInt(), 48);
+        QCOMPARE(named("airOutlookValue")->property("text").toString(), QString("0"));
+        QCOMPARE(named("airOutlookCategory")->property("text").toString(), QString("Good"));
+        const auto requestCount = eval("backend.nextId").toInt();
+        auto* chart = qobject_cast<QQuickItem*>(named("airOutlookChart"));
+        QVERIFY(chart);
+        chart->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(named("airOutlookValue")->property("text").toString(), QString("125"));
+        QCOMPARE(named("airOutlookCategory")->property("text").toString(),
+                 QString("Unhealthy for sensitive groups"));
+        QTest::keyClick(window, Qt::Key_Home);
+        for (int i = 0; i < 3; ++i)
+            QTest::keyClick(window, Qt::Key_Right);
+        QCOMPARE(named("airOutlookValue")->property("text").toString(), QString::fromUtf8("—"));
+        QCOMPARE(named("airOutlookCategory")->property("text").toString(), QString("Unavailable"));
+        QTest::keyClick(window, Qt::Key_Home);
+        auto* selector = qobject_cast<QQuickItem*>(named("airOutlookMetric"));
+        QVERIFY(selector);
+        selector->forceActiveFocus();
+        const QStringList values{"40", "12.5 µg/m³", "20.0 µg/m³", "8.0 µg/m³",
+                                 "—",  "1.0 µg/m³",  "230.0 µg/m³"};
+        for (const auto& value : values) {
+            QTest::keyClick(window, Qt::Key_Down);
+            QCOMPARE(named("airOutlookValue")->property("text").toString(), value);
+        }
+        QCOMPARE(eval("backend.nextId").toInt(), requestCount);
+        auto* popup = loader->property("item").value<QObject*>();
+        QVERIFY(popup->setProperty("metric", "ozone"));
+        QVERIFY(named("airOutlookRange")->property("text").toString().startsWith("No samples"));
+        QVERIFY(popup->setProperty("metric", "us_aqi"));
+        // A newer completion must survive an older opening reply.
+        QVERIFY(eval("(function(){const v=JSON.parse(JSON.stringify(backend.airOutlookResult)); "
+                     "v.revision+=2; backend.applyAirOutlook(v); const "
+                     "old=JSON.parse(JSON.stringify(v)); "
+                     "old.revision--; old.status='loading'; old.fetched_at=null; old.hours=[]; "
+                     "backend.applyAirOutlook(old); return "
+                     "backend.airOutlookResult.revision===v.revision;})()")
+                    .toBool());
+        for (const auto& mutation :
+             {"v.latitude=0", "v.hours[0].us_aqi=-1", "v.hours[1].time=v.hours[0].time",
+              "v.hours.pop()", "v.source='station'"}) {
+            QVERIFY(
+                eval("(function(){const v=JSON.parse(JSON.stringify(backend.airOutlookResult)); "
+                     "v.revision++; " +
+                     QString(mutation) +
+                     "; try {backend.applyAirOutlook(v); return false;} "
+                     "catch(e){return true;}})()")
+                    .toBool());
+        }
+        const auto ready = eval("JSON.stringify(backend.airOutlookResult)").toString();
+        eval("(function(){const v=JSON.parse(JSON.stringify(backend.airOutlookResult)); "
+             "v.revision++; v.status='stale'; v.error='offline'; backend.applyAirOutlook(v);})()");
+        QVERIFY(named("airOutlookStatus")->property("text").toString().contains("Cached outlook"));
+        QVERIFY(named("airOutlookStatus")->property("text").toString().contains("Offline"));
+        eval("(function(){const v=" + ready +
+             "; v.revision=backend.airOutlookResult.revision+1; "
+             "backend.applyAirOutlook(v);})()");
+        phase("details_open");
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_AIR_OUTLOOK_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-wide.png"));
+        }
+        activate("closeAirOutlook");
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QCOMPARE(window->activeFocusItem(), entry);
+        window->resize(700, 650);
+        eval("root.openAirOutlook()");
+        QTRY_COMPARE(eval("backend.airOutlookState").toString(), QString("fresh"));
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
+        }
+        QTest::keyClick(window, Qt::Key_PageDown);
+        auto* flick = named("airOutlookScroll")->property("contentItem").value<QObject*>();
+        QTRY_VERIFY(flick->property("contentY").toReal() > 0);
+        if (!prefix.isEmpty())
+            QVERIFY(window->grabWindow().save(prefix + "-footer.png"));
+        // Closing after an unsent retry cancels the last SENT token,
+        // not the newer queued token that the service never received.
+        eval("backend.loadAirOutlook(); backend.loadAirOutlook(); "
+             "root.closeAirOutlook()");
+        QTRY_VERIFY(!eval("backend.busy").toBool());
+        QVERIFY(eval("backend.airOutlookResult===null && !backend.airOutlookWanted && "
+                     "backend.queuedAirOutlook===null")
+                    .toBool());
+        // A second subscribed peer can acquire the view only after the main
+        // bridge's queued close has actually released its service ownership.
+        QLocalSocket lease;
+        lease.connectToServer(fixture.socket);
+        QVERIFY(lease.waitForConnected(1000));
+        QByteArray incoming;
+        const auto leaseRequest = [&](const QJsonObject& request) {
+            lease.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n');
+            lease.flush();
+            QElapsedTimer deadline;
+            deadline.start();
+            while (deadline.elapsed() < 2000) {
+                incoming += lease.readAll();
+                while (incoming.contains('\n')) {
+                    const auto index = incoming.indexOf('\n');
+                    const auto message = QJsonDocument::fromJson(incoming.left(index)).object();
+                    incoming.remove(0, index + 1);
+                    if (message["request_id"] == request["request_id"])
+                        return message;
+                }
+                lease.waitForReadyRead(50);
+            }
+            return QJsonObject{};
+        };
+        QVERIFY(
+            leaseRequest({{"version", 1}, {"request_id", 91}, {"op", "subscribe"}})["ok"].toBool());
+        const auto query =
+            QJsonDocument::fromJson(
+                eval("JSON.stringify({location_id:backend.snapshot.saved_locations.viewed,latitude:"
+                     "backend.snapshot.latitude,longitude:backend.snapshot.longitude,timezone:"
+                     "backend.snapshot.timezone,client_token:90})")
+                    .toString()
+                    .toUtf8())
+                .object();
+        QVERIFY(leaseRequest({{"version", 1},
+                              {"request_id", 92},
+                              {"op", "air_outlook_open"},
+                              {"detail", query}})["ok"]
+                    .toBool());
+        QVERIFY(leaseRequest({{"version", 1},
+                              {"request_id", 93},
+                              {"op", "air_outlook_close"},
+                              {"detail", QJsonObject{{"client_token", 90}}}})["ok"]
+                    .toBool());
+        lease.disconnectFromServer();
+        for (int i = 0; i < (probe ? 40 : 5); i++) {
+            eval("root.openAirOutlook()");
+            QTRY_COMPARE(eval("backend.airOutlookState").toString(), QString("fresh"));
+            QPointer<QObject> popup = loader->property("item").value<QObject*>();
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(popup.isNull());
+            if (i == 19)
+                phase("closed_after_20");
+            if (i == 39)
+                phase("closed_after_40");
+        }
+        QCOMPARE(fixture.saved("forecast.json"), original);
+        QCOMPARE(fixture.saved("air-quality-outlook.json"), cache);
+        eval("root.openAirOutlook()");
+        window->hide();
+        QTRY_VERIFY(eval("!root.airOutlookOpen && !backend.airOutlookWanted && "
+                         "backend.airOutlookResult===null && airOutlookLoader.item===null")
+                        .toBool());
+        phase("hidden");
+    }
     void astronomyDateNavigationAndLazyLifecycle() {
         ServiceFixture fixture;
         fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});

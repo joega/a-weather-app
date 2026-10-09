@@ -327,6 +327,7 @@ func launch(args []string) error {
 		CheckUpdates:       func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
 		StartUpdate:        func() error { return startUpdate(false) },
 		FetchPrecipitation: precipitation.Fetch,
+		FetchAirOutlook:    airquality.FetchOutlook,
 		FetchAirQuality:    airquality.Fetch, FetchMap: func(ctx context.Context, lat, lon float64, country string, now time.Time) (weathermap.Data, error) {
 			return weathermap.Fetch(ctx, nil, lat, lon, country, now)
 		}})

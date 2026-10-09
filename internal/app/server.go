@@ -36,6 +36,7 @@ type peer struct {
 	presentationActive bool
 	nativeWarnings     bool
 	precipitationUsed  bool
+	airOutlookUsed     bool
 }
 
 func newPeer(ctx context.Context, conn *net.UnixConn) *peer {
@@ -94,6 +95,7 @@ type Server struct {
 	lastMapRevision           uint64
 	lastRadarRevision         uint64
 	lastPrecipitationRevision uint64
+	lastAirOutlookRevision    uint64
 	presentationWake          chan struct{}
 }
 
@@ -113,6 +115,21 @@ func (s *Server) radarEvent() {
 	}
 	s.lastRadarRevision = revision
 	s.broadcast(M{"version": 1.0, "event": "radar", "radar": value})
+}
+
+func (s *Server) airOutlookEvent() {
+	revision, value, owner := s.app.airOutlookSince(&s.lastAirOutlookRevision)
+	s.lastAirOutlookRevision = revision
+	if value != nil && owner != nil {
+		// Only its owning, presented peer receives this optional dataset.
+		// A queued event still carries the client token for late-reply rejection.
+		s.mu.Lock()
+		active := s.peers[owner] && owner.subscribed && owner.presentationActive
+		s.mu.Unlock()
+		if active {
+			_ = s.send(owner, M{"version": 1.0, "event": "air_outlook", "air_outlook": value})
+		}
+	}
 }
 
 func (s *Server) precipitationEvent() {
@@ -265,6 +282,9 @@ func (s *Server) presentation(p *peer, request M) error {
 		if !active && p.precipitationUsed {
 			s.app.closePrecipitationFor(p)
 		}
+		if !active && p.airOutlookUsed {
+			s.app.closeAirOutlookFor(p)
+		}
 		if s.presentationWake != nil {
 			select {
 			case s.presentationWake <- struct{}{}:
@@ -283,6 +303,9 @@ func (s *Server) handle(p *peer) {
 		p.close()
 		if p.precipitationUsed {
 			s.app.closePrecipitationFor(p)
+		}
+		if p.airOutlookUsed {
+			s.app.closeAirOutlookFor(p)
 		}
 		if s.app.warningDesktop != nil {
 			s.app.warningDesktop.remove(p)
@@ -331,6 +354,12 @@ func (s *Server) handle(p *peer) {
 			}
 			continue
 		}
+		if request["op"] == "air_outlook_open" && (!p.subscribed || !p.presentationActive) {
+			if s.send(p, M{"version": 1.0, "request_id": request["request_id"], "ok": false, "error": "air_outlook_not_presented"}) != nil {
+				return
+			}
+			continue
+		}
 		if request["op"] == "precipitation_open" && (!p.subscribed || !p.presentationActive) {
 			if s.send(p, M{"version": 1.0, "request_id": request["request_id"], "ok": false, "error": "precipitation_not_presented"}) != nil {
 				return
@@ -360,12 +389,15 @@ func (s *Server) handle(p *peer) {
 			}
 		}
 		ctx, cancel := context.WithTimeout(p.ctx, 45*time.Second)
-		if request["op"] == "precipitation_open" || request["op"] == "precipitation_close" || request["op"] == "radar_open" || request["op"] == "radar_view" {
+		if request["op"] == "air_outlook_open" || request["op"] == "air_outlook_close" || request["op"] == "precipitation_open" || request["op"] == "precipitation_close" || request["op"] == "radar_open" || request["op"] == "radar_view" {
 			ctx = context.WithValue(ctx, presentationPeerKey{}, p)
 		}
 		reply, quit := s.app.handle(ctx, request, true)
 		if request["op"] == "precipitation_open" && reply["ok"] == true {
 			p.precipitationUsed = true
+		}
+		if request["op"] == "air_outlook_open" && reply["ok"] == true {
+			p.airOutlookUsed = true
 		}
 		cancel()
 		if request["op"] == "snapshot" && reply["ok"] == true {
@@ -515,6 +547,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			s.mapEvent()
 			s.radarEvent()
 			s.precipitationEvent()
+			s.airOutlookEvent()
 			nextTick = time.Now().Add(a.interval(s.hasPresentation()))
 			reset()
 		}
@@ -549,9 +582,17 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			s.mapEvent()
 			s.radarEvent()
 			s.precipitationEvent()
+			s.airOutlookEvent()
 			continue
 		case <-s.presentationWake:
 			a.setPresented(s.hasPresentation())
+			candidate := time.Now().Add(a.interval(s.hasPresentation()))
+			if candidate.Before(nextTick) {
+				nextTick = candidate
+				reset()
+			}
+		case <-a.AirOutlookChanged:
+			s.airOutlookEvent()
 			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {
 				nextTick = candidate
@@ -576,6 +617,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			s.mapEvent()
 			s.radarEvent()
 			s.precipitationEvent()
+			s.airOutlookEvent()
 			lastBroadcast = time.Now()
 			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {

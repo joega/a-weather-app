@@ -169,7 +169,7 @@ bool decodeProtocol(const QByteArray& line, QJsonObject* object) {
         const auto event = obj.value("event").toString();
         if (event != "snapshot" && event != "toggle_window" && event != "service_stopped" &&
             event != "map" && event != "radar" && event != "warning_desktop" &&
-            event != "warning_open" && event != "precipitation")
+            event != "warning_open" && event != "precipitation" && event != "air_outlook")
             return false;
         if (event == "warning_desktop" &&
             (obj.size() != 3 || !obj.value("native").isObject() ||
@@ -193,6 +193,8 @@ bool decodeProtocol(const QByteArray& line, QJsonObject* object) {
         if (event == "snapshot" && !obj.value("snapshot").isObject())
             return false;
         if (event == "radar" && !obj.value("radar").isObject())
+            return false;
+        if (event == "air_outlook" && !obj.value("air_outlook").isObject())
             return false;
         if (event == "precipitation" && !obj.value("precipitation").isObject())
             return false;

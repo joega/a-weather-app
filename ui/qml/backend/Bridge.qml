@@ -5,6 +5,7 @@ import "../Dashboard.js" as Dashboard
 import "../Changes.js" as Changes
 import "../Astronomy.js" as Astronomy
 import "../Precipitation.js" as Precipitation
+import "../AirOutlook.js" as AirOutlook
 
 Item {
     id: root
@@ -28,6 +29,8 @@ Item {
     property bool subscribed: false
     property var queuedPresentation: null
     onPresentationActiveChanged: {
+        if (!presentationActive && airOutlookWanted)
+            closeAirOutlook();
         if (!presentationActive && precipitationWanted)
             closePrecipitation();
         if (subscribed)
@@ -64,6 +67,56 @@ Item {
     property var pendingWarningTarget: null
     property var queuedWarning: null
     property var astronomyResult: null
+    property var airOutlookResult: null
+    property string airOutlookState: "closed"
+    property string airOutlookError: ""
+    property bool airOutlookWanted: false
+    property int airOutlookToken: 0
+    property double lastAirOutlookRevision: 0
+    property var airOutlookQuery: null
+    property var queuedAirOutlook: null
+    property int pendingAirOutlookToken: -1
+    property int lastSentAirOutlookToken: -1
+    function loadAirOutlook() {
+        airOutlookToken = (airOutlookToken + 1) % 2147483648;
+        airOutlookWanted = true;
+        airOutlookResult = null;
+        airOutlookError = "";
+        lastAirOutlookRevision = 0;
+        airOutlookState = "loading";
+        if (!AirOutlook.context(snapshot) || !presentationActive) {
+            airOutlookState = "unavailable";
+            return;
+        }
+        airOutlookQuery = AirOutlook.query(snapshot, airOutlookToken);
+        if (!send("air_outlook_open", airOutlookQuery))
+            airOutlookState = "unavailable";
+    }
+    function closeAirOutlook(notify) {
+        const oldToken = lastSentAirOutlookToken, wasWanted = airOutlookWanted;
+        lastSentAirOutlookToken = -1;
+        airOutlookWanted = false;
+        airOutlookToken = (airOutlookToken + 1) % 2147483648;
+        airOutlookResult = null;
+        airOutlookQuery = null;
+        queuedAirOutlook = null;
+        airOutlookState = "closed";
+        airOutlookError = "";
+        if (notify !== false && wasWanted && oldToken >= 0 && available)
+            send("air_outlook_close", {
+                client_token: oldToken
+            });
+    }
+    function applyAirOutlook(value) {
+        if (!airOutlookWanted || !presentationActive || closing || !airOutlookQuery || value.client_token !== airOutlookToken)
+            return;
+        if (value.revision <= lastAirOutlookRevision)
+            return;
+        airOutlookResult = AirOutlook.result(value, airOutlookQuery);
+        lastAirOutlookRevision = airOutlookResult.revision;
+        airOutlookState = airOutlookResult.status;
+        airOutlookError = "";
+    }
     property var precipitationResult: null
     property string precipitationState: "closed"
     property string precipitationError: ""
@@ -255,6 +308,13 @@ Item {
             return false;
         }
         if (pending >= 0) {
+            if (op === "air_outlook_open" || op === "air_outlook_close") {
+                queuedAirOutlook = {
+                    op: op,
+                    patch: JSON.parse(JSON.stringify(patch))
+                };
+                return true;
+            }
             if (op === "precipitation_open" || op === "precipitation_close") {
                 queuedPrecipitation = {
                     op: op,
@@ -370,6 +430,12 @@ Item {
             if (op === "precipitation_open")
                 lastSentPrecipitationToken = patch.client_token;
         }
+        if (op === "air_outlook_open" || op === "air_outlook_close") {
+            request.detail = patch;
+            pendingAirOutlookToken = patch.client_token;
+            if (op === "air_outlook_open")
+                lastSentAirOutlookToken = patch.client_token;
+        }
         if (op === "outdoor_plan") {
             request.plan = patch;
             pendingOutdoorQuery = patch;
@@ -484,6 +550,12 @@ Item {
             send("astronomy_day", next);
             return;
         }
+        if (queuedAirOutlook !== null) {
+            const next = queuedAirOutlook;
+            queuedAirOutlook = null;
+            send(next.op, next.patch);
+            return;
+        }
         if (queuedPrecipitation !== null) {
             const next = queuedPrecipitation;
             queuedPrecipitation = null;
@@ -515,6 +587,10 @@ Item {
         }
     }
     function clearQueuedActions() {
+        const airOutlookWasOpen = airOutlookWanted;
+        closeAirOutlook(false);
+        if (airOutlookWasOpen)
+            airOutlookState = "unavailable";
         const precipitationWasOpen = precipitationWanted;
         closePrecipitation(false);
         if (precipitationWasOpen)
@@ -575,6 +651,11 @@ Item {
         if (revision <= lastSnapshotRevision)
             return;
         let next = Forecast.snapshot(raw);
+        if (airOutlookWanted && AirOutlook.context(snapshot) !== AirOutlook.context(next)) {
+            closeAirOutlook();
+            airOutlookState = "unavailable";
+            airOutlookError = "air_outlook_context_changed";
+        }
         if (precipitationWanted && Precipitation.context(snapshot) !== Precipitation.context(next)) {
             closePrecipitation();
             precipitationState = "unavailable";
@@ -613,6 +694,8 @@ Item {
                 } else if (value.event === "map") {
                     if (mapWanted)
                         weatherMap = Forecast.weatherMap(value.map);
+                } else if (value.event === "air_outlook") {
+                    applyAirOutlook(value.air_outlook);
                 } else if (value.event === "precipitation") {
                     applyPrecipitation(value.precipitation);
                 } else if (value.event === "radar") {
@@ -682,6 +765,20 @@ Item {
                 pendingChangesQuery = null;
                 pendingChangesKey = "";
                 pendingChangesGeneration = -1;
+                drainUserAction();
+                return;
+            }
+            if (completedOp === "air_outlook_open" || completedOp === "air_outlook_close") {
+                if (completedOp === "air_outlook_open" && airOutlookWanted && pendingAirOutlookToken === airOutlookToken) {
+                    if (value.ok)
+                        applyAirOutlook(value.air_outlook);
+                    else {
+                        airOutlookResult = null;
+                        airOutlookState = "unavailable";
+                        airOutlookError = value.error || "unavailable";
+                    }
+                }
+                pendingAirOutlookToken = -1;
                 drainUserAction();
                 return;
             }

@@ -106,6 +106,7 @@ func (a *App) viewPointChanged(oldID string, oldLocation M) {
 	a.closeMap()
 	a.closeRadar()
 	a.closePrecipitation()
+	a.closeAirOutlook()
 	a.mapLocationChanged(oldLocation)
 	a.cancelAirQuality()
 	if !reflect.DeepEqual(oldLocation, a.location) {
@@ -176,6 +177,9 @@ func (a *App) setPresented(active bool) {
 		// disconnect, not a delayed aggregate visibility notification.
 		if a.precipitation != nil && a.precipitation.owner == nil {
 			a.closePrecipitation()
+		}
+		if a.airOutlook != nil && a.airOutlook.owner == nil {
+			a.closeAirOutlook()
 		}
 		a.cancelAirQuality()
 		if a.forecastPoint != a.primary || !a.primaryNeeded() {

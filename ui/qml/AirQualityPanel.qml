@@ -8,6 +8,8 @@ import "AirQuality.js" as AirQuality
 GlassPanel {
     id: root
     objectName: "airQualityPanel"
+    property bool outlookEnabled: false
+    signal outlookRequested
     property var airQuality: Forecast.airQuality()
     implicitHeight: Math.max(224, body.implicitHeight + 40)
     function index(value) {
@@ -44,13 +46,23 @@ GlassPanel {
         y: 20
         width: parent.width - 44
         spacing: 10
-        PlainLabel {
+        RowLayout {
             Layout.fillWidth: true
-            text: "Air quality · CAMS global model"
-            font.pixelSize: 20
-            font.weight: Font.DemiBold
-            wrapMode: Text.Wrap
-            elide: Text.ElideNone
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Air quality · CAMS global model"
+                font.pixelSize: 20
+                font.weight: Font.DemiBold
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+            }
+            ActionButton {
+                objectName: "openAirOutlook"
+                text: "Outlook"
+                accessibleLabel: "Open 48-hour air quality outlook"
+                enabled: root.outlookEnabled
+                onClicked: root.outlookRequested()
+            }
         }
         PlainLabel {
             objectName: "airQualityStatus"

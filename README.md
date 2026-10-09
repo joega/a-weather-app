@@ -395,6 +395,21 @@ two hours it is stale, and after six hours its values are hidden. Offline mode
 can show a matching saved AQ forecast within that limit. An AQ update or cache
 failure preserves core weather and any usable last-good AQ values.
 
+**Outlook** opens a separate 48-hour chart for either AQI scale or PM2.5, PM10,
+nitrogen dioxide, ozone, sulphur dioxide and carbon monoxide. Choose a measure
+and use the chart's arrow keys or Previous/Next to inspect an hour. Missing
+samples remain gaps; a known zero remains zero. Concentrations retain µg/m³
+regardless of temperature units. Source explanations and official AQI guides
+are available in the view.
+
+The outlook loads only when opened. Its eight measures share one bounded
+request and optional 24 KiB cache. It refreshes at most hourly while open,
+expires after six hours, and cancels demand on close, hide or place change.
+Fresh reopenings reuse the data. CAMS global's roughly 45 km grid and native
+three-hourly output limit local detail; Open-Meteo supplies the hourly values.
+These are modeled concentrations, and PM2.5 alone does not identify wildfire
+smoke. Regional model selection, pollen and smoke products are separate work.
+
 Air-quality attribution: Copernicus Atmosphere Monitoring Service (CAMS), ECMWF —
 [CAMS global atmospheric composition forecasts](https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts?tab=overview),
 processed by [Open-Meteo](https://open-meteo.com/en/docs/air-quality-api), under

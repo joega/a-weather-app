@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/airquality"
 	"github.com/joega/a-weather-app/internal/notifications"
 	"github.com/joega/a-weather-app/internal/precipitation"
 	"github.com/joega/a-weather-app/internal/radar"
@@ -59,6 +60,7 @@ type Options struct {
 	// Nil leaves air quality cache-only. The production service supplies Fetch.
 	FetchAirQuality    func(context.Context, M, time.Time) (M, error)
 	FetchPrecipitation func(context.Context, M, time.Time) (precipitation.Data, error)
+	FetchAirOutlook    func(context.Context, M, time.Time) (airquality.Outlook, error)
 	FetchMap           func(context.Context, float64, float64, string, time.Time) (weathermap.Data, error)
 	Radar              radar.Provider
 	SearchPlaces       func(context.Context, M) ([]any, error)
@@ -118,11 +120,13 @@ type App struct {
 	radar                 *radar.Controller
 	radarClientToken      int
 	precipitation         *precipitationState
+	airOutlook            *airOutlookState
 	notifications         *notifications.Watcher
 	results               chan completion
 	Changed               chan struct{}
 	RadarChanged          chan struct{}
 	PrecipitationChanged  chan struct{}
+	AirOutlookChanged     chan struct{}
 	launcherStatus        string
 	updates               updateState
 	closed                bool
@@ -322,7 +326,7 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	if o.SearchPlaces == nil {
 		o.SearchPlaces = weather.SearchPlaces
 	}
-	a := &App{state: state, options: o, primaryOnly: primaryOnly, presented: !primaryOnly, controls: DefaultControls(), results: make(chan completion, 8), forecastDone: make(chan *forecastWork, 2), forecastJobs: make(map[*forecastWork]bool), alertSlots: make(chan struct{}, 2), Changed: make(chan struct{}, 1), RadarChanged: make(chan struct{}, 1), PrecipitationChanged: make(chan struct{}, 1), launcherStatus: "ready"}
+	a := &App{state: state, options: o, primaryOnly: primaryOnly, presented: !primaryOnly, controls: DefaultControls(), results: make(chan completion, 8), forecastDone: make(chan *forecastWork, 2), forecastJobs: make(map[*forecastWork]bool), alertSlots: make(chan struct{}, 2), Changed: make(chan struct{}, 1), RadarChanged: make(chan struct{}, 1), PrecipitationChanged: make(chan struct{}, 1), AirOutlookChanged: make(chan struct{}, 1), launcherStatus: "ready"}
 	if e := a.restoreLocations(); e != nil {
 		return nil, e
 	}
@@ -453,6 +457,11 @@ func (a *App) interval(presented bool) time.Duration {
 			d = delay
 		}
 	}
+	if a.airOutlook != nil {
+		if delay := a.airOutlook.controller.NextPoll(now); delay > 0 && delay < d {
+			d = delay
+		}
+	}
 	if a.notifications.Enabled() {
 		if notificationDelay := a.notifications.Interval(now); notificationDelay < d {
 			d = notificationDelay
@@ -538,7 +547,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "air_outlook_open": "detail", "air_outlook_close": "detail", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -660,6 +669,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 			a.closeMap()
 			a.closeRadar()
 			a.closePrecipitation()
+			a.closeAirOutlook()
 			a.cancelSearch()
 			a.beginLocation(v, op == "set_location")
 		}
@@ -711,6 +721,12 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return a.warningDetail(id, object(request["warning"])), false
 	case "outdoor_plan":
 		return a.outdoorPlan(id, object(request["plan"])), false
+	case "air_outlook_open", "air_outlook_close":
+		if ctx.Err() != nil {
+			reply["error"] = "request_timeout"
+			return reply, false
+		}
+		return a.airOutlookRequest(ctx, id, object(request["detail"]), op == "air_outlook_close"), false
 	case "precipitation_open", "precipitation_close":
 		if ctx.Err() != nil {
 			reply["error"] = "request_timeout"
@@ -803,6 +819,10 @@ func (a *App) Close(ctx context.Context) error {
 	if a.precipitation != nil {
 		a.precipitation.controller.Shutdown()
 		a.precipitation.open, a.precipitation.owner = false, nil
+	}
+	if a.airOutlook != nil {
+		a.airOutlook.controller.Shutdown()
+		a.airOutlook.open, a.airOutlook.owner = false, nil
 	}
 	if a.radar != nil {
 		a.radar.Shutdown()
