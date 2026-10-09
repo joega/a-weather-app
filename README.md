@@ -382,8 +382,10 @@ real-desktop compatibility validation remain in progress before release.
 ## Air quality
 
 Air quality uses a separate Open-Meteo request and cache for the selected place.
-The card labels the US and European AQI scales separately and shows PM2.5 in
-µg/m³. Values come from CAMS global model data, including for European locations;
+The card labels the US and European AQI scales separately, adds each index's
+category, and shows PM2.5 in µg/m³. The scales have different category boundaries;
+their numbers are not interchangeable. Values come from CAMS global model data,
+including for European locations;
 they describe a model forecast, not a nearby monitoring station. AQ indices are
 calculated by the provider and are not reconstructed from the displayed PM2.5.
 

@@ -21,6 +21,7 @@
 <file alias="qml/UnitsChoice.qml">../../ui/qml/UnitsChoice.qml</file>
 <file alias="qml/AlertsPanel.qml">../../ui/qml/AlertsPanel.qml</file>
 <file alias="qml/AirQualityPanel.qml">../../ui/qml/AirQualityPanel.qml</file>
+<file alias="qml/AirQuality.js">../../ui/qml/AirQuality.js</file>
 <file alias="qml/Atmosphere.qml">../../ui/qml/Atmosphere.qml</file>
 <file alias="qml/ChoiceControl.qml">../../ui/qml/ChoiceControl.qml</file>
 <file alias="qml/DailyPanel.qml">../../ui/qml/DailyPanel.qml</file>

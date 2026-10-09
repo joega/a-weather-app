@@ -4121,6 +4121,57 @@ class FrontendTest : public QObject {
             QVERIFY2(!accepted(invalid), qPrintable(bad.first));
         }
     }
+    void airQualityCategoryBoundaries() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(import QtQml
+            import "qrc:/ui/qml/AirQuality.js" as AQ
+            QtObject { function classify(value, scale) { return AQ.category(value, scale); } })",
+                          QUrl("qrc:/tests/aq-category.qml"));
+        std::unique_ptr<QObject> helper(component.create());
+        QVERIFY2(helper, qPrintable(component.errorString()));
+        const auto category = [&](QVariant value, const QString& scale) {
+            QVariant result;
+            if (!QMetaObject::invokeMethod(helper.get(), "classify", Q_RETURN_ARG(QVariant, result),
+                                           Q_ARG(QVariant, value),
+                                           Q_ARG(QVariant, QVariant(scale))))
+                QTest::qFail("Could not classify AQ index", __FILE__, __LINE__);
+            return result.toString();
+        };
+        struct Example {
+            double value;
+            const char* us;
+            const char* eu;
+        };
+        for (const auto& row : std::initializer_list<Example>{
+                 {0, "Good", "Good"},
+                 {20, "Good", "Good"},
+                 {20.5, "Good", "Fair"},
+                 {40, "Good", "Fair"},
+                 {40.5, "Good", "Moderate"},
+                 {50.49, "Good", "Moderate"},
+                 {50.5, "Moderate", "Moderate"},
+                 {60, "Moderate", "Moderate"},
+                 {60.5, "Moderate", "Poor"},
+                 {80, "Moderate", "Poor"},
+                 {80.5, "Moderate", "Very poor"},
+                 {100.49, "Moderate", "Very poor"},
+                 {100.5, "Unhealthy for sensitive groups", "Extremely poor"},
+                 {150, "Unhealthy for sensitive groups", "Extremely poor"},
+                 {151, "Unhealthy", "Extremely poor"},
+                 {200, "Unhealthy", "Extremely poor"},
+                 {201, "Very unhealthy", "Extremely poor"},
+                 {300, "Very unhealthy", "Extremely poor"},
+                 {301, "Hazardous", "Extremely poor"},
+                 {1000, "Hazardous", "Extremely poor"}}) {
+            QCOMPARE(category(row.value, "us"), QString::fromLatin1(row.us));
+            QCOMPARE(category(row.value, "eu"), QString::fromLatin1(row.eu));
+        }
+        for (const auto& value :
+             QList<QVariant>{QVariant(), QVariant::fromValue(nullptr), -1.0, 1001.0, QString("0")})
+            QCOMPARE(category(value, "us"), QString("Unavailable"));
+        QCOMPARE(category(0, "pm"), QString("Unavailable"));
+    }
     void airQualityContractValidation() {
         auto accepted = [this](QJsonObject value) {
             FakeTransport transport;
@@ -4341,20 +4392,29 @@ class FrontendTest : public QObject {
         auto* eu = named("airQualityValue_eu");
         QVERIFY(eu);
         QCOMPARE(eu->property("text").toString(), QString("125"));
+        QCOMPARE(named("airQualityCategory_us")->property("text").toString(), QString("Good"));
+        QCOMPARE(named("airQualityCategory_eu")->property("text").toString(),
+                 QString("Extremely poor"));
+        aq["us_aqi"] = 125;
+        show(aq, 3, 700, "-narrow-sensitive-groups");
+        QCOMPARE(named("airQualityCategory_us")->property("text").toString(),
+                 QString("Unhealthy for sensitive groups"));
         aq = airQuality(9000);
         aq["freshness"] = "stale";
         aq["offline"] = true;
         aq["error"] = "fetch_failed";
-        show(aq, 3, 700, "-narrow-stale-offline");
+        show(aq, 4, 700, "-narrow-stale-offline");
         aq["freshness"] = "expired";
         aq["age_seconds"] = 25000;
         for (auto key : {"us_aqi", "european_aqi", "pm2_5_ug_m3"})
             aq[key] = QJsonValue::Null;
-        show(aq, 4, 700, "-narrow-expired");
+        show(aq, 5, 700, "-narrow-expired");
         us = named("airQualityValue_us");
         QVERIFY(us);
         QCOMPARE(us->property("text").toString(), QString("—"));
-        auto unavailable = metricSnapshot(5);
+        QCOMPARE(named("airQualityCategory_us")->property("text").toString(),
+                 QString("Unavailable"));
+        auto unavailable = metricSnapshot(6);
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", unavailable}});
         us = named("airQualityValue_us");
         QVERIFY(us);

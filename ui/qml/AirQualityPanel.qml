@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "Forecast.js" as Forecast
+import "AirQuality.js" as AirQuality
 
 GlassPanel {
     id: root
@@ -68,17 +69,20 @@ GlassPanel {
                     {
                         kind: "us",
                         title: "US AQI scale",
-                        value: root.index(root.airQuality.us_aqi)
+                        value: root.index(root.airQuality.us_aqi),
+                        category: AirQuality.category(root.airQuality.us_aqi, "us")
                     },
                     {
                         kind: "eu",
                         title: "European AQI scale",
-                        value: root.index(root.airQuality.european_aqi)
+                        value: root.index(root.airQuality.european_aqi),
+                        category: AirQuality.category(root.airQuality.european_aqi, "eu")
                     },
                     {
                         kind: "pm",
                         title: "PM2.5 · µg/m³",
-                        value: root.particulate(root.airQuality.pm2_5_ug_m3)
+                        value: root.particulate(root.airQuality.pm2_5_ug_m3),
+                        category: "Fine particles"
                     }
                 ]
                 delegate: ColumnLayout {
@@ -105,8 +109,26 @@ GlassPanel {
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
+                    PlainLabel {
+                        objectName: "airQualityCategory_" + pollutantRow.modelData.kind
+                        Layout.fillWidth: true
+                        text: pollutantRow.modelData.category
+                        horizontalAlignment: Text.AlignHCenter
+                        color: Tokens.secondary
+                        font.pixelSize: 13
+                        wrapMode: Text.Wrap
+                        elide: Text.ElideNone
+                    }
                 }
             }
+        }
+        PlainLabel {
+            Layout.fillWidth: true
+            text: "The two indices use different scales. Lower values indicate cleaner air."
+            color: Tokens.secondary
+            font.pixelSize: 12
+            wrapMode: Text.Wrap
+            elide: Text.ElideNone
         }
         PlainLabel {
             objectName: "airQualityTimes"
