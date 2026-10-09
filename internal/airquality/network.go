@@ -68,6 +68,16 @@ func fetchWithTransport(ctx context.Context, location Object, fetchedAt time.Tim
 			result, err = nil, contextErr
 		}
 	}()
+	payload, e := requestPayload(ctx, rawURL, responseMaxBytes, base)
+	if e != nil {
+		return nil, e
+	}
+	return Parse(payload, location, fetchedAt)
+}
+
+// The two fixed AQ queries share the same connection pool and HTTP defenses.
+// Callers supply their own bounded timeout and validate their product's schema.
+func requestPayload(ctx context.Context, rawURL string, limit int64, base *http.Transport) (Object, error) {
 	transport := base
 	client := &http.Client{Transport: transport, Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("air quality redirects refused") }}
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -84,17 +94,9 @@ func fetchWithTransport(ctx context.Context, location Object, fetchedAt time.Tim
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("air quality HTTP status %d", resp.StatusCode)
 	}
-	raw, e := io.ReadAll(io.LimitReader(resp.Body, responseMaxBytes+1))
+	raw, e := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if e != nil {
 		return nil, e
 	}
-	payload, e := safeio.Object(raw, responseMaxBytes)
-	if e != nil {
-		return nil, e
-	}
-	record, e := Parse(payload, location, fetchedAt)
-	if e != nil {
-		return nil, e
-	}
-	return record, nil
+	return safeio.Object(raw, int(limit))
 }

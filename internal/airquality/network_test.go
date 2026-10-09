@@ -170,42 +170,53 @@ func (c *cancelAtEOFConn) Write(p []byte) (int, error) {
 }
 
 func TestFetchCancellationDuringBodyEOF(t *testing.T) {
-	for _, canceled := range []bool{false, true} {
-		t.Run(fmt.Sprintf("canceled=%t", canceled), func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			client, peer := net.Pipe()
-			t.Cleanup(func() { client.Close(); peer.Close() })
-			conn := &cancelAtEOFConn{
-				Conn:           client,
-				response:       strings.NewReader("HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"),
-				requestWritten: make(chan struct{}),
-			}
-			if canceled {
-				conn.cancel = cancel
-			}
-			transport := http.DefaultTransport.(*http.Transport).Clone()
-			transport.Proxy = nil
-			transport.DialTLSContext = func(context.Context, string, string) (net.Conn, error) {
-				return conn, nil
-			}
-			t.Cleanup(transport.CloseIdleConnections)
-			_, err := fetchWithTransport(ctx, testLocation(), testTime(), transport)
-			want := io.EOF
-			if canceled {
-				want = context.Canceled
-			}
-			if !errors.Is(err, want) {
-				t.Fatalf("got %v, want %v", err, want)
-			}
-		})
+	for _, outlook := range []bool{false, true} {
+		for _, canceled := range []bool{false, true} {
+			t.Run(fmt.Sprintf("outlook=%t/canceled=%t", outlook, canceled), func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				client, peer := net.Pipe()
+				t.Cleanup(func() { client.Close(); peer.Close() })
+				conn := &cancelAtEOFConn{
+					Conn:           client,
+					response:       strings.NewReader("HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"),
+					requestWritten: make(chan struct{}),
+				}
+				if canceled {
+					conn.cancel = cancel
+				}
+				transport := http.DefaultTransport.(*http.Transport).Clone()
+				transport.Proxy = nil
+				transport.DialTLSContext = func(context.Context, string, string) (net.Conn, error) {
+					return conn, nil
+				}
+				t.Cleanup(transport.CloseIdleConnections)
+				var err error
+				if outlook {
+					_, err = fetchOutlook(ctx, testLocation(), testTime(), transport)
+				} else {
+					_, err = fetchWithTransport(ctx, testLocation(), testTime(), transport)
+				}
+				want := io.EOF
+				if canceled {
+					want = context.Canceled
+				}
+				if !errors.Is(err, want) {
+					t.Fatalf("got %v, want %v", err, want)
+				}
+			})
+		}
 	}
 }
 
 func TestSequentialAQRequestsReuseConnection(t *testing.T) {
 	var connections atomic.Int32
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewEncoder(w).Encode(payload(testTime())); err != nil {
+		body := payload(testTime())
+		if r.URL.Query().Has("hourly") {
+			body = outlookPayload(testTime())
+		}
+		if err := json.NewEncoder(w).Encode(body); err != nil {
 			t.Error(err)
 		}
 	}))
@@ -226,8 +237,11 @@ func TestSequentialAQRequestsReuseConnection(t *testing.T) {
 		if _, err := fetchWithTransport(context.Background(), testLocation(), testTime(), transport); err != nil {
 			t.Fatal(err)
 		}
+		if _, err := fetchOutlook(context.Background(), testLocation(), testTime(), transport); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if connections.Load() != 1 {
-		t.Fatalf("three requests used %d connections", connections.Load())
+		t.Fatalf("six current/outlook requests used %d connections", connections.Load())
 	}
 }
