@@ -1,4 +1,4 @@
-.PHONY: all clean test test-e2e test-warnings test-warning-e2e
+.PHONY: all clean test test-e2e test-warnings test-warning-e2e test-wayland-activation
 GO ?= go
 GO_APP ?= $(abspath ../../build/a-weather-app)
 all:
@@ -30,6 +30,13 @@ test-e2e:
 	qmake6 tests/service-frontend-test.pro -o .service-test.mk
 	$(MAKE) -f .service-test.mk
 	env GO_APP="$(GO_APP)" QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software ./service-frontend-test
+test-wayland-activation:
+	mkdir -p .wayland-test-build
+	wayland-scanner server-header "$$(pkg-config --variable=pkgdatadir wayland-protocols)/staging/xdg-activation/xdg-activation-v1.xml" .wayland-test-build/xdg-activation-server.h
+	wayland-scanner private-code "$$(pkg-config --variable=pkgdatadir wayland-protocols)/staging/xdg-activation/xdg-activation-v1.xml" .wayland-test-build/xdg-activation-protocol.c
+	qmake6 tests/wayland-activation-test.pro -o .wayland-test.mk
+	$(MAKE) -f .wayland-test.mk
+	env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_IM_MODULE=none ./wayland-activation-test
 clean:
 	$(RM) a-weather-app-qt protocol-test frontend-test .build.mk .test.mk .frontend-test.mk
 	$(RM) .build/*.o .build/moc_* .build/qrc_* .test-build/*.o .test-build/moc_* .test-build/protocol_test.moc
@@ -37,3 +44,4 @@ clean:
 	$(RM) service-frontend-test .service-test.mk .service-test-build/*.o .service-test-build/moc_* .service-test-build/qrc_* .service-test-build/service_frontend_test.moc
 	$(RM) desktopwarnings-test .warnings-test.mk .warnings-test-build/*.o .warnings-test-build/moc_* .warnings-test-build/desktopwarnings_test.moc
 	$(RM) warning-e2e-test .warning-e2e.mk .warning-e2e-build/*.o .warning-e2e-build/moc_* .warning-e2e-build/qrc_* .warning-e2e-build/warning_e2e_test.moc .warning-e2e-build/service.test
+	$(RM) wayland-activation-test .wayland-test.mk .wayland-test-build/*.o .wayland-test-build/moc_* .wayland-test-build/wayland_activation_test.moc .wayland-test-build/xdg-activation-*

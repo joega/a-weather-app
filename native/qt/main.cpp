@@ -1,6 +1,7 @@
 #include "transport.h"
 #include "maptiles.h"
 #include "graphicscapabilities.h"
+#include "windowactivation.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -100,10 +101,13 @@ int main(int argc, char** argv) {
     WeatherTransport transport(args.value("socket"), args.isSet("diagnostic"));
     MapTiles mapTiles;
     GraphicsCapabilities graphics;
+    WindowActivation windowActivation;
     QQmlApplicationEngine engine;
-    engine.setInitialProperties({{"graphicsCapabilities", QVariant::fromValue<QObject*>(&graphics)},
-                                 {"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
-                                 {"mapTiles", QVariant::fromValue<QObject*>(&mapTiles)}});
+    engine.setInitialProperties(
+        {{"graphicsCapabilities", QVariant::fromValue<QObject*>(&graphics)},
+         {"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+         {"windowActivation", QVariant::fromValue<QObject*>(&windowActivation)},
+         {"mapTiles", QVariant::fromValue<QObject*>(&mapTiles)}});
     QObject::connect(
         &engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);

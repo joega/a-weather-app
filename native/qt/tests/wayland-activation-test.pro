@@ -1,0 +1,9 @@
+QT += testlib quick waylandcompositor
+CONFIG += console c++17 testcase link_pkgconfig
+PKGCONFIG += wayland-server
+TARGET = wayland-activation-test
+INCLUDEPATH += . .wayland-test-build
+SOURCES += tests/wayland_activation_test.cpp windowactivation.cpp .wayland-test-build/xdg-activation-protocol.c
+HEADERS += windowactivation.h
+OBJECTS_DIR = .wayland-test-build
+MOC_DIR = .wayland-test-build

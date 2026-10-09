@@ -3,6 +3,7 @@
 #include <QtTest>
 #include "desktopwarnings.h"
 #include "transport.h"
+#include "windowactivation.h"
 #include "notificationfixture.h"
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -90,10 +91,25 @@ class WarningService final {
 };
 } // namespace
 
+class RecordingActivation final : public QObject {
+    Q_OBJECT
+    WindowActivation activation;
+
+  public:
+    int calls = 0;
+    QString token;
+    Q_INVOKABLE void show(QWindow* window, const QString& value) {
+        ++calls;
+        token = value;
+        activation.show(window, value);
+    }
+};
+
 class WarningE2ETest final : public QObject {
     Q_OBJECT
     std::unique_ptr<WeatherTransport> transport;
     std::unique_ptr<QQmlApplicationEngine> engine;
+    RecordingActivation activation;
     QObject* root = nullptr;
     QQuickWindow* window = nullptr;
     QString daemonPath() const {
@@ -119,8 +135,11 @@ class WarningE2ETest final : public QObject {
         transport.reset();
         transport = std::make_unique<WeatherTransport>(socket, true);
         engine = std::make_unique<QQmlApplicationEngine>();
+        activation.calls = 0;
+        activation.token.clear();
         engine->setInitialProperties(
-            {{"weatherTransport", QVariant::fromValue<QObject*>(transport.get())}});
+            {{"weatherTransport", QVariant::fromValue<QObject*>(transport.get())},
+             {"windowActivation", QVariant::fromValue<QObject*>(&activation)}});
         QObject::disconnect(engine.get(), nullptr, QCoreApplication::instance(), nullptr);
         engine->load(QUrl("qrc:/ui/qml/shell.qml"));
         if (engine->rootObjects().size() != 1)
@@ -222,11 +241,17 @@ class WarningE2ETest final : public QObject {
         QVERIFY(cycle(service, daemon, 1));
         QVERIFY(!window->isVisible());
         QVERIFY(!root->property("warningOpen").toBool());
+        QCOMPARE(activation.calls, 0);
         QCOMPARE(service.command({{"op", "status"}}).value("forecasts"), before.value("forecasts"));
         const auto notice = daemon.events("notify").first();
         QVERIFY(notice.value("body").toString().contains("City 0"));
         QVERIFY(notice.value("body").toString().contains("NWS Fixture"));
+        daemon.command({{"kind", "token"},
+                        {"id", notice.value("id")},
+                        {"value", "private-fixture-activation"}});
         QVERIFY(openAction(daemon, notice.value("id").toInt()));
+        QCOMPARE(activation.calls, 1);
+        QCOMPARE(activation.token, "private-fixture-activation");
         auto* sky = root->findChild<QObject*>("forecastAtmosphere");
         QVERIFY(sky);
         QVERIFY(!sky->property("presentationActive").toBool());
@@ -243,11 +268,17 @@ class WarningE2ETest final : public QObject {
         daemon.command({{"kind", "action"}, {"id", notice.value("id")}});
         QTest::qWait(80);
         QVERIFY(!root->property("warningOpen").toBool());
+        QCOMPARE(activation.calls, 1);
         service.command({{"op", "stage"}, {"stage", "update"}});
         QVERIFY(cycle(service, daemon, 2));
         const auto update = daemon.events("notify").last();
         QVERIFY(update.value("title").toString().startsWith("Updated:"));
+        window->showMinimized();
+        QTRY_VERIFY(window->windowStates().testFlag(Qt::WindowMinimized));
         QVERIFY(openAction(daemon, update.value("id").toInt()));
+        QVERIFY(!window->windowStates().testFlag(Qt::WindowMinimized));
+        QCOMPARE(activation.calls, 2);
+        QVERIFY(activation.token.isEmpty());
         QCOMPARE(eval("backend.warningDetail.kind").toString(), "updated");
         QVERIFY(eval("backend.warningDetail.instruction").toString().contains("northern route"));
         QVERIFY(closeAndHide());

@@ -17,3 +17,6 @@ desktopwarnings-test
 warning-e2e-test
 .warning-e2e-build/
 .warning-e2e.mk
+wayland-activation-test
+.wayland-test-build/
+.wayland-test.mk

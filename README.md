@@ -210,6 +210,10 @@ The native suite includes `make -C native/qt test-warning-e2e`: controlled Go
 provider/clock fixtures, the production socket and Qt UI, and a mock notification
 daemon under `dbus-run-session`. It never sends test warnings to the desktop's
 notification daemon; the Go fixture is compiled only into the test binary.
+`make -C native/qt test-wayland-activation` additionally checks notification-token
+handoff against an isolated Wayland compositor, including a compositor without
+the activation extension. This optional platform test needs Qt Wayland Compositor,
+`wayland-scanner`, and `wayland-protocols`; they add no application dependency.
 The QML gate needs Quickshell and the actual Omarchy modules; unavailable tools
 fail explicitly. `make format-native-qml` applies the configured formatting.
 
@@ -349,8 +353,10 @@ list holds at most 16 notices for 24 hours in the current session and clears
 when warnings are disabled or the app restarts. Desktop acceptance does not
 confirm that a notice was read. Failed or uncertain attempts are not retried
 automatically, avoiding duplicate delivery after restart. Controlled end-to-end
-warning delivery tests pass; enabled-monitor performance and native desktop
-focus validation remain in progress before release.
+warning delivery and isolated Wayland activation tests pass. Notification clicks
+restore minimized windows and forward available desktop activation tokens;
+focus remains subject to compositor policy. Enabled-monitor performance and
+real-desktop compatibility validation remain in progress before release.
 
 ## Air quality
 

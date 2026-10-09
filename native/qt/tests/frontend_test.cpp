@@ -24,6 +24,7 @@
 #include <QNetworkReply>
 #include "maptiles.h"
 #include "graphicscapabilities.h"
+#include "windowactivation.h"
 #include <functional>
 
 // Build exact PNG framing without asking an image decoder to parse metadata.
@@ -2576,6 +2577,27 @@ class FrontendTest : public QObject {
             QVERIFY(evaluate(engine, bridge.data(), "warningDetail === null").toBool());
             QVERIFY(!bridge->property("disconnected").toBool());
             QVERIFY(QMetaObject::invokeMethod(bridge.data(), "closeWarning"));
+        }
+    }
+    void warningActivationRestoresWindowWithoutRetainingToken() {
+        WindowActivation activation;
+        QQuickWindow window;
+        const auto original = qgetenv("XDG_ACTIVATION_TOKEN");
+        activation.show(nullptr, "unused");
+        QVERIFY(!window.isVisible());
+        window.showMinimized();
+        QTRY_VERIFY(window.windowStates().testFlag(Qt::WindowMinimized));
+        activation.show(&window, "fixture-token");
+        QVERIFY(window.isVisible());
+        QVERIFY(!window.windowStates().testFlag(Qt::WindowMinimized));
+        QCOMPARE(qgetenv("XDG_ACTIVATION_TOKEN"), original);
+        const QStringList invalid{QString(1025, 'x'), QString("bad\ntoken"), QString(QChar(0xd800)),
+                                  QString(QChar(0x80))};
+        for (const auto& token : invalid) {
+            window.hide();
+            activation.show(&window, token);
+            QVERIFY(window.isVisible());
+            QCOMPARE(qgetenv("XDG_ACTIVATION_TOKEN"), original);
         }
     }
     void warningNativeClickShowsLazyOriginalDetailAndKeepsAlive() {

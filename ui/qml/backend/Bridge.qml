@@ -54,7 +54,7 @@ Item {
     property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation"].indexOf(pendingOp) < 0)
     signal closed(int exitCode)
     signal toggleWindow
-    signal warningRequested(var reference)
+    signal warningRequested(var reference, string activationToken)
     function loadWarning(reference) {
         warningGeneration++;
         warningTarget = Forecast.warningReference(reference);
@@ -301,7 +301,7 @@ Item {
                 else if (value.event === "warning_open") {
                     const reference = Forecast.warningReference(value.warning);
                     if (!closing)
-                        warningRequested(reference);
+                        warningRequested(reference, typeof value.activation_token === "string" ? value.activation_token : "");
                 } else if (value.event === "map") {
                     if (mapWanted)
                         weatherMap = Forecast.weatherMap(value.map);

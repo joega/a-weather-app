@@ -9,6 +9,7 @@ QtObject {
     property var graphicsCapabilities: null
     required property var weatherTransport
     property var mapTiles: null
+    property var windowActivation: null
     property string units: bridge.snapshot ? bridge.snapshot.controls.units : "F"
     readonly property string windUnits: bridge.snapshot ? bridge.snapshot.controls.wind_units : "auto"
     readonly property bool automaticUnits: bridge.snapshot ? bridge.snapshot.controls.units_mode === "auto" : true
@@ -26,7 +27,7 @@ QtObject {
     property bool warningOpen: false
     property bool warningBackToSettings: false
     property Item warningReturnFocus: null
-    function openWarning(reference, fromDesktop) {
+    function openWarning(reference, fromDesktop, activationToken) {
         if (bridge.closing)
             return;
         if (!warningOpen) {
@@ -38,9 +39,16 @@ QtObject {
         locationsOpen = false;
         details.close();
         bridge.loadWarning(reference);
-        window.show();
-        window.raise();
-        window.requestActivate();
+        if (root.windowActivation)
+            root.windowActivation.show(window, fromDesktop ? activationToken || "" : "");
+        else {
+            if (window.visibility === Window.Minimized)
+                window.showNormal();
+            else
+                window.show();
+            window.raise();
+            window.requestActivate();
+        }
     }
     function closeWarning() {
         const reference = bridge.warningTarget;
@@ -240,7 +248,7 @@ QtObject {
                 window.requestActivate();
             }
         }
-        onWarningRequested: reference => root.openWarning(reference, true)
+        onWarningRequested: (reference, activationToken) => root.openWarning(reference, true, activationToken)
         onSnapshotChanged: {
             if (snapshot && !root.initialLocationChecked) {
                 root.initialLocationChecked = true;
