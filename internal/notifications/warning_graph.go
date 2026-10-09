@@ -185,6 +185,13 @@ func pruneWarningDocument(d warningDocument, now time.Time) warningDocument {
 	}
 	for _, c := range d.Coverage {
 		if locations[c.Location] || c.FetchedAt.Add(warningRetention).After(now) {
+			keys := []string{}
+			for _, key := range c.CurrentKeys {
+				if keep[graph[warningID(c.Location, key)]] {
+					keys = append(keys, key)
+				}
+			}
+			c.CurrentKeys = keys
 			out.Coverage = append(out.Coverage, c)
 		}
 	}

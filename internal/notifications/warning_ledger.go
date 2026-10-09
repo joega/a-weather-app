@@ -51,6 +51,9 @@ type WarningBatch struct {
 	Messages  []weather.AlertMessage
 	FetchedAt time.Time
 	Complete  bool
+	// CurrentKeys contains identities from the current active observation,
+	// excluding history-only entries. An empty list does not imply all clear.
+	CurrentKeys []string
 }
 
 // WarningDecision identifies one terminal revision. Kind is new, updated or
@@ -84,9 +87,10 @@ type warningRecord struct {
 }
 
 type warningCoverage struct {
-	Location  string    `json:"location"`
-	FetchedAt time.Time `json:"fetched_at"`
-	Complete  bool      `json:"complete"`
+	Location    string    `json:"location"`
+	FetchedAt   time.Time `json:"fetched_at"`
+	Complete    bool      `json:"complete"`
+	CurrentKeys []string  `json:"current_keys"`
 }
 
 type warningDocument struct {
@@ -136,7 +140,7 @@ func openWarningLedger(files warningFiles, lock io.Closer) (*WarningLedger, erro
 	if err != nil {
 		return nil, err
 	}
-	doc := warningDocument{Schema: 1, Records: []warningRecord{}, Receipts: []WarningReceipt{}, Coverage: []warningCoverage{}}
+	doc := warningDocument{Schema: 2, Records: []warningRecord{}, Receipts: []WarningReceipt{}, Coverage: []warningCoverage{}}
 	if v != nil {
 		doc, err = decodeWarningDocument(v)
 		if err != nil {
@@ -316,7 +320,8 @@ func (l *WarningLedger) Reconcile(batch WarningBatch, now time.Time) error {
 			}
 		}
 	}
-	coverage := warningCoverage{batch.Location, batch.FetchedAt.UTC(), batch.Complete}
+	coverage := warningCoverage{batch.Location, batch.FetchedAt.UTC(), batch.Complete, append([]string{}, batch.CurrentKeys...)}
+	sort.Strings(coverage.CurrentKeys)
 	found := false
 	for i := range doc.Coverage {
 		if doc.Coverage[i].Location == batch.Location {
@@ -347,6 +352,10 @@ func (l *WarningLedger) Candidates(location string, now time.Time) []WarningDeci
 	if !coverage.Complete || coverage.FetchedAt.After(now) || now.Sub(coverage.FetchedAt) > warningFreshness {
 		return nil
 	}
+	current := make(map[string]bool, len(coverage.CurrentKeys))
+	for _, key := range coverage.CurrentKeys {
+		current[key] = true
+	}
 	var nodes []*warningVertex
 	for _, v := range l.graph {
 		r := v.record
@@ -357,7 +366,7 @@ func (l *WarningLedger) Candidates(location string, now time.Time) []WarningDeci
 			if now.Sub(r.Sent) <= warningCancelAge {
 				nodes = append(nodes, v)
 			}
-		} else if !r.Effective.After(now) && r.Expires.After(now) {
+		} else if current[r.Key] && !r.Effective.After(now) && r.Expires.After(now) {
 			nodes = append(nodes, v)
 		}
 	}
@@ -495,6 +504,25 @@ func (l *WarningLedger) Status(location string, now time.Time) WarningLedgerStat
 
 func decodeWarningDocument(v M) (warningDocument, error) {
 	var d warningDocument
+	// The pre-integration schema did not distinguish active observations from
+	// history. Preserve its receipts and graph, but require a fresh explicit
+	// active observation before any of its entries can authorize delivery.
+	if v["schema_version"] == 1.0 {
+		v = safeio.Clone(v)
+		rows, ok := v["coverage"].([]any)
+		if !ok {
+			return d, errors.New("warning coverage migration")
+		}
+		for _, row := range rows {
+			c, ok := row.(M)
+			if !ok || len(c) != 3 || c["location"] == nil || c["fetched_at"] == nil || c["complete"] == nil {
+				return d, errors.New("warning coverage migration")
+			}
+			c["current_keys"] = []any{}
+			c["complete"] = false
+		}
+		v["schema_version"] = 2.0
+	}
 	raw, err := json.Marshal(v)
 	if err != nil || len(raw) > warningLedgerLimit {
 		return d, errors.New("invalid warning ledger size")
@@ -521,7 +549,7 @@ func decodeWarningDocument(v M) (warningDocument, error) {
 }
 
 func validateWarningDocument(d warningDocument) error {
-	if d.Schema != 1 || !warningNow(d.UpdatedAt) || d.Records == nil || d.Receipts == nil || d.Coverage == nil {
+	if d.Schema != 2 || !warningNow(d.UpdatedAt) || d.Records == nil || d.Receipts == nil || d.Coverage == nil {
 		return errors.New("warning ledger schema")
 	}
 	if len(d.Records) > warningNodeLimit || len(d.Receipts) > warningReceiptLimit || len(d.Coverage) > warningLocationLimit {
@@ -533,6 +561,16 @@ func validateWarningDocument(d warningDocument) error {
 			return errors.New("warning coverage")
 		}
 		locations[c.Location] = true
+		if c.CurrentKeys == nil || len(c.CurrentKeys) > WarningBatchLimit {
+			return ErrWarningLedgerCapacity
+		}
+		last := ""
+		for _, key := range c.CurrentKeys {
+			if !fingerprint.MatchString(key) || key <= last {
+				return errors.New("warning active observation")
+			}
+			last = key
+		}
 	}
 	for _, r := range d.Records {
 		if !locations[r.Location] || !fingerprint.MatchString(r.Key) || !fingerprint.MatchString(r.Digest) || !fingerprint.MatchString(r.Material) || r.References == nil || len(r.References) > weather.AlertReferenceLimit || !warningNow(r.Sent) || !warningNow(r.Seen) || r.Sent.After(r.Seen) || r.Seen.After(d.UpdatedAt) || !warningNow(r.Effective) {
@@ -555,6 +593,14 @@ func validateWarningDocument(d warningDocument) error {
 	graph, err := buildWarningGraph(d)
 	if err != nil {
 		return err
+	}
+	for _, c := range d.Coverage {
+		for _, key := range c.CurrentKeys {
+			v := graph[warningID(c.Location, key)]
+			if v == nil || v.record == nil || v.record.Type == "Cancel" || !v.record.Seen.Equal(c.FetchedAt) {
+				return errors.New("unmatched active observation")
+			}
+		}
 	}
 	for _, receipt := range d.Receipts {
 		v := graph[warningID(receipt.Decision.Location, receipt.Decision.Key)]

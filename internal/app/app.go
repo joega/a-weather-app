@@ -51,6 +51,9 @@ type Options struct {
 	FetchCountry      func(context.Context, M, time.Time, string) (M, error)
 	// FetchAlerts is independent when supplied; nil preserves custom combined fetches.
 	FetchAlerts func(context.Context, M, time.Time) (M, error)
+	// FetchAlertMessages uses shared, spaced current/history requests. It is
+	// the production path; FetchAlerts remains a legacy custom-fetch hook.
+	FetchAlertMessages func(context.Context, weather.AlertMessageQuery, time.Time) (weather.AlertMessagePage, error)
 	// Nil leaves air quality cache-only. The production service supplies Fetch.
 	FetchAirQuality func(context.Context, M, time.Time) (M, error)
 	FetchMap        func(context.Context, float64, float64, string, time.Time) (weathermap.Data, error)
@@ -88,6 +91,8 @@ type App struct {
 	forecastJobs    map[*forecastWork]bool
 	forecastDone    chan *forecastWork
 	alertSlots      chan struct{}
+	alerts          *alertScheduler
+	warningObserver warningObservationConsumer
 	mu              contextMutex
 	cacheMu         sync.RWMutex
 	cached          M
@@ -293,7 +298,9 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	}
 	if o.Fetch == nil && o.FetchCountry == nil {
 		o.FetchCountry = weather.FetchForecastForCountry
-		o.FetchAlerts = weather.FetchAlerts
+		if o.FetchAlerts == nil && o.FetchAlertMessages == nil {
+			o.FetchAlertMessages = weather.FetchAlertMessages
+		}
 	}
 	if o.Resolve == nil && o.ResolveSelection == nil {
 		o.ResolveSelection = weather.ResolveSelection
@@ -314,6 +321,10 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 		return nil, e
 	}
 	a.notifications = notifications.New(state, o.Sender)
+	if o.FetchAlertMessages != nil {
+		a.alerts = newAlertScheduler(o.FetchAlertMessages, a.signal)
+		a.alerts.finishedNow = o.Now
+	}
 	if a.mode == "auto" && !o.Offline {
 		a.beginPointFetch(a.forecastPoint, M{"mode": "auto", "zip_code": nil}, false)
 	}
@@ -352,7 +363,15 @@ func (a *App) selectedPoint(p *forecastPoint, live bool) M {
 	if live || a.effectsStatus()["persistent"] == true {
 		mode = "live"
 	}
-	v := weather.SelectView(p.forecast, a.options.Now(), mode, weather.Manual(stringOf(object(a.controls["manual"])["condition"])), stringOf(a.controls["strength"]), a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
+	forecast := p.forecast
+	if p.alerts != nil && forecast != nil {
+		forecast = M{}
+		for k, v := range p.forecast {
+			forecast[k] = v
+		}
+		forecast["alerts"] = p.alerts
+	}
+	v := weather.SelectView(forecast, a.options.Now(), mode, weather.Manual(stringOf(object(a.controls["manual"])["condition"])), stringOf(a.controls["strength"]), a.controls["reduced_motion"] == true, a.controls["lightning_enabled"] == true)
 	if p.forecast == nil && p.location != nil {
 		solar := weather.SolarPosition(a.options.Now(), p.location["latitude"].(float64), p.location["longitude"].(float64))
 		v["solar"] = solar
@@ -380,6 +399,7 @@ func (a *App) Tick(ctx context.Context) {
 	a.beginUpdateCheck(false)
 	a.refreshDuePoints()
 	a.tickNotifications()
+	a.tickAlertWork()
 	a.updateEffectsLocked()
 }
 func (a *App) Interval() time.Duration { return a.interval(false) }
@@ -413,6 +433,11 @@ func (a *App) interval(presented bool) time.Duration {
 		// five seconds. Preserve that cadence independently of watcher deadlines.
 		if presented && d > 5*time.Second {
 			d = 5 * time.Second
+		}
+	}
+	if a.alerts != nil {
+		if alertDelay := a.alerts.interval(now); alertDelay < d {
+			d = alertDelay
 		}
 	}
 	return d
@@ -551,7 +576,13 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		a.beginFetch(nil)
 	case "refresh_primary":
 		if a.primary.mode != "default" && (a.primary.needsResolve || !a.options.Now().Before(a.primary.nextFetch)) {
-			a.barRefreshUntil = a.options.Now().Add(30 * time.Second)
+			lease := 30 * time.Second
+			if a.alerts != nil {
+				// A viewed city may have just used the shared request slot.
+				// Keep primary demand through the throttle and HTTP deadline.
+				lease = alertRequestSpacing + 15*time.Second
+			}
+			a.barRefreshUntil = a.options.Now().Add(lease)
 			a.beginPointFetch(a.primary, nil, false)
 		}
 	case "set_controls":
@@ -642,6 +673,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	a.tickNotifications()
+	a.tickAlertWork()
 	a.updateEffectsLocked()
 	if op != "snapshot" && op != "subscribe" {
 		a.signal()
@@ -691,6 +723,9 @@ func (a *App) Close(ctx context.Context) error {
 		a.cancelPointFetch(a.primary)
 	}
 	a.cancelSearch()
+	if a.alerts != nil {
+		a.alerts.close()
+	}
 	e := a.notifications.Close()
 	a.mu.Unlock()
 	if a.fx != nil {

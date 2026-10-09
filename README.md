@@ -412,6 +412,12 @@ Forecasts and city/ZIP geocoding use Open-Meteo; verified US locations use
 `api.weather.gov` for alerts. Other countries display "Alerts not supported here";
 legacy locations without a known country display unavailable coverage. These
 states do not mean that no weather warnings exist.
+Official alert requests run independently of forecast and map downloads and are
+shared by the places in use. Fresh cached feeds retain their normal 15-minute
+refresh schedule; manual refresh can request an earlier check. NWS request
+starts are spaced by at least 30 seconds across those places. A failed forecast
+does not hide an independently available alert feed, and cached alerts keep
+their original age when an alert refresh fails.
 City search sends the text you enter after a short pause; an optional two-letter
 country code narrows results. Choose a city, region and country from the results
 to save it. Typed queries are not saved. The app resolves the selected provider

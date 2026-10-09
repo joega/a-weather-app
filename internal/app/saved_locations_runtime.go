@@ -176,6 +176,7 @@ func (a *App) setPresented(active bool) {
 	} else {
 		a.refreshDuePoints()
 	}
+	a.tickAlertWork()
 	a.signal()
 }
 

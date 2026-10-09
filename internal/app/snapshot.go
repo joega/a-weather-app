@@ -126,6 +126,19 @@ func (a *App) snapshot() M {
 		alerts = object(forecast["alerts"])
 		hourly, daily = a.forecastRows(forecast, zone, now)
 	}
+	if a.alerts != nil && a.forecastPoint.alerts != nil && forecast == nil {
+		alerts = weather.SelectAlerts(a.forecastPoint.alerts, now)
+	}
+	if a.alerts != nil && a.country == "US" {
+		entry := a.alerts.entries[pointAlertKey(a.forecastPoint)]
+		pending := entry != nil && (entry.lastActive.IsZero() && entry.failures == 0 || a.alerts.job != nil && a.alerts.job.entry == entry && a.alerts.job.query.Active && a.alerts.job.ctx.Err() == nil)
+		if pending && alerts["status"] != "available" {
+			alerts = weather.UnavailableAlerts()
+			alerts["freshness"], alerts["refreshing"] = "pending", true
+		} else {
+			alerts["refreshing"] = pending
+		}
+	}
 	ranked := []M{}
 	items, _ := alerts["items"].([]any)
 	for _, v := range items {

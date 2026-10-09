@@ -51,7 +51,7 @@ func RefreshBarSaved(ctx context.Context, state *safeio.Directory, options Optio
 	}
 	for {
 		a.poll()
-		if !a.fetchBusy && !a.locationBusy && a.fetchCancel == nil {
+		if !a.fetchBusy && !a.locationBusy && a.fetchCancel == nil && a.alertRefreshFinished() {
 			if a.errorCode != nil || a.locationError != nil {
 				return errors.New("bar weather refresh failed")
 			}

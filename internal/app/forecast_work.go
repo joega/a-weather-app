@@ -21,6 +21,9 @@ type forecastPoint struct {
 	mode                           string
 	zip, country                   any
 	place                          M
+	alertKey                       string
+	alerts                         M
+	alertRefresh                   bool
 	errorCode, locationError       any
 	nextFetch                      time.Time
 	fetchCancel                    context.CancelFunc
@@ -30,8 +33,9 @@ type forecastPoint struct {
 }
 
 // A canceled worker retains its slot until it returns. Two forecast/resolution
-// workers and two independent alert calls are the hard limit, even if a callback
-// takes time to honor cancellation. Each active consumer has one replaceable
+// workers are the hard limit, even if a callback takes time to honor cancellation.
+// Production alerts use a separate shared single-worker scheduler; the legacy
+// injected alert hook can accompany each forecast. Each consumer has one replaceable
 // pending request. Publication requires both point ownership and generation.
 type forecastWork struct {
 	key                        string
@@ -132,6 +136,9 @@ func (a *App) beginPointFetch(p *forecastPoint, selection M, primary bool) {
 		p.locationError = nil
 	}
 	p.pending = &forecastWork{key: forecastWorkKey(p, selection), point: p, generation: p.generation, selection: safeio.Clone(selection), location: safeio.Clone(p.location), country: p.country, place: safeio.Clone(p.place), makePrimary: primary, ctx: ctx, cancel: cancel}
+	if selection == nil {
+		p.alertRefresh = true
+	}
 	a.startForecastWork()
 	a.signal()
 }
@@ -195,7 +202,7 @@ func (a *App) runForecastWork(work *forecastWork) {
 		}
 	}
 	var alertResults chan M
-	if err == nil && ctx.Err() == nil && country == "US" && a.options.FetchAlerts != nil {
+	if err == nil && ctx.Err() == nil && country == "US" && a.options.FetchAlerts != nil && a.options.FetchAlertMessages == nil {
 		// No waiting goroutine or unbounded queue when canceled alert providers
 		// still occupy both slots. Forecast publication remains independent.
 		select {
@@ -227,7 +234,7 @@ func (a *App) runForecastWork(work *forecastWork) {
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}
-	if err == nil && country == "US" && a.options.FetchAlerts != nil && alertResults == nil {
+	if err == nil && country == "US" && a.options.FetchAlerts != nil && a.options.FetchAlertMessages == nil && alertResults == nil {
 		forecast["alerts"] = weather.UnavailableAlerts()
 	}
 	c := completion{point: work.point, generation: work.generation, makePrimary: work.makePrimary, selection: work.selection, location: location, forecast: forecast, country: country, place: place, err: err, alertsPending: err == nil && alertResults != nil}
@@ -256,6 +263,7 @@ func (a *App) sendForecastCompletion(ctx context.Context, c completion) {
 }
 
 func (a *App) poll() {
+	defer a.tickAlertWork()
 	a.pollUpdates()
 	defer a.pollAirQuality()
 	defer a.pollMap()
@@ -302,6 +310,17 @@ func (a *App) applyForecastCompletion(c completion) {
 		}
 	} else if c.err == nil && c.alertsPending {
 		c.forecast["alerts"] = mergeAlerts(object(c.forecast["alerts"]), cachedAlerts(p.forecast, c.location), a.options.Now(), true)
+	}
+	if !alertOnly && c.err == nil && a.alerts != nil && c.country == "US" {
+		// Pending is live scheduler state, never a promise saved to disk. A
+		// stopped/hidden process must not leave a perpetual checking indicator.
+		c.forecast["alerts"] = weather.UnavailableAlerts()
+		if reflect.DeepEqual(c.location, p.location) {
+			c.forecast["alerts"] = mergeAlerts(weather.UnavailableAlerts(), cachedAlerts(p.forecast, p.location), a.options.Now(), false)
+			if p.alerts != nil {
+				c.forecast["alerts"] = p.alerts
+			}
+		}
 	}
 	p.fetchBusy, p.locationBusy, p.resolving = false, false, false
 	if !c.alertsPending {
@@ -389,10 +408,14 @@ func (a *App) applyForecastCompletion(c completion) {
 }
 
 func (p *forecastPoint) adopt(profile M, now time.Time) {
+	oldLocation, oldCountry := p.location, p.country
 	p.profile = profile
 	p.location, p.forecast = object(profile["location"]), object(profile["forecast"])
 	p.mode, p.zip = stringOf(profile["mode"]), profile["zip_code"]
 	p.country, p.place = profileIdentity(profile, p.mode)
+	if !reflect.DeepEqual(oldLocation, p.location) || oldCountry != p.country {
+		p.alertKey, p.alerts = "", nil
+	}
 	p.id, _ = savedLocationID(profile) // Validated at the storage boundary.
 	p.errorCode, p.locationError = nil, nil
 	p.nextFetch = now.Add(weather.RefreshSeconds * time.Second)

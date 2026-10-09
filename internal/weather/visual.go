@@ -179,40 +179,7 @@ func selectWeather(snapshot Object, now time.Time, mode string, manual Object, s
 		r["forecast"] = nil
 	}
 	if forecast := obj(r["forecast"]); forecast != nil {
-		alerts := obj(forecast["alerts"])
-		if alerts == nil {
-			alerts = Object{}
-		}
-		f, e := Instant(alerts["fetched_at"])
-		age := now.Sub(f).Seconds()
-		if alerts["status"] == "not_supported_here" {
-			alerts["items"] = []any{}
-		} else if e != nil || age < 0 || age > StaleSeconds {
-			alerts["status"] = "unavailable"
-			alerts["items"] = []any{}
-			if alerts["freshness"] != "pending" {
-				alerts["freshness"] = "unavailable"
-			}
-		} else {
-			items := []any{}
-			rows, _ := alerts["items"].([]any)
-			for _, v := range rows {
-				a := obj(v)
-				exp, e := Instant(a["expires"])
-				if e == nil && exp.After(now) {
-					items = append(items, a)
-				}
-			}
-			alerts["items"] = items
-			if alerts["status"] == "available" {
-				if age > RefreshSeconds || alerts["freshness"] == "stale" {
-					alerts["freshness"] = "stale"
-				} else {
-					alerts["freshness"] = "current"
-				}
-			}
-		}
-		forecast["alerts"] = alerts
+		forecast["alerts"] = selectAlertView(obj(forecast["alerts"]), now)
 	}
 	current := Object{"condition": "unknown"}
 	freshness := "unavailable"
@@ -280,4 +247,46 @@ func selectWeather(snapshot Object, now time.Time, mode string, manual Object, s
 	r["age_seconds"] = age
 	r["effects"] = effects
 	return r
+}
+
+// SelectAlerts returns an independent age/expiry-filtered alert envelope. It
+// can be used when official alerts are available without a weather forecast.
+func SelectAlerts(alerts Object, now time.Time) Object {
+	return selectAlertView(obj(Clone(alerts)), now)
+}
+
+func selectAlertView(alerts Object, now time.Time) Object {
+	if alerts == nil {
+		alerts = Object{}
+	}
+	f, e := Instant(alerts["fetched_at"])
+	age := now.Sub(f).Seconds()
+	if alerts["status"] == "not_supported_here" {
+		alerts["items"] = []any{}
+	} else if e != nil || age < 0 || age > StaleSeconds {
+		alerts["status"] = "unavailable"
+		alerts["items"] = []any{}
+		if alerts["freshness"] != "pending" {
+			alerts["freshness"] = "unavailable"
+		}
+	} else {
+		items := []any{}
+		rows, _ := alerts["items"].([]any)
+		for _, v := range rows {
+			a := obj(v)
+			exp, e := Instant(a["expires"])
+			if e == nil && exp.After(now) {
+				items = append(items, a)
+			}
+		}
+		alerts["items"] = items
+		if alerts["status"] == "available" {
+			if age > RefreshSeconds || alerts["freshness"] == "stale" {
+				alerts["freshness"] = "stale"
+			} else {
+				alerts["freshness"] = "current"
+			}
+		}
+	}
+	return alerts
 }

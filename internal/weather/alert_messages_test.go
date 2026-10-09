@@ -99,10 +99,10 @@ func TestAlertMessagesRejectMalformedActualData(t *testing.T) {
 		"bidi identity": {"id": "id\u202e"}, "invalid sent": {"sent": "tomorrow"},
 		"unknown type": {"messageType": "Changed"}, "unknown status": {"status": "real"},
 		"missing scope": {"scope": nil}, "unknown severity": {"severity": "Critical"},
-		"missing description": {"description": nil}, "invalid text": {"instruction": 3.0},
+		"missing event": {"event": nil}, "invalid text": {"instruction": 3.0},
 		"oversized instruction": {"instruction": strings.Repeat("a", 16001)},
 		"bad expiry":            {"expires": stamp(messageNow)}, "empty references on update": {"messageType": "Update"},
-		"missing references": {"references": nil}, "self reference": {"references": []any{Object{"identifier": "id", "sender": base["sender"], "sent": base["sent"]}}},
+		"invalid references": {"references": true}, "self reference": {"references": []any{Object{"identifier": "id", "sender": base["sender"], "sent": base["sent"]}}},
 		"future reference":    {"references": []any{Object{"identifier": "prior", "sender": base["sender"], "sent": stamp(messageNow.Add(time.Second))}}},
 		"too many references": {"references": make([]any, AlertReferenceLimit+1)},
 	} {
@@ -338,5 +338,23 @@ func TestNormalizeTypedAlertMessage(t *testing.T) {
 	m.Identity.Sent = time.Time{}
 	if _, err := NormalizeAlertMessage(m); err == nil {
 		t.Fatal("missing typed identity time accepted")
+	}
+}
+
+func TestAlertMessageOptionalSourceTextAndInitialReferences(t *testing.T) {
+	p := messageFixture("headline-only", "Alert", messageNow)
+	for _, key := range []string{"senderName", "description", "instruction", "references"} {
+		delete(p, key)
+	}
+	messages, err := ParseAlertMessages(messagePayload(p))
+	if err != nil || len(messages) != 1 || messages[0].Description != "" || messages[0].Issuer != "" || len(messages[0].References) != 0 || messages[0].Event != "Flood Warning" {
+		t.Fatal("optional CAP fields rejected", messages, err)
+	}
+	if _, err := NormalizeAlertMessage(messages[0]); err != nil {
+		t.Fatal("typed normalization rejected optional fields", err)
+	}
+	p["messageType"] = "Update"
+	if _, err := ParseAlertMessages(messagePayload(p)); err == nil {
+		t.Fatal("update without required lifecycle references accepted")
 	}
 }

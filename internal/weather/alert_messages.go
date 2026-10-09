@@ -160,6 +160,9 @@ func parseAlertMessage(p Object) (AlertMessage, error) {
 		return m, err
 	}
 	rows, ok := p["references"].([]any)
+	if p["references"] == nil && m.Type == "Alert" {
+		rows, ok = []any{}, true
+	}
 	if !ok || len(rows) > AlertReferenceLimit || m.Type != "Alert" && len(rows) == 0 {
 		return m, errors.New("invalid alert references")
 	}
@@ -191,11 +194,11 @@ func parseAlertMessage(p Object) (AlertMessage, error) {
 		required bool
 		out      *string
 	}{
-		{"senderName", 256, m.Type != "Cancel", &m.Issuer},
+		{"senderName", 256, false, &m.Issuer},
 		{"event", 512, m.Type != "Cancel", &m.Event},
 		{"areaDesc", 8192, false, &m.Area},
 		{"headline", 2048, false, &m.Headline},
-		{"description", 32000, m.Type != "Cancel", &m.Description},
+		{"description", 32000, false, &m.Description},
 		{"instruction", 16000, false, &m.Instruction},
 	} {
 		if *field.out, err = alertText(p[field.key], field.limit, field.required); err != nil {

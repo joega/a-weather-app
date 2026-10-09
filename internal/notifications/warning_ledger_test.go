@@ -81,7 +81,7 @@ func newWarningMemory(t testing.TB) (*WarningLedger, *warningMemoryFiles) {
 }
 func warningObserve(t testing.TB, l *WarningLedger, now time.Time, complete bool, messages ...weather.AlertMessage) {
 	t.Helper()
-	if err := l.Reconcile(WarningBatch{warningTestLocation, messages, now, complete}, now); err != nil {
+	if err := l.Reconcile(WarningBatch{warningTestLocation, messages, now, complete, warningCurrentKeys(messages, now)}, now); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -306,7 +306,7 @@ func TestWarningLedgerRejectsConflictCyclesAndStaleDecisions(t *testing.T) {
 	before, writes := safeio.Clone(files.doc), files.writes
 	conflict := a
 	conflict.Instruction = "Conflicting identity content"
-	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{conflict}, warningTestNow, true}, warningTestNow); err == nil {
+	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{conflict}, warningTestNow, true, warningCurrentKeys([]weather.AlertMessage{conflict}, warningTestNow)}, warningTestNow); err == nil {
 		t.Fatal("conflicting identity accepted")
 	}
 	if files.writes != writes || !reflect.DeepEqual(before, files.doc) {
@@ -315,7 +315,7 @@ func TestWarningLedgerRejectsConflictCyclesAndStaleDecisions(t *testing.T) {
 	b := warningFixture("b", "Update", warningTestNow, a)
 	c := warningFixture("c", "Update", warningTestNow, b)
 	b.References = []weather.AlertReference{c.Identity}
-	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{b, c}, warningTestNow, true}, warningTestNow); err == nil {
+	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{b, c}, warningTestNow, true, warningCurrentKeys([]weather.AlertMessage{b, c}, warningTestNow)}, warningTestNow); err == nil {
 		t.Fatal("same-second reference cycle accepted")
 	}
 	if files.writes != writes || !reflect.DeepEqual(before, files.doc) {
@@ -344,7 +344,7 @@ func TestWarningLedgerWriteFailureStopsEffectsAndReloads(t *testing.T) {
 			}
 			warningDecisions(t, l, warningTestNow)
 			writes := files.writes
-			if err := l.Reconcile(WarningBatch{warningTestLocation, nil, warningTestNow, true}, warningTestNow); !errors.Is(err, ErrWarningLedgerWrite) {
+			if err := l.Reconcile(WarningBatch{warningTestLocation, nil, warningTestNow, true, warningCurrentKeys(nil, warningTestNow)}, warningTestNow); !errors.Is(err, ErrWarningLedgerWrite) {
 				t.Fatal("faulted ledger resumed", err)
 			}
 			if files.writes != writes {
@@ -381,7 +381,7 @@ func TestWarningLedgerLocationScopeAndLock(t *testing.T) {
 	warningObserve(t, l, warningTestNow, true, a)
 	warningAttempt(t, l, a, "new", "sent", warningTestNow)
 	second := warningHash("second point")
-	if err := l.Reconcile(WarningBatch{second, []weather.AlertMessage{a}, warningTestNow, true}, warningTestNow); err != nil {
+	if err := l.Reconcile(WarningBatch{second, []weather.AlertMessage{a}, warningTestNow, true, warningCurrentKeys([]weather.AlertMessage{a}, warningTestNow)}, warningTestNow); err != nil {
 		t.Fatal(err)
 	}
 	want := WarningDecision{second, a.Identity.Key(), "new"}
@@ -440,7 +440,7 @@ func TestWarningLedgerRejectsMalformedObservations(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			l, files := newWarningMemory(t)
-			b := WarningBatch{warningTestLocation, []weather.AlertMessage{a}, warningTestNow, true}
+			b := WarningBatch{warningTestLocation, []weather.AlertMessage{a}, warningTestNow, true, warningCurrentKeys([]weather.AlertMessage{a}, warningTestNow)}
 			change(&b)
 			if err := l.Reconcile(b, warningTestNow); err == nil {
 				t.Fatal("malformed observation accepted")
@@ -453,10 +453,10 @@ func TestWarningLedgerRejectsMalformedObservations(t *testing.T) {
 	l, files := newWarningMemory(t)
 	warningObserve(t, l, warningTestNow, true, a)
 	writes := files.writes
-	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{a}, warningTestNow.Add(-time.Second), true}, warningTestNow); err == nil {
+	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{a}, warningTestNow.Add(-time.Second), true, warningCurrentKeys([]weather.AlertMessage{a}, warningTestNow.Add(-time.Second))}, warningTestNow); err == nil {
 		t.Fatal("obsolete response replaced newer observation")
 	}
-	if err := l.Reconcile(WarningBatch{warningTestLocation, nil, warningTestNow, true}, warningTestNow.Add(-time.Second)); !errors.Is(err, ErrWarningClock) {
+	if err := l.Reconcile(WarningBatch{warningTestLocation, nil, warningTestNow, true, warningCurrentKeys(nil, warningTestNow)}, warningTestNow.Add(-time.Second)); !errors.Is(err, ErrWarningClock) {
 		t.Fatal("clock reversal accepted", err)
 	}
 	warningDecisions(t, l, warningTestNow.Add(-time.Second))
@@ -475,7 +475,7 @@ func TestWarningLedgerStrictStateAndCorruption(t *testing.T) {
 	warningAttempt(t, l, a, "new", "sent", warningTestNow)
 	original := files.doc
 	for name, corrupt := range map[string]func(M){
-		"unknown schema":          func(d M) { d["schema_version"] = 2.0 },
+		"unknown schema":          func(d M) { d["schema_version"] = 999.0 },
 		"unknown field":           func(d M) { d["ignored"] = true },
 		"missing records":         func(d M) { delete(d, "records") },
 		"null receipts":           func(d M) { d["receipts"] = nil },
@@ -574,7 +574,7 @@ func TestWarningLedgerBoundsFailWithoutEviction(t *testing.T) {
 			}
 			rows = append(rows, m)
 		}
-		if err := l.Reconcile(WarningBatch{warningTestLocation, rows, warningTestNow, true}, warningTestNow); !errors.Is(err, ErrWarningLedgerCapacity) {
+		if err := l.Reconcile(WarningBatch{warningTestLocation, rows, warningTestNow, true, warningCurrentKeys(rows, warningTestNow)}, warningTestNow); !errors.Is(err, ErrWarningLedgerCapacity) {
 			t.Fatal("placeholder identity budget not enforced", err)
 		}
 		if files.writes != 0 || len(l.doc.Records) != 0 {
@@ -591,7 +591,7 @@ func TestWarningLedgerBoundsFailWithoutEviction(t *testing.T) {
 			}
 			rows = append(rows, m)
 		}
-		if err := l.Reconcile(WarningBatch{warningTestLocation, rows, warningTestNow, true}, warningTestNow); !errors.Is(err, ErrWarningLedgerCapacity) {
+		if err := l.Reconcile(WarningBatch{warningTestLocation, rows, warningTestNow, true, warningCurrentKeys(rows, warningTestNow)}, warningTestNow); !errors.Is(err, ErrWarningLedgerCapacity) {
 			t.Fatal("edge budget not enforced", err)
 		}
 		if files.writes != 0 {
@@ -601,12 +601,12 @@ func TestWarningLedgerBoundsFailWithoutEviction(t *testing.T) {
 	t.Run("locations", func(t *testing.T) {
 		l, files := newWarningMemory(t)
 		for i := range warningLocationLimit {
-			if err := l.Reconcile(WarningBatch{warningHash(i), nil, warningTestNow, true}, warningTestNow); err != nil {
+			if err := l.Reconcile(WarningBatch{warningHash(i), nil, warningTestNow, true, warningCurrentKeys(nil, warningTestNow)}, warningTestNow); err != nil {
 				t.Fatal(err)
 			}
 		}
 		before, writes := safeio.Clone(files.doc), files.writes
-		if err := l.Reconcile(WarningBatch{warningTestLocation, nil, warningTestNow, true}, warningTestNow); !errors.Is(err, ErrWarningLedgerCapacity) {
+		if err := l.Reconcile(WarningBatch{warningTestLocation, nil, warningTestNow, true, warningCurrentKeys(nil, warningTestNow)}, warningTestNow); !errors.Is(err, ErrWarningLedgerCapacity) {
 			t.Fatal("location budget not enforced", err)
 		}
 		if writes != files.writes || !reflect.DeepEqual(before, files.doc) {
@@ -760,7 +760,7 @@ func TestWarningLedgerMaximumDocumentFitsDiskBudget(t *testing.T) {
 	}
 	more := warningFixture("overflow", "Alert", warningTestNow.Add(time.Minute))
 	writes := files.writes
-	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{more}, warningTestNow.Add(time.Minute), true}, warningTestNow.Add(time.Minute)); !errors.Is(err, ErrWarningLedgerCapacity) {
+	if err := l.Reconcile(WarningBatch{warningTestLocation, []weather.AlertMessage{more}, warningTestNow.Add(time.Minute), true, warningCurrentKeys([]weather.AlertMessage{more}, warningTestNow.Add(time.Minute))}, warningTestNow.Add(time.Minute)); !errors.Is(err, ErrWarningLedgerCapacity) {
 		t.Fatal("real identity budget not enforced", err)
 	}
 	if files.writes != writes {
@@ -779,7 +779,7 @@ func BenchmarkWarningLedgerReconcile(b *testing.B) {
 			for i := range rows {
 				rows[i] = warningFixture(fmt.Sprint("a", i), "Alert", warningTestNow)
 			}
-			batch := WarningBatch{warningTestLocation, rows, warningTestNow, true}
+			batch := WarningBatch{warningTestLocation, rows, warningTestNow, true, warningCurrentKeys(rows, warningTestNow)}
 			b.ReportAllocs()
 			b.ResetTimer()
 			for b.Loop() {
@@ -804,5 +804,61 @@ func BenchmarkWarningLedgerStatus(b *testing.B) {
 		if l.Status(warningTestLocation, warningTestNow).Active != len(rows) {
 			b.Fatal("lost active warning status")
 		}
+	}
+}
+
+func warningCurrentKeys(messages []weather.AlertMessage, now time.Time) []string {
+	keys := []string{}
+	seen := map[string]bool{}
+	for _, m := range messages {
+		key := m.Identity.Key()
+		if m.Type != "Cancel" && m.Expires.After(now) && !seen[key] {
+			keys = append(keys, key)
+			seen[key] = true
+		}
+	}
+	return keys
+}
+
+func TestWarningHistoryWithoutCurrentObservationCannotNotify(t *testing.T) {
+	l, _ := newWarningMemory(t)
+	a := warningFixture("historical", "Alert", warningTestNow)
+	b := WarningBatch{Location: warningTestLocation, Messages: []weather.AlertMessage{a}, FetchedAt: warningTestNow, Complete: true}
+	if err := l.Reconcile(b, warningTestNow); err != nil {
+		t.Fatal(err)
+	}
+	warningDecisions(t, l, warningTestNow)
+	if s := l.Status(warningTestLocation, warningTestNow); s.Active != 1 || s.Canceled != 0 {
+		t.Fatalf("history absence changed lifecycle: %+v", s)
+	}
+	b.CurrentKeys = []string{a.Identity.Key()}
+	if err := l.Reconcile(b, warningTestNow); err != nil {
+		t.Fatal(err)
+	}
+	warningDecisions(t, l, warningTestNow, warningDecision(a, "new"))
+}
+
+func TestWarningLedgerMigrationRequiresFreshCurrentObservation(t *testing.T) {
+	l, files := newWarningMemory(t)
+	a := warningFixture("a", "Alert", warningTestNow)
+	b := warningFixture("b", "Alert", warningTestNow)
+	warningObserve(t, l, warningTestNow, true, a, b)
+	warningAttempt(t, l, a, "new", "sent", warningTestNow)
+	files.doc["schema_version"] = 1.0
+	for _, v := range files.doc["coverage"].([]any) {
+		delete(v.(M), "current_keys")
+	}
+	migrated, err := openWarningLedger(files, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	warningDecisions(t, migrated, warningTestNow)
+	if len(migrated.Receipts()) != 1 || migrated.Receipts()[0].Status != "sent" {
+		t.Fatal("migration lost receipts")
+	}
+	warningObserve(t, migrated, warningTestNow, true, a, b)
+	warningDecisions(t, migrated, warningTestNow, warningDecision(b, "new"))
+	if files.doc["schema_version"] != 2.0 {
+		t.Fatal("new schema not persisted after observation")
 	}
 }
