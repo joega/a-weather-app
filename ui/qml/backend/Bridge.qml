@@ -1,5 +1,6 @@
 import QtQuick
 import "../Forecast.js" as Forecast
+import "../Outdoor.js" as Outdoor
 
 Item {
     id: root
@@ -56,10 +57,43 @@ Item {
     property int pendingWarningGeneration: -1
     property var pendingWarningTarget: null
     property var queuedWarning: null
+    property var outdoorResult: null
+    property string outdoorState: "closed"
+    property string outdoorError: ""
+    property int outdoorGeneration: 0
+    property int pendingOutdoorGeneration: -1
+    property var pendingOutdoorQuery: null
+    property var queuedOutdoor: null
     property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation"].indexOf(pendingOp) < 0)
     signal closed(int exitCode)
     signal toggleWindow
     signal warningRequested(var reference, string activationToken)
+    function loadOutdoor(preferences) {
+        outdoorGeneration++;
+        outdoorResult = null;
+        outdoorError = "";
+        outdoorState = "loading";
+        if (!snapshot || !snapshot.forecast || !send("outdoor_plan", Outdoor.query(snapshot, preferences === undefined ? null : preferences))) {
+            outdoorState = "unavailable";
+            outdoorError = "Connect and load a forecast to find outdoor times.";
+        }
+    }
+    function closeOutdoor() {
+        outdoorGeneration++;
+        queuedOutdoor = null;
+        outdoorResult = null;
+        outdoorState = "closed";
+        outdoorError = "";
+    }
+    function invalidateOutdoor(message) {
+        if (outdoorState === "closed")
+            return;
+        outdoorGeneration++;
+        queuedOutdoor = null;
+        outdoorResult = null;
+        outdoorState = "unavailable";
+        outdoorError = message;
+    }
     function loadWarning(reference) {
         warningGeneration++;
         warningTarget = Forecast.warningReference(reference);
@@ -88,6 +122,10 @@ Item {
             return false;
         }
         if (pending >= 0) {
+            if (op === "outdoor_plan") {
+                queuedOutdoor = JSON.parse(JSON.stringify(patch));
+                return true;
+            }
             if (op === "warning_detail") {
                 queuedWarning = Forecast.warningReference(patch);
                 return true;
@@ -160,6 +198,11 @@ Item {
             request.warning = Forecast.warningReference(patch);
             pendingWarningTarget = request.warning;
             pendingWarningGeneration = warningGeneration;
+        }
+        if (op === "outdoor_plan") {
+            request.plan = patch;
+            pendingOutdoorQuery = patch;
+            pendingOutdoorGeneration = outdoorGeneration;
         }
         if (op === "radar_view") {
             request.view = patch;
@@ -264,6 +307,12 @@ Item {
             send("warning_detail", reference);
             return;
         }
+        if (queuedOutdoor !== null) {
+            const next = queuedOutdoor;
+            queuedOutdoor = null;
+            send("outdoor_plan", next);
+            return;
+        }
         if (cancelSearchQueued) {
             cancelSearchQueued = false;
             send("cancel_place_search");
@@ -285,6 +334,7 @@ Item {
         cancelSearchQueued = false;
         stopQueued = false;
         queuedWarning = null;
+        queuedOutdoor = null;
     }
     function finishClose(exitCode) {
         if (closeReported)
@@ -303,6 +353,7 @@ Item {
         error = message;
         pending = -1;
         pendingOp = "";
+        invalidateOutdoor("Weather service disconnected. Reopen the app to find outdoor times.");
         if (warningState !== "closed") {
             warningDetail = null;
             warningState = "unavailable";
@@ -321,6 +372,8 @@ Item {
         if (revision <= lastSnapshotRevision)
             return;
         let next = Forecast.snapshot(raw);
+        if (outdoorState !== "closed" && Outdoor.context(snapshot) !== Outdoor.context(next))
+            invalidateOutdoor("The place or forecast changed. Find times again using the latest forecast.");
         if (snapshot && snapshot.warning_notifications.settings.enabled && !next.warning_notifications.settings.enabled && warningTarget !== null) {
             warningGeneration++;
             queuedWarning = null;
@@ -400,6 +453,20 @@ Item {
                 drainUserAction();
                 return;
             }
+            if (completedOp === "outdoor_plan") {
+                const plan = value.ok ? Outdoor.result(value.outdoor) : null;
+                if (plan && (plan.forecast_at !== pendingOutdoorQuery.forecast_at || plan.timezone !== pendingOutdoorQuery.timezone))
+                    throw Error("Outdoor reply does not match its request");
+                if (!closing && outdoorState !== "closed" && pendingOutdoorGeneration === outdoorGeneration) {
+                    outdoorResult = plan;
+                    outdoorState = plan ? "ready" : "unavailable";
+                    outdoorError = plan ? "" : value.error === "outdoor_context_changed" ? "The place or forecast changed. Find times again using the latest forecast." : "Outdoor times are unavailable for this forecast.";
+                }
+                pendingOutdoorQuery = null;
+                pendingOutdoorGeneration = -1;
+                drainUserAction();
+                return;
+            }
             if (!closing) {
                 if (value.ok)
                     error = "";
@@ -417,6 +484,7 @@ Item {
         if (closing)
             return;
         closing = true;
+        closeOutdoor();
         error = "Closing weather app…";
         clearQueuedActions();
         if (!root.weatherTransport.connected || disconnected) {
@@ -444,6 +512,7 @@ Item {
             root.disconnected = true;
             root.pending = -1;
             root.pendingOp = "";
+            root.invalidateOutdoor("Weather service disconnected. Reopen the app to find outdoor times.");
             root.clearQueuedActions();
             deadline.stop();
             if (root.closing) {

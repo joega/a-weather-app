@@ -951,6 +951,120 @@ class ServiceFrontendTest : public QObject {
         QTRY_COMPARE_WITH_TIMEOUT(widget.label(), QString("16° · Clear"), 2000);
         QTRY_COMPARE_WITH_TIMEOUT(widget.label(), QString("60° · Clear"), 2000);
     }
+    void outdoorPlannerUsesCachedForecastAndSavesPreferences() {
+        ServiceFixture fixture;
+        const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_OUTDOOR_MEASURE");
+        if (probe)
+            fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60);
+        auto forecast = fixture.saved("forecast.json");
+        auto row = forecast["hourly"].toArray()[0].toObject();
+        auto start = QDateTime::currentDateTimeUtc();
+        start.setTime(QTime(start.time().hour(), 0));
+        QJsonArray hours;
+        for (int i = 0; i < 60; ++i) {
+            row["time"] = start.addSecs(i * 3600).toString(Qt::ISODate);
+            hours.append(row);
+        }
+        forecast["hourly"] = hours;
+        fixture.save("forecast.json", forecast);
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY2_WITH_TIMEOUT(
+            eval("root.forecast !== null && root.forecast.hourly.length > 40 && !backend.busy")
+                .toBool(),
+            qPrintable(eval("JSON.stringify({error:backend.error, source:backend.snapshot ? "
+                            "backend.snapshot.source : null, count:root.hours.length})")
+                           .toString() +
+                       fixture.service.readAll()),
+            5000);
+        eval("root.effectsOpen = false; root.locationsOpen = false");
+        const auto focusClick = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::qWait(100); // Let keyboard reveal scroll the control into view.
+            const auto center = item->mapToScene(QPointF(item->width() / 2, item->height() / 2));
+            QVERIFY(center.y() >= 0 && center.y() < window->height());
+            click(name);
+        };
+        auto* loader = named("outdoorPlannerLoader");
+        QVERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(fixture.saved("outdoor-preferences.json").isEmpty());
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            if (!probe)
+                return;
+            QTest::qWait(200);
+            const auto before = swaps.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "OUTDOOR_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        phase("before_open");
+        focusClick("openOutdoorPlanner");
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.outdoorState === 'ready'").toBool(), 3000);
+        QVERIFY(!eval("root.mapActive").toBool());
+        QCOMPARE(eval("backend.outdoorResult.windows.length").toInt(), 3);
+        QVERIFY(eval("backend.outdoorResult.windows.every(w => !w.fits && "
+                     "w.missing.indexOf('daylight') >= 0)")
+                    .toBool());
+        QVERIFY(fixture.saved("outdoor-preferences.json").isEmpty());
+        focusClick("outdoorAdjustPreferences");
+        auto* duration = qobject_cast<QQuickItem*>(named("outdoor_hours"));
+        QVERIFY(duration);
+        duration->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Down);
+        QTRY_VERIFY(eval("outdoorLoader.item.preferences.hours === 2 && outdoorLoader.item.dirty")
+                        .toBool());
+        focusClick("outdoorDaylight");
+        QVERIFY(fixture.saved("outdoor-preferences.json").isEmpty());
+        focusClick("outdoorFindTimes");
+        QTRY_VERIFY_WITH_TIMEOUT(
+            eval("backend.outdoorState === 'ready' && backend.outdoorResult.preferences.hours === "
+                 "2 && backend.outdoorResult.windows.every(w => w.fits)")
+                .toBool(),
+            3000);
+        QCOMPARE(fixture.saved("outdoor-preferences.json")["hours"].toInt(), 2);
+        QCOMPARE(fixture.saved("outdoor-preferences.json")["daylight_only"].toBool(), false);
+        focusClick("outdoorAdjustPreferences");
+        phase("open_after_preferences");
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_OUTDOOR_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-wide.png"));
+            window->resize(700, 650);
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
+            focusClick("outdoorAdjustPreferences");
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-preferences.png"));
+        }
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(
+            eval("backend.outdoorResult === null && backend.outdoorState === 'closed'").toBool());
+        for (int i = 0; i < (probe ? 40 : 20); ++i) {
+            eval("root.openOutdoor()");
+            QTRY_VERIFY_WITH_TIMEOUT(eval("backend.outdoorState === 'ready'").toBool(), 3000);
+            QVERIFY(eval("outdoorLoader.item.preferences.hours === 2").toBool());
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(!loader->property("item").value<QObject*>());
+            if (i == 19)
+                phase("closed_after_20");
+            if (i == 39)
+                phase("closed_after_40");
+        }
+        eval("root.openOutdoor()");
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.outdoorState === 'ready'").toBool(), 3000);
+        window->hide();
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(eval("backend.outdoorResult === null && !root.outdoorOpen").toBool());
+        phase("hidden");
+    }
     void cachedPointMetricsUnitsAndHour() {
         ServiceFixture fixture;
         fixture.cache(4000, true);

@@ -20,6 +20,7 @@ WarningDetails 1.0 WarningDetails.qml
 AlertsPanel 1.0 AlertsPanel.qml
 ForecastChart 1.0 ForecastChart.qml
 ForecastDetails 1.0 ForecastDetails.qml
+OutdoorPlanner 1.0 OutdoorPlanner.qml
 PlaceSearch 1.0 PlaceSearch.qml
 WeatherMap 1.0 WeatherMap.qml
 WeatherMapCard 1.0 WeatherMapCard.qml

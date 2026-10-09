@@ -23,6 +23,21 @@ QtObject {
     readonly property bool primaryForecastAvailable: savedLocations ? savedLocations.primary_forecast_available : root.forecast !== null
     readonly property string primaryName: primaryPlace ? Forecast.savedName(primaryPlace) : root.location
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
+    property bool outdoorOpen: false
+    property Item outdoorReturnFocus: null
+    function openOutdoor() {
+        outdoorReturnFocus = window.activeFocusItem;
+        outdoorOpen = true;
+        bridge.loadOutdoor(null);
+    }
+    function closeOutdoor() {
+        outdoorOpen = false;
+        bridge.closeOutdoor();
+        const target = outdoorReturnFocus;
+        outdoorReturnFocus = null;
+        if (target && target.visible && target.enabled && window.visible)
+            target.forceActiveFocus();
+    }
     property bool locationsOpen: false
     property Item locationReturnFocus: null
     property bool warningOpen: false
@@ -35,6 +50,8 @@ QtObject {
             warningReturnFocus = window.activeFocusItem;
             warningBackToSettings = !fromDesktop && effectsOpen;
         }
+        if (outdoorOpen)
+            closeOutdoor();
         warningOpen = true;
         effectsOpen = false;
         locationsOpen = false;
@@ -74,6 +91,8 @@ QtObject {
         });
     }
     function openLocations() {
+        if (outdoorOpen)
+            closeOutdoor();
         if (!savedLocations) {
             openSettings(true);
             return;
@@ -114,6 +133,8 @@ QtObject {
             });
     }
     function openSettings(locationSearch) {
+        if (outdoorOpen)
+            closeOutdoor();
         locationsOpen = false;
         if (!effectsOpen)
             settingsReturnFocus = window.activeFocusItem;
@@ -130,7 +151,7 @@ QtObject {
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
     function showUpdateNotice() {
-        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
             return;
         if (bridge.send("acknowledge_update", {
             installed: root.updateStatus.installed
@@ -146,7 +167,7 @@ QtObject {
     }
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
     readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     readonly property bool forecastMapActive: root.mapActive && mapSection.selectedLayer !== "radar"
     readonly property bool radarActive: root.mapActive && mapSection.selectedLayer === "radar"
     onForecastMapActiveChanged: {
@@ -304,6 +325,10 @@ QtObject {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (root.outdoorOpen && outdoorLoader.item) {
+                outdoorLoader.item.revealFocus(item);
+                return;
+            }
             if (root.warningOpen && warningLoader.item) {
                 warningLoader.item.revealFocus(item);
                 return;
@@ -334,10 +359,16 @@ QtObject {
                 next = point.y + item.height - flick.height + 16;
             flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
         })
+        onVisibilityChanged: {
+            if (window.visibility === Window.Minimized && root.outdoorOpen)
+                root.closeOutdoor();
+        }
         onVisibleChanged: {
             if (!visible) {
                 root.updateNoticeActive = false;
                 root.locationsOpen = false;
+                if (root.outdoorOpen)
+                    root.closeOutdoor();
                 if (root.warningOpen)
                     root.closeWarning();
             } else
@@ -593,6 +624,12 @@ QtObject {
                             visible: root.hours.length > 0 && bridge.snapshot !== null && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
                             Layout.fillWidth: true
                             spacing: 6
+                            ActionButton {
+                                objectName: "openOutdoorPlanner"
+                                text: "Find a time to go outside"
+                                enabled: bridge.available && !bridge.busy && bridge.snapshot !== null && !bridge.snapshot.location_settings.busy
+                                onClicked: root.openOutdoor()
+                            }
                             ChoiceControl {
                                 visible: root.briefingRows.length > 0
                                 Layout.maximumWidth: 420
@@ -876,6 +913,28 @@ QtObject {
                 }
                 onSearchRequested: values => bridge.send("search_places", values)
                 onCancelSearchRequested: bridge.send("cancel_place_search")
+            }
+        }
+        Loader {
+            id: outdoorLoader
+            objectName: "outdoorPlannerLoader"
+            active: root.outdoorOpen
+            onLoaded: item.open()
+            sourceComponent: OutdoorPlanner {
+                plan: bridge.outdoorResult
+                state: bridge.outdoorState
+                error: bridge.outdoorError
+                available: bridge.available && bridge.snapshot !== null && !bridge.snapshot.location_settings.busy
+                units: root.units
+                windUnits: root.windUnits
+                place: root.location
+                freshness: root.freshness
+                alertCount: root.activeAlerts.length
+                onFindRequested: preferences => bridge.loadOutdoor(preferences)
+                onClosed: {
+                    if (root.outdoorOpen)
+                        root.closeOutdoor();
+                }
             }
         }
         Loader {

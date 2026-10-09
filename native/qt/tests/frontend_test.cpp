@@ -241,6 +241,41 @@ class FrontendTest : public QObject {
         v["hourly"] = QJsonArray{hour};
         return v;
     }
+    QJsonObject outdoorFixture() {
+        return {
+            {"preferences", QJsonObject{{"schema_version", 1},
+                                        {"hours", 1},
+                                        {"min_temperature_c", 10},
+                                        {"max_temperature_c", 27},
+                                        {"max_probability", .2},
+                                        {"max_hourly_precipitation_mm", .1},
+                                        {"max_wind_m_s", 6},
+                                        {"max_gust_m_s", 10},
+                                        {"daylight_only", false}}},
+            {"save_status", "defaults"},
+            {"freshness", "stale"},
+            {"forecast_at", "2026-09-28T12:00:00Z"},
+            {"generated_at", "2026-09-28T12:30:00.123456Z"},
+            {"place", "Metric fixture"},
+            {"timezone", "UTC"},
+            {"evaluated", 1},
+            {"gaps", 0},
+            {"windows", QJsonArray{QJsonObject{
+                            {"start", "2026-09-28T13:00:00Z"},
+                            {"end", "2026-09-28T14:00:00Z"},
+                            {"range_label", "Mon Sep 28, 1:00 PM UTC – Mon Sep 28, 2:00 PM UTC"},
+                            {"fits", true},
+                            {"missing", QJsonArray{}},
+                            {"exceeds", QJsonArray{}},
+                            {"low_c", 15},
+                            {"high_c", 20},
+                            {"peak_probability", .1},
+                            {"peak_hourly_mm", 0},
+                            {"total_mm", 0},
+                            {"wind_m_s", 2},
+                            {"gust_m_s", 4},
+                            {"daylight", "not_requested"}}}}};
+    }
     QJsonObject airQuality(qint64 age = 3600) {
         return {{"freshness", "fresh"},
                 {"refreshing", false},
@@ -2727,6 +2762,58 @@ class FrontendTest : public QObject {
         QVERIFY(window);
         QTRY_VERIFY(window->isVisible());
         QTRY_VERIFY(window->isExposed());
+    }
+    void outdoorQueueFreshnessAndValidation() {
+        FakeTransport transport;
+        transport.diagnostic = true;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        deliver(transport,
+                {{"version", 1}, {"event", "snapshot"}, {"snapshot", metricSnapshot(1)}});
+        evaluate(engine, bridge.data(),
+                 "send('set_controls', {units:'C'}); loadOutdoor(null); loadOutdoor(null)");
+        QCOMPARE(transport.requests.size(), 1);
+        deliver(transport, {{"version", 1}, {"request_id", 0}, {"ok", true}});
+        QCOMPARE(transport.requests.size(), 2);
+        QCOMPARE(transport.requests.last()["op"].toString(), "outdoor_plan");
+        evaluate(engine, bridge.data(), "closeOutdoor()");
+        deliver(transport,
+                {{"version", 1}, {"request_id", 1}, {"ok", true}, {"outdoor", outdoorFixture()}});
+        QVERIFY(
+            evaluate(engine, bridge.data(), "outdoorState === 'closed' && outdoorResult === null")
+                .toBool());
+        evaluate(engine, bridge.data(), "loadOutdoor(null)");
+        auto changed = metricSnapshot(2);
+        auto source = changed["source"].toObject();
+        source["freshness"] = "expired";
+        changed["source"] = source;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", changed}});
+        deliver(transport,
+                {{"version", 1}, {"request_id", 2}, {"ok", true}, {"outdoor", outdoorFixture()}});
+        QVERIFY(evaluate(engine, bridge.data(),
+                         "outdoorState === 'unavailable' && outdoorResult === null && available")
+                    .toBool());
+        deliver(transport,
+                {{"version", 1}, {"event", "snapshot"}, {"snapshot", metricSnapshot(3)}});
+        evaluate(engine, bridge.data(), "loadOutdoor(null)");
+        deliver(transport,
+                {{"version", 1}, {"request_id", 3}, {"ok", true}, {"outdoor", outdoorFixture()}});
+        QVERIFY(evaluate(engine, bridge.data(),
+                         "outdoorResult.windows[0].fits && outdoorState === 'ready'")
+                    .toBool());
+        evaluate(engine, bridge.data(), "loadOutdoor(null)");
+        auto malformed = outdoorFixture();
+        auto windows = malformed["windows"].toArray();
+        auto row = windows[0].toObject();
+        row["low_c"] = QJsonValue::Null; // Cannot present missing temperature as a match.
+        windows[0] = row;
+        malformed["windows"] = windows;
+        deliver(transport,
+                {{"version", 1}, {"request_id", 4}, {"ok", true}, {"outdoor", malformed}});
+        QVERIFY(evaluate(engine, bridge.data(), "disconnected && outdoorResult === null").toBool());
     }
     void warningQueueRejectsOldOrMismatchedDetails() {
         FakeTransport transport;

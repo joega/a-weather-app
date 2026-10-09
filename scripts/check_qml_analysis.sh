@@ -11,7 +11,7 @@ for file in Path('ui/qml').rglob('*.qml'):
     if file.read_text().count('pragma ComponentBehavior:') > 1:
         raise SystemExit(f'{file}: duplicate ComponentBehavior pragma')
 PY
-"$linter" -W 0 ui/qml/*.qml ui/qml/backend/*.qml ui/qml/Forecast.js
+"$linter" -W 0 ui/qml/*.qml ui/qml/backend/*.qml ui/qml/*.js
 shell_root=${OMARCHY_SHELL_ROOT:-/usr/share/omarchy/shell}
 if [[ ! -f $shell_root/Ui/BarWidget.qml || ! -f $shell_root/Commons/qmldir ]]; then
   printf 'Omarchy modules unavailable; widget analysis did not run. Set OMARCHY_SHELL_ROOT.\n' >&2

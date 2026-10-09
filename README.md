@@ -32,6 +32,13 @@ current conditions.
 Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
 you stop them; the separate preview runs for five minutes.
 
+**Find a time to go outside** compares up to three windows in the next 48 hours
+using the hourly forecast already loaded. Choose a duration, temperature range,
+precipitation and wind limits, and daylight preference. Preferences are saved when
+you press **Find times**. Suggestions explain missing data and exceeded limits;
+UV, air quality, ice and official warnings are not included in the ranking.
+The planner loads on demand and adds no weather requests or background polling.
+
 ## Install on Omarchy
 
 Omarchy clones this repository to install the bar widget; it does not run an
