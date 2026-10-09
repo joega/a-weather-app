@@ -108,6 +108,7 @@ type App struct {
 	state                 *safeio.Directory
 	options               Options
 	controls              M
+	dashboard             *dashboardState
 	search                placeSearch
 	aq                    airQualityState
 	wmap                  mapState
@@ -322,6 +323,9 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	}
 	var e error
 	a.search.init()
+	if !primaryOnly {
+		a.initDashboard()
+	}
 	a.initAirQuality()
 	a.initMap()
 	a.controls, e = readControls(state, a.country)
@@ -524,7 +528,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -617,6 +621,10 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 			if e == nil {
 				a.controls = v
 			}
+		}
+	case "set_dashboard":
+		if code = a.setDashboard(object(request["dashboard"])); code != "" {
+			e = errors.New(code)
 		}
 	case "set_location", "add_location":
 		var v M

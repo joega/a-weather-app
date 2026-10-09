@@ -10,6 +10,9 @@ import (
 )
 
 func (a *App) openRadar(view M) error {
+	if !a.dashboardVisible("maps") {
+		return errors.New("maps hidden in dashboard")
+	}
 	if !a.presented || a.locationBusy || a.mode == "default" {
 		return errors.New("radar location unavailable")
 	}

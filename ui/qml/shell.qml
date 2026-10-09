@@ -399,7 +399,7 @@ QtObject {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !details.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5

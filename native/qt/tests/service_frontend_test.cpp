@@ -1008,6 +1008,7 @@ class ServiceFrontendTest : public QObject {
         focusClick("openOutdoorPlanner");
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.outdoorState === 'ready'").toBool(), 3000);
         QVERIFY(!eval("root.mapActive").toBool());
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
         QCOMPARE(eval("backend.outdoorResult.windows.length").toInt(), 3);
         QVERIFY(eval("backend.outdoorResult.windows.every(w => !w.fits && "
                      "w.missing.indexOf('daylight') >= 0)")

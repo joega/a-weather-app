@@ -69,6 +69,9 @@ func (a *App) closeMap() {
 }
 
 func (a *App) openMap() {
+	if !a.dashboardVisible("maps") {
+		return
+	}
 	a.wmap.open = true
 	a.wmap.revision++
 	a.signal()
