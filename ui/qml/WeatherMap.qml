@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -24,6 +26,9 @@ ColumnLayout {
     property bool reducedMotion: false
     property real viewportTop: 0
     property real viewportHeight: 0
+    property alias layerIndex: layerTabs.currentIndex
+    readonly property string selectedLayer: ["precipitation", "temperature", "wind"][layerTabs.currentIndex] || "precipitation"
+    onSelectedLayerChanged: playing = false
     property int hourIndex: 0
     property bool playing: false
     property var tileImages: ({})
@@ -46,10 +51,10 @@ ColumnLayout {
         hourIndex = index;
     }
     function cardVisible(card) {
-        return active && mapData !== null && cards.y + card.y + card.height >= viewportTop - 32 && cards.y + card.y <= viewportTop + viewportHeight + 32;
+        return active && mapData !== null && mapView.y + card.y + card.height >= viewportTop - 32 && mapView.y + card.y <= viewportTop + viewportHeight + 32;
     }
     function flowVisible(card) {
-        const top = cards.y + card.y + card.mapTop;
+        const top = mapView.y + card.y + card.mapTop;
         return active && top + card.mapHeight > viewportTop && top < viewportTop + viewportHeight;
     }
     function clearTiles() {
@@ -108,6 +113,38 @@ ColumnLayout {
             font.pixelSize: 13
         }
     }
+    TabBar {
+        id: layerTabs
+        objectName: "mapLayerTabs"
+        Layout.fillWidth: true
+        currentIndex: 0
+        spacing: 6
+        background: Item {}
+        Repeater {
+            model: ["Precipitation", "Temperature", "Wind"]
+            TabButton {
+                id: tab
+                required property string modelData
+                required property int index
+                objectName: "mapLayerTab" + index
+                text: modelData
+                Accessible.name: modelData + " forecast map"
+                implicitHeight: 40
+                background: Rectangle {
+                    radius: 10
+                    color: tab.checked ? "#704fa6d4" : tab.down ? "#80506a80" : "#303d5a70"
+                    border.color: tab.activeFocus ? Tokens.accent : tab.checked ? "#7bd6fc" : Tokens.border
+                    border.width: tab.activeFocus ? 2 : 1
+                }
+                contentItem: PlainLabel {
+                    text: tab.text
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+            }
+        }
+    }
     RowLayout {
         Layout.fillWidth: true
         ActionButton {
@@ -148,18 +185,17 @@ ColumnLayout {
         font.pixelSize: 14
         color: Tokens.secondary
     }
-    GridLayout {
-        id: cards
+    Loader {
+        id: mapView
+        objectName: "selectedMapView"
         Layout.fillWidth: true
-        columns: root.width < 900 ? 1 : 2
-        columnSpacing: 16
-        rowSpacing: 16
-        WeatherMapCard {
-            id: temperatureCard
-            objectName: "mapTemperatureModule"
-            Layout.fillWidth: true
-            Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2
-            mapLayer: "temperature"
+        Layout.preferredHeight: 396
+        // Keep section geometry stable while releasing hidden map objects.
+        active: root.active
+        sourceComponent: WeatherMapCard {
+            id: selectedCard
+            objectName: root.selectedLayer === "precipitation" ? "mapPrecipitationModule" : root.selectedLayer === "temperature" ? "mapTemperatureModule" : "mapWindModule"
+            mapLayer: root.selectedLayer
             mapData: root.mapData
             mapStatus: root.mapState.status
             hasLocation: root.hasLocation
@@ -167,53 +203,14 @@ ColumnLayout {
             hourIndex: root.hourIndex
             units: root.units
             windUnits: root.windUnits
-            tileImages: root.tileImages
-            failedTiles: root.failedTiles
-            tileClient: root.tileClient
-            tileGeneration: root.tileGeneration
-            tileActive: root.cardVisible(temperatureCard)
-        }
-        WeatherMapCard {
-            id: windCard
-            objectName: "mapWindModule"
-            Layout.fillWidth: true
-            Layout.preferredWidth: root.width < 900 ? root.width : (root.width - 16) / 2
-            mapLayer: "wind"
             visualQuality: root.visualQuality
             reducedMotion: root.reducedMotion
-            presentationActive: root.flowVisible(windCard)
-            mapData: root.mapData
-            mapStatus: root.mapState.status
-            hasLocation: root.hasLocation
-            offline: root.mapState.offline
-            hourIndex: root.hourIndex
-            units: root.units
-            windUnits: root.windUnits
+            presentationActive: root.flowVisible(selectedCard)
             tileImages: root.tileImages
             failedTiles: root.failedTiles
             tileClient: root.tileClient
-            tileActive: root.cardVisible(windCard)
             tileGeneration: root.tileGeneration
-        }
-        WeatherMapCard {
-            id: precipitationCard
-            objectName: "mapPrecipitationModule"
-            Layout.fillWidth: true
-            Layout.columnSpan: root.width < 900 ? 1 : 2
-            Layout.preferredWidth: root.width
-            mapLayer: "precipitation"
-            mapData: root.mapData
-            mapStatus: root.mapState.status
-            hasLocation: root.hasLocation
-            offline: root.mapState.offline
-            hourIndex: root.hourIndex
-            units: root.units
-            windUnits: root.windUnits
-            tileImages: root.tileImages
-            failedTiles: root.failedTiles
-            tileClient: root.tileClient
-            tileActive: root.cardVisible(precipitationCard)
-            tileGeneration: root.tileGeneration
+            tileActive: root.cardVisible(selectedCard)
         }
     }
     PlainLabel {

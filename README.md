@@ -380,13 +380,17 @@ by Open-Meteo; values are rounded for display.
 
 ## Local weather map
 
-Scroll to **Local weather maps** on the main forecast screen for three modules
-centered on the saved location, each showing a fixed 10-mile radius. Temperature
-shading, restrained wind trails, and modeled hourly precipitation share
-one discrete timeline. Previous/Next and the slider switch hours locally.
+Scroll to **Local weather maps** on the main forecast screen. **Precipitation**
+is selected first; labeled **Temperature** and **Wind** tabs switch the same map
+view, centered on the viewed location with a fixed 10-mile radius. Only the
+selected map is created when the section enters view; leaving it releases the
+map and stops rendering. Tabs reuse the loaded forecast and basemap tiles.
+Temperature shading, restrained wind trails, and modeled hourly precipitation
+share one discrete timeline. Previous/Next and the slider switch hours locally.
 Play advances every second and loops through the available hours; Stop
 returns to the first available hour. Manual timeline changes stop playback at
-your selection. Playback also stops when you leave the map section or new map
+your selection. Switching map tabs pauses playback at the selected hour.
+Playback also stops when you leave the map section or new map
 data loads. Playback reuses the loaded forecast without extra data requests.
 Reduced motion keeps the selected hour available and replaces wind animation with
 static, tapered trails; timeline Play is disabled. The section shows the selected local time and timezone, units, legends, model,

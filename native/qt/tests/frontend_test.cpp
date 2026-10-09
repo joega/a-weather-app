@@ -869,10 +869,11 @@ class FrontendTest : public QObject {
                 .toString("ddd MMM d, h:mm AP t");
         event["map"] = mapState;
         auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));
-        auto* wind = qobject_cast<QQuickItem*>(root->findChild<QObject*>("mapWindModule"));
+        QVERIFY(panel);
+        panel->setProperty("layerIndex", 2);
         auto* scroll = root->findChild<QObject*>("forecastScroll");
         auto* flick = scroll->property("contentItem").value<QObject*>();
-        QVERIFY(panel && wind && flick);
+        QVERIFY(panel && flick);
         for (const int width : {1200, 700}) {
             window->setMaximumSize(QSize(1600, 1200));
             window->setMinimumSize(QSize(width, 850));
@@ -884,6 +885,8 @@ class FrontendTest : public QObject {
             flick->setProperty("contentY", panel->y() - 12);
             QTRY_VERIFY(root->property("mapActive").toBool());
             deliver(transport, event);
+            QTRY_VERIFY(root->findChild<QQuickItem*>("mapWindModule"));
+            auto* wind = root->findChild<QQuickItem*>("mapWindModule");
             QTest::qWait(100);
             if (width == 700)
                 flick->setProperty("contentY",
@@ -1551,7 +1554,7 @@ class FrontendTest : public QObject {
             QTRY_VERIFY_WITH_TIMEOUT(ready.size() >= 2, 3000);
             QTRY_VERIFY(tiles.active.isEmpty());
             QTRY_VERIFY(tileImagesRendered(panel));
-            auto* card = panel->findChild<QObject*>("mapTemperatureModule");
+            auto* card = panel->findChild<QObject*>("mapPrecipitationModule");
             QVERIFY(card);
             QSet<QString> expected;
             for (const auto& value :
@@ -1645,9 +1648,11 @@ class FrontendTest : public QObject {
         QTRY_VERIFY_WITH_TIMEOUT(tileImagesRendered(panel), 15000);
         QTest::qWait(400);
         QVERIFY(window->grabWindow().save(output));
+        panel->setProperty("layerIndex", 2);
         panel->setProperty("hourIndex", 1);
         QTest::qWait(150);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png", "-wind.png")));
+        panel->setProperty("layerIndex", 0);
         panel->setProperty("hourIndex", 1);
         auto* precipitation =
             qobject_cast<QQuickItem*>(root->findChild<QObject*>("mapPrecipitationModule"));
@@ -2178,15 +2183,10 @@ class FrontendTest : public QObject {
         auto* playback = panel->findChild<QObject*>("mapPlayback");
         QVERIFY(playback);
         QVERIFY(!playback->property("enabled").toBool());
-        auto* temperature = root->findChild<QObject*>("mapTemperatureModule");
-        QVERIFY(temperature);
-        auto* wind = root->findChild<QObject*>("mapWindModule");
-        QVERIFY(wind);
-        auto* precipitation = root->findChild<QObject*>("mapPrecipitationModule");
-        QVERIFY(precipitation);
-        QVERIFY(!root->findChild<QObject*>("openWeatherMap"));
-        QCOMPARE(precipitation->findChild<QObject*>("mapModuleTitle")->property("text").toString(),
-                 QString("Precipitation"));
+        QVERIFY(!root->findChild<QObject*>("mapTemperatureModule"));
+        QVERIFY(!root->findChild<QObject*>("mapWindModule"));
+        QVERIFY(!root->findChild<QObject*>("mapPrecipitationModule"));
+        QCOMPARE(panel->property("selectedLayer").toString(), QString("precipitation"));
         QCOMPARE(tiles.requests, 0);
         QCOMPARE(transport.requests.size(), 0);
         root->setProperty("effectsOpen", false);
@@ -2200,6 +2200,12 @@ class FrontendTest : public QObject {
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, root, "backend.mapWanted").toBool(), 3000);
         QCOMPARE(transport.requests.size(), 1);
         QCOMPARE(transport.requests.last()["op"].toString(), QString("map_open"));
+        QTRY_VERIFY(root->findChild<QObject*>("mapPrecipitationModule"));
+        QPointer<QObject> card = root->findChild<QObject*>("mapPrecipitationModule");
+        QCOMPARE(card->findChild<QObject*>("mapModuleTitle")->property("text").toString(),
+                 QString("Precipitation"));
+        QCOMPARE(panel->findChildren<QObject*>("mapModuleTitle").size(), 1);
+
         QJsonArray hours{1790596800, 1790600400, 1790604000}, cells;
         for (int row = 0; row < 5; row++)
             for (int col = 0; col < 5; col++) {
@@ -2239,9 +2245,7 @@ class FrontendTest : public QObject {
             panel->setProperty("hourIndex", i % 3);
         panel->setProperty("hourIndex", 2);
         QCOMPARE(panel->property("hourIndex").toInt(), 2);
-        QCOMPARE(temperature->property("hourIndex").toInt(), 2);
-        QCOMPARE(wind->property("hourIndex").toInt(), 2);
-        QCOMPARE(precipitation->property("hourIndex").toInt(), 2);
+        QCOMPARE(card->property("hourIndex").toInt(), 2);
         QCOMPARE(tiles.requests, tiles.active.size());
         QCOMPARE(transport.requests.size(), 1);
         // Exercise timeline mechanics independently of the shell's raster
@@ -2256,9 +2260,7 @@ class FrontendTest : public QObject {
         QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(), 0,
                                   1500); // Wrap the available horizon.
         QTRY_COMPARE_WITH_TIMEOUT(panel->property("hourIndex").toInt(), 1, 1500);
-        QCOMPARE(temperature->property("hourIndex").toInt(), 1);
-        QCOMPARE(wind->property("hourIndex").toInt(), 1);
-        QCOMPARE(precipitation->property("hourIndex").toInt(), 1);
+        QCOMPARE(card->property("hourIndex").toInt(), 1);
         QVERIFY(QMetaObject::invokeMethod(playback, "clicked"));
         QVERIFY(!panel->property("playing").toBool());
         QCOMPARE(playback->property("text").toString(), QString("Play"));
@@ -2278,25 +2280,56 @@ class FrontendTest : public QObject {
         QVERIFY(!panel->property("playing").toBool());
         QCOMPARE(transport.requests.size(), 1);
         QCOMPARE(tiles.requests, tiles.active.size());
-        QCOMPARE(evaluate(engine, wind, "windSpeed(10)").toString(), QString("22 mph"));
+        const auto tileRequestsBeforeSwitch = tiles.requests;
+        auto* mapWindow =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        auto* tabs = panel->findChild<QObject*>("mapLayerTabs");
+        QVERIFY(mapWindow && tabs);
+        QTRY_COMPARE(tabs->property("count").toInt(), 3);
+        QQuickItem* firstTab = nullptr;
+        QVERIFY(QMetaObject::invokeMethod(tabs, "itemAt", Q_RETURN_ARG(QQuickItem*, firstTab),
+                                          Q_ARG(int, 0)));
+        QVERIFY(firstTab);
+        firstTab->forceActiveFocus();
+        QVERIFY(QMetaObject::invokeMethod(playback, "clicked"));
+        QVERIFY(panel->property("playing").toBool());
+        QTest::keyClick(mapWindow, Qt::Key_Right);
+        QTRY_COMPARE(panel->property("layerIndex").toInt(), 1);
+        QCOMPARE(card->objectName(), QString("mapTemperatureModule"));
+        QVERIFY(!panel->property("playing").toBool());
+        QCOMPARE(panel->property("hourIndex").toInt(), 2);
+        QTest::keyClick(mapWindow, Qt::Key_Right);
+        QTRY_COMPARE(panel->property("layerIndex").toInt(), 2);
+        QTRY_VERIFY(card->findChild<QObject*>("windAnimationTimer")->property("running").toBool());
+        QCOMPARE(card->objectName(), QString("mapWindModule"));
+        panel->setProperty("layerIndex", 1);
+        QTRY_VERIFY(!card->findChild<QObject*>("windAnimationTimer")->property("running").toBool());
+        QVERIFY(evaluate(engine, card, "windField === null && particles.length === 0").toBool());
+        QCOMPARE(card->objectName(), QString("mapTemperatureModule"));
+        panel->setProperty("layerIndex", 2);
+        QTest::qWait(100);
+        QCOMPARE(tiles.requests, tileRequestsBeforeSwitch);
+        QCOMPARE(transport.requests.size(), 1);
+        QCOMPARE(panel->findChildren<QObject*>("mapModuleTitle").size(), 1);
+        QCOMPARE(evaluate(engine, card, "windSpeed(10)").toString(), QString("22 mph"));
         auto metricSnapshot = selectedSnapshot(2, "New York, NY");
         auto controls = metricSnapshot["controls"].toObject();
         controls["units"] = "C";
         controls["units_mode"] = "auto";
         metricSnapshot["controls"] = controls;
-        auto* overlay = wind->findChild<QObject*>("mapOverlay");
+        auto* overlay = card->findChild<QObject*>("mapOverlay");
         QVERIFY(overlay);
         QSignalSpy painted(overlay, SIGNAL(painted()));
         QTest::qWait(100);
         painted.clear();
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", metricSnapshot}});
-        QCOMPARE(wind->property("units").toString(), QString("C"));
-        QCOMPARE(evaluate(engine, wind, "windSpeed(10)").toString(), QString("36 km/h"));
-        QCOMPARE(wind->findChild<QObject*>("mapLegend")->property("text").toString(),
-                 QString(wind->property("animationActive").toBool()
+        QCOMPARE(card->property("units").toString(), QString("C"));
+        QCOMPARE(evaluate(engine, card, "windSpeed(10)").toString(), QString("36 km/h"));
+        QCOMPARE(card->findChild<QObject*>("mapLegend")->property("text").toString(),
+                 QString(card->property("animationActive").toBool()
                              ? "Trails flow downwind · tap to inspect · km/h"
                              : "Static trails · tap to inspect · km/h"));
-        QVERIFY(temperature->findChild<QObject*>("mapCredit")
+        QVERIFY(card->findChild<QObject*>("mapCredit")
                     ->property("text")
                     .toString()
                     .startsWith("16.1 km radius"));
@@ -2306,8 +2339,8 @@ class FrontendTest : public QObject {
         metricSnapshot["snapshot_revision"] = 3;
         painted.clear();
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", metricSnapshot}});
-        QCOMPARE(evaluate(engine, wind, "windSpeed(10)").toString(), QString("19 kn"));
-        QVERIFY(wind->findChild<QObject*>("mapLegend")
+        QCOMPARE(evaluate(engine, card, "windSpeed(10)").toString(), QString("19 kn"));
+        QVERIFY(card->findChild<QObject*>("mapLegend")
                     ->property("text")
                     .toString()
                     .endsWith("tap to inspect · kn"));
@@ -2315,8 +2348,8 @@ class FrontendTest : public QObject {
         // Changing the display units must reuse the loaded map and tiles.
         QCOMPARE(transport.requests.size(), 1);
         QCOMPARE(tiles.requests, tiles.active.size());
-        QCOMPARE(evaluate(engine, temperature, "mapX(-73.9)>mapX(-74.0)").toBool(), true);
-        QCOMPARE(evaluate(engine, temperature, "mapY(40.8)<mapY(40.7)").toBool(), true);
+        QCOMPARE(evaluate(engine, card, "mapX(-73.9)>mapX(-74.0)").toBool(), true);
+        QCOMPARE(evaluate(engine, card, "mapY(40.8)<mapY(40.7)").toBool(), true);
         auto* window = qobject_cast<QWindow*>(root->property("weatherWindow").value<QObject*>());
         QVERIFY(window);
         deliver(transport, {{"version", 1}, {"request_id", 0}, {"ok", true}});
@@ -2325,6 +2358,7 @@ class FrontendTest : public QObject {
         window->showMinimized();
         QVERIFY(window->isVisible());
         QTRY_VERIFY(!root->property("mapActive").toBool());
+        QTRY_VERIFY(card.isNull());
         QVERIFY(!panel->property("playing").toBool());
         QCOMPARE(panel->property("hourIndex").toInt(), 0);
         QTRY_VERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
@@ -2368,6 +2402,18 @@ class FrontendTest : public QObject {
             auto* quickWindow = qobject_cast<QQuickWindow*>(window);
             QVERIFY(quickWindow);
             QVERIFY(quickWindow->grabWindow().save(capture));
+            for (const int width : {700, 1200}) {
+                window->setMaximumWidth(1600);
+                window->resize(width, 850);
+                for (int layer = 0; layer < 3; ++layer) {
+                    panel->setProperty("layerIndex", layer);
+                    QTest::qWait(100);
+                    flick->setProperty("contentY", panel->property("y").toReal() - 12);
+                    QTest::qWait(100);
+                    QVERIFY(quickWindow->grabWindow().save(QString(capture).replace(
+                        ".png", QString("-%1-%2.png").arg(width).arg(layer))));
+                }
+            }
         }
         QVERIFY(QMetaObject::invokeMethod(playback, "clicked"));
         QVERIFY(panel->property("playing").toBool());

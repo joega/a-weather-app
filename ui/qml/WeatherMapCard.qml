@@ -271,8 +271,8 @@ GlassPanel {
             activeFocusOnTab: root.mapLayer === "wind"
             enabled: root.mapLayer !== "wind" || root.mapData !== null
             Accessible.role: Accessible.Canvas
-            Accessible.name: "Wind map. " + root.pointReadout
-            Accessible.description: "Interpolated forecast. Click a point or use arrow keys to inspect wind; Home returns to center."
+            Accessible.name: root.mapLayer === "wind" ? "Wind map. " + root.pointReadout : root.mapLayer === "precipitation" ? "Precipitation forecast map" : "Temperature forecast map"
+            Accessible.description: root.mapLayer === "wind" ? "Interpolated forecast. Click a point or use arrow keys to inspect wind; Home returns to center." : "Forecast for the selected hour. Use the timeline to change the hour."
             onWidthChanged: root.invalidateWind()
             onHeightChanged: root.invalidateWind()
             Keys.onPressed: event => {
