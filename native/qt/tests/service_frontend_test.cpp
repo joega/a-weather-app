@@ -530,13 +530,13 @@ class ServiceFrontendTest : public QObject {
         QSignalSpy tileReplies(mapTiles.get(), &MapTiles::tileReply);
         window->show();
         QTRY_VERIFY(window->isExposed());
-        auto* section = root->findChild<QObject*>("weatherMaps");
+        auto* section = named("weatherMaps");
         QVERIFY(section);
         auto* scroll = root->findChild<QObject*>("forecastScroll");
         QVERIFY(scroll);
         auto* flick = scroll->property("contentItem").value<QObject*>();
         QVERIFY(flick);
-        flick->setProperty("contentY", section->property("y").toReal() + 40);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 40);
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.mapWanted").toBool(), 5000);
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.weatherMap.data!==null").toBool(), 5000);
         QTRY_VERIFY_WITH_TIMEOUT(tiles.size() >= 2, 3000);
@@ -950,6 +950,204 @@ class ServiceFrontendTest : public QObject {
         save("controls.json", {{"units", "F"}});
         QTRY_COMPARE_WITH_TIMEOUT(widget.label(), QString("16° · Clear"), 2000);
         QTRY_COMPARE_WITH_TIMEOUT(widget.label(), QString("60° · Clear"), 2000);
+    }
+    void dashboardRepeatedCustomizationResources() {
+        if (!qEnvironmentVariableIsSet("WEATHER_QT_DASHBOARD_MEASURE"))
+            QSKIP("Set WEATHER_QT_DASHBOARD_MEASURE for sequential dashboard resource sampling");
+        ServiceFixture fixture;
+        fixture.cache(60, true);
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        auto forecast = fixture.saved("forecast.json");
+        QJsonArray hours, days;
+        const auto now = QDateTime::currentDateTimeUtc();
+        for (int i = 0; i < 24; i++) {
+            auto row = forecast["hourly"].toArray()[0].toObject();
+            row["time"] = now.addSecs((i + 1) * 3600).toString(Qt::ISODate);
+            hours.append(row);
+        }
+        for (int i = 0; i < 10; i++) {
+            auto row = forecast["daily"].toArray()[0].toObject();
+            row["date"] = now.date().addDays(i).toString(Qt::ISODate);
+            days.append(row);
+        }
+        forecast["hourly"] = hours;
+        forecast["daily"] = days;
+        fixture.save("forecast.json", forecast);
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(
+            eval("backend.snapshot!==null && root.hours.length===24 && !backend.busy").toBool(),
+            5000);
+        QTest::qWait(100); // Allow initial picker focus work before dismissing it.
+        eval("root.effectsOpen=false;root.locationsOpen=false");
+        QTest::qWait(100);
+        QSignalSpy frames(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            QTest::qWait(200);
+            const auto before = frames.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = frames.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "DASHBOARD_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        phase("default_before_editor");
+        if (qEnvironmentVariableIsSet("WEATHER_QT_DASHBOARD_BASELINE_ONLY"))
+            return;
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_DASHBOARD_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            eval("forecastScroll.flickable.contentY=dashboardLayout.y");
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-full-default.png"));
+            eval("forecastScroll.flickable.contentY=0");
+        }
+        for (int i = 0; i < 40; i++) {
+            named("openDashboardEditor");
+            eval("root.openDashboard()");
+            QPointer<QObject> editor = named("dashboardEditor");
+            if (i % 2 == 0)
+                eval("dashboardLoader.item.update('density','compact');dashboardLoader.item.update("
+                     "'sections',dashboardLoader.item.draft.sections.map(r=>({id:r.id,enabled:r.id!"
+                     "=='maps' && r.id!=='air_quality'})))");
+            else
+                QMetaObject::invokeMethod(named("dashboardDefaults"), "clicked");
+            QMetaObject::invokeMethod(named("dashboardApply"), "clicked");
+            QTRY_VERIFY_WITH_TIMEOUT(
+                !eval("root.dashboardOpen || backend.dashboardSaving").toBool(), 3000);
+            QTRY_VERIFY(editor.isNull());
+            QTest::qWait(40);
+            QVERIFY(!eval("backend.mapWanted || backend.radarWanted").toBool());
+            if (i == 19 || i == 39)
+                phase(QString("default_after_%1_applies").arg(i + 1));
+        }
+        eval("root.openDashboard()");
+        phase("editor_open");
+        eval("root.closeDashboard()");
+        window->hide();
+        phase("hidden");
+        QVERIFY(!eval("root.dashboardOpen || dashboardLoader.item!==null").toBool());
+    }
+    void dashboardCustomizeApplyResetAndRestart() {
+        ServiceFixture fixture;
+        fixture.cache(60, true);
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot !== null && !backend.busy").toBool(), 5000);
+        eval("root.effectsOpen=false;root.locationsOpen=false");
+        QTest::qWait(100); // Let the location picker finish returning keyboard focus.
+        const auto exists = [&](const char* name) {
+            return root->findChild<QObject*>(name) || visualNamed(window->contentItem(), name);
+        };
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY2(item, name);
+            item->forceActiveFocus();
+            QTest::qWait(60);
+            const auto center = item->mapToScene(QPointF(item->width() / 2, item->height() / 2));
+            QVERIFY2(center.y() >= 0 && center.y() < window->height(), name);
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        QVERIFY(named("currentMetric_solar"));
+        QVERIFY(named("weatherMaps"));
+        QVERIFY(fixture.saved("dashboard.json").isEmpty());
+        activate("openDashboardEditor");
+        QTRY_VERIFY(eval("root.dashboardOpen && dashboardLoader.item !== null").toBool());
+        QVERIFY(named("dashboardEditor")->property("width").toDouble() >= 600);
+        QVERIFY(named("dashboardEditor")->property("height").toDouble() >= 500);
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
+        QVERIFY(!eval("root.mapActive").toBool());
+        activate("dashboard_sections_maps");
+        activate("dashboard_sections_air_quality");
+        activate("dashboard_sections_daily_down");
+        QTRY_COMPARE(eval("dashboardLoader.item.draft.sections[1].id").toString(),
+                     QString("metrics"));
+        QVERIFY(window->activeFocusItem()->objectName().startsWith("dashboard_sections_daily"));
+        activate("dashboardDensity_compact");
+        named("dashboardEditorTabs")->setProperty("currentIndex", 1);
+        activate("dashboard_metrics_solar");
+        activate("dashboard_metrics_pressure_up");
+        named("dashboardEditorTabs")->setProperty("currentIndex", 2);
+        activate("dashboard_hourly_wind_gust_m_s");
+        activate("dashboard_hourly_wind_gust_m_s_up");
+        QVERIFY(fixture.saved("dashboard.json").isEmpty());
+        // Draft edits do not change the forecast or construct new map scenes.
+        QVERIFY(named("currentMetric_solar"));
+        QVERIFY(named("weatherMaps"));
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_DASHBOARD_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-editor.png"));
+        }
+        activate("dashboardApply");
+        QTRY_VERIFY_WITH_TIMEOUT(!eval("root.dashboardOpen || backend.dashboardSaving").toBool(),
+                                 3000);
+        QTRY_VERIFY(!exists("currentMetric_solar"));
+        QVERIFY(!exists("weatherMaps"));
+        QVERIFY(!exists("airQualityPanel"));
+        QVERIFY(named("hourlyValue_0_wind_gust_m_s"));
+        auto* solarTimer = named("currentMetrics")->findChild<QObject*>("metricsSolarTimer");
+        QVERIFY(solarTimer);
+        QVERIFY(!solarTimer->property("running").toBool());
+        QVERIFY(!eval("backend.mapWanted || backend.radarWanted").toBool());
+        QCOMPARE(eval("root.dashboardPreferences.density").toString(), QString("compact"));
+        auto saved = fixture.saved("dashboard.json");
+        QCOMPARE(saved["density"].toString(), QString("compact"));
+        QCOMPARE(saved["hourly"].toArray()[1].toString(), QString("wind_gust_m_s"));
+        // A routine snapshot must keep existing cards and focus intact.
+        auto* metric = named("currentMetric_wind");
+        eval("backend.send('snapshot')");
+        QTRY_VERIFY(!eval("backend.busy || backend.pending>=0").toBool());
+        QCOMPARE(named("currentMetric_wind"), metric);
+        auto* lastMetric = qobject_cast<QQuickItem*>(named("currentMetric_uv"));
+        QVERIFY(lastMetric);
+        QCOMPARE(lastMetric->nextItemInFocusChain(true)->objectName(), QString("forecastDay_0"));
+        if (!prefix.isEmpty()) {
+            for (int width : {1200, 700}) {
+                window->resize(width, 850);
+                eval("forecastScroll.flickable.contentY=dashboardLayout.y");
+                QTest::qWait(100);
+                QVERIFY(window->grabWindow().save(prefix + QString("-compact-%1.png").arg(width)));
+            }
+        }
+        // Preferences survive a real service and native UI restart.
+        QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
+        eval("backend.shutdown()");
+        QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(), QProcess::NotRunning, 5000);
+        cleanup();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        eval("root.effectsOpen=false;root.locationsOpen=false");
+        QTest::qWait(100); // Let the location picker finish returning keyboard focus.
+        QVERIFY(!exists("weatherMaps"));
+        QVERIFY(!exists("currentMetric_solar"));
+        QCOMPARE(fixture.saved("dashboard.json"), saved);
+        activate("openDashboardEditor");
+        activate("dashboardDefaults");
+        QCOMPARE(fixture.saved("dashboard.json"), saved);
+        activate("dashboardApply");
+        QTRY_VERIFY_WITH_TIMEOUT(!eval("root.dashboardOpen || backend.dashboardSaving").toBool(),
+                                 3000);
+        QVERIFY(named("currentMetric_solar"));
+        QVERIFY(named("weatherMaps"));
+        QVERIFY(named("airQualityPanel"));
+        QCOMPARE(fixture.saved("dashboard.json")["density"].toString(), QString("spacious"));
+        // All optional sections may be hidden, but alerts, current conditions,
+        // customization and attribution remain reachable.
+        activate("openDashboardEditor");
+        for (const auto* id : {"hourly", "daily", "metrics", "maps", "air_quality"})
+            activate(qPrintable(QString("dashboard_sections_") + id));
+        activate("dashboardApply");
+        QTRY_VERIFY(!eval("root.dashboardOpen").toBool());
+        QVERIFY(!exists("currentMetrics"));
+        QVERIFY(!exists("hourlyRail"));
+        QVERIFY(named("sourceAttribution"));
+        QVERIFY(named("openDashboardEditor"));
+        activate("openDashboardEditor");
+        window->hide();
+        QTRY_VERIFY(!eval("root.dashboardOpen || dashboardLoader.item !== null").toBool());
     }
     void outdoorPlannerUsesCachedForecastAndSavesPreferences() {
         ServiceFixture fixture;

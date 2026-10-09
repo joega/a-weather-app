@@ -1,6 +1,7 @@
 import QtQuick
 import "../Forecast.js" as Forecast
 import "../Outdoor.js" as Outdoor
+import "../Dashboard.js" as Dashboard
 
 Item {
     id: root
@@ -65,6 +66,29 @@ Item {
     property var pendingOutdoorQuery: null
     property var queuedOutdoor: null
     property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation"].indexOf(pendingOp) < 0)
+    property bool dashboardSaving: false
+    signal dashboardFinished(bool ok, string code)
+    function saveDashboard(revision, preferences) {
+        if (dashboardSaving)
+            return false;
+        const query = {
+            revision: revision,
+            preferences: Dashboard.preferences(preferences)
+        };
+        dashboardSaving = true;
+        if (!send("set_dashboard", query)) {
+            dashboardSaving = false;
+            dashboardFinished(false, "unavailable");
+            return false;
+        }
+        return true;
+    }
+    function failDashboard() {
+        if (dashboardSaving) {
+            dashboardSaving = false;
+            dashboardFinished(false, "unavailable");
+        }
+    }
     signal closed(int exitCode)
     signal toggleWindow
     signal warningRequested(var reference, string activationToken)
@@ -190,6 +214,8 @@ Item {
             request.installed = patch.installed;
         if (op === "set_presentation")
             request.active = patch.active;
+        if (op === "set_dashboard")
+            request.dashboard = patch;
         if (op === "set_controls")
             request.controls = patch;
         if (op === "set_notifications" || op === "set_warning_notifications")
@@ -346,6 +372,7 @@ Item {
         closed(exitCode);
     }
     function fail(message) {
+        failDashboard();
         if (diagnostic)
             console.log("Weather service bridge failed:", message);
         shutdownFailed = true;
@@ -453,6 +480,12 @@ Item {
                 drainUserAction();
                 return;
             }
+            if (completedOp === "set_dashboard") {
+                dashboardSaving = false;
+                dashboardFinished(value.ok, value.ok ? "" : value.error || "state_io_failed");
+                drainUserAction();
+                return;
+            }
             if (completedOp === "outdoor_plan") {
                 const plan = value.ok ? Outdoor.result(value.outdoor) : null;
                 if (plan && (plan.forecast_at !== pendingOutdoorQuery.forecast_at || plan.timezone !== pendingOutdoorQuery.timezone))
@@ -509,6 +542,7 @@ Item {
             root.shutdown();
         }
         function onUnavailable(message) {
+            root.failDashboard();
             root.disconnected = true;
             root.pending = -1;
             root.pendingOp = "";

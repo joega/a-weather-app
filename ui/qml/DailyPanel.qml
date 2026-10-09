@@ -8,6 +8,8 @@ GlassPanel {
     id: root
     property var days: []
     property string units: "F"
+    property bool compact: false
+    readonly property int rowHeight: compact ? 33 : 37
     signal daySelected(var day)
     property real rangeLow: {
         let n = 100;
@@ -23,7 +25,7 @@ GlassPanel {
                 n = Math.max(n, d.high_c);
         return n;
     }
-    implicitHeight: root.days.length === 0 ? 124 : 66 + Math.min(10, days.length) * 37
+    implicitHeight: root.days.length === 0 ? 124 : 66 + Math.min(10, days.length) * root.rowHeight
     PlainLabel {
         x: 20
         y: 14
@@ -51,7 +53,7 @@ GlassPanel {
                 required property int index
                 objectName: "forecastDay_" + index
                 width: parent.width
-                height: 37
+                height: root.rowHeight
                 leftPadding: 8
                 rightPadding: 8
                 topPadding: 3

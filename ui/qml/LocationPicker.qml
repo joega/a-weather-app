@@ -56,7 +56,7 @@ GlassPanel {
     }
     function showAdd() {
         page = "add";
-        Qt.callLater(() => citySearch.focusQuery());
+        Qt.callLater(citySearch.focusQuery);
     }
     function revealFocus(item) {
         let ancestor = item;

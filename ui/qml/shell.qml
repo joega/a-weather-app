@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "backend"
 import "Forecast.js" as Forecast
+import "Dashboard.js" as Dashboard
 
 QtObject {
     id: root
@@ -23,9 +24,28 @@ QtObject {
     readonly property bool primaryForecastAvailable: savedLocations ? savedLocations.primary_forecast_available : root.forecast !== null
     readonly property string primaryName: primaryPlace ? Forecast.savedName(primaryPlace) : root.location
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
+    property var dashboardPreferences: Dashboard.defaults()
+    readonly property bool compactDashboard: dashboardPreferences.density === "compact"
+    property bool dashboardOpen: false
+    property Item dashboardReturnFocus: null
+    function openDashboard() {
+        if (outdoorOpen)
+            closeOutdoor();
+        dashboardReturnFocus = window.activeFocusItem;
+        dashboardOpen = true;
+    }
+    function closeDashboard() {
+        dashboardOpen = false;
+        const target = dashboardReturnFocus;
+        dashboardReturnFocus = null;
+        if (target && target.visible && target.enabled && window.visible)
+            target.forceActiveFocus();
+    }
     property bool outdoorOpen: false
     property Item outdoorReturnFocus: null
     function openOutdoor() {
+        if (dashboardOpen)
+            closeDashboard();
         outdoorReturnFocus = window.activeFocusItem;
         outdoorOpen = true;
         bridge.loadOutdoor(null);
@@ -44,6 +64,8 @@ QtObject {
     property bool warningBackToSettings: false
     property Item warningReturnFocus: null
     function openWarning(reference, fromDesktop, activationToken) {
+        if (dashboardOpen)
+            closeDashboard();
         if (bridge.closing)
             return;
         if (!warningOpen) {
@@ -91,6 +113,8 @@ QtObject {
         });
     }
     function openLocations() {
+        if (dashboardOpen)
+            closeDashboard();
         if (outdoorOpen)
             closeOutdoor();
         if (!savedLocations) {
@@ -133,6 +157,8 @@ QtObject {
             });
     }
     function openSettings(locationSearch) {
+        if (dashboardOpen)
+            closeDashboard();
         if (outdoorOpen)
             closeOutdoor();
         locationsOpen = false;
@@ -151,7 +177,7 @@ QtObject {
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
     function showUpdateNotice() {
-        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || root.dashboardOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
             return;
         if (bridge.send("acknowledge_update", {
             installed: root.updateStatus.installed
@@ -166,10 +192,12 @@ QtObject {
         onTriggered: root.updateNoticeActive = false
     }
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
-    readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
-    readonly property bool forecastMapActive: root.mapActive && mapSection.selectedLayer !== "radar"
-    readonly property bool radarActive: root.mapActive && mapSection.selectedLayer === "radar"
+    readonly property var mapSection: dashboardLayout.mapItem
+    readonly property real mapContentTop: forecastColumn.y + dashboardLayout.y + dashboardLayout.mapTop
+    readonly property bool mapsNearViewport: mapSection !== null && mapSection.height > 100 && mapContentTop + mapSection.height > forecastScroll.flickable.contentY - 64 && mapContentTop < forecastScroll.flickable.contentY + forecastScroll.height + 64
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool forecastMapActive: root.mapActive && mapSection !== null && mapSection.selectedLayer !== "radar"
+    readonly property bool radarActive: root.mapActive && mapSection !== null && mapSection.selectedLayer === "radar"
     onForecastMapActiveChanged: {
         if (forecastMapActive && !bridge.mapWanted)
             bridge.openMap();
@@ -300,6 +328,9 @@ QtObject {
         }
         onWarningRequested: (reference, activationToken) => root.openWarning(reference, true, activationToken)
         onSnapshotChanged: {
+            // Ordinary weather updates must not recreate the dashboard scene.
+            if (snapshot && JSON.stringify(root.dashboardPreferences) !== JSON.stringify(snapshot.dashboard.preferences))
+                root.dashboardPreferences = snapshot.dashboard.preferences;
             if (snapshot && !root.initialLocationChecked) {
                 root.initialLocationChecked = true;
                 if (snapshot.location_settings.mode === "default") {
@@ -325,6 +356,10 @@ QtObject {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (root.dashboardOpen && dashboardLoader.item) {
+                dashboardLoader.item.revealFocus(item);
+                return;
+            }
             if (root.outdoorOpen && outdoorLoader.item) {
                 outdoorLoader.item.revealFocus(item);
                 return;
@@ -360,11 +395,15 @@ QtObject {
             flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
         })
         onVisibilityChanged: {
+            if (window.visibility === Window.Minimized && root.dashboardOpen)
+                root.closeDashboard();
             if (window.visibility === Window.Minimized && root.outdoorOpen)
                 root.closeOutdoor();
         }
         onVisibleChanged: {
             if (!visible) {
+                if (root.dashboardOpen)
+                    root.closeDashboard();
                 root.updateNoticeActive = false;
                 root.locationsOpen = false;
                 if (root.outdoorOpen)
@@ -399,7 +438,7 @@ QtObject {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !details.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -424,10 +463,11 @@ QtObject {
             clip: true
             contentWidth: availableWidth
             ColumnLayout {
+                id: forecastColumn
                 width: window.width - 56
                 x: 28
                 y: 18
-                spacing: 16
+                spacing: root.compactDashboard ? 10 : 16
                 Item {
                     Layout.fillWidth: true
                     Layout.preferredHeight: headerBody.implicitHeight
@@ -676,72 +716,31 @@ QtObject {
                     onCheckRequested: bridge.send("check_updates")
                     onInstallRequested: bridge.send("install_update")
                 }
-                HourlyPanel {
+                RowLayout {
                     Layout.fillWidth: true
-                    hours: root.hours
-                    units: root.units
-                    timezone: root.timezone
-                    onHourSelected: hour => details.showHour(hour)
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                    ActionButton {
+                        objectName: "openDashboardEditor"
+                        text: "Customize dashboard"
+                        enabled: bridge.available && !bridge.dashboardSaving && bridge.snapshot !== null
+                        onClicked: root.openDashboard()
+                    }
                 }
-                GridLayout {
-                    id: forecastCards
-                    Layout.fillWidth: true
+                DashboardLayout {
+                    id: dashboardLayout
                     objectName: "forecastCards"
-                    columns: window.width < 1200 || root.days.length === 0 ? 1 : 2
-                    columnSpacing: 16
-                    rowSpacing: 16
-                    DailyPanel {
-                        id: daily
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: forecastCards.columns === 1 ? forecastCards.width : forecastCards.width * 0.54
-                        Layout.fillHeight: true
-                        days: root.days
-                        units: root.units
-                        onDaySelected: day => details.showDay(day)
-                    }
-                    MetricsPanel {
-                        id: metrics
-                        objectName: "currentMetrics"
-                        onMetricSelected: metric => {
-                            if (metric === "daylight") {
-                                if (root.days.length)
-                                    details.showDay(root.days[0]);
-                            } else
-                                details.showMetric(metric);
-                        }
-                        windUnits: root.windUnits
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: forecastCards.width * 0.44
-                        Layout.fillHeight: true
-                        current: root.current
-                        day: root.days.length ? root.days[0] : null
-                        units: root.units
-                        timezone: root.timezone
-                    }
-                }
-                WeatherMap {
-                    id: mapSection
-                    tileClient: root.mapTiles
                     Layout.fillWidth: true
-                    mapState: bridge.weatherMap
-                    radarState: bridge.weatherRadar
-                    imageControl: root.radarImages
-                    locationLatitude: bridge.snapshot && bridge.snapshot.latitude !== null ? bridge.snapshot.latitude : 0
-                    locationLongitude: bridge.snapshot && bridge.snapshot.longitude !== null ? bridge.snapshot.longitude : 0
-                    onRadarViewRequested: (latitude, longitude, zoom) => bridge.openRadar(latitude, longitude, zoom)
-                    location: root.city
-                    units: root.units
-                    windUnits: root.windUnits
-                    hasLocation: root.hasMapLocation
-                    active: root.mapActive
-                    visualQuality: forecastAtmosphere.effectiveQuality
-                    reducedMotion: root.controls.reduced_motion
-                    viewportTop: forecastScroll.flickable.contentY - (mapSection.y + 18)
-                    viewportHeight: forecastScroll.height
-                }
-                AirQualityPanel {
-                    Layout.fillWidth: true
-                    airQuality: bridge.snapshot ? bridge.snapshot.air_quality : Forecast.airQuality()
+                    preferences: root.dashboardPreferences
+                    paired: window.width >= 1200 && root.days.length > 0
+                    components: ({
+                            hourly: hourlyComponent,
+                            daily: dailyComponent,
+                            metrics: metricsComponent,
+                            maps: mapsComponent,
+                            air_quality: airQualityComponent
+                        })
                 }
                 PlainLabel {
                     objectName: "sourceAttribution"
@@ -756,6 +755,76 @@ QtObject {
                 Item {
                     Layout.preferredHeight: 24
                 }
+            }
+        }
+        Component {
+            id: hourlyComponent
+            HourlyPanel {
+                hours: root.hours
+                units: root.units
+                windUnits: root.windUnits
+                timezone: root.timezone
+                compact: root.compactDashboard
+                values: root.dashboardPreferences.hourly
+                onHourSelected: hour => details.showHour(hour)
+            }
+        }
+        Component {
+            id: dailyComponent
+            DailyPanel {
+                days: root.days
+                units: root.units
+                compact: root.compactDashboard
+                onDaySelected: day => details.showDay(day)
+            }
+        }
+        Component {
+            id: metricsComponent
+            MetricsPanel {
+                objectName: "currentMetrics"
+                current: root.current
+                day: root.days.length ? root.days[0] : null
+                units: root.units
+                windUnits: root.windUnits
+                timezone: root.timezone
+                compact: root.compactDashboard
+                selection: root.dashboardPreferences.metrics
+                presentationActive: bridge.presentationActive && !root.dashboardOpen
+                onMetricSelected: metric => {
+                    if (metric === "daylight") {
+                        if (root.days.length)
+                            details.showDay(root.days[0]);
+                    } else
+                        details.showMetric(metric);
+                }
+            }
+        }
+        Component {
+            id: mapsComponent
+            WeatherMap {
+                tileClient: root.mapTiles
+                mapState: bridge.weatherMap
+                radarState: bridge.weatherRadar
+                imageControl: root.radarImages
+                locationLatitude: bridge.snapshot && bridge.snapshot.latitude !== null ? bridge.snapshot.latitude : 0
+                locationLongitude: bridge.snapshot && bridge.snapshot.longitude !== null ? bridge.snapshot.longitude : 0
+                onRadarViewRequested: (latitude, longitude, zoom) => bridge.openRadar(latitude, longitude, zoom)
+                location: root.city
+                units: root.units
+                windUnits: root.windUnits
+                hasLocation: root.hasMapLocation
+                active: root.mapActive
+                visualQuality: forecastAtmosphere.effectiveQuality
+                reducedMotion: root.controls.reduced_motion
+                viewportTop: forecastScroll.flickable.contentY - root.mapContentTop
+                viewportHeight: forecastScroll.height
+            }
+        }
+        Component {
+            id: airQualityComponent
+            AirQualityPanel {
+                objectName: "airQualityPanel"
+                airQuality: bridge.snapshot ? bridge.snapshot.air_quality : Forecast.airQuality()
             }
         }
         ForecastDetails {
@@ -913,6 +982,17 @@ QtObject {
                 }
                 onSearchRequested: values => bridge.send("search_places", values)
                 onCancelSearchRequested: bridge.send("cancel_place_search")
+            }
+        }
+        Loader {
+            id: dashboardLoader
+            objectName: "dashboardEditorLoader"
+            active: root.dashboardOpen
+            onLoaded: item.open()
+            sourceComponent: DashboardEditor {
+                bridge: root.backend
+                onClosed: if (root.dashboardOpen)
+                    root.closeDashboard()
             }
         }
         Loader {

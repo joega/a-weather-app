@@ -2,6 +2,10 @@
 <file alias="qml/shell.qml">../../ui/qml/shell.qml</file>
 <file alias="qml/qmldir">../../ui/qml/qmldir</file>
 <file alias="qml/WindField.js">../../ui/qml/WindField.js</file>
+<file alias="qml/Dashboard.js">../../ui/qml/Dashboard.js</file>
+<file alias="qml/DashboardOrder.qml">../../ui/qml/DashboardOrder.qml</file>
+<file alias="qml/DashboardEditor.qml">../../ui/qml/DashboardEditor.qml</file>
+<file alias="qml/DashboardLayout.qml">../../ui/qml/DashboardLayout.qml</file>
 <file alias="qml/Forecast.js">../../ui/qml/Forecast.js</file>
 <file alias="qml/Outdoor.js">../../ui/qml/Outdoor.js</file>
 <file alias="qml/OutdoorPlanner.qml">../../ui/qml/OutdoorPlanner.qml</file>

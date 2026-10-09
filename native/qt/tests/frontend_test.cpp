@@ -418,6 +418,15 @@ class FrontendTest : public QObject {
                 return found;
         return nullptr;
     }
+    QQuickItem* shellItem(QObject* root, const QString& name) {
+        // Loader-created sections belong to the visual tree, not necessarily
+        // the shell's QObject ownership tree.
+        if (auto* item = root->findChild<QQuickItem*>(name))
+            return item;
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        return window ? visualItem(window->contentItem(), name) : nullptr;
+    }
     QJsonObject mapFixture(double latitude = 40.7128, double longitude = -74.006) {
         QJsonArray cells;
         for (int row = 0; row < 5; ++row)
@@ -962,7 +971,7 @@ class FrontendTest : public QObject {
                 .toTimeZone(QTimeZone("America/New_York"))
                 .toString("ddd MMM d, h:mm AP t");
         event["map"] = mapState;
-        auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));
+        auto* panel = qobject_cast<QQuickItem*>(shellItem(root, "weatherMaps"));
         QVERIFY(panel);
         panel->setProperty("layerIndex", 2);
         auto* scroll = root->findChild<QObject*>("forecastScroll");
@@ -976,15 +985,15 @@ class FrontendTest : public QObject {
             QTRY_COMPARE(window->width(), width);
             QTRY_COMPARE(window->height(), 850);
             QTest::qWait(100);
-            flick->setProperty("contentY", panel->y() - 12);
+            flick->setProperty("contentY", root->property("mapContentTop").toReal() - 12);
             QTRY_VERIFY(root->property("mapActive").toBool());
             deliver(transport, event);
-            QTRY_VERIFY(root->findChild<QQuickItem*>("mapWindModule"));
-            auto* wind = root->findChild<QQuickItem*>("mapWindModule");
+            QTRY_VERIFY(shellItem(root, "mapWindModule"));
+            auto* wind = shellItem(root, "mapWindModule");
             QTest::qWait(100);
             if (width == 700)
-                flick->setProperty("contentY",
-                                   panel->y() + wind->parentItem()->y() + wind->y() - 24);
+                flick->setProperty("contentY", root->property("mapContentTop").toReal() +
+                                                   wind->parentItem()->y() + wind->y() - 24);
             QTRY_VERIFY(wind->property("animationActive").toBool());
             QTest::qWait(1600);
             capture(QString("wind-%1").arg(width));
@@ -1543,14 +1552,14 @@ class FrontendTest : public QObject {
                             {"snapshot", selectedSnapshot(1, "New York, NY")}});
         root->setProperty("effectsOpen", false);
         QTRY_VERIFY(window->isExposed());
-        auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));
+        auto* panel = qobject_cast<QQuickItem*>(shellItem(root, "weatherMaps"));
         auto* scroll = root->findChild<QObject*>("forecastScroll");
         QVERIFY(panel);
         QVERIFY(scroll);
         auto* flick = scroll->property("contentItem").value<QQuickItem*>();
         QVERIFY(flick);
         QTest::qWait(100);
-        flick->setProperty("contentY", panel->y() + 20);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 20);
         QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
         QSignalSpy ready(&tiles, &MapTiles::tileReady), replies(&tiles, &MapTiles::tileReply),
             failed(&tiles, &MapTiles::tileFailed);
@@ -1592,7 +1601,7 @@ class FrontendTest : public QObject {
                 QTRY_VERIFY(window->isExposed());
                 // The shell deliberately returns to the top in a deferred show handler.
                 QTRY_COMPARE(flick->property("contentY").toReal(), 0);
-                flick->setProperty("contentY", panel->y() + 20);
+                flick->setProperty("contentY", root->property("mapContentTop").toReal() + 20);
                 QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
             }
             ready.clear();
@@ -1642,7 +1651,7 @@ class FrontendTest : public QObject {
             window->show();
             QTRY_VERIFY(window->isExposed());
             QTRY_COMPARE(flick->property("contentY").toReal(), 0);
-            flick->setProperty("contentY", panel->y() + 20);
+            flick->setProperty("contentY", root->property("mapContentTop").toReal() + 20);
             QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
             deliver(transport, mapEvent(mapFixture(35, 139), false));
             QTRY_VERIFY_WITH_TIMEOUT(ready.size() >= 2, 3000);
@@ -1713,13 +1722,13 @@ class FrontendTest : public QObject {
                 window = qobject_cast<QQuickWindow*>(candidate);
         QVERIFY(window);
         QTRY_VERIFY(window->isExposed());
-        auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("weatherMaps"));
+        auto* panel = qobject_cast<QQuickItem*>(shellItem(root, "weatherMaps"));
         QVERIFY(panel);
         auto* scroll = root->findChild<QObject*>("forecastScroll");
         QVERIFY(scroll);
         auto* flick = qobject_cast<QQuickItem*>(scroll->property("contentItem").value<QObject*>());
         QVERIFY(flick);
-        flick->setProperty("contentY", panel->y() + 20);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 20);
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, root, "backend.mapWanted").toBool(), 3000);
         QSignalSpy received(&tiles, &MapTiles::tileReady);
         QSignalSpy started(&tiles, &MapTiles::tileStarted);
@@ -1748,11 +1757,11 @@ class FrontendTest : public QObject {
         QVERIFY(window->grabWindow().save(QString(output).replace(".png", "-wind.png")));
         panel->setProperty("layerIndex", 0);
         panel->setProperty("hourIndex", 1);
-        auto* precipitation =
-            qobject_cast<QQuickItem*>(root->findChild<QObject*>("mapPrecipitationModule"));
+        auto* precipitation = qobject_cast<QQuickItem*>(shellItem(root, "mapPrecipitationModule"));
         QVERIFY(precipitation);
-        flick->setProperty("contentY",
-                           panel->y() + precipitation->parentItem()->y() + precipitation->y() - 24);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() +
+                                           precipitation->parentItem()->y() + precipitation->y() -
+                                           24);
         QTRY_VERIFY_WITH_TIMEOUT(tileImagesRendered(panel), 15000);
         QTest::qWait(250);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png", "-precipitation.png")));
@@ -1770,7 +1779,7 @@ class FrontendTest : public QObject {
         QTRY_VERIFY(window->isExposed());
         // Wait for the shell's deferred scroll-to-top before returning to the maps.
         QTRY_COMPARE(flick->property("contentY").toReal(), 0);
-        flick->setProperty("contentY", panel->y() + 20);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 20);
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, root, "backend.mapWanted").toBool(), 3000);
         QSignalSpy offlineTiles(&tiles, &MapTiles::tileReady);
         QSignalSpy offlineReplies(&tiles, &MapTiles::tileReply);
@@ -2272,14 +2281,14 @@ class FrontendTest : public QObject {
         deliver(transport, {{"version", 1},
                             {"event", "snapshot"},
                             {"snapshot", selectedSnapshot(1, "New York, NY")}});
-        auto* panel = root->findChild<QObject*>("weatherMaps");
+        auto* panel = shellItem(root, "weatherMaps");
         QVERIFY(panel);
         auto* playback = panel->findChild<QObject*>("mapPlayback");
         QVERIFY(playback);
         QVERIFY(!playback->property("enabled").toBool());
-        QVERIFY(!root->findChild<QObject*>("mapTemperatureModule"));
-        QVERIFY(!root->findChild<QObject*>("mapWindModule"));
-        QVERIFY(!root->findChild<QObject*>("mapPrecipitationModule"));
+        QVERIFY(!shellItem(root, "mapTemperatureModule"));
+        QVERIFY(!shellItem(root, "mapWindModule"));
+        QVERIFY(!shellItem(root, "mapPrecipitationModule"));
         QCOMPARE(panel->property("selectedLayer").toString(), QString("precipitation"));
         QCOMPARE(tiles.requests, 0);
         QCOMPARE(transport.requests.size(), 0);
@@ -2290,12 +2299,12 @@ class FrontendTest : public QObject {
         QVERIFY(flick);
         QTest::qWait(
             100); // Let the snapshot and forecast sections settle before scrolling to the maps.
-        flick->setProperty("contentY", panel->property("y").toReal() + 40);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 40);
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, root, "backend.mapWanted").toBool(), 3000);
         QCOMPARE(transport.requests.size(), 1);
         QCOMPARE(transport.requests.last()["op"].toString(), QString("map_open"));
-        QTRY_VERIFY(root->findChild<QObject*>("mapPrecipitationModule"));
-        QPointer<QObject> card = root->findChild<QObject*>("mapPrecipitationModule");
+        QTRY_VERIFY(shellItem(root, "mapPrecipitationModule"));
+        QPointer<QObject> card = shellItem(root, "mapPrecipitationModule");
         QCOMPARE(card->findChild<QObject*>("mapModuleTitle")->property("text").toString(),
                  QString("Precipitation"));
         QCOMPARE(panel->findChildren<QObject*>("mapModuleTitle").size(), 1);
@@ -2615,24 +2624,25 @@ class FrontendTest : public QObject {
         location["longitude"] = -74.006;
         data["location"] = location;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", data}});
-        auto* panel = root->findChild<QObject*>("weatherMaps");
+        auto* panel = shellItem(root, "weatherMaps");
         auto* flick =
             root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
         QVERIFY(panel && flick);
-        QVERIFY(!root->findChild<QObject*>("radarMap"));
+        QVERIFY(!shellItem(root, "radarMap"));
         QCOMPARE(images->calls.load(), 0);
         QTest::qWait(100);
-        flick->setProperty("contentY", panel->property("y").toReal() + 40);
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 40);
         QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
         int acknowledged = 0;
         drain(transport, acknowledged);
         panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 3);
-        QTRY_VERIFY(root->findChild<QObject*>("radarMap"));
+        QTRY_VERIFY(shellItem(root, "radarMap"));
+        QTRY_VERIFY(evaluate(engine, root, "backend.radarWanted").toBool());
         drain(transport, acknowledged);
         QVERIFY(control.state()->active.load());
-        QTRY_VERIFY(!root->findChild<QObject*>("mapPrecipitationModule"));
+        QTRY_VERIFY(!shellItem(root, "mapPrecipitationModule"));
         QVERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
-        QPointer<QObject> radar = root->findChild<QObject*>("radarMap");
+        QPointer<QObject> radar = shellItem(root, "radarMap");
         const int token = evaluate(engine, root, "backend.radarToken").toInt();
         deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(token)}});
         QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, radar, "displayedFrame !== null").toBool(), 2000);
@@ -2762,6 +2772,208 @@ class FrontendTest : public QObject {
         QVERIFY(window);
         QTRY_VERIFY(window->isVisible());
         QTRY_VERIFY(window->isExposed());
+    }
+    void dashboardEditorConflictsAndReorderedMapDemand() {
+        FakeTransport transport;
+        FakeMapTiles tiles;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
+                                     {"mapTiles", QVariant::fromValue(&tiles)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto state = selectedSnapshot(1, "New York, NY");
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QTest::qWait(100);
+        QVERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
+        auto preferences =
+            QJsonDocument::fromJson(
+                evaluate(engine, root, "JSON.stringify(Dashboard.defaults())").toString().toUtf8())
+                .object();
+        auto sections = preferences["sections"].toArray();
+        auto maps = sections.takeAt(3);
+        sections.prepend(maps);
+        preferences["sections"] = sections;
+        state["snapshot_revision"] = 2;
+        state["dashboard"] =
+            QJsonObject{{"revision", 2}, {"error", QJsonValue::Null}, {"preferences", preferences}};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
+        auto* map = shellItem(root, "weatherMaps");
+        QVERIFY(map);
+        auto* window = map->window();
+        QVERIFY(window);
+        auto* flick =
+            root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
+        QVERIFY(flick);
+        auto top = map->mapToScene(QPointF()).y() + flick->property("contentY").toReal();
+        QVERIFY(qAbs(top - root->property("mapContentTop").toReal()) < 1);
+        int acknowledged = 0;
+        drain(transport, acknowledged);
+        deliver(transport, mapEvent(mapFixture(), true));
+        QTRY_VERIFY(shellItem(root, "mapPrecipitationModule"));
+        window->resize(700, 850);
+        QTest::qWait(100);
+        QCOMPARE(shellItem(root, "weatherMaps"), map); // Width changes retain the scene.
+        evaluate(engine, root, "openDashboard();dashboardLoader.item.update('density','compact')");
+        QTRY_VERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
+        drain(transport, acknowledged);
+        QVERIFY(!shellItem(root, "mapPrecipitationModule"));
+        QVERIFY(!tiles.active.size());
+        // Another accepted save cannot be silently overwritten by this draft.
+        state["snapshot_revision"] = 3;
+        auto dashboard = state["dashboard"].toObject();
+        dashboard["revision"] = 3;
+        state["dashboard"] = dashboard;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QVERIFY(
+            evaluate(
+                engine, root,
+                "dashboardLoader.item.conflict && dashboardLoader.item.draft.density==='compact'")
+                .toBool());
+        QVERIFY(!shellItem(root, "dashboardApply")->isEnabled());
+        evaluate(engine, root, "dashboardLoader.item.reload()");
+        QVERIFY(
+            evaluate(
+                engine, root,
+                "!dashboardLoader.item.conflict && dashboardLoader.item.draft.density==='spacious'")
+                .toBool());
+        evaluate(engine, root, "dashboardLoader.item.update('density','compact')");
+        QMetaObject::invokeMethod(shellItem(root, "dashboardApply"), "clicked");
+        QCOMPARE(transport.requests.last()["op"].toString(), "set_dashboard");
+        deliver(transport, {{"version", 1},
+                            {"request_id", transport.requests.last()["request_id"].toInt()},
+                            {"ok", false},
+                            {"error", "state_io_failed"}});
+        acknowledged = transport.requests.size();
+        QVERIFY(evaluate(engine, root,
+                         "root.dashboardOpen && dashboardLoader.item.draft.density==='compact' && "
+                         "dashboardLoader.item.message.length>0")
+                    .toBool());
+        QMetaObject::invokeMethod(shellItem(root, "dashboardApply"), "clicked");
+        state["snapshot_revision"] = 4;
+        dashboard["revision"] = 4;
+        dashboard["error"] = "save_unconfirmed";
+        preferences["density"] = "compact";
+        dashboard["preferences"] = preferences;
+        state["dashboard"] = dashboard;
+        deliver(transport, {{"version", 1},
+                            {"request_id", transport.requests.last()["request_id"].toInt()},
+                            {"ok", false},
+                            {"error", "save_unconfirmed"},
+                            {"snapshot", state}});
+        acknowledged = transport.requests.size();
+        QVERIFY(evaluate(engine, root,
+                         "root.dashboardOpen && !dashboardLoader.item.conflict && "
+                         "dashboardLoader.item.revision===4")
+                    .toBool());
+        QVERIFY(shellItem(root, "dashboardApply")->isEnabled());
+        QMetaObject::invokeMethod(shellItem(root, "dashboardApply"), "clicked");
+        dashboard["error"] = QJsonValue::Null;
+        dashboard["revision"] = 5;
+        state["dashboard"] = dashboard;
+        state["snapshot_revision"] = 5;
+        deliver(transport, {{"version", 1},
+                            {"request_id", transport.requests.last()["request_id"].toInt()},
+                            {"ok", true},
+                            {"snapshot", state}});
+        QTRY_VERIFY(!root->property("dashboardOpen").toBool());
+        acknowledged++; // The successful save can immediately enqueue map demand.
+        drain(transport, acknowledged);
+        // Moving maps below the viewport stops demand and removes the active map.
+        sections = preferences["sections"].toArray();
+        maps = sections.takeAt(0);
+        sections.append(maps);
+        preferences["sections"] = sections;
+        dashboard["preferences"] = preferences;
+        dashboard["revision"] = 6;
+        state["dashboard"] = dashboard;
+        state["snapshot_revision"] = 6;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        flick->setProperty("contentY", 0);
+        QTRY_VERIFY(!evaluate(engine, root, "backend.mapWanted || backend.radarWanted").toBool());
+        QVERIFY(!shellItem(root, "mapPrecipitationModule"));
+        drain(transport, acknowledged);
+    }
+    void dashboardValidationAndSaveQueue() {
+        QQmlEngine engine;
+        QQmlComponent schema(&engine);
+        schema.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Dashboard.js\" as Dashboard\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(schema.create());
+        QVERIFY2(scope, qPrintable(schema.errorString()));
+        auto valid = [&](const QString& mutation) {
+            QQmlExpression expression(qmlContext(scope.data()), scope.data(),
+                                      "(function(){let p=Dashboard.defaults();" + mutation +
+                                          "; return Dashboard.preferences(p)})()");
+            expression.evaluate();
+            return !expression.hasError();
+        };
+        QVERIFY(valid(""));
+        QVERIFY(valid("p.sections.forEach(r=>r.enabled=false);p.hourly=['wind_gust_m_s']"));
+        for (const auto& mutation :
+             {"p.extra=1", "p.density='dense'", "p.schema_version=2", "p.sections[0].id='maps'",
+              "p.metrics[0].enabled=1", "p.metrics.forEach(r=>r.enabled=false)", "p.hourly=[]",
+              "p.hourly=['humidity','humidity']", "p.hourly=['unknown']",
+              "p.hourly=['humidity','wind_speed_m_s','wind_gust_m_s','uv_index']"})
+            QVERIFY2(!valid(QString::fromLatin1(mutation)), mutation);
+        QCOMPARE(evaluate(engine, scope.data(),
+                          "JSON.stringify(Dashboard.rows(Dashboard.defaults().sections,true))")
+                     .toString(),
+                 QString("[[\"hourly\"],[\"daily\",\"metrics\"],[\"maps\"],[\"air_quality\"]]"));
+        QVERIFY(evaluate(engine, scope.data(),
+                         "Dashboard.state(undefined).preferences.hourly.length===2")
+                    .toBool());
+        for (const auto& input :
+             {"null", "{preferences:Dashboard.defaults(),revision:0,error:null}",
+              "{preferences:Dashboard.defaults(),revision:9007199254740992,error:null}",
+              "{preferences:Dashboard.defaults(),revision:1,error:'unknown'}"}) {
+            QQmlExpression expression(qmlContext(scope.data()), scope.data(),
+                                      "Dashboard.state(" + QString::fromLatin1(input) + ")");
+            expression.evaluate();
+            QVERIFY(expression.hasError());
+        }
+        FakeTransport transport;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        QSignalSpy saved(bridge.data(), SIGNAL(dashboardFinished(bool, QString)));
+        deliver(transport,
+                {{"version", 1}, {"event", "snapshot"}, {"snapshot", metricSnapshot(1)}});
+        QVERIFY(
+            evaluate(engine, bridge.data(), "snapshot.dashboard.preferences.density==='spacious'")
+                .toBool());
+        evaluate(
+            engine, bridge.data(),
+            "send('set_controls',{units:'C'});let "
+            "p=Dashboard.defaults();p.density='compact';saveDashboard(1,p);p.density='spacious'");
+        QCOMPARE(transport.requests.size(), 1);
+        QVERIFY(bridge->property("dashboardSaving").toBool());
+        QVERIFY(!evaluate(engine, bridge.data(), "saveDashboard(1,Dashboard.defaults())").toBool());
+        deliver(transport, {{"version", 1}, {"request_id", 0}, {"ok", true}});
+        QCOMPARE(transport.requests.last()["op"].toString(), "set_dashboard");
+        QCOMPARE(transport.requests.last()["dashboard"]
+                     .toMap()["preferences"]
+                     .toMap()["density"]
+                     .toString(),
+                 "compact");
+        deliver(transport,
+                {{"version", 1}, {"request_id", 1}, {"ok", false}, {"error", "dashboard_changed"}});
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(saved.last()[1].toString(), "dashboard_changed");
+        QVERIFY(!bridge->property("dashboardSaving").toBool());
+        evaluate(engine, bridge.data(), "saveDashboard(2,Dashboard.defaults())");
+        deliver(transport,
+                {{"version", 1}, {"request_id", 2}, {"ok", false}, {"error", "state_io_failed"}});
+        QCOMPARE(saved.last()[1].toString(), "state_io_failed");
+        evaluate(engine, bridge.data(), "saveDashboard(2,Dashboard.defaults())");
+        deliver(transport, {{"version", 1}, {"request_id", 3}, {"ok", true}});
+        QVERIFY(saved.last()[0].toBool());
+        evaluate(engine, bridge.data(),
+                 "saveDashboard(3,Dashboard.defaults());fail('disconnected')");
+        QVERIFY(!bridge->property("dashboardSaving").toBool());
+        QCOMPARE(saved.last()[1].toString(), "unavailable");
     }
     void outdoorQueueFreshnessAndValidation() {
         FakeTransport transport;
@@ -3928,7 +4140,7 @@ class FrontendTest : public QObject {
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
         auto* root = engine.rootObjects().first();
-        auto* times = root->findChild<QObject*>("airQualityTimes");
+        auto* times = shellItem(root, "airQualityTimes");
         QVERIFY(times);
         auto show = [&](qint64 revision, const QString& zone, const QString& validLabel,
                         const QString& fetchedLabel) {
@@ -3968,7 +4180,7 @@ class FrontendTest : public QObject {
                 window = qobject_cast<QQuickWindow*>(candidate);
         QVERIFY(window);
         QTRY_VERIFY(window->isExposed());
-        auto* panel = qobject_cast<QQuickItem*>(root->findChild<QObject*>("airQualityPanel"));
+        auto* panel = qobject_cast<QQuickItem*>(shellItem(root, "airQualityPanel"));
         QVERIFY(panel);
         std::function<QObject*(QQuickItem*, const char*)> visualNamed =
             [&](QQuickItem* item, const char* name) -> QObject* {

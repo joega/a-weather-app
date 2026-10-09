@@ -2,10 +2,25 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import "Forecast.js" as Forecast
+import "Dashboard.js" as Dashboard
 
 GlassPanel {
     id: root
     signal metricSelected(string metric)
+    property bool compact: false
+    property bool presentationActive: true
+    property var selection: Dashboard.defaults().metrics
+    readonly property var selectedMetrics: selection.filter(row => row.enabled).map(row => ({
+                kind: row.id
+            }))
+    readonly property int rowCount: Math.ceil(selectedMetrics.length / 2)
+    readonly property var rowWeights: Array.from({
+        length: rowCount
+    }, (_, index) => selectedMetrics.slice(index * 2, index * 2 + 2).some(metric => metric.kind === "solar") ? 1.34 : 1)
+    readonly property real totalWeight: rowWeights.reduce((a, b) => a + b, 0)
+    function rowHeight(index) {
+        return metricGrid.height * rowWeights[index] / totalWeight;
+    }
     property var current: null
     property var day: null
     property string units: "F"
@@ -16,68 +31,70 @@ GlassPanel {
     readonly property double sunsetMs: day && day.sunset ? Date.parse(day.sunset) : NaN
     readonly property bool solarAvailable: Number.isFinite(sunriseMs) && Number.isFinite(sunsetMs) && sunsetMs > sunriseMs
     readonly property real solarProgress: solarAvailable ? (currentTimeMs - sunriseMs) / (sunsetMs - sunriseMs) : -1
-    implicitHeight: 426
+    implicitHeight: 40 + (compact ? 102 : 115.6) * totalWeight
     Timer {
         interval: 60000
         repeat: true
-        running: root.visible
+        objectName: "metricsSolarTimer"
+        running: root.visible && root.presentationActive && root.selection.some(row => row.id === "solar" && row.enabled)
+        onRunningChanged: if (running)
+            root.currentTimeMs = Date.now()
         onTriggered: root.currentTimeMs = Date.now()
     }
+    readonly property var availableMetrics: [
+        {
+            kind: "wind",
+            title: "Wind",
+            value: root.current ? Forecast.direction(root.current.wind_direction_deg) + " " + Forecast.wind(root.current.wind_speed_m_s, root.units, root.windUnits) : "—",
+            detail: root.current ? "Gusts " + Forecast.wind(root.current.wind_gust_m_s, root.units, root.windUnits) : "Unavailable"
+        },
+        {
+            kind: "humidity",
+            title: "Humidity",
+            value: root.current ? Forecast.percent(root.current.humidity) : "—",
+            detail: "Dew point " + Forecast.temp(root.current ? root.current.dew_point_c : null, root.units)
+        },
+        {
+            kind: "visibility",
+            title: "Visibility",
+            value: Forecast.distance(root.current ? root.current.visibility_m : null, root.units),
+            detail: ""
+        },
+        {
+            kind: "solar",
+            title: "Sunrise & sunset",
+            value: root.solarAvailable ? (root.day.sunrise_label || "—") + " — " + (root.day.sunset_label || "—") : "Unavailable",
+            detail: root.solarAvailable ? "" : "Solar times unavailable"
+        },
+        {
+            kind: "uv",
+            title: "UV index",
+            value: Forecast.uv(root.current ? root.current.uv_index : null),
+            detail: "Current model value"
+        },
+        {
+            kind: "pressure",
+            title: "Pressure",
+            value: Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null, root.units),
+            detail: "Mean sea level"
+        }
+    ]
     Grid {
         id: metricGrid
-        // The timeline needs more height to keep the same breathing room as the simpler metrics.
-        readonly property real standardRowHeight: height * 0.3
-        readonly property real solarRowHeight: height - standardRowHeight * 2
         x: 22
         y: 20
         width: parent.width - 44
         height: parent.height - 40
         columns: 2
         Repeater {
-            model: [
-                {
-                    kind: "wind",
-                    title: "Wind",
-                    value: root.current ? Forecast.direction(root.current.wind_direction_deg) + " " + Forecast.wind(root.current.wind_speed_m_s, root.units, root.windUnits) : "—",
-                    detail: root.current ? "Gusts " + Forecast.wind(root.current.wind_gust_m_s, root.units, root.windUnits) : "Unavailable"
-                },
-                {
-                    kind: "humidity",
-                    title: "Humidity",
-                    value: root.current ? Forecast.percent(root.current.humidity) : "—",
-                    detail: "Dew point " + Forecast.temp(root.current ? root.current.dew_point_c : null, root.units)
-                },
-                {
-                    kind: "visibility",
-                    title: "Visibility",
-                    value: Forecast.distance(root.current ? root.current.visibility_m : null, root.units),
-                    detail: ""
-                },
-                {
-                    kind: "solar",
-                    title: "Sunrise & sunset",
-                    value: root.solarAvailable ? (root.day.sunrise_label || "—") + " — " + (root.day.sunset_label || "—") : "Unavailable",
-                    detail: root.solarAvailable ? "" : "Solar times unavailable"
-                },
-                {
-                    kind: "uv",
-                    title: "UV index",
-                    value: Forecast.uv(root.current ? root.current.uv_index : null),
-                    detail: "Current model value"
-                },
-                {
-                    kind: "pressure",
-                    title: "Pressure",
-                    value: Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null, root.units),
-                    detail: "Mean sea level"
-                }
-            ]
+            model: root.selectedMetrics
             delegate: AbstractButton {
                 id: metric
                 required property var modelData
                 required property int index
+                readonly property var metricData: root.availableMetrics.find(row => row.kind === modelData.kind)
                 objectName: "currentMetric_" + modelData.kind
-                Accessible.name: modelData.title + ": " + modelData.value + ". " + modelData.detail
+                Accessible.name: metricData.title + ": " + metricData.value + ". " + metricData.detail
                 Accessible.description: "Open forecast details"
                 enabled: modelData.kind !== "solar" || root.day !== null
                 focusPolicy: Qt.StrongFocus
@@ -96,7 +113,7 @@ GlassPanel {
                     border.width: 2
                 }
                 width: metricGrid.width / metricGrid.columns
-                height: Math.floor(metric.index / metricGrid.columns) === 1 ? metricGrid.solarRowHeight : metricGrid.standardRowHeight
+                height: root.rowHeight(Math.floor(metric.index / metricGrid.columns))
                 Column {
                     id: metricContent
                     anchors.centerIn: parent
@@ -105,7 +122,7 @@ GlassPanel {
                     PlainLabel {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
-                        text: metric.modelData.title
+                        text: metric.metricData.title
                         color: Tokens.secondary
                         font.pixelSize: 15
                     }
@@ -128,7 +145,7 @@ GlassPanel {
                                 c.lineWidth = 1.8;
                                 c.lineCap = "round";
                                 c.lineJoin = "round";
-                                const kind = metric.modelData.kind;
+                                const kind = metric.metricData.kind;
                                 if (kind === "wind") {
                                     c.beginPath();
                                     c.moveTo(2, 12);
@@ -213,10 +230,10 @@ GlassPanel {
                             spacing: 5
                             PlainLabel {
                                 id: metricValue
-                                objectName: "currentMetricValue_" + metric.modelData.kind
+                                objectName: "currentMetricValue_" + metric.metricData.kind
                                 width: parent.width
-                                text: metric.modelData.value
-                                font.pixelSize: metric.modelData.kind === "solar" ? 15 : 22
+                                text: metric.metricData.value
+                                font.pixelSize: metric.metricData.kind === "solar" ? 15 : 22
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                                 maximumLineCount: 2
@@ -224,9 +241,9 @@ GlassPanel {
                             PlainLabel {
                                 id: metricDetail
                                 visible: text !== ""
-                                objectName: "currentMetricDetail_" + metric.modelData.kind
+                                objectName: "currentMetricDetail_" + metric.metricData.kind
                                 width: parent.width
-                                text: metric.modelData.detail
+                                text: metric.metricData.detail
                                 color: Tokens.secondary
                                 font.pixelSize: 12
                                 wrapMode: Text.Wrap
@@ -236,7 +253,7 @@ GlassPanel {
                     }
                     Canvas {
                         id: arc
-                        visible: metric.modelData.kind === "solar" && root.solarAvailable
+                        visible: metric.metricData.kind === "solar" && root.solarAvailable
                         width: parent.width
                         height: 26
                         onWidthChanged: requestPaint()
@@ -290,7 +307,7 @@ GlassPanel {
                         }
                     }
                     Row {
-                        visible: metric.modelData.kind === "solar" && root.solarAvailable
+                        visible: metric.metricData.kind === "solar" && root.solarAvailable
                         width: parent.width
                         PlainLabel {
                             width: parent.width / 2
@@ -310,21 +327,17 @@ GlassPanel {
             }
         }
     }
-    Rectangle {
-        x: metricGrid.x
-        y: metricGrid.y + metricGrid.standardRowHeight
-        width: metricGrid.width
-        height: 1
-        color: Tokens.border
-        opacity: 0.55
-    }
-    Rectangle {
-        x: metricGrid.x
-        y: metricGrid.y + metricGrid.standardRowHeight + metricGrid.solarRowHeight
-        width: metricGrid.width
-        height: 1
-        color: Tokens.border
-        opacity: 0.55
+    Repeater {
+        model: Math.max(0, root.rowCount - 1)
+        delegate: Rectangle {
+            required property int index
+            x: metricGrid.x
+            y: metricGrid.y + root.rowWeights.slice(0, index + 1).reduce((a, b) => a + b, 0) / root.totalWeight * metricGrid.height
+            width: metricGrid.width
+            height: 1
+            color: Tokens.border
+            opacity: 0.55
+        }
     }
     Rectangle {
         x: metricGrid.x + metricGrid.width / 2

@@ -10,6 +10,9 @@ Item {
     // Persistence-sensitive controls can wait for the bridge's saved value.
     property bool optimistic: true
     property string testName: "toggle"
+    function focusControl() {
+        toggle.forceActiveFocus();
+    }
     signal toggled(bool value)
     implicitHeight: 68
     Column {

@@ -1,4 +1,5 @@
 .pragma library
+.import "Dashboard.js" as Dashboard
 
 const conditions = ["clear", "partly_cloudy", "cloudy", "fog", "drizzle", "rain", "snow", "sleet", "thunderstorm", "unknown"];
 function object(v) {
@@ -961,6 +962,7 @@ function snapshot(v) {
     if (v.launcher_status !== undefined && ["ready", "installed", "conflict", "failed", "unsupported_path"].indexOf(v.launcher_status) < 0)
         throw Error("Invalid launcher status");
     return {
+        dashboard: Dashboard.state(v.dashboard),
         update: updateStatus(v.update),
         launcher_status: v.launcher_status || "ready",
         forecast: f,
