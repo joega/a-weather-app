@@ -1,0 +1,66 @@
+{
+  "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-03-08&coords=40.7128%2C-74.006&tz=-4",
+  "response": {
+    "apiversion": "4.0.1",
+    "geometry": {
+      "coordinates": [
+        -74.006,
+        40.7128
+      ],
+      "type": "Point"
+    },
+    "properties": {
+      "data": {
+        "closestphase": {
+          "day": 11,
+          "month": 3,
+          "phase": "Last Quarter",
+          "time": "05:38",
+          "year": 2026
+        },
+        "curphase": "Waning Gibbous",
+        "day": 8,
+        "day_of_week": "Sunday",
+        "fracillum": "75%",
+        "isdst": false,
+        "label": null,
+        "month": 3,
+        "moondata": [
+          {
+            "phen": "Upper Transit",
+            "time": "04:34"
+          },
+          {
+            "phen": "Set",
+            "time": "09:23"
+          }
+        ],
+        "sundata": [
+          {
+            "phen": "Begin Civil Twilight",
+            "time": "06:52"
+          },
+          {
+            "phen": "Rise",
+            "time": "07:19"
+          },
+          {
+            "phen": "Upper Transit",
+            "time": "13:07"
+          },
+          {
+            "phen": "Set",
+            "time": "18:55"
+          },
+          {
+            "phen": "End Civil Twilight",
+            "time": "19:23"
+          }
+        ],
+        "tz": -4.0,
+        "year": 2026
+      }
+    },
+    "type": "Feature"
+  }
+}

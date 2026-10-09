@@ -29,3 +29,5 @@ DashboardOrder 1.0 DashboardOrder.qml
 DashboardEditor 1.0 DashboardEditor.qml
 DashboardLayout 1.0 DashboardLayout.qml
 ForecastChanges 1.0 ForecastChanges.qml
+
+AstronomyDetails 1.0 AstronomyDetails.qml

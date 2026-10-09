@@ -6,7 +6,13 @@ function fields(v, keys) {
         throw Error("Invalid comparison fields");
 }
 function query(s) {
-    return { location_id: s.saved_locations.viewed, latitude: s.latitude, longitude: s.longitude, timezone: s.timezone, forecast_at: s.forecast.fetched_at };
+    return {
+        location_id: s.saved_locations.viewed,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        timezone: s.timezone,
+        forecast_at: s.forecast.fetched_at
+    };
 }
 function context(s) {
     if (!s || !s.forecast || !s.saved_locations || s.location_settings.mode === "default" || s.location_settings.busy || ["fresh", "stale"].indexOf(s.source.freshness) < 0 || !s.forecast.hourly.length)
@@ -57,7 +63,12 @@ function result(v, q) {
             if (r.before !== null || r.after !== null || Date.parse(r.previous_start) < Date.parse(v.start) || Date.parse(r.previous_end) > Date.parse(v.end) || Date.parse(r.previous_start) >= Date.parse(r.previous_end) || start >= end)
                 throw Error("Invalid wet window");
         } else {
-            const bounds = { temperature: [-150, 100], probability: [0, 1], precipitation: [0, 10000], gusts: [0, 1000] }[r.kind];
+            const bounds = {
+                temperature: [-150, 100],
+                probability: [0, 1],
+                precipitation: [0, 10000],
+                gusts: [0, 1000]
+            }[r.kind];
             Forecast.number(r.before, bounds[0], bounds[1]);
             Forecast.number(r.after, bounds[0], bounds[1]);
             if (r.previous_start !== null || r.previous_end !== null || r.previous_range_label !== null || r.samples > c[r.kind] || end - start !== (r.samples - (r.kind === "temperature" ? 1 : 0)) * 3600000)
@@ -82,7 +93,12 @@ function values(r, units, windUnits) {
     if (r.kind === "wet_hours")
         return "Previously: " + r.previous_range_label + "\nNow: " + r.range_label + "\nModeled hours with at least 50% precipitation chance.";
     const format = n => r.kind === "temperature" ? Forecast.temp(n, units) + units : r.kind === "probability" ? Forecast.percent(n) : r.kind === "gusts" ? Forecast.wind(n, units, windUnits) : units === "F" ? (n / 25.4).toFixed(3) + " in/hour" : n.toFixed(1) + " mm/hour";
-    const label = {temperature: "Temperature", probability: "Precipitation chance", precipitation: "Liquid-equivalent precipitation", gusts: "Hourly maximum gust"}[r.kind];
+    const label = {
+        temperature: "Temperature",
+        probability: "Precipitation chance",
+        precipitation: "Liquid-equivalent precipitation",
+        gusts: "Hourly maximum gust"
+    }[r.kind];
     return label + " averages " + format(r.before) + " → " + format(r.after) + " across " + r.samples + (r.samples === 1 ? " hour." : " hours.");
 }
 function summary(v, state, units) {
@@ -92,5 +108,11 @@ function summary(v, state, units) {
         return title(v.changes[0], units) + (v.changes.length > 1 ? " · " + (v.changes.length - 1) + " more" : "");
     if (v.status === "ready")
         return "No major changes in the compared hours.";
-    return ({ no_previous: "A comparison will be available after a newer forecast is shown.", baseline_too_old: "Your previous forecast is too old to compare.", no_overlap: "These forecasts have no matching future hours.", insufficient_data: "Too little shared hourly data to compare.", not_newer: "Waiting for a newer forecast to compare." })[v.status] || "Comparison unavailable for this forecast.";
+    return ({
+            no_previous: "A comparison will be available after a newer forecast is shown.",
+            baseline_too_old: "Your previous forecast is too old to compare.",
+            no_overlap: "These forecasts have no matching future hours.",
+            insufficient_data: "Too little shared hourly data to compare.",
+            not_newer: "Waiting for a newer forecast to compare."
+        })[v.status] || "Comparison unavailable for this forecast.";
 }

@@ -3,6 +3,7 @@ import "../Forecast.js" as Forecast
 import "../Outdoor.js" as Outdoor
 import "../Dashboard.js" as Dashboard
 import "../Changes.js" as Changes
+import "../Astronomy.js" as Astronomy
 
 Item {
     id: root
@@ -59,6 +60,25 @@ Item {
     property int pendingWarningGeneration: -1
     property var pendingWarningTarget: null
     property var queuedWarning: null
+    property var astronomyResult: null
+    property string astronomyState: "closed"
+    property int astronomyGeneration: 0
+    property int pendingAstronomyGeneration: -1
+    property var pendingAstronomyQuery: null
+    property var queuedAstronomy: null
+    function loadAstronomy(date) {
+        astronomyGeneration++;
+        astronomyResult = null;
+        astronomyState = "loading";
+        if (!Astronomy.context(snapshot) || !send("astronomy_day", Astronomy.query(snapshot, date)))
+            astronomyState = "unavailable";
+    }
+    function closeAstronomy() {
+        astronomyGeneration++;
+        queuedAstronomy = null;
+        astronomyResult = null;
+        astronomyState = "closed";
+    }
     property var outdoorResult: null
     property string outdoorState: "closed"
     property string outdoorError: ""
@@ -182,6 +202,10 @@ Item {
             return false;
         }
         if (pending >= 0) {
+            if (op === "astronomy_day") {
+                queuedAstronomy = patch;
+                return true;
+            }
             if (op === "forecast_presented") {
                 queuedChanges = {
                     query: patch,
@@ -274,6 +298,11 @@ Item {
             pendingChangesQuery = patch;
             pendingChangesKey = forecastContext;
             pendingChangesGeneration = changesGeneration;
+        }
+        if (op === "astronomy_day") {
+            request.day = patch;
+            pendingAstronomyQuery = patch;
+            pendingAstronomyGeneration = astronomyGeneration;
         }
         if (op === "outdoor_plan") {
             request.plan = patch;
@@ -383,6 +412,12 @@ Item {
             send("warning_detail", reference);
             return;
         }
+        if (queuedAstronomy !== null) {
+            const next = queuedAstronomy;
+            queuedAstronomy = null;
+            send("astronomy_day", next);
+            return;
+        }
         if (queuedOutdoor !== null) {
             const next = queuedOutdoor;
             queuedOutdoor = null;
@@ -408,6 +443,10 @@ Item {
         }
     }
     function clearQueuedActions() {
+        const astronomyWasOpen = astronomyState !== "closed";
+        closeAstronomy();
+        if (astronomyWasOpen)
+            astronomyState = "unavailable";
         queuedChanges = null;
         changesGeneration++;
         changesResult = null;
@@ -460,6 +499,10 @@ Item {
         if (revision <= lastSnapshotRevision)
             return;
         let next = Forecast.snapshot(raw);
+        if (astronomyState !== "closed" && Astronomy.context(snapshot) !== Astronomy.context(next)) {
+            closeAstronomy();
+            astronomyState = "unavailable";
+        }
         if (outdoorState !== "closed" && Outdoor.context(snapshot) !== Outdoor.context(next))
             invalidateOutdoor("The place or forecast changed. Find times again using the latest forecast.");
         if (snapshot && snapshot.warning_notifications.settings.enabled && !next.warning_notifications.settings.enabled && warningTarget !== null) {
@@ -556,6 +599,17 @@ Item {
                 pendingChangesQuery = null;
                 pendingChangesKey = "";
                 pendingChangesGeneration = -1;
+                drainUserAction();
+                return;
+            }
+            if (completedOp === "astronomy_day") {
+                const result = value.ok ? Astronomy.result(value.astronomy, pendingAstronomyQuery) : null;
+                if (!closing && astronomyState !== "closed" && pendingAstronomyGeneration === astronomyGeneration) {
+                    astronomyResult = result;
+                    astronomyState = result ? "ready" : "unavailable";
+                }
+                pendingAstronomyQuery = null;
+                pendingAstronomyGeneration = -1;
                 drainUserAction();
                 return;
             }

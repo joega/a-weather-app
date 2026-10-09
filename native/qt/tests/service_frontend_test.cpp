@@ -1149,6 +1149,117 @@ class ServiceFrontendTest : public QObject {
         window->hide();
         QTRY_VERIFY(!eval("root.dashboardOpen || dashboardLoader.item !== null").toBool());
     }
+    void astronomyDateNavigationAndLazyLifecycle() {
+        ServiceFixture fixture;
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60);
+        fixture.savedNewYorkPlace();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_ASTRONOMY_MEASURE");
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            if (!probe)
+                return;
+            QTest::qWait(200);
+            const auto before = swaps.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "ASTRONOMY_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        phase("initial");
+        if (qEnvironmentVariableIsSet("WEATHER_QT_ASTRONOMY_INITIAL_ONLY"))
+            return;
+        auto* loader = named("astronomyLoader");
+        QVERIFY(loader);
+        QVERIFY(!loader->property("item").value<QObject*>());
+        QCOMPARE(eval("backend.astronomyState").toString(), QString("closed"));
+        const auto original = fixture.saved("forecast.json");
+        // Exercise the real solar card through keyboard activation.
+        auto* card = qobject_cast<QQuickItem*>(named("currentMetric_solar"));
+        QVERIFY(card);
+        card->forceActiveFocus();
+        QTest::qWait(100);
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.astronomyState==='ready'").toBool(), 5000);
+        QVERIFY(eval("root.astronomyOpen && !root.mapActive && !backend.forecastVisible").toBool());
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
+        const auto today = eval("backend.astronomyResult.date").toString();
+        QVERIFY(
+            named("astronomyDaylight")->property("text").toString().contains("remaining today"));
+        QVERIFY(named("astronomyMoonPhase")->property("text").toString().contains("illuminated"));
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::qWait(50);
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        activate("astronomyNext");
+        QTRY_VERIFY(eval("backend.astronomyState==='ready'").toBool());
+        QVERIFY(eval("backend.astronomyResult.date").toString() > today);
+        QVERIFY(
+            !named("astronomyDaylight")->property("text").toString().contains("remaining today"));
+        activate("astronomyPrevious");
+        QTRY_COMPARE(eval("backend.astronomyResult ? backend.astronomyResult.date : ''").toString(),
+                     today);
+        auto* input = qobject_cast<QQuickItem*>(named("astronomyDate"));
+        input->setProperty("text", "bad-date");
+        input->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(eval("backend.astronomyState").toString(), QString("unavailable"));
+        QVERIFY(eval("backend.available").toBool());
+        activate("astronomyToday");
+        QTRY_VERIFY(eval("backend.astronomyState==='ready'").toBool());
+        phase("details_open");
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_ASTRONOMY_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-wide.png"));
+        }
+        window->resize(700, 650);
+        activate("closeAstronomy");
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QCOMPARE(window->activeFocusItem(), card);
+        eval("root.openAstronomy()");
+        QTRY_VERIFY(eval("backend.astronomyState==='ready'").toBool());
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
+        }
+        QTest::keyClick(window, Qt::Key_PageDown);
+        auto* flick = named("astronomyScroll")->property("contentItem").value<QObject*>();
+        QTRY_VERIFY(flick->property("contentY").toReal() > 0);
+        if (!prefix.isEmpty())
+            QVERIFY(window->grabWindow().save(prefix + "-footer.png"));
+        // The latest date replaces queued dates; a close invalidates pending replies.
+        eval("backend.loadAstronomy(''); backend.loadAstronomy(''); root.closeAstronomy()");
+        QTRY_VERIFY(!eval("backend.busy").toBool());
+        QVERIFY(
+            eval("backend.astronomyResult===null && backend.astronomyState==='closed'").toBool());
+        for (int i = 0; i < (probe ? 40 : 5); i++) {
+            eval("root.openAstronomy()");
+            QTRY_VERIFY(eval("backend.astronomyState==='ready'").toBool());
+            QPointer<QObject> details = loader->property("item").value<QObject*>();
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(details.isNull());
+            if (i == 19)
+                phase("closed_after_20");
+            if (i == 39)
+                phase("closed_after_40");
+        }
+        QCOMPARE(fixture.saved("forecast.json"), original);
+        eval("root.openAstronomy()");
+        window->hide();
+        QTRY_VERIFY(eval("!root.astronomyOpen && backend.astronomyResult===null && "
+                         "astronomyLoader.item===null")
+                        .toBool());
+        phase("hidden");
+    }
     void forecastChangesPresentationDetailsAndRestart() {
         ServiceFixture fixture;
         fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});

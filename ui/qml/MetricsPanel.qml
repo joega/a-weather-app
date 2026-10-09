@@ -62,7 +62,7 @@ GlassPanel {
         },
         {
             kind: "solar",
-            title: "Sunrise & sunset",
+            title: "Sun & moon",
             value: root.solarAvailable ? (root.day.sunrise_label || "—") + " — " + (root.day.sunset_label || "—") : "Unavailable",
             detail: root.solarAvailable ? "" : "Solar times unavailable"
         },
@@ -95,8 +95,7 @@ GlassPanel {
                 readonly property var metricData: root.availableMetrics.find(row => row.kind === modelData.kind)
                 objectName: "currentMetric_" + modelData.kind
                 Accessible.name: metricData.title + ": " + metricData.value + ". " + metricData.detail
-                Accessible.description: "Open forecast details"
-                enabled: modelData.kind !== "solar" || root.day !== null
+                Accessible.description: modelData.kind === "solar" ? "Open sun and moon planning" : "Open forecast details"
                 focusPolicy: Qt.StrongFocus
                 onClicked: root.metricSelected(({
                         wind: "wind_speed_m_s",

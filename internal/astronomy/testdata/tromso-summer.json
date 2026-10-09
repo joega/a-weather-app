@@ -1,0 +1,66 @@
+{
+  "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-06-21&coords=69.6492%2C18.9553&tz=2",
+  "response": {
+    "apiversion": "4.0.1",
+    "geometry": {
+      "coordinates": [
+        18.9553,
+        69.6492
+      ],
+      "type": "Point"
+    },
+    "properties": {
+      "data": {
+        "closestphase": {
+          "day": 21,
+          "month": 6,
+          "phase": "First Quarter",
+          "time": "23:55",
+          "year": 2026
+        },
+        "curphase": "Waxing Crescent",
+        "day": 21,
+        "day_of_week": "Sunday",
+        "fracillum": "45%",
+        "isdst": false,
+        "label": null,
+        "month": 6,
+        "moondata": [
+          {
+            "phen": "Set",
+            "time": "00:37"
+          },
+          {
+            "phen": "Rise",
+            "time": "12:18"
+          },
+          {
+            "phen": "Upper Transit",
+            "time": "18:33"
+          }
+        ],
+        "sundata": [
+          {
+            "phen": "Object continuously above the Horizon",
+            "time": null
+          },
+          {
+            "phen": "Object continuously above the Twilight Limit",
+            "time": null
+          },
+          {
+            "phen": "Lower Transit",
+            "time": "00:46"
+          },
+          {
+            "phen": "Upper Transit",
+            "time": "12:46"
+          }
+        ],
+        "tz": 2.0,
+        "year": 2026
+      }
+    },
+    "type": "Feature"
+  }
+}

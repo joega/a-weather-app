@@ -1,0 +1,70 @@
+{
+  "url": "https://aa.usno.navy.mil/api/rstt/oneday?date=2026-09-22&coords=0%2C0&tz=0",
+  "response": {
+    "apiversion": "4.0.1",
+    "geometry": {
+      "coordinates": [
+        0.0,
+        0.0
+      ],
+      "type": "Point"
+    },
+    "properties": {
+      "data": {
+        "closestphase": {
+          "day": 18,
+          "month": 9,
+          "phase": "First Quarter",
+          "time": "20:44",
+          "year": 2026
+        },
+        "curphase": "Waxing Gibbous",
+        "day": 22,
+        "day_of_week": "Tuesday",
+        "fracillum": "82%",
+        "isdst": false,
+        "label": null,
+        "month": 9,
+        "moondata": [
+          {
+            "phen": "Set",
+            "time": "02:26"
+          },
+          {
+            "phen": "Rise",
+            "time": "14:50"
+          },
+          {
+            "phen": "Upper Transit",
+            "time": "21:01"
+          }
+        ],
+        "sundata": [
+          {
+            "phen": "Begin Civil Twilight",
+            "time": "05:29"
+          },
+          {
+            "phen": "Rise",
+            "time": "05:49"
+          },
+          {
+            "phen": "Upper Transit",
+            "time": "11:53"
+          },
+          {
+            "phen": "Set",
+            "time": "17:56"
+          },
+          {
+            "phen": "End Civil Twilight",
+            "time": "18:17"
+          }
+        ],
+        "tz": 0.0,
+        "year": 2026
+      }
+    },
+    "type": "Feature"
+  }
+}

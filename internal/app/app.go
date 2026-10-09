@@ -529,7 +529,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "forecast_presented": "forecast", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -697,6 +697,12 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return a.warningDetail(id, object(request["warning"])), false
 	case "outdoor_plan":
 		return a.outdoorPlan(id, object(request["plan"])), false
+	case "astronomy_day":
+		if ctx.Err() != nil {
+			reply["error"] = "request_timeout"
+			return reply, false
+		}
+		return a.astronomyDay(id, object(request["day"])), false
 	case "forecast_presented":
 		if ctx.Err() != nil {
 			reply["error"] = "request_timeout"

@@ -27,10 +27,27 @@ QtObject {
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
     property var dashboardPreferences: Dashboard.defaults()
     readonly property bool compactDashboard: dashboardPreferences.density === "compact"
+    property bool astronomyOpen: false
+    property Item astronomyReturnFocus: null
+    function openAstronomy() {
+        astronomyReturnFocus = window.activeFocusItem;
+        astronomyOpen = true;
+        bridge.loadAstronomy("");
+    }
+    function closeAstronomy() {
+        astronomyOpen = false;
+        bridge.closeAstronomy();
+        const target = astronomyReturnFocus;
+        astronomyReturnFocus = null;
+        if (target && target.visible && target.enabled && window.visible)
+            target.forceActiveFocus();
+    }
     property bool changesOpen: false
     property Item changesReturnFocus: null
     property string renderedForecastContext: ""
     function openChanges() {
+        if (astronomyOpen)
+            closeAstronomy();
         changesReturnFocus = window.activeFocusItem;
         changesOpen = true;
     }
@@ -44,6 +61,8 @@ QtObject {
     property bool dashboardOpen: false
     property Item dashboardReturnFocus: null
     function openDashboard() {
+        if (astronomyOpen)
+            closeAstronomy();
         if (changesOpen)
             closeChanges();
         if (outdoorOpen)
@@ -61,6 +80,8 @@ QtObject {
     property bool outdoorOpen: false
     property Item outdoorReturnFocus: null
     function openOutdoor() {
+        if (astronomyOpen)
+            closeAstronomy();
         if (changesOpen)
             closeChanges();
         if (dashboardOpen)
@@ -83,6 +104,8 @@ QtObject {
     property bool warningBackToSettings: false
     property Item warningReturnFocus: null
     function openWarning(reference, fromDesktop, activationToken) {
+        if (astronomyOpen)
+            closeAstronomy();
         if (changesOpen)
             closeChanges();
         if (dashboardOpen)
@@ -134,6 +157,8 @@ QtObject {
         });
     }
     function openLocations() {
+        if (astronomyOpen)
+            closeAstronomy();
         if (changesOpen)
             closeChanges();
         if (dashboardOpen)
@@ -180,6 +205,8 @@ QtObject {
             });
     }
     function openSettings(locationSearch) {
+        if (astronomyOpen)
+            closeAstronomy();
         if (changesOpen)
             closeChanges();
         if (dashboardOpen)
@@ -202,7 +229,7 @@ QtObject {
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
     function showUpdateNotice() {
-        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || root.dashboardOpen || root.changesOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || root.dashboardOpen || root.changesOpen || root.astronomyOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
             return;
         if (bridge.send("acknowledge_update", {
             installed: root.updateStatus.installed
@@ -220,7 +247,7 @@ QtObject {
     readonly property var mapSection: dashboardLayout.mapItem
     readonly property real mapContentTop: forecastColumn.y + dashboardLayout.y + dashboardLayout.mapTop
     readonly property bool mapsNearViewport: mapSection !== null && mapSection.height > 100 && mapContentTop + mapSection.height > forecastScroll.flickable.contentY - 64 && mapContentTop < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !root.astronomyOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     readonly property bool forecastMapActive: root.mapActive && mapSection !== null && mapSection.selectedLayer !== "radar"
     readonly property bool radarActive: root.mapActive && mapSection !== null && mapSection.selectedLayer === "radar"
     onForecastMapActiveChanged: {
@@ -341,7 +368,7 @@ QtObject {
         weatherTransport: root.weatherTransport
         onBusyChanged: Qt.callLater(root.showUpdateNotice)
         presentationActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized
-        forecastVisible: presentationActive && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !details.visible && forecastScroll.flickable.contentY < forecastColumn.y + headerBody.height - 80
+        forecastVisible: presentationActive && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !root.astronomyOpen && !details.visible && forecastScroll.flickable.contentY < forecastColumn.y + headerBody.height - 80
         onClosed: exitCode => Qt.exit(exitCode)
         onToggleWindow: {
             if (window.visible)
@@ -392,6 +419,10 @@ QtObject {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (root.astronomyOpen && astronomyLoader.item) {
+                astronomyLoader.item.revealFocus(item);
+                return;
+            }
             if (root.changesOpen && changesLoader.item) {
                 changesLoader.item.revealFocus(item);
                 return;
@@ -435,6 +466,8 @@ QtObject {
             flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
         })
         onVisibilityChanged: {
+            if (window.visibility === Window.Minimized && root.astronomyOpen)
+                root.closeAstronomy();
             if (window.visibility === Window.Minimized && root.changesOpen)
                 root.closeChanges();
             if (window.visibility === Window.Minimized && root.dashboardOpen)
@@ -444,6 +477,8 @@ QtObject {
         }
         onVisibleChanged: {
             if (!visible) {
+                if (root.astronomyOpen)
+                    root.closeAstronomy();
                 if (root.changesOpen)
                     root.closeChanges();
                 if (root.dashboardOpen)
@@ -482,7 +517,7 @@ QtObject {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !details.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !root.astronomyOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -862,11 +897,10 @@ QtObject {
                 timezone: root.timezone
                 compact: root.compactDashboard
                 selection: root.dashboardPreferences.metrics
-                presentationActive: bridge.presentationActive && !root.dashboardOpen
+                presentationActive: bridge.presentationActive && !root.dashboardOpen && !root.astronomyOpen
                 onMetricSelected: metric => {
                     if (metric === "daylight") {
-                        if (root.days.length)
-                            details.showDay(root.days[0]);
+                        root.openAstronomy();
                     } else
                         details.showMetric(metric);
                 }
@@ -1066,6 +1100,20 @@ QtObject {
                 bridge: root.backend
                 onClosed: if (root.dashboardOpen)
                     root.closeDashboard()
+            }
+        }
+        Loader {
+            id: astronomyLoader
+            objectName: "astronomyLoader"
+            active: root.astronomyOpen
+            onLoaded: item.open()
+            sourceComponent: AstronomyDetails {
+                result: bridge.astronomyResult
+                state: bridge.astronomyState
+                place: root.location
+                onRequested: date => bridge.loadAstronomy(date)
+                onClosed: if (root.astronomyOpen)
+                    root.closeAstronomy()
             }
         }
         Loader {
