@@ -24,13 +24,34 @@ Popup {
     property string selectedTime: ""
     property string metric: "temperature_c"
     readonly property var day: forecast && selectedDate ? forecast.daily.find(d => d.date === selectedDate) || null : null
-    readonly property var hours: !forecast ? [] : selectedDate ? forecast.hourly.filter(h => h.local_date === selectedDate) : forecast.hourly.slice(0, 24)
+    readonly property var hours: !visible || !forecast ? [] : selectedDate ? forecast.hourly.filter(h => h.local_date === selectedDate) : forecast.hourly.slice(0, 24)
     readonly property int selectedIndex: Math.max(0, hours.findIndex(h => h.time === selectedTime))
     readonly property var hour: hours.length ? hours[selectedIndex] : null
+    function revealFocus(item) {
+        let flick = scroll.contentItem as Flickable, ancestor = item;
+        if (!flick || !flick.contentItem)
+            return;
+        while (ancestor && ancestor !== flick.contentItem)
+            ancestor = ancestor.parent;
+        if (!ancestor)
+            return;
+        let point = item.mapToItem(flick.contentItem, 0, 0), next = flick.contentY;
+        if (point.y < next + 12)
+            next = point.y - 12;
+        else if (point.y + item.height > next + flick.height - 12)
+            next = point.y + item.height - flick.height + 12;
+        flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
+    }
     function showHour(row) {
         selectedDate = "";
         selectedTime = row.time;
         metric = "temperature_c";
+        open();
+    }
+    function showMetric(key) {
+        selectedDate = "";
+        selectedTime = "";
+        metric = key;
         open();
     }
     function showDay(row) {
@@ -109,38 +130,50 @@ Popup {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
-            ChoiceControl {
+            SettingsComboBox {
+                objectName: "forecastMetric"
                 Layout.fillWidth: true
-                testName: "forecastMetric"
-                value: root.metric
-                choices: [
-                    {
-                        label: "Temperature",
-                        value: "temperature_c"
-                    },
-                    {
-                        label: "Precipitation",
-                        value: "precipitation_rate_mm_hr"
-                    },
-                    {
-                        label: "Wind",
-                        value: "wind_speed_m_s"
-                    }
-                ]
-                onChosen: value => root.metric = value
+                Accessible.name: "Forecast measurement"
+                model: Forecast.metricChoices
+                textRole: "label"
+                valueRole: "value"
+                currentIndex: Forecast.metricChoices.findIndex(row => row.value === root.metric)
+                onActivated: root.metric = currentValue
             }
-            ForecastChart {
+            Loader {
+                objectName: "forecastChartLoader"
                 Layout.fillWidth: true
-                hours: root.hours
-                units: root.units
-                windUnits: root.windUnits
-                metric: root.metric
-                selectedIndex: root.selectedIndex
-                onSelected: index => root.selectedTime = root.hours[index].time
+                Layout.preferredHeight: 180
+                active: root.visible
+                sourceComponent: ForecastChart {
+                    hours: root.hours
+                    units: root.units
+                    windUnits: root.windUnits
+                    metric: root.metric
+                    selectedIndex: root.selectedIndex
+                    onSelected: index => root.selectedTime = root.hours[index].time
+                }
+            }
+            PlainLabel {
+                objectName: "selectedForecastValue"
+                Layout.fillWidth: true
+                text: Forecast.metricInfo(root.metric).label + ": " + Forecast.metricValue(root.hour ? root.hour[root.metric] : null, root.metric, root.units, root.windUnits)
+                font.pixelSize: 22
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+            }
+            PlainLabel {
+                objectName: "forecastMetricRange"
+                Layout.fillWidth: true
+                text: Forecast.metricRange(root.hours, root.metric, root.units, root.windUnits)
+                font.pixelSize: 14
+                color: Tokens.secondary
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: root.metric === "precipitation_rate_mm_hr" ? "Precipitation total for the hour ending at each time." : "Select an hour to explore its model forecast. Only remaining forecast hours are shown."
+                text: Forecast.metricInfo(root.metric).explanation + " Only remaining forecast hours are shown."
                 font.pixelSize: 13
                 color: Tokens.secondary
                 wrapMode: Text.Wrap

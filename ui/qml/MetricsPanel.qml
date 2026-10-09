@@ -1,9 +1,11 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Controls
 import "Forecast.js" as Forecast
 
 GlassPanel {
     id: root
+    signal metricSelected(string metric)
     property var current: null
     property var day: null
     property string units: "F"
@@ -70,10 +72,29 @@ GlassPanel {
                     detail: "Mean sea level"
                 }
             ]
-            delegate: Item {
+            delegate: AbstractButton {
                 id: metric
                 required property var modelData
                 required property int index
+                objectName: "currentMetric_" + modelData.kind
+                Accessible.name: modelData.title + ": " + modelData.value + ". " + modelData.detail
+                Accessible.description: "Open forecast details"
+                enabled: modelData.kind !== "solar" || root.day !== null
+                focusPolicy: Qt.StrongFocus
+                onClicked: root.metricSelected(({
+                        wind: "wind_speed_m_s",
+                        humidity: "humidity",
+                        visibility: "visibility_m",
+                        solar: "daylight",
+                        uv: "uv_index",
+                        pressure: "pressure_msl_hpa"
+                    })[modelData.kind])
+                background: Rectangle {
+                    color: metric.hovered ? "#203d5a70" : "transparent"
+                    radius: 10
+                    border.color: metric.activeFocus ? Tokens.accent : "transparent"
+                    border.width: 2
+                }
                 width: metricGrid.width / metricGrid.columns
                 height: Math.floor(metric.index / metricGrid.columns) === 1 ? metricGrid.solarRowHeight : metricGrid.standardRowHeight
                 Column {

@@ -15,8 +15,28 @@ QtObject {
     property string briefingPeriod: "today"
     readonly property var briefingRows: bridge.snapshot ? bridge.snapshot.briefing : []
     readonly property var selectedBriefing: briefingRows.find(row => row.period === briefingPeriod) || briefingRows[0] || null
+    property Item settingsReturnFocus: null
     property bool effectsOpen: false
-    onEffectsOpenChanged: Qt.callLater(showUpdateNotice)
+    onEffectsOpenChanged: {
+        Qt.callLater(showUpdateNotice);
+        if (!effectsOpen)
+            Qt.callLater(() => {
+                const target = root.settingsReturnFocus || settingsButton;
+                if (target && target.visible && target.enabled)
+                    target.forceActiveFocus();
+                root.settingsReturnFocus = null;
+            });
+    }
+    function openSettings(locationSearch) {
+        if (!effectsOpen)
+            settingsReturnFocus = window.activeFocusItem;
+        effectsOpen = true;
+        if (locationSearch)
+            Qt.callLater(() => {
+                if (root.effectsOpen)
+                    effects.focusLocation();
+            });
+    }
     property bool initialLocationChecked: false
     readonly property var updateStatus: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
     property string shownUpdateVersion: ""
@@ -39,7 +59,7 @@ QtObject {
     }
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
     readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     onMapActiveChanged: {
         if (mapActive && !bridge.mapWanted)
             bridge.openMap();
@@ -154,6 +174,10 @@ QtObject {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (details.visible) {
+                details.revealFocus(item);
+                return;
+            }
             if (root.effectsOpen) {
                 effects.revealFocus(item);
                 return;
@@ -187,6 +211,11 @@ QtObject {
             root.dismissWindow();
         }
         Shortcut {
+            sequence: "Ctrl+L"
+            enabled: !details.visible
+            onActivated: root.openSettings(true)
+        }
+        Shortcut {
             sequence: "Escape"
             enabled: root.effectsOpen
             onActivated: root.effectsOpen = false
@@ -195,7 +224,7 @@ QtObject {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -281,10 +310,17 @@ QtObject {
                                     onChosen: values => bridge.send("set_controls", values)
                                 }
                                 ActionButton {
+                                    objectName: "openLocation"
+                                    text: "Location"
+                                    accessibleLabel: "Choose location (Ctrl+L)"
+                                    onClicked: root.openSettings(true)
+                                }
+                                ActionButton {
+                                    id: settingsButton
                                     objectName: "openEffects"
                                     iconName: "sliders"
                                     text: "Settings"
-                                    onClicked: root.effectsOpen = true
+                                    onClicked: root.openSettings(false)
                                 }
                                 ActionButton {
                                     objectName: "liveDesktop"
@@ -476,6 +512,13 @@ QtObject {
                     MetricsPanel {
                         id: metrics
                         objectName: "currentMetrics"
+                        onMetricSelected: metric => {
+                            if (metric === "daylight") {
+                                if (root.days.length)
+                                    details.showDay(root.days[0]);
+                            } else
+                                details.showMetric(metric);
+                        }
                         windUnits: root.windUnits
                         Layout.fillWidth: true
                         Layout.preferredWidth: forecastCards.width * 0.44

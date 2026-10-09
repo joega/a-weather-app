@@ -27,6 +27,10 @@ ColumnLayout {
     signal cancelRequested
     signal locationRequested(var values)
 
+    function focusQuery() {
+        cityInput.forceActiveFocus();
+        cityInput.selectAll();
+    }
     function invalidate() {
         let hadSearch = armed || search.status !== "idle";
         debounce.stop();

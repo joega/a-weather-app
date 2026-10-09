@@ -10,15 +10,39 @@ Item {
     property string metric: "temperature_c"
     property int selectedIndex: 0
     signal selected(int index)
+    activeFocusOnTab: true
+    Accessible.role: Accessible.Chart
+    Accessible.name: Forecast.metricInfo(metric).label + " forecast chart"
+    Accessible.description: Forecast.metricRange(hours, metric, units, windUnits) + " Use left and right arrows to select an hour."
+    Keys.onLeftPressed: if (selectedIndex > 0)
+        selected(selectedIndex - 1)
+    Keys.onRightPressed: if (selectedIndex < hours.length - 1)
+        selected(selectedIndex + 1)
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_Home && root.hours.length) {
+            root.selected(0);
+            event.accepted = true;
+        } else if (event.key === Qt.Key_End && root.hours.length) {
+            root.selected(root.hours.length - 1);
+            event.accepted = true;
+        } else
+            event.accepted = false;
+    }
     implicitHeight: 180
     function valueText(value) {
-        return metric === "temperature_c" ? Forecast.temp(value, units) : metric === "precipitation_rate_mm_hr" ? Forecast.amount(value, units) : Forecast.wind(value, units, windUnits);
+        return Forecast.metricValue(value, metric, units, windUnits);
     }
     onHoursChanged: plot.requestPaint()
     onMetricChanged: plot.requestPaint()
     onSelectedIndexChanged: plot.requestPaint()
     onUnitsChanged: plot.requestPaint()
     onWindUnitsChanged: plot.requestPaint()
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        border.color: root.activeFocus ? Tokens.accent : "transparent"
+        radius: 6
+    }
     Canvas {
         id: plot
         anchors.fill: parent
@@ -30,11 +54,10 @@ Item {
             c.reset();
             c.clearRect(0, 0, width, height);
             const values = root.hours.map(h => h[root.metric]);
-            const known = values.filter(v => v !== null && v !== undefined);
-            if (!known.length)
+            const scale = Forecast.metricScale(root.hours, root.metric);
+            if (!scale)
                 return;
-            const low = root.metric === "temperature_c" ? Math.min.apply(null, known) - 1 : 0;
-            const high = Math.max(low + 1, Math.max.apply(null, known));
+            const low = scale.low, high = scale.high;
             const left = 64, right = width - 18, top = 22, bottom = height - 18;
             const x = i => left + (right - left) * (i + 0.5) / values.length;
             const y = v => bottom - (v - low) / (high - low) * (bottom - top);

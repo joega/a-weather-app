@@ -1686,6 +1686,162 @@ class FrontendTest : public QObject {
         // Older service snapshots remain accepted.
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.briefings(undefined).length").toInt(), 0);
     }
+    void metricDetailsOnDemandAndKeyboard() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        QQuickWindow* window = nullptr;
+        for (auto* candidate : QGuiApplication::allWindows())
+            if (candidate->objectName() == "weatherWindow")
+                window = qobject_cast<QQuickWindow*>(candidate);
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        auto value = metricSnapshot(1);
+        auto first = value["hourly"].toArray()[0].toObject();
+        first["local_label"] = "Mon 1 PM UTC";
+        first["dew_point_c"] = -10;
+        auto gap = first;
+        gap["time"] = "2026-09-28T14:00:00Z";
+        gap["local_hour"] = "2 PM";
+        gap["local_label"] = "Mon 2 PM UTC";
+        gap["pressure_msl_hpa"] = QJsonValue::Null;
+        auto last = first;
+        last["time"] = "2026-09-28T15:00:00Z";
+        last["local_hour"] = "3 PM";
+        last["local_label"] = "Mon 3 PM UTC";
+        last["pressure_msl_hpa"] = 1005;
+        last["uv_index"] = 5;
+        value["hourly"] = QJsonArray{first, gap, last};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        root->setProperty("effectsOpen", false);
+        QCoreApplication::processEvents();
+        auto* details = root->findChild<QObject*>("forecastDetails");
+        auto* loader = root->findChild<QObject*>("forecastChartLoader");
+        QVERIFY(details && loader);
+        QVERIFY(!qvariant_cast<QObject*>(loader->property("item")));
+        const auto requests = transport.requests.size();
+        auto* card = visualItem(window->contentItem(), "currentMetric_uv");
+        QVERIFY(card);
+        card->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY(details->property("visible").toBool());
+        QCOMPARE(details->property("metric").toString(), QString("uv_index"));
+        auto* selected = details->findChild<QObject*>("selectedForecastValue");
+        auto* range = details->findChild<QObject*>("forecastMetricRange");
+        QVERIFY(selected && range);
+        QCOMPARE(selected->property("text").toString(), QString("UV index: 3.2"));
+        auto* picker = details->findChild<QQuickItem*>("forecastMetric");
+        QVERIFY(picker);
+        picker->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTest::keyClick(window, Qt::Key_End);
+        QTest::keyClick(window, Qt::Key_Return);
+        QCOMPARE(details->property("metric").toString(), QString("pressure_msl_hpa"));
+        QVERIFY(range->property("text").toString().contains("Some hours are unavailable"));
+        auto* chart = qvariant_cast<QQuickItem*>(loader->property("item"));
+        QVERIFY(chart);
+        chart->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Right);
+        QCOMPARE(details->property("selectedIndex").toInt(), 1);
+        QCOMPARE(selected->property("text").toString(), QString("Pressure: —"));
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(details->property("selectedIndex").toInt(), 2);
+        QCOMPARE(selected->property("text").toString(), QString("Pressure: 29.68 inHg"));
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_DETAILS_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+            for (const int width : {700, 1200}) {
+                window->resize(width, 850);
+                QTest::qWait(120);
+                QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
+            }
+        }
+        QPointer<QQuickItem> oldChart(chart);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!details->property("visible").toBool());
+        QTRY_VERIFY(oldChart.isNull());
+        QVERIFY(!qvariant_cast<QObject*>(loader->property("item")));
+        QCOMPARE(transport.requests.size(), requests);
+        // Negative dew points and a narrow pressure range must not use a zero baseline.
+        QQmlComponent component(&engine);
+        component.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY(scope);
+        QVERIFY(evaluate(engine, scope.data(),
+                         "Forecast.metricScale([{dew_point_c:-10},{dew_point_c:null},{dew_point_c:-"
+                         "5}], 'dew_point_c').low < -10")
+                    .toBool());
+        QVERIFY(evaluate(engine, scope.data(),
+                         "Forecast.metricScale([{pressure_msl_hpa:1005},{pressure_msl_hpa:1013}], "
+                         "'pressure_msl_hpa').low > 1000")
+                    .toBool());
+        QVERIFY(evaluate(engine, scope.data(),
+                         "Forecast.metricScale([{humidity:null}], 'humidity') === null")
+                    .toBool());
+        QCOMPARE(evaluate(engine, scope.data(), "Forecast.metricValue(0.65,'humidity','C','auto')")
+                     .toString(),
+                 QString("65%"));
+        QCOMPARE(
+            evaluate(engine, scope.data(), "Forecast.metricValue(-10,'dew_point_c','F','auto')")
+                .toString(),
+            QString("14°"));
+    }
+    void mainLocationNavigation() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        QQuickWindow* window = nullptr;
+        for (auto* candidate : QGuiApplication::allWindows())
+            if (candidate->objectName() == "weatherWindow")
+                window = qobject_cast<QQuickWindow*>(candidate);
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        deliver(transport, {{"version", 1},
+                            {"event", "snapshot"},
+                            {"snapshot", selectedSnapshot(1, "New York, NY")}});
+        root->setProperty("effectsOpen", false);
+        QCoreApplication::processEvents();
+        auto* location = root->findChild<QQuickItem*>("openLocation");
+        auto* query = root->findChild<QQuickItem*>("placeQuery");
+        QVERIFY(location && query);
+        window->resize(700, 650);
+        location->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY(query->hasActiveFocus());
+        const auto point = query->mapToScene(QPointF(0, 0));
+        QVERIFY(point.y() >= 0 && point.y() + query->height() <= window->height());
+        for (const char key : QByteArray("Berlin"))
+            QTest::keyClick(window, key);
+        // Close before debounce: opening and dismissing search never fetches.
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!root->property("effectsOpen").toBool());
+        QTRY_VERIFY(location->hasActiveFocus());
+        QTest::qWait(400);
+        QCOMPARE(transport.requests.size(), 0);
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTRY_VERIFY(query->hasActiveFocus());
+        // Repeated shortcut invocation must preserve the original return target.
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(location->hasActiveFocus());
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_LOCATION_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+            QTest::qWait(120);
+            QVERIFY(window->grabWindow().save(prefix + "700.png"));
+        }
+    }
     void measurementConversions() {
         QQmlEngine engine;
         QQmlComponent component(&engine);

@@ -126,6 +126,10 @@ GlassPanel {
                     current = section;
         activeSection = current;
     }
+    function focusLocation() {
+        showSection(locationSection);
+        citySearch.focusQuery();
+    }
     function showSection(section) {
         settingsScroll.contentY = Math.max(0, Math.min(section.y, Math.max(0, settingsScroll.contentHeight - settingsScroll.height)));
         activeSection = section;
@@ -296,6 +300,7 @@ GlassPanel {
                 elide: Text.ElideNone
             }
             PlaceSearch {
+                id: citySearch
                 Layout.fillWidth: true
                 search: root.placeSearch
                 serviceAvailable: root.serviceAvailable

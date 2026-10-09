@@ -427,6 +427,126 @@ function weatherMap(v) {
         fetched_label: v.fetched_label
     };
 }
+// The detail view shares one selected chart across these existing hourly fields.
+const metricChoices = [
+    {
+        label: "Temperature",
+        value: "temperature_c",
+        format: "temperature",
+        zero: false,
+        explanation: "Forecast air temperature at the selected time."
+    },
+    {
+        label: "Feels like",
+        value: "apparent_temperature_c",
+        format: "temperature",
+        zero: false,
+        explanation: "Modeled apparent temperature accounts for conditions such as wind and humidity."
+    },
+    {
+        label: "Precipitation chance",
+        value: "precipitation_probability",
+        format: "percent",
+        zero: true,
+        explanation: "Chance of precipitation during the hour ending at each time. Probability is different from the amount that may fall."
+    },
+    {
+        label: "Precipitation amount",
+        value: "precipitation_rate_mm_hr",
+        format: "amount",
+        zero: true,
+        explanation: "Precipitation total for the hour ending at each time. Missing values do not mean dry weather."
+    },
+    {
+        label: "Wind",
+        value: "wind_speed_m_s",
+        format: "wind",
+        zero: true,
+        explanation: "Forecast sustained wind speed at the selected time."
+    },
+    {
+        label: "Gusts",
+        value: "wind_gust_m_s",
+        format: "wind",
+        zero: true,
+        explanation: "Forecast gust speed. Gusts represent brief peaks rather than sustained wind."
+    },
+    {
+        label: "Humidity",
+        value: "humidity",
+        format: "percent",
+        zero: true,
+        explanation: "Relative humidity describes how close the air is to saturation at its temperature."
+    },
+    {
+        label: "Dew point",
+        value: "dew_point_c",
+        format: "temperature",
+        zero: false,
+        explanation: "The temperature at which the air would become saturated if cooled."
+    },
+    {
+        label: "Visibility",
+        value: "visibility_m",
+        format: "distance",
+        zero: true,
+        explanation: "Modeled horizontal visibility. Local conditions can vary from the model."
+    },
+    {
+        label: "UV index",
+        value: "uv_index",
+        format: "uv",
+        zero: true,
+        explanation: "Hourly ultraviolet index from the forecast model. The index has no units."
+    },
+    {
+        label: "Pressure",
+        value: "pressure_msl_hpa",
+        format: "pressure",
+        zero: false,
+        explanation: "Atmospheric pressure adjusted to mean sea level, allowing comparison across elevations."
+    }
+];
+function metricInfo(metric) {
+    return metricChoices.find(row => row.value === metric) || metricChoices[0];
+}
+function metricValue(value, metric, units, windUnits) {
+    const format = metricInfo(metric).format;
+    if (format === "temperature")
+        return temp(value, units);
+    if (format === "percent")
+        return percent(value);
+    if (format === "amount")
+        return amount(value, units);
+    if (format === "wind")
+        return wind(value, units, windUnits);
+    if (format === "distance")
+        return distance(value, units);
+    if (format === "pressure")
+        return pressure(value, units);
+    return uv(value);
+}
+function metricScale(hours, metric) {
+    const known = hours.map(row => row[metric]).filter(value => typeof value === "number" && Number.isFinite(value));
+    if (!known.length)
+        return null;
+    const info = metricInfo(metric), minimum = Math.min.apply(null, known), maximum = Math.max.apply(null, known);
+    const low = info.zero ? 0 : minimum - 1;
+    const high = info.format === "percent" ? 1 : Math.max(low + 1, maximum);
+    return {
+        low: low,
+        high: high,
+        minimum: minimum,
+        maximum: maximum,
+        count: known.length
+    };
+}
+function metricRange(hours, metric, units, windUnits) {
+    const range = metricScale(hours, metric);
+    if (!range)
+        return "No values available in this period.";
+    return "Available hourly range: " + metricValue(range.minimum, metric, units, windUnits) + " – " + metricValue(range.maximum, metric, units, windUnits) + (range.count < hours.length ? ". Some hours are unavailable." : ".");
+}
 function briefings(value) {
     if (value === undefined)
         return [];
