@@ -14,3 +14,6 @@ service-frontend-test
 desktopwarnings-test
 .warnings-test-build/
 .warnings-test.mk
+warning-e2e-test
+.warning-e2e-build/
+.warning-e2e.mk

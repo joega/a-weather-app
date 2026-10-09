@@ -331,7 +331,7 @@ QtObject {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !details.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -697,6 +697,7 @@ QtObject {
         }
         EffectsDrawer {
             id: effects
+            presentationActive: bridge.presentationActive
             effectiveVisualQuality: forecastAtmosphere.effectiveQuality
             enabled: !bridge.closing
             objectName: "effectsDrawer"

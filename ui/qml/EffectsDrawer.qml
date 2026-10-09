@@ -8,6 +8,7 @@ import "Forecast.js" as Forecast
 GlassPanel {
     id: root
     property string effectiveVisualQuality: "static"
+    property bool presentationActive: true
     // A settings surface must obscure the forecast's text, not layer two
     // readable text grids on top of one another.
     color: "#fa2c455a"
@@ -496,7 +497,7 @@ GlassPanel {
                 notifications: root.notifications
                 officialWarnings: root.officialWarnings
                 primaryName: root.primaryLocation
-                settingsVisible: root.visible
+                settingsVisible: root.visible && root.presentationActive
                 timezone: root.timezone
                 busy: root.busy
                 serviceAvailable: root.serviceAvailable

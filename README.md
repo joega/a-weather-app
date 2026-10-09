@@ -206,6 +206,10 @@ and frontend; `make shaders native` prepares shader/native artifacts. Then use
 `./a-weather-app`. Native/QML conventions are in [NATIVE_QML_STYLE.md](NATIVE_QML_STYLE.md).
 Run `make check-native-qml` for formatting and static checks and `make test-go`,
 `make -C native/qt test`, and `make -C native/qt test-e2e` for regression checks.
+The native suite includes `make -C native/qt test-warning-e2e`: controlled Go
+provider/clock fixtures, the production socket and Qt UI, and a mock notification
+daemon under `dbus-run-session`. It never sends test warnings to the desktop's
+notification daemon; the Go fixture is compiled only into the test binary.
 The QML gate needs Quickshell and the actual Omarchy modules; unavailable tools
 fail explicitly. `make format-native-qml` applies the configured formatting.
 
@@ -344,9 +348,9 @@ notices keep their original place and timezone after you switch cities. The
 list holds at most 16 notices for 24 hours in the current session and clears
 when warnings are disabled or the app restarts. Desktop acceptance does not
 confirm that a notice was read. Failed or uncertain attempts are not retried
-automatically, avoiding duplicate delivery after restart. Final end-to-end
-warning delivery and enabled-monitor performance validation remain in progress
-before release.
+automatically, avoiding duplicate delivery after restart. Controlled end-to-end
+warning delivery tests pass; enabled-monitor performance and native desktop
+focus validation remain in progress before release.
 
 ## Air quality
 

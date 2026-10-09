@@ -1,0 +1,10 @@
+QT += testlib quick network dbus
+CONFIG += console c++17 testcase
+TARGET = warning-e2e-test
+INCLUDEPATH += .
+SOURCES += tests/warning_e2e_test.cpp transport.cpp protocol.cpp desktopwarnings.cpp
+HEADERS += transport.h protocol.h desktopwarnings.h tests/notificationfixture.h
+RESOURCES += resources.qrc
+OBJECTS_DIR = .warning-e2e-build
+MOC_DIR = .warning-e2e-build
+RCC_DIR = .warning-e2e-build
