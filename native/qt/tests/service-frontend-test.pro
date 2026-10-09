@@ -1,9 +1,9 @@
-QT += testlib quick network
+QT += testlib quick network dbus
 CONFIG += console c++17 testcase
 TARGET = service-frontend-test
 INCLUDEPATH += .
-SOURCES += tests/service_frontend_test.cpp transport.cpp protocol.cpp maptiles.cpp
-HEADERS += transport.h protocol.h maptiles.h
+SOURCES += tests/service_frontend_test.cpp transport.cpp protocol.cpp maptiles.cpp desktopwarnings.cpp
+HEADERS += transport.h protocol.h maptiles.h desktopwarnings.h
 RESOURCES += resources.qrc
 OBJECTS_DIR = .service-test-build
 MOC_DIR = .service-test-build

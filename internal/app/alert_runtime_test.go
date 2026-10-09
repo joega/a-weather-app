@@ -98,7 +98,7 @@ type ledgerWarningConsumer struct {
 	err     error
 }
 
-func (c *ledgerWarningConsumer) Enabled() bool { return c.enabled }
+func (c *ledgerWarningConsumer) WantsFeed() bool { return c.enabled }
 func (c *ledgerWarningConsumer) Observe(batch notifications.WarningBatch, _ string, now time.Time) {
 	c.batches++
 	c.err = c.ledger.Reconcile(batch, now)

@@ -11,3 +11,6 @@ service-frontend-test
 .build.mk
 .test.mk
 .qmake.stash
+desktopwarnings-test
+.warnings-test-build/
+.warnings-test.mk

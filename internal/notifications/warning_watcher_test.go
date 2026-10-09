@@ -108,6 +108,40 @@ func TestWarningWatcherDisabledHasNoLedgerOrWorker(t *testing.T) {
 	}
 }
 
+func TestWarningWatcherUnavailableDeliveryRequiresFreshObservation(t *testing.T) {
+	calls := make(chan warningSendCall, 2)
+	w := warningWatch(t, testState(t), warningProbe(calls, false))
+	w.SetDeliveryReady(false)
+	warningEnable(t, w, warningTarget(), warningTestNow)
+	m := warningFixture("unavailable", "Alert", warningTestNow)
+	warningFeed(w, warningTestNow, m)
+	if w.WantsFeed() || len(calls) != 0 || w.Snapshot()["reason"] != "delivery_unavailable" {
+		t.Fatal("unavailable adapter admitted monitoring", w.Snapshot())
+	}
+	w.SetDeliveryReady(true)
+	w.Tick(warningTarget(), "US", true, warningTestNow)
+	if !w.WantsFeed() || w.Snapshot()["state"] != "waiting" || len(calls) != 0 {
+		t.Fatal("resumed without fresh feed")
+	}
+	warningFeed(w, warningTestNow, m)
+	call := warningCall(t, calls)
+	w.SetDeliveryReady(false)
+	select {
+	case <-call.ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("daemon loss did not cancel")
+	}
+	warningFinish(t, w, call, warningTarget(), warningTestNow, nil)
+	if w.Snapshot()["delivery"] != "uncertain" || w.WantsFeed() {
+		t.Fatal("lost daemon reported confirmed delivery", w.Snapshot())
+	}
+	w.SetDeliveryReady(true)
+	w.Tick(warningTarget(), "US", true, warningTestNow.Add(time.Minute))
+	if w.Snapshot()["state"] != "waiting" {
+		t.Fatal("old source survived daemon loss", w.Snapshot())
+	}
+}
+
 func TestWarningWatcherReservesBeforeSendAndDeduplicatesRestart(t *testing.T) {
 	state := testState(t)
 	calls := make(chan warningSendCall, 2)

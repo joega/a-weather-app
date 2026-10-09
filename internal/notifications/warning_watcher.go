@@ -57,6 +57,7 @@ type WarningWatcher struct {
 	latitude, longitude          float64
 	zone                         *time.Location
 	targetReady                  bool
+	deliveryReady                bool
 	bodies                       map[string]weather.AlertMessage
 	current                      map[string]bool
 	fetched                      time.Time
@@ -75,7 +76,7 @@ type WarningWatcher struct {
 // platform adapter is supplied by the owner, not discovered or launched here.
 // The optional signal callback runs on workers and must be safe/nonblocking.
 func NewWarningWatcher(state *safeio.Directory, sender WarningSender, signal func()) *WarningWatcher {
-	w := &WarningWatcher{state: state, files: state, document: defaultWarningSettings(), send: sender, signal: signal, mode: "off", delivery: "none", dirty: true}
+	w := &WarningWatcher{state: state, files: state, document: defaultWarningSettings(), send: sender, signal: signal, mode: "off", delivery: "none", dirty: true, deliveryReady: sender != nil}
 	v, err := w.readSettings()
 	if err == nil {
 		w.document = v
@@ -149,8 +150,23 @@ func (w *WarningWatcher) releaseIdle() {
 // Enabled is the saved opt-in. WantsFeed also accounts for delivery ownership,
 // target coverage and availability; a failed/unsupported watcher does not poll.
 func (w *WarningWatcher) Enabled() bool { return w.document["settings"].(M)["enabled"] == true }
+func (w *WarningWatcher) DeliveryRequested() bool {
+	return !w.closed && w.Enabled() && w.fault == "" && w.send != nil
+}
 func (w *WarningWatcher) WantsFeed() bool {
-	return !w.closed && w.Enabled() && w.fault == "" && w.send != nil && w.ledger != nil && w.targetReady
+	return w.DeliveryRequested() && w.deliveryReady && w.ledger != nil && w.targetReady
+}
+
+// SetDeliveryReady tracks transient native availability separately from saved
+// opt-in. Losing the daemon cancels work and requires a fresh observation when
+// it returns; an unavailable adapter must not cause background history polling.
+func (w *WarningWatcher) SetDeliveryReady(ready bool) {
+	if w.deliveryReady == ready {
+		return
+	}
+	w.deliveryReady = ready
+	w.cancelDelivery()
+	w.clearObservation()
 }
 
 func (w *WarningWatcher) cancelDelivery() {
@@ -407,6 +423,10 @@ func (w *WarningWatcher) evaluate(now time.Time) {
 	}
 	if w.send == nil {
 		w.mode, w.reason = "unavailable", "delivery_unsupported"
+		return
+	}
+	if !w.deliveryReady {
+		w.mode, w.reason = "unavailable", "delivery_unavailable"
 		return
 	}
 	if !w.targetReady {

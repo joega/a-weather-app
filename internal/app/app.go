@@ -81,38 +81,41 @@ type App struct {
 	// The embedded point is the city displayed by the frontend. Primary is
 	// shared with it whenever both consumers select the same saved identity.
 	*forecastPoint
-	primary         *forecastPoint
-	saved           *savedLocations
-	savedList       savedListPresentation
-	primaryOnly     bool
-	barRefreshUntil time.Time
-	presented       bool
-	workGeneration  uint64
-	forecastJobs    map[*forecastWork]bool
-	forecastDone    chan *forecastWork
-	alertSlots      chan struct{}
-	alerts          *alertScheduler
-	warningObserver warningObservationConsumer
-	mu              contextMutex
-	cacheMu         sync.RWMutex
-	cached          M
-	displayRows     displayRows
-	revision        uint64
-	fx              *effectsCoordinator
-	closeDone       chan struct{}
-	state           *safeio.Directory
-	options         Options
-	controls        M
-	search          placeSearch
-	aq              airQualityState
-	wmap            mapState
-	notifications   *notifications.Watcher
-	results         chan completion
-	Changed         chan struct{}
-	launcherStatus  string
-	updates         updateState
-	closed          bool
-	closeErr        error
+	primary               *forecastPoint
+	saved                 *savedLocations
+	savedList             savedListPresentation
+	primaryOnly           bool
+	barRefreshUntil       time.Time
+	presented             bool
+	workGeneration        uint64
+	forecastJobs          map[*forecastWork]bool
+	forecastDone          chan *forecastWork
+	alertSlots            chan struct{}
+	alerts                *alertScheduler
+	warningObserver       warningObservationConsumer
+	warnings              *notifications.WarningWatcher
+	warningDesktop        *warningDesktop
+	warningNativeRevision uint64
+	mu                    contextMutex
+	cacheMu               sync.RWMutex
+	cached                M
+	displayRows           displayRows
+	revision              uint64
+	fx                    *effectsCoordinator
+	closeDone             chan struct{}
+	state                 *safeio.Directory
+	options               Options
+	controls              M
+	search                placeSearch
+	aq                    airQualityState
+	wmap                  mapState
+	notifications         *notifications.Watcher
+	results               chan completion
+	Changed               chan struct{}
+	launcherStatus        string
+	updates               updateState
+	closed                bool
+	closeErr              error
 }
 
 // DefaultControls returns a fresh controls object in the persisted JSON format.
@@ -325,6 +328,12 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 		a.alerts = newAlertScheduler(o.FetchAlertMessages, a.signal)
 		a.alerts.finishedNow = o.Now
 	}
+	if !primaryOnly {
+		a.warningDesktop = &warningDesktop{signal: a.signal}
+		a.warnings = notifications.NewWarningWatcher(state, a.warningDesktop.Send, a.signal)
+		a.warnings.SetDeliveryReady(false)
+		a.warningObserver = a.warnings
+	}
 	if a.mode == "auto" && !o.Offline {
 		a.beginPointFetch(a.forecastPoint, M{"mode": "auto", "zip_code": nil}, false)
 	}
@@ -440,6 +449,11 @@ func (a *App) interval(presented bool) time.Duration {
 			d = alertDelay
 		}
 	}
+	if a.warnings != nil {
+		if warningDelay := a.warnings.Interval(now); warningDelay < d {
+			d = warningDelay
+		}
+	}
 	return d
 }
 func (a *App) updateEffectsLocked() {
@@ -502,7 +516,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_notifications": "notifications", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -641,6 +655,16 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		e = a.notifications.Configure(object(request["notifications"]))
 	case "snooze_notifications", "resume_notifications":
 		e = a.notifications.Snooze(a.options.Now(), op == "resume_notifications")
+	case "set_warning_notifications":
+		e = a.configureWarnings(object(request["notifications"]))
+	case "pause_warning_notifications", "resume_warning_notifications":
+		if a.warnings == nil {
+			e = errors.New("warnings unavailable")
+		} else {
+			e = a.warnings.Pause(a.options.Now(), op == "resume_warning_notifications")
+		}
+	case "warning_detail":
+		return a.warningDetail(id, object(request["warning"])), false
 	case "acknowledge_update":
 		if a.options.AcknowledgeUpdate == nil {
 			reply["error"] = "updates_unavailable"
@@ -726,7 +750,18 @@ func (a *App) Close(ctx context.Context) error {
 	if a.alerts != nil {
 		a.alerts.close()
 	}
+	// Both notification owners cancel concurrently within the existing four-
+	// second shutdown allowance. Native reports never require the app mutex.
+	var warningDone chan error
+	if a.warningDesktop != nil {
+		a.warningDesktop.close()
+		warningDone = make(chan error, 1)
+		go func() { warningDone <- a.warnings.Close() }()
+	}
 	e := a.notifications.Close()
+	if warningDone != nil {
+		e = errors.Join(e, <-warningDone)
+	}
 	a.mu.Unlock()
 	if a.fx != nil {
 		e = errors.Join(e, a.fx.close(ctx))

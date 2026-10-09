@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include "desktopwarnings.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonParseError>
@@ -167,8 +168,27 @@ bool decodeProtocol(const QByteArray& line, QJsonObject* object) {
             return false;
         const auto event = obj.value("event").toString();
         if (event != "snapshot" && event != "toggle_window" && event != "service_stopped" &&
-            event != "map")
+            event != "map" && event != "warning_desktop" && event != "warning_open")
             return false;
+        if (event == "warning_desktop" &&
+            (obj.size() != 3 || !obj.value("native").isObject() ||
+             !DesktopWarnings::validCommand(obj.value("native").toObject())))
+            return false;
+        if (event == "warning_open") {
+            const auto warning = obj.value("warning").toObject();
+            if (obj.size() != 4 || warning.size() != 2 ||
+                !obj.value("activation_token").isString() ||
+                obj.value("activation_token").toString().size() > 4096)
+                return false;
+            for (const auto& field : {"location", "key"}) {
+                const auto value = warning.value(field).toString();
+                if (value.size() != 64)
+                    return false;
+                for (const auto c : value)
+                    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+                        return false;
+            }
+        }
         if (event == "snapshot" && !obj.value("snapshot").isObject())
             return false;
         if (event == "map" && !obj.value("map").isObject())

@@ -30,6 +30,7 @@ type peer struct {
 	cancel             context.CancelFunc
 	subscribed         bool
 	presentationActive bool
+	nativeWarnings     bool
 }
 
 func newPeer(ctx context.Context, conn *net.UnixConn) *peer {
@@ -183,7 +184,7 @@ func (s *Server) snapshotTo(presentedOnly bool) {
 		}
 	}
 }
-func (s *Server) subscribe(p *peer, reply M) error {
+func (s *Server) subscribe(p *peer, reply M, native ...bool) error {
 	// Registration, refreshed initial snapshot and its enqueue are atomic with
 	// subscriber enumeration. A subsequent event cannot precede this first reply.
 	s.mu.Lock()
@@ -198,6 +199,10 @@ func (s *Server) subscribe(p *peer, reply M) error {
 	}
 	p.subscribed = true
 	p.presentationActive = true
+	if len(native) == 1 && native[0] && s.app.warningDesktop != nil {
+		p.nativeWarnings = true
+		s.app.warningDesktop.add(p)
+	}
 	s.uiSeen = true
 	select {
 	case s.presentationWake <- struct{}{}:
@@ -242,6 +247,9 @@ func (s *Server) presentation(p *peer, request M) error {
 func (s *Server) handle(p *peer) {
 	defer func() {
 		p.close()
+		if s.app.warningDesktop != nil {
+			s.app.warningDesktop.remove(p)
+		}
 		<-p.writerDone
 		s.mu.Lock()
 		wasUI := p.subscribed
@@ -280,6 +288,12 @@ func (s *Server) handle(p *peer) {
 			}
 			continue
 		}
+		if request["op"] == "warning_native" {
+			if len(request) != 3 || request["version"] != 1.0 || !p.nativeWarnings || s.app.warningDesktop == nil || !s.app.warningDesktop.report(p, object(request["native"])) {
+				return
+			}
+			continue // Private one-way report; no QML request ID or reply.
+		}
 		if request["op"] == "toggle_window" && len(request) == 3 && request["version"] == 1.0 {
 			if id, ok := request["request_id"].(float64); ok && id >= 0 && id <= 2147483647 && id == float64(int64(id)) {
 				s.broadcast(M{"version": 1.0, "event": "toggle_window"})
@@ -289,6 +303,13 @@ func (s *Server) handle(p *peer) {
 				continue
 			}
 		}
+		native := false
+		if request["op"] == "subscribe" {
+			if capable, ok := request["native_notifications"].(bool); ok {
+				native = capable
+				delete(request, "native_notifications")
+			}
+		}
 		ctx, cancel := context.WithTimeout(p.ctx, 45*time.Second)
 		reply, quit := s.app.handle(ctx, request, true)
 		cancel()
@@ -296,7 +317,7 @@ func (s *Server) handle(p *peer) {
 			reply["frontend_ready"] = s.hasPresentation()
 		}
 		if request["op"] == "subscribe" && reply["ok"] == true {
-			if s.subscribe(p, reply) != nil {
+			if s.subscribe(p, reply, native) != nil {
 				return
 			}
 			continue

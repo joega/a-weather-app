@@ -3,6 +3,8 @@
 #include <QLocalSocket>
 #include <QVariantMap>
 
+class DesktopWarnings;
+
 class WeatherTransport final : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
@@ -12,6 +14,7 @@ class WeatherTransport final : public QObject {
     QString path;
     bool verbose;
     bool failed = false;
+    DesktopWarnings* warnings = nullptr;
     void read();
     void fail(const QString& message);
 

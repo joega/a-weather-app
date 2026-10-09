@@ -12,9 +12,9 @@ import (
 
 // A warning consumer adds primary alert demand, not a second network poller or
 // an extra forecast refresh. Its policy/delivery owner consumes full reconciled
-// bodies only while enabled. Ordinary app startup has no warning consumer.
+// bodies only while opted in and able to deliver. Disabled startup adds no demand.
 type warningObservationConsumer interface {
-	Enabled() bool
+	WantsFeed() bool
 	Observe(notifications.WarningBatch, string, time.Time)
 }
 
@@ -29,6 +29,7 @@ func pointAlertKey(p *forecastPoint) string {
 }
 
 func (a *App) tickAlertWork() {
+	a.tickWarnings()
 	if a.alerts == nil || a.closed {
 		return
 	}
@@ -43,7 +44,7 @@ func (a *App) tickAlertWork() {
 				}
 			}
 		}
-		if a.warningObserver != nil && a.warningObserver.Enabled() && !a.primary.needsResolve && !a.primary.locationBusy {
+		if a.warningObserver != nil && a.warningObserver.WantsFeed() && !a.primary.needsResolve && !a.primary.locationBusy {
 			if key := pointAlertKey(a.primary); key != "" {
 				found := false
 				for i := range demands {
@@ -88,7 +89,7 @@ func (a *App) tickAlertWork() {
 		if observation.active != nil || observation.activeFailed {
 			a.applyAlertObservation(observation, now)
 		}
-		if observation.batch != nil && a.warningObserver != nil && a.warningObserver.Enabled() && observation.key == pointAlertKey(a.primary) {
+		if observation.batch != nil && a.warningObserver != nil && a.warningObserver.WantsFeed() && observation.key == pointAlertKey(a.primary) {
 			a.warningObserver.Observe(*observation.batch, observation.err, now)
 		}
 		a.signal()

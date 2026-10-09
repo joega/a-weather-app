@@ -1,9 +1,12 @@
+#include <QChar>
+#include <QBitArray>
 #include <QtTest>
 #include "../protocol.h"
 #include "../transport.h"
 #include <QLocalServer>
 #include <QTemporaryDir>
 #include <memory>
+#include <QJsonDocument>
 class ProtocolTest : public QObject {
     Q_OBJECT
   private slots:
@@ -39,6 +42,40 @@ class ProtocolTest : public QObject {
             decodeProtocol(R"({"version":1,"event":"toggle_window","a":1,"\uFEFFa":2})", &object));
         QCOMPARE(object.value("a").toInt(), 1);
         QCOMPARE(object.value(QString(QChar(0xfeff)) + "a").toInt(), 2);
+    }
+    void warningControlEnvelopesAreStrict() {
+        QJsonObject output;
+        QJsonObject command{{"kind", "activate"}, {"generation", QString(32, 'a')}};
+        QJsonObject event{{"version", 1}, {"event", "warning_desktop"}, {"native", command}};
+        auto valid = [&] {
+            return decodeProtocol(QJsonDocument(event).toJson(QJsonDocument::Compact), &output);
+        };
+        QVERIFY(valid());
+        event["request_id"] = 7;
+        QVERIFY(!valid());
+        event.remove("request_id");
+        command["extra"] = true;
+        event["native"] = command;
+        QVERIFY(!valid());
+        command = {{"kind", "notify"},          {"generation", QString(32, 'a')},
+                   {"token", QString(32, 'b')}, {"title", "Flood Warning"},
+                   {"body", "Original notice"}, {"urgency", "normal"}};
+        event["native"] = command;
+        QVERIFY(valid());
+        command["body"] = "<b>markup</b>";
+        event["native"] = command;
+        QVERIFY(!valid());
+        event = {
+            {"version", 1},
+            {"event", "warning_open"},
+            {"warning", QJsonObject{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}}},
+            {"activation_token", "token"}};
+        QVERIFY(valid());
+        event["warning"] = QJsonObject{{"location", QString(64, 'a')}, {"key", "current"}};
+        QVERIFY(!valid());
+        event["warning"] = QJsonObject{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}};
+        event["activation_token"] = QString(4097, 'x');
+        QVERIFY(!valid());
     }
     void invalid_data() {
         QTest::addColumn<QByteArray>("line");

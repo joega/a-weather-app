@@ -1,0 +1,9 @@
+QT += testlib dbus network
+QT -= gui
+CONFIG += console c++17 testcase
+TARGET = desktopwarnings-test
+INCLUDEPATH += .
+SOURCES += tests/desktopwarnings_test.cpp desktopwarnings.cpp transport.cpp protocol.cpp
+HEADERS += desktopwarnings.h transport.h protocol.h
+OBJECTS_DIR = .warnings-test-build
+MOC_DIR = .warnings-test-build

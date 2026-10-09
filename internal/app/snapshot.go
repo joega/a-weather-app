@@ -212,6 +212,7 @@ func (a *App) snapshot() M {
 	}
 	result["place_search"] = a.searchSnapshot()
 	result["saved_locations"] = a.savedLocationsSnapshot()
+	result["warning_notifications"] = a.warningSnapshot()
 	result["update"] = a.updateSnapshot()
 	result["air_quality"] = a.airQualitySnapshot()
 	result["briefing"] = []any{}

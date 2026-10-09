@@ -1,5 +1,6 @@
 #include "transport.h"
 #include "protocol.h"
+#include "desktopwarnings.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
@@ -33,6 +34,8 @@ WeatherTransport::~WeatherTransport() {
     // QLocalSocket can emit disconnected while closing. Disconnect before any
     // members are destroyed: buffer dies before socket, and fail() clears it.
     QObject::disconnect(&socket, nullptr, this, nullptr);
+    delete warnings;
+    warnings = nullptr;
     socket.abort();
 }
 void WeatherTransport::start() {
@@ -49,8 +52,10 @@ void WeatherTransport::start() {
 bool WeatherTransport::send(const QVariantMap& request) {
     if (!connected())
         return false;
-    const auto bytes =
-        QJsonDocument(QJsonObject::fromVariantMap(request)).toJson(QJsonDocument::Compact);
+    auto object = QJsonObject::fromVariantMap(request);
+    if (object.value("op") == "subscribe")
+        object["native_notifications"] = true;
+    const auto bytes = QJsonDocument(object).toJson(QJsonDocument::Compact);
     if (bytes.size() > 8192 || socket.bytesToWrite() > 8192)
         return false;
     if (verbose)
@@ -66,6 +71,8 @@ void WeatherTransport::fail(const QString& error) {
     if (verbose)
         qWarning().noquote() << "Weather service transport:" << error;
     failed = true;
+    if (warnings)
+        warnings->deactivate();
     buffer.clear();
     socket.abort();
     emit connectedChanged();
@@ -83,6 +90,22 @@ void WeatherTransport::read() {
             if (!decodeProtocol(line, &obj)) {
                 fail("Weather service returned invalid data");
                 return;
+            }
+            if (obj.value("event") == "warning_desktop") {
+                const auto command = obj.value("native").toObject();
+                if (!warnings && command.value("kind") == "activate") {
+                    warnings = new DesktopWarnings(this);
+                    connect(warnings, &DesktopWarnings::report, this,
+                            [this](const QJsonObject& report) {
+                                if (connected() && !send({{"version", 1},
+                                                          {"op", "warning_native"},
+                                                          {"native", report.toVariantMap()}}))
+                                    fail("Weather service notification channel is unavailable");
+                            });
+                }
+                if (warnings)
+                    warnings->accept(command);
+                continue; // Native acknowledgements never enter QML's request queue.
             }
             // Preserve JSON array/null semantics for the unchanged Forecast.js validator.
             emit message(QString::fromUtf8(line));

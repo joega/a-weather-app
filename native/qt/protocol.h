@@ -1,4 +1,5 @@
 #pragma once
+#include <QChar>
 #include <QByteArray>
 #include <QJsonObject>
 

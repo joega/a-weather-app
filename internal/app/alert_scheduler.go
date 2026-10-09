@@ -184,6 +184,23 @@ func sameAlertLocation(a, b M) bool {
 	return len(a) == 4 && latOK && lonOK && lat == b["latitude"] && lon == b["longitude"] && stringOf(a["name"]) == b["name"] && stringOf(a["timezone"]) == b["timezone"]
 }
 
+// A native service loss invalidates any monitor assembly, including a response
+// already queued when availability returns between app ticks. The hard worker
+// slot and global request spacing remain in force; display-only feeds are kept.
+func (s *alertScheduler) invalidateMonitor(now time.Time) {
+	for _, e := range s.entries {
+		if !e.demand.monitor {
+			continue
+		}
+		e.generation++
+		e.cycle = nil
+		e.next = now
+		if s.job != nil && s.job.entry == e {
+			s.job.cancel()
+		}
+	}
+}
+
 func (s *alertScheduler) close() {
 	if s.closed {
 		return

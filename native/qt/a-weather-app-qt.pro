@@ -1,9 +1,9 @@
-QT += quick network
+QT += quick network dbus
 CONFIG += c++17
 CONFIG -= app_bundle
 TARGET = a-weather-app-qt
-SOURCES += main.cpp transport.cpp protocol.cpp maptiles.cpp graphicscapabilities.cpp
-HEADERS += transport.h protocol.h maptiles.h graphicscapabilities.h
+SOURCES += main.cpp transport.cpp protocol.cpp maptiles.cpp graphicscapabilities.cpp desktopwarnings.cpp
+HEADERS += transport.h protocol.h maptiles.h graphicscapabilities.h desktopwarnings.h
 RESOURCES += resources.qrc
 OBJECTS_DIR = .build
 MOC_DIR = .build
