@@ -78,16 +78,17 @@ func (p *peer) enqueue(raw []byte, ack bool) (<-chan error, error) {
 }
 
 type Server struct {
-	app              *App
-	listener         *net.UnixListener
-	mu               sync.Mutex
-	peers            map[*peer]bool
-	ctx              context.Context
-	cancel           context.CancelFunc
-	uiSeen           bool
-	last             []byte
-	lastMapRevision  uint64
-	presentationWake chan struct{}
+	app               *App
+	listener          *net.UnixListener
+	mu                sync.Mutex
+	peers             map[*peer]bool
+	ctx               context.Context
+	cancel            context.CancelFunc
+	uiSeen            bool
+	last              []byte
+	lastMapRevision   uint64
+	lastRadarRevision uint64
+	presentationWake  chan struct{}
 }
 
 func (s *Server) mapEvent() {
@@ -97,6 +98,15 @@ func (s *Server) mapEvent() {
 	}
 	s.lastMapRevision = revision
 	s.broadcast(M{"version": 1.0, "event": "map", "map": value})
+}
+
+func (s *Server) radarEvent() {
+	revision, value := s.app.radarSince(&s.lastRadarRevision)
+	if value == nil || revision == s.lastRadarRevision {
+		return
+	}
+	s.lastRadarRevision = revision
+	s.broadcast(M{"version": 1.0, "event": "radar", "radar": value})
 }
 
 func (s *Server) send(p *peer, value M) error {
@@ -458,6 +468,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 				lastBroadcast = time.Now()
 			}
 			s.mapEvent()
+			s.radarEvent()
 			nextTick = time.Now().Add(a.interval(s.hasPresentation()))
 			reset()
 		}
@@ -490,6 +501,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			go func() { defer peersWG.Done(); s.handle(p) }()
 		case <-timer.C:
 			s.mapEvent()
+			s.radarEvent()
 			continue
 		case <-s.presentationWake:
 			a.setPresented(s.hasPresentation())
@@ -498,9 +510,17 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 				nextTick = candidate
 				reset()
 			}
+		case <-a.RadarChanged:
+			s.radarEvent()
+			candidate := time.Now().Add(a.interval(s.hasPresentation()))
+			if candidate.Before(nextTick) {
+				nextTick = candidate
+				reset()
+			}
 		case <-a.Changed:
 			s.snapshot()
 			s.mapEvent()
+			s.radarEvent()
 			lastBroadcast = time.Now()
 			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {

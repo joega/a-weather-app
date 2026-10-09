@@ -305,6 +305,9 @@ Item {
                 } else if (value.event === "map") {
                     if (mapWanted)
                         weatherMap = Forecast.weatherMap(value.map);
+                } else if (value.event === "radar") {
+                    // Radar metadata is independent of the forecast snapshot.
+                    // The native radar view will subscribe when opened.
                 } else if (value.event === "service_stopped") {
                     closing = true;
                     quitAcknowledged = value.ok;

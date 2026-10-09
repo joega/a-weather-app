@@ -104,6 +104,7 @@ func (a *App) viewPointChanged(oldID string, oldLocation M) {
 		return
 	}
 	a.closeMap()
+	a.closeRadar()
 	a.mapLocationChanged(oldLocation)
 	a.cancelAirQuality()
 	if !reflect.DeepEqual(oldLocation, a.location) {
@@ -169,6 +170,7 @@ func (a *App) setPresented(active bool) {
 	a.presented = active
 	if !active {
 		a.closeMap()
+		a.closeRadar()
 		a.cancelAirQuality()
 		if a.forecastPoint != a.primary || !a.primaryNeeded() {
 			a.cancelPointFetch(a.forecastPoint)

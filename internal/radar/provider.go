@@ -18,6 +18,7 @@ const (
 	endpoint       = "https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows"
 	ImageSize      = 512
 	MaxImageBytes  = 2 * 1024 * 1024
+	MaxLegendBytes = 128 * 1024
 	mercatorExtent = 20037508.342789244
 )
 
@@ -29,7 +30,12 @@ var (
 
 // View is a Web Mercator viewport in metres, aligned with the displayed
 // basemap. The provider always returns one 512-square image, not world tiles.
-type View struct{ West, South, East, North float64 }
+type View struct {
+	West  float64 `json:"west"`
+	South float64 `json:"south"`
+	East  float64 `json:"east"`
+	North float64 `json:"north"`
+}
 
 func (v View) valid() bool {
 	return finite(v.West) && finite(v.South) && finite(v.East) && finite(v.North) && v.West >= -mercatorExtent && v.East <= mercatorExtent && v.South >= -mercatorExtent && v.North <= mercatorExtent && v.East-v.West >= 1 && v.North-v.South >= 1
@@ -122,7 +128,11 @@ func (c *Client) FetchLegend(ctx context.Context) ([]byte, error) {
 	return c.image(ctx, q, 500, 30)
 }
 func (c *Client) image(ctx context.Context, q url.Values, width, height int) ([]byte, error) {
-	body, err := c.get(ctx, q, MaxImageBytes, true)
+	limit := MaxImageBytes
+	if width == 500 && height == 30 {
+		limit = MaxLegendBytes
+	}
+	body, err := c.get(ctx, q, limit, true)
 	if err != nil {
 		return nil, err
 	}

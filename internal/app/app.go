@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joega/a-weather-app/internal/notifications"
+	"github.com/joega/a-weather-app/internal/radar"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
 	"github.com/joega/a-weather-app/internal/weathermap"
@@ -57,6 +58,7 @@ type Options struct {
 	// Nil leaves air quality cache-only. The production service supplies Fetch.
 	FetchAirQuality func(context.Context, M, time.Time) (M, error)
 	FetchMap        func(context.Context, float64, float64, string, time.Time) (weathermap.Data, error)
+	Radar           radar.Provider
 	SearchPlaces    func(context.Context, M) ([]any, error)
 	Effects         Effects
 	Sender          notifications.Sender
@@ -109,9 +111,11 @@ type App struct {
 	search                placeSearch
 	aq                    airQualityState
 	wmap                  mapState
+	radar                 *radar.Controller
 	notifications         *notifications.Watcher
 	results               chan completion
 	Changed               chan struct{}
+	RadarChanged          chan struct{}
 	launcherStatus        string
 	updates               updateState
 	closed                bool
@@ -311,7 +315,7 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	if o.SearchPlaces == nil {
 		o.SearchPlaces = weather.SearchPlaces
 	}
-	a := &App{state: state, options: o, primaryOnly: primaryOnly, presented: !primaryOnly, controls: DefaultControls(), results: make(chan completion, 8), forecastDone: make(chan *forecastWork, 2), forecastJobs: make(map[*forecastWork]bool), alertSlots: make(chan struct{}, 2), Changed: make(chan struct{}, 1), launcherStatus: "ready"}
+	a := &App{state: state, options: o, primaryOnly: primaryOnly, presented: !primaryOnly, controls: DefaultControls(), results: make(chan completion, 8), forecastDone: make(chan *forecastWork, 2), forecastJobs: make(map[*forecastWork]bool), alertSlots: make(chan struct{}, 2), Changed: make(chan struct{}, 1), RadarChanged: make(chan struct{}, 1), launcherStatus: "ready"}
 	if e := a.restoreLocations(); e != nil {
 		return nil, e
 	}
@@ -444,6 +448,9 @@ func (a *App) interval(presented bool) time.Duration {
 			d = 5 * time.Second
 		}
 	}
+	if a.radar != nil {
+		d = min(d, a.radar.NextWake(now))
+	}
 	if a.alerts != nil {
 		if alertDelay := a.alerts.interval(now); alertDelay < d {
 			d = alertDelay
@@ -516,7 +523,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -628,6 +635,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		}
 		if e == nil {
 			a.closeMap()
+			a.closeRadar()
 			a.cancelSearch()
 			a.beginLocation(v, op == "set_location")
 		}
@@ -639,6 +647,18 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 				code = "save_unconfirmed"
 			}
 		}
+	case "radar_open":
+		e = a.openRadar(nil)
+	case "radar_view":
+		if object(request["view"]) == nil {
+			e = errors.New("invalid radar view")
+		} else {
+			e = a.openRadar(object(request["view"]))
+		}
+	case "radar_close":
+		a.closeRadar()
+	case "radar_image":
+		return a.radarImage(id, object(request["image"])), false
 	case "map_open":
 		a.openMap()
 	case "map_close":
@@ -736,6 +756,9 @@ func (a *App) Close(ctx context.Context) error {
 		return a.closeErr
 	}
 	a.closed = true
+	if a.radar != nil {
+		a.radar.Shutdown()
+	}
 	a.closeDone = make(chan struct{})
 	a.cancelAirQuality()
 	a.closeMap()

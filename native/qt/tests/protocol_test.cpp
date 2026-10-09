@@ -23,6 +23,14 @@ class ProtocolTest : public QObject {
         QVERIFY(decodeProtocol(
             R"({"version":1,"event":"service_stopped","ok":false,"error":"cleanup_failed"})", &o));
     }
+    void radarEnvelopes() {
+        QJsonObject value;
+        QVERIFY(decodeProtocol(
+            R"({"version":1,"event":"radar","radar":{"status":"closed","frames":[]}})", &value));
+        QVERIFY(!decodeProtocol(R"({"version":1,"event":"radar","radar":null})", &value));
+        QVERIFY(
+            !decodeProtocol(R"({"version":1,"event":"radar","radar":{},"request_id":1})", &value));
+    }
     void literalAndEscapedKeys() {
         QJsonObject object;
         QVERIFY(decodeProtocol("{\"version\":1,\"event\":\"toggle_window\",\"\":1,\"é\":2,\"😀\":3,"

@@ -17,6 +17,7 @@ import (
 	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/effects"
 	"github.com/joega/a-weather-app/internal/ipc"
+	"github.com/joega/a-weather-app/internal/radar"
 	"github.com/joega/a-weather-app/internal/release"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/supervision"
@@ -316,7 +317,9 @@ func launch(args []string) error {
 	}
 	defer lock.Close()
 	manager := effects.New(root, statePath, options.instance, options.output)
-	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: options.offline,
+	radarClient := radar.New()
+	defer radarClient.CloseIdleConnections()
+	a, e := app.New(state, app.Options{Root: root, Effects: manager, Offline: options.offline, Radar: radarClient,
 		UpdateStatus:      func() M { return updates.PresentationStatus().Map() },
 		AcknowledgeUpdate: updates.AcknowledgeUpdate,
 		CheckUpdates:      func(ctx context.Context, force bool) error { _, err := updates.Check(ctx, force); return err },
