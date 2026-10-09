@@ -1,4 +1,5 @@
-// Package notifications evaluates bounded precipitation forecasts and owns cancellable desktop delivery.
+// Package notifications evaluates precipitation outlooks and official warnings
+// and owns bounded, cancellable desktop delivery.
 package notifications
 
 import (
