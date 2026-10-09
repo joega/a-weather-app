@@ -231,6 +231,9 @@ func (a *App) savedLocationAction(action M) error {
 	if err != nil && !errors.Is(err, errSavedLocationsUnconfirmed) {
 		return err
 	}
+	if action["action"] == "remove" && !a.forgetForecastHistory(id) {
+		err = errSavedLocationsUnconfirmed
+	}
 	if action["action"] == "rename" || action["action"] == "move" {
 		if err != nil {
 			a.locationError = "save_unconfirmed"

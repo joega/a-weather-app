@@ -298,6 +298,12 @@ func (s *Server) handle(p *peer) {
 			}
 			continue
 		}
+		if request["op"] == "forecast_presented" && (!p.subscribed || !p.presentationActive) {
+			if s.send(p, M{"version": 1.0, "request_id": request["request_id"], "ok": false, "error": "forecast_not_presented"}) != nil {
+				return
+			}
+			continue
+		}
 		if request["op"] == "warning_native" {
 			if len(request) != 3 || request["version"] != 1.0 || !p.nativeWarnings || s.app.warningDesktop == nil || !s.app.warningDesktop.report(p, object(request["native"])) {
 				return
