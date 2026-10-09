@@ -1149,6 +1149,149 @@ class ServiceFrontendTest : public QObject {
         window->hide();
         QTRY_VERIFY(!eval("root.dashboardOpen || dashboardLoader.item !== null").toBool());
     }
+    void forecastChangesPresentationDetailsAndRestart() {
+        ServiceFixture fixture;
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60);
+        auto forecast = fixture.saved("forecast.json");
+        auto row = forecast["hourly"].toArray()[0].toObject();
+        auto start = QDateTime::currentDateTimeUtc();
+        start.setTime(QTime(start.time().hour(), 0));
+        QJsonArray hours, oldHours;
+        for (int i = 0; i < 60; ++i) {
+            const auto stamp = start.addSecs(i * 3600).toString(Qt::ISODate);
+            row["time"] = stamp;
+            hours.append(row);
+            oldHours.append(QJsonArray{stamp, 10, .6, 2, 2});
+        }
+        forecast["hourly"] = hours;
+        fixture.save("forecast.json", forecast);
+        fixture.savedNewYorkPlace();
+        const auto location = forecast["location"].toObject();
+        QJsonObject baseline{
+            {"latitude", location["latitude"]},
+            {"longitude", location["longitude"]},
+            {"timezone", location["timezone"]},
+            {"source", "open-meteo-hourly-v1"},
+            {"retrieved", QDateTime::fromString(forecast["fetched_at"].toString(), Qt::ISODate)
+                              .addSecs(-3600)
+                              .toString(Qt::ISODate)},
+            {"hours", oldHours}};
+        fixture.save("forecast-history.json",
+                     {{"schema_version", 1},
+                      {"places", QJsonArray{QJsonObject{{"id", "place-5128581"},
+                                                        {"current", baseline},
+                                                        {"previous", QJsonValue::Null}}}}});
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_CHANGES_MEASURE");
+        const bool baselineOnly = qEnvironmentVariableIsSet("WEATHER_QT_CHANGES_BASELINE_ONLY");
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            if (!probe)
+                return;
+            QTest::qWait(200);
+            const auto before = swaps.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "CHANGES_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        if (baselineOnly) {
+            phase("initial");
+            return;
+        }
+        QTRY_VERIFY2_WITH_TIMEOUT(
+            eval("backend.changesState==='ready'").toBool(),
+            qPrintable(
+                eval("JSON.stringify({state:backend.changesState,error:backend.error,key:backend."
+                     "forecastContext,visible:backend.forecastVisible,op:backend.pendingOp})")
+                    .toString()),
+            5000);
+        QCOMPARE(eval("backend.changesResult.changes.length").toInt(), 3);
+        const auto saved = fixture.saved("forecast-history.json");
+        QCOMPARE(saved["places"].toArray()[0].toObject()["previous"].toObject()["retrieved"],
+                 baseline["retrieved"]);
+        phase("initial");
+        if (qEnvironmentVariableIsSet("WEATHER_QT_CHANGES_INITIAL_ONLY"))
+            return;
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::qWait(80);
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        auto* loader = named("forecastChangesLoader");
+        QVERIFY(!loader->property("item").value<QObject*>());
+        activate("openForecastChanges");
+        QTRY_VERIFY(eval("root.changesOpen && changesLoader.item!==null").toBool());
+        QVERIFY(!eval("root.mapActive || backend.forecastVisible").toBool());
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
+        QVERIFY(named("forecastChangesProvenance")
+                    ->property("text")
+                    .toString()
+                    .contains("Previous viewed:"));
+        QVERIFY(named("forecastChangesCoverage")->property("text").toString().contains("48/48"));
+        phase("details_open");
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_CHANGES_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-wide.png"));
+            window->resize(700, 650);
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
+        }
+        window->resize(700, 650);
+        QTest::qWait(100);
+        auto* detailScroll =
+            named("forecastChangesScroll")->property("contentItem").value<QObject*>();
+        QVERIFY(detailScroll);
+        QTest::keyClick(window, Qt::Key_End);
+        QTRY_VERIFY(detailScroll->property("contentY").toReal() > 0);
+        if (!prefix.isEmpty())
+            QVERIFY(window->grabWindow().save(prefix + "-compact-footer.png"));
+        QTest::keyClick(window, Qt::Key_Home);
+        QTRY_COMPARE(detailScroll->property("contentY").toReal(), 0.0);
+        QPointer<QObject> detail = loader->property("item").value<QObject*>();
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(detail.isNull());
+        QTRY_VERIFY(eval("backend.changesState==='ready'").toBool());
+        QCOMPARE(window->activeFocusItem()->objectName(), QString("openForecastChanges"));
+        for (int i = 0; i < (probe ? 40 : 5); ++i) {
+            eval("root.openChanges()");
+            QTRY_VERIFY(loader->property("item").value<QObject*>());
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(!loader->property("item").value<QObject*>());
+            QTRY_VERIFY(eval("backend.changesState==='ready'").toBool());
+            if (i == 19)
+                phase("closed_after_20");
+            if (i == 39)
+                phase("closed_after_40");
+        }
+        QCOMPARE(fixture.saved("forecast-history.json"), saved);
+        eval("root.openChanges()");
+        window->hide();
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        phase("hidden");
+        window->show();
+        QTRY_VERIFY(eval("backend.changesState==='ready'").toBool());
+        eval("backend.shutdown()");
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(), QProcess::NotRunning, 5000);
+        cleanup();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.changesState==='ready'").toBool(), 5000);
+        QCOMPARE(eval("backend.changesResult.changes.length").toInt(), 3);
+        QCOMPARE(fixture.saved("forecast-history.json"), saved);
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-summary.png"));
+        }
+    }
     void outdoorPlannerUsesCachedForecastAndSavesPreferences() {
         ServiceFixture fixture;
         const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_OUTDOOR_MEASURE");

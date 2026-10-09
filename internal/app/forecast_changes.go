@@ -341,8 +341,10 @@ func forecastChangesView(r forecastchange.Result, id string, place forecastchang
 		return s
 	}
 	var previous any
+	var previousLabel any
 	if !r.PreviousRetrieved.IsZero() {
 		previous = changeStamp(r.PreviousRetrieved)
+		previousLabel = label(r.PreviousRetrieved, r.PreviousRetrieved)
 	}
 	rows := make([]any, 0, len(r.Changes))
 	for _, c := range r.Changes {
@@ -354,5 +356,5 @@ func forecastChangesView(r forecastchange.Result, id string, place forecastchang
 		rows = append(rows, row)
 	}
 	c := r.Coverage
-	return M{"status": r.Status, "location_id": id, "latitude": place.Latitude, "longitude": place.Longitude, "timezone": place.Timezone, "source": "Open-Meteo", "current_retrieved": changeStamp(r.CurrentRetrieved), "previous_retrieved": previous, "start": changeStamp(r.Start), "end": changeStamp(r.End), "save_status": saveStatus, "history_recovered": recovered, "coverage": M{"expected_points": float64(c.ExpectedPoints), "expected_intervals": float64(c.ExpectedIntervals), "temperature": float64(c.Temperature), "probability": float64(c.Probability), "precipitation": float64(c.Precipitation), "gusts": float64(c.Gusts)}, "changes": rows}
+	return M{"status": r.Status, "location_id": id, "latitude": place.Latitude, "longitude": place.Longitude, "timezone": place.Timezone, "source": "Open-Meteo", "current_retrieved": changeStamp(r.CurrentRetrieved), "previous_retrieved": previous, "current_retrieved_label": label(r.CurrentRetrieved, r.CurrentRetrieved), "previous_retrieved_label": previousLabel, "start": changeStamp(r.Start), "end": changeStamp(r.End), "save_status": saveStatus, "history_recovered": recovered, "coverage": M{"expected_points": float64(c.ExpectedPoints), "expected_intervals": float64(c.ExpectedIntervals), "temperature": float64(c.Temperature), "probability": float64(c.Probability), "precipitation": float64(c.Precipitation), "gusts": float64(c.Gusts)}, "changes": rows}
 }

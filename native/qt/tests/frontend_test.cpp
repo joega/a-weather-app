@@ -2975,6 +2975,113 @@ class FrontendTest : public QObject {
         QVERIFY(!bridge->property("dashboardSaving").toBool());
         QCOMPARE(saved.last()[1].toString(), "unavailable");
     }
+    void forecastChangesQueueVisibilityAndValidation() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        auto state = metricSnapshot(1);
+        auto location = state["location"].toObject();
+        location["latitude"] = 40.7128;
+        location["longitude"] = -74.006;
+        state["location"] = location;
+        state["location_settings"] = selectedSnapshot(1, "x")["location_settings"];
+        state["saved_locations"] = savedSnapshot(1)["saved_locations"];
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        evaluate(engine, bridge.data(),
+                 "subscribed=true; acknowledgeRenderedForecast(forecastContext)");
+        QCOMPARE(transport.requests.size(), 0); // No visible header.
+        evaluate(engine, bridge.data(),
+                 "forecastVisible=true; send('set_controls',{units:'C'}); "
+                 "acknowledgeRenderedForecast(forecastContext)");
+        QCOMPARE(transport.requests.size(), 1);
+        QVERIFY(evaluate(engine, bridge.data(), "queuedChanges!==null").toBool());
+        evaluate(engine, bridge.data(), "forecastVisible=false");
+        deliver(transport, {{"version", 1}, {"request_id", 0}, {"ok", true}});
+        QCOMPARE(transport.requests.size(), 1); // Hidden queued acknowledgment discarded.
+        evaluate(engine, bridge.data(),
+                 "forecastVisible=true; acknowledgeRenderedForecast(forecastContext)");
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("forecast_presented"));
+        QVERIFY(!bridge->property("busy").toBool()); // Optional calculation never locks controls.
+        auto query = QJsonObject::fromVariantMap(transport.requests.last()["forecast"].toMap());
+        QJsonObject change{{"kind", "temperature"},
+                           {"start", "2026-09-28T13:00:00Z"},
+                           {"end", "2026-09-28T13:00:00Z"},
+                           {"range_label", "Mon Sep 28, 1:00 PM UTC"},
+                           {"samples", 1},
+                           {"before", 15},
+                           {"after", 20},
+                           {"previous_start", QJsonValue::Null},
+                           {"previous_end", QJsonValue::Null},
+                           {"previous_range_label", QJsonValue::Null}};
+        QJsonObject result{{"status", "ready"},
+                           {"location_id", query["location_id"]},
+                           {"latitude", query["latitude"]},
+                           {"longitude", query["longitude"]},
+                           {"timezone", query["timezone"]},
+                           {"source", "Open-Meteo"},
+                           {"current_retrieved", query["forecast_at"]},
+                           {"previous_retrieved", "2026-09-28T11:00:00Z"},
+                           {"current_retrieved_label", "Mon Sep 28, 12:00 PM UTC"},
+                           {"previous_retrieved_label", "Mon Sep 28, 11:00 AM UTC"},
+                           {"start", "2026-09-28T12:30:00.123456789Z"},
+                           {"end", "2026-09-30T12:30:00.123456789Z"},
+                           {"save_status", "saved"},
+                           {"history_recovered", false},
+                           {"coverage", QJsonObject{{"expected_points", 48},
+                                                    {"expected_intervals", 47},
+                                                    {"temperature", 1},
+                                                    {"probability", 0},
+                                                    {"precipitation", 0},
+                                                    {"gusts", 0}}},
+                           {"changes", QJsonArray{change}}};
+        // A reply after hide is validated but not displayed; restore can retry.
+        evaluate(engine, bridge.data(), "forecastVisible=false");
+        deliver(transport,
+                {{"version", 1}, {"request_id", 1}, {"ok", true}, {"forecast_changes", result}});
+        QVERIFY(!bridge->property("disconnected").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "changesResult===null").toBool());
+        evaluate(engine, bridge.data(),
+                 "forecastVisible=true; acknowledgeRenderedForecast(forecastContext)");
+        deliver(transport,
+                {{"version", 1}, {"request_id", 2}, {"ok", true}, {"forecast_changes", result}});
+        QCOMPARE(bridge->property("changesState").toString(), QString("ready"));
+        QCOMPARE(evaluate(engine, bridge.data(), "Changes.title(changesResult.changes[0],'F')")
+                     .toString(),
+                 QString("9°F warmer"));
+        evaluate(engine, bridge.data(), "acknowledgeRenderedForecast(forecastContext)");
+        QCOMPARE(transport.requests.size(), 3); // Repeated frames are free.
+        const auto json = QString::fromUtf8(QJsonDocument(result).toJson(QJsonDocument::Compact));
+        const auto qjson = QString::fromUtf8(QJsonDocument(query).toJson(QJsonDocument::Compact));
+        const QStringList edits{"v.changes.push(v.changes[0])", "v.location_id='wrong'",
+                                "v.coverage.temperature=49",    "v.changes[0].after=NaN",
+                                "v.changes[0].end=v.start",     "v.changes[0].samples=2",
+                                "v.previous_retrieved=null",    "v.extra=true",
+                                "v.status='no_previous'",       "v.save_status='maybe'"};
+        for (const auto& edit : edits)
+            QVERIFY2(evaluate(engine, bridge.data(),
+                              "(function(){let v=" + json + ";" + edit + ";try{Changes.result(v," +
+                                  qjson + ");return false}catch(e){return true}})()")
+                         .toBool(),
+                     qPrintable(edit));
+        // Replacement clears the old display before any response can arrive.
+        state["snapshot_revision"] = 2;
+        auto source = state["source"].toObject();
+        source["fetched_at"] = "2026-09-28T12:15:00Z";
+        state["source"] = source;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QVERIFY(evaluate(engine, bridge.data(), "changesResult===null && changesAttemptedKey===''")
+                    .toBool());
+        evaluate(engine, bridge.data(), "acknowledgeRenderedForecast(forecastContext)");
+        deliver(transport, {{"version", 1},
+                            {"request_id", 3},
+                            {"ok", false},
+                            {"error", "forecast_changes_unavailable"}});
+        QCOMPARE(bridge->property("changesState").toString(), QString("unavailable"));
+        QVERIFY(!bridge->property("disconnected").toBool());
+    }
     void outdoorQueueFreshnessAndValidation() {
         FakeTransport transport;
         transport.diagnostic = true;

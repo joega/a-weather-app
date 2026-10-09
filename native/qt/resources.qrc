@@ -7,6 +7,8 @@
 <file alias="qml/DashboardEditor.qml">../../ui/qml/DashboardEditor.qml</file>
 <file alias="qml/DashboardLayout.qml">../../ui/qml/DashboardLayout.qml</file>
 <file alias="qml/Forecast.js">../../ui/qml/Forecast.js</file>
+<file alias="qml/Changes.js">../../ui/qml/Changes.js</file>
+<file alias="qml/ForecastChanges.qml">../../ui/qml/ForecastChanges.qml</file>
 <file alias="qml/Outdoor.js">../../ui/qml/Outdoor.js</file>
 <file alias="qml/OutdoorPlanner.qml">../../ui/qml/OutdoorPlanner.qml</file>
 <file alias="qml/backend/Bridge.qml">../../ui/qml/backend/Bridge.qml</file>

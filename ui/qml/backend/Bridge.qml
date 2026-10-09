@@ -2,6 +2,7 @@ import QtQuick
 import "../Forecast.js" as Forecast
 import "../Outdoor.js" as Outdoor
 import "../Dashboard.js" as Dashboard
+import "../Changes.js" as Changes
 
 Item {
     id: root
@@ -65,7 +66,42 @@ Item {
     property int pendingOutdoorGeneration: -1
     property var pendingOutdoorQuery: null
     property var queuedOutdoor: null
-    property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation"].indexOf(pendingOp) < 0)
+    property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation", "forecast_presented"].indexOf(pendingOp) < 0)
+    property bool forecastVisible: false
+    readonly property string forecastContext: Changes.context(snapshot)
+    property string changesAttemptedKey: ""
+    property var changesResult: null
+    property string changesState: "waiting"
+    property int changesGeneration: 0
+    property int pendingChangesGeneration: -1
+    property string pendingChangesKey: ""
+    property var pendingChangesQuery: null
+    property var queuedChanges: null
+    onForecastContextChanged: {
+        changesGeneration++;
+        changesAttemptedKey = "";
+        queuedChanges = null;
+        changesResult = null;
+        changesState = "waiting";
+    }
+    onForecastVisibleChanged: {
+        if (!forecastVisible) {
+            changesGeneration++;
+            queuedChanges = null;
+            changesAttemptedKey = "";
+        }
+    }
+    function acknowledgeRenderedForecast(key) {
+        if (!forecastVisible || !available || !subscribed || !key || key !== forecastContext || changesAttemptedKey === key)
+            return;
+        changesAttemptedKey = key;
+        changesState = "loading";
+        send("forecast_presented", Changes.query(snapshot));
+    }
+    function retryChanges() {
+        changesAttemptedKey = "";
+        changesState = "waiting";
+    }
     property bool dashboardSaving: false
     signal dashboardFinished(bool ok, string code)
     function saveDashboard(revision, preferences) {
@@ -146,6 +182,14 @@ Item {
             return false;
         }
         if (pending >= 0) {
+            if (op === "forecast_presented") {
+                queuedChanges = {
+                    query: patch,
+                    key: forecastContext,
+                    generation: changesGeneration
+                };
+                return true;
+            }
             if (op === "outdoor_plan") {
                 queuedOutdoor = JSON.parse(JSON.stringify(patch));
                 return true;
@@ -224,6 +268,12 @@ Item {
             request.warning = Forecast.warningReference(patch);
             pendingWarningTarget = request.warning;
             pendingWarningGeneration = warningGeneration;
+        }
+        if (op === "forecast_presented") {
+            request.forecast = patch;
+            pendingChangesQuery = patch;
+            pendingChangesKey = forecastContext;
+            pendingChangesGeneration = changesGeneration;
         }
         if (op === "outdoor_plan") {
             request.plan = patch;
@@ -348,9 +398,20 @@ Item {
             let search = queuedSearch;
             queuedSearch = null;
             send("search_places", search);
+            return;
+        }
+        if (queuedChanges !== null) {
+            const next = queuedChanges;
+            queuedChanges = null;
+            if (forecastVisible && next.key === forecastContext && next.generation === changesGeneration)
+                send("forecast_presented", next.query);
         }
     }
     function clearQueuedActions() {
+        queuedChanges = null;
+        changesGeneration++;
+        changesResult = null;
+        changesState = "unavailable";
         queuedPresentation = null;
         queuedUserOp = "";
         queuedUserPatch = null;
@@ -483,6 +544,18 @@ Item {
             if (completedOp === "set_dashboard") {
                 dashboardSaving = false;
                 dashboardFinished(value.ok, value.ok ? "" : value.error || "state_io_failed");
+                drainUserAction();
+                return;
+            }
+            if (completedOp === "forecast_presented") {
+                const result = value.ok ? Changes.result(value.forecast_changes, pendingChangesQuery) : null;
+                if (!closing && forecastVisible && pendingChangesKey === forecastContext && pendingChangesGeneration === changesGeneration) {
+                    changesResult = result;
+                    changesState = result ? "ready" : "unavailable";
+                }
+                pendingChangesQuery = null;
+                pendingChangesKey = "";
+                pendingChangesGeneration = -1;
                 drainUserAction();
                 return;
             }

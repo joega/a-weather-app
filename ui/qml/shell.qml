@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import "backend"
 import "Forecast.js" as Forecast
 import "Dashboard.js" as Dashboard
+import "Changes.js" as Changes
 
 QtObject {
     id: root
@@ -26,9 +27,25 @@ QtObject {
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
     property var dashboardPreferences: Dashboard.defaults()
     readonly property bool compactDashboard: dashboardPreferences.density === "compact"
+    property bool changesOpen: false
+    property Item changesReturnFocus: null
+    property string renderedForecastContext: ""
+    function openChanges() {
+        changesReturnFocus = window.activeFocusItem;
+        changesOpen = true;
+    }
+    function closeChanges() {
+        changesOpen = false;
+        const target = changesReturnFocus;
+        changesReturnFocus = null;
+        if (target && target.visible && target.enabled && window.visible)
+            target.forceActiveFocus();
+    }
     property bool dashboardOpen: false
     property Item dashboardReturnFocus: null
     function openDashboard() {
+        if (changesOpen)
+            closeChanges();
         if (outdoorOpen)
             closeOutdoor();
         dashboardReturnFocus = window.activeFocusItem;
@@ -44,6 +61,8 @@ QtObject {
     property bool outdoorOpen: false
     property Item outdoorReturnFocus: null
     function openOutdoor() {
+        if (changesOpen)
+            closeChanges();
         if (dashboardOpen)
             closeDashboard();
         outdoorReturnFocus = window.activeFocusItem;
@@ -64,6 +83,8 @@ QtObject {
     property bool warningBackToSettings: false
     property Item warningReturnFocus: null
     function openWarning(reference, fromDesktop, activationToken) {
+        if (changesOpen)
+            closeChanges();
         if (dashboardOpen)
             closeDashboard();
         if (bridge.closing)
@@ -113,6 +134,8 @@ QtObject {
         });
     }
     function openLocations() {
+        if (changesOpen)
+            closeChanges();
         if (dashboardOpen)
             closeDashboard();
         if (outdoorOpen)
@@ -157,6 +180,8 @@ QtObject {
             });
     }
     function openSettings(locationSearch) {
+        if (changesOpen)
+            closeChanges();
         if (dashboardOpen)
             closeDashboard();
         if (outdoorOpen)
@@ -177,7 +202,7 @@ QtObject {
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
     function showUpdateNotice() {
-        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || root.dashboardOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || root.outdoorOpen || root.dashboardOpen || root.changesOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
             return;
         if (bridge.send("acknowledge_update", {
             installed: root.updateStatus.installed
@@ -195,7 +220,7 @@ QtObject {
     readonly property var mapSection: dashboardLayout.mapItem
     readonly property real mapContentTop: forecastColumn.y + dashboardLayout.y + dashboardLayout.mapTop
     readonly property bool mapsNearViewport: mapSection !== null && mapSection.height > 100 && mapContentTop + mapSection.height > forecastScroll.flickable.contentY - 64 && mapContentTop < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     readonly property bool forecastMapActive: root.mapActive && mapSection !== null && mapSection.selectedLayer !== "radar"
     readonly property bool radarActive: root.mapActive && mapSection !== null && mapSection.selectedLayer === "radar"
     onForecastMapActiveChanged: {
@@ -316,6 +341,7 @@ QtObject {
         weatherTransport: root.weatherTransport
         onBusyChanged: Qt.callLater(root.showUpdateNotice)
         presentationActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized
+        forecastVisible: presentationActive && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !details.visible && forecastScroll.flickable.contentY < forecastColumn.y + headerBody.height - 80
         onClosed: exitCode => Qt.exit(exitCode)
         onToggleWindow: {
             if (window.visible)
@@ -352,10 +378,24 @@ QtObject {
         minimumHeight: 650
         visible: true
         color: "#263f55"
+        property Connections comparisonFrames: Connections {
+            target: window
+            enabled: bridge.forecastVisible && bridge.available && bridge.subscribed && bridge.forecastContext !== "" && bridge.changesAttemptedKey !== bridge.forecastContext
+            function onAfterAnimating() {
+                root.renderedForecastContext = bridge.forecastContext;
+            }
+            function onFrameSwapped() {
+                bridge.acknowledgeRenderedForecast(root.renderedForecastContext);
+            }
+        }
         onActiveFocusItemChanged: Qt.callLater(() => {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (root.changesOpen && changesLoader.item) {
+                changesLoader.item.revealFocus(item);
+                return;
+            }
             if (root.dashboardOpen && dashboardLoader.item) {
                 dashboardLoader.item.revealFocus(item);
                 return;
@@ -395,6 +435,8 @@ QtObject {
             flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
         })
         onVisibilityChanged: {
+            if (window.visibility === Window.Minimized && root.changesOpen)
+                root.closeChanges();
             if (window.visibility === Window.Minimized && root.dashboardOpen)
                 root.closeDashboard();
             if (window.visibility === Window.Minimized && root.outdoorOpen)
@@ -402,6 +444,8 @@ QtObject {
         }
         onVisibleChanged: {
             if (!visible) {
+                if (root.changesOpen)
+                    root.closeChanges();
                 if (root.dashboardOpen)
                     root.closeDashboard();
                 root.updateNoticeActive = false;
@@ -438,7 +482,7 @@ QtObject {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !details.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -669,6 +713,35 @@ QtObject {
                                 text: "Find a time to go outside"
                                 enabled: bridge.available && !bridge.busy && bridge.snapshot !== null && !bridge.snapshot.location_settings.busy
                                 onClicked: root.openOutdoor()
+                            }
+                            RowLayout {
+                                visible: bridge.forecastContext !== ""
+                                Layout.fillWidth: true
+                                ActionButton {
+                                    objectName: "openForecastChanges"
+                                    text: "Forecast changes"
+                                    enabled: bridge.available && (bridge.changesResult !== null || bridge.changesState === "unavailable")
+                                    onClicked: root.openChanges()
+                                }
+                                PlainLabel {
+                                    objectName: "forecastChangesSummary"
+                                    Layout.fillWidth: true
+                                    text: Changes.summary(bridge.changesResult, bridge.changesState, root.units)
+                                    color: Tokens.secondary
+                                    font.pixelSize: 12
+                                    wrapMode: Text.Wrap
+                                    elide: Text.ElideNone
+                                }
+                                ActionButton {
+                                    objectName: "retryForecastChanges"
+                                    visible: bridge.changesState === "unavailable"
+                                    text: "Retry"
+                                    enabled: bridge.available
+                                    onClicked: {
+                                        bridge.retryChanges();
+                                        window.update();
+                                    }
+                                }
                             }
                             ChoiceControl {
                                 visible: root.briefingRows.length > 0
@@ -993,6 +1066,21 @@ QtObject {
                 bridge: root.backend
                 onClosed: if (root.dashboardOpen)
                     root.closeDashboard()
+            }
+        }
+        Loader {
+            id: changesLoader
+            objectName: "forecastChangesLoader"
+            active: root.changesOpen
+            onLoaded: item.open()
+            sourceComponent: ForecastChanges {
+                result: bridge.changesResult
+                state: bridge.changesState
+                units: root.units
+                windUnits: root.windUnits
+                place: root.location
+                onClosed: if (root.changesOpen)
+                    root.closeChanges()
             }
         }
         Loader {

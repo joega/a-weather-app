@@ -14,11 +14,29 @@
 #include <QQmlContext>
 #include <QQmlExpression>
 #include <QQuickWindow>
+#include <QQuickItem>
 #include <QSGRendererInterface>
 #include "maptiles.h"
 #include <QFile>
 #include <QDir>
 #include <unistd.h>
+
+// Dashboard loaders own their objects outside the root QObject tree; inspect
+// the actual visual scene, as the frontend interaction tests do.
+static QQuickItem* sceneItem(QQuickItem* item, const QString& name) {
+    if (!item)
+        return nullptr;
+    if (item->objectName() == name)
+        return item;
+    for (auto* child : item->childItems())
+        if (auto* found = sceneItem(child, name))
+            return found;
+    return nullptr;
+}
+static QQuickItem* shellItem(QObject* root, const QString& name) {
+    auto* window = qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+    return window ? sceneItem(window->contentItem(), name) : nullptr;
+}
 
 class ImageSocketFixture {
   public:
@@ -177,31 +195,31 @@ class RadarImagesTest : public QObject {
             timer.start();
             QTest::qWait(1500);
             const auto seconds = timer.elapsed() / 1000.0;
-            const QJsonObject result{
-                {"phase", phase},
-                {"ui_pss_kib", pss("self")},
-                {"service_pss_kib", pss(pid)},
-                {"ui_cpu_percent",
-                 100.0 * (ticks("self") - uiStart) / sysconf(_SC_CLK_TCK) / seconds},
-                {"service_cpu_percent",
-                 100.0 * (ticks(pid) - goStart) / sysconf(_SC_CLK_TCK) / seconds},
-                {"swaps", swaps.size()},
-                {"provider_calls", fixture.command().value("calls")},
-                {"radar_objects", root->findChildren<QObject*>("radarMap").size()}};
+            const QJsonObject result{{"phase", phase},
+                                     {"ui_pss_kib", pss("self")},
+                                     {"service_pss_kib", pss(pid)},
+                                     {"ui_cpu_percent", 100.0 * (ticks("self") - uiStart) /
+                                                            sysconf(_SC_CLK_TCK) / seconds},
+                                     {"service_cpu_percent", 100.0 * (ticks(pid) - goStart) /
+                                                                 sysconf(_SC_CLK_TCK) / seconds},
+                                     {"swaps", swaps.size()},
+                                     {"provider_calls", fixture.command().value("calls")},
+                                     {"radar_objects", (shellItem(root, "radarMap") ? 1 : 0)}};
             results.append(result);
             qInfo().noquote() << "RADAR_RESOURCE"
                               << QJsonDocument(result).toJson(QJsonDocument::Compact);
         };
         measure("never_opened");
         QCOMPARE(fixture.command().value("calls").toInt(), 0);
-        auto* panel = root->findChild<QObject*>("weatherMaps");
+        QTRY_VERIFY(shellItem(root, "weatherMaps"));
+        auto* panel = shellItem(root, "weatherMaps");
         auto* flick =
             root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
         QVERIFY(panel && flick);
         panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 3);
-        flick->setProperty("contentY", panel->property("y").toReal());
-        QTRY_VERIFY(root->findChild<QObject*>("radarMap"));
-        QPointer<QObject> radar = root->findChild<QObject*>("radarMap");
+        flick->setProperty("contentY", root->property("mapContentTop").toReal());
+        QTRY_VERIFY(shellItem(root, "radarMap"));
+        QPointer<QObject> radar = shellItem(root, "radarMap");
         QTRY_VERIFY_WITH_TIMEOUT(eval(radar, "displayedFrame !== null").toBool(), 25000);
         QTRY_VERIFY_WITH_TIMEOUT(
             eval(radar,
@@ -212,7 +230,7 @@ class RadarImagesTest : public QObject {
         QVERIFY(window->grabWindow().save(directory + "/radar-1200.png"));
         window->resize(700, 650);
         QTest::qWait(300);
-        flick->setProperty("contentY", panel->property("y").toReal());
+        flick->setProperty("contentY", root->property("mapContentTop").toReal());
         QTest::qWait(200);
         QVERIFY(window->grabWindow().save(directory + "/radar-700.png"));
         window->resize(1200, 850);
@@ -226,9 +244,9 @@ class RadarImagesTest : public QObject {
         for (int i = 0; i < 40; ++i) {
             window->show();
             QTest::qWait(40);
-            flick->setProperty("contentY", panel->property("y").toReal());
-            QTRY_VERIFY(root->findChild<QObject*>("radarMap"));
-            radar = root->findChild<QObject*>("radarMap");
+            flick->setProperty("contentY", root->property("mapContentTop").toReal());
+            QTRY_VERIFY(shellItem(root, "radarMap"));
+            radar = shellItem(root, "radarMap");
             QTRY_VERIFY_WITH_TIMEOUT(eval(radar, "displayedFrame !== null").toBool(), 3000);
             window->hide();
             QTRY_VERIFY(radar.isNull());
@@ -272,16 +290,17 @@ class RadarImagesTest : public QObject {
         };
         QTRY_VERIFY(eval(root, "backend.available && backend.pending < 0").toBool());
         QCOMPARE(fixture.command().value("calls").toInt(), 0);
-        auto* panel = root->findChild<QObject*>("weatherMaps");
+        QTRY_VERIFY(shellItem(root, "weatherMaps"));
+        auto* panel = shellItem(root, "weatherMaps");
         QVERIFY(panel);
         panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 3);
         auto* flick =
             root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
         QVERIFY(flick);
         QTest::qWait(100);
-        flick->setProperty("contentY", panel->property("y").toReal() + 40);
-        QTRY_VERIFY(root->findChild<QObject*>("radarMap"));
-        QPointer<QObject> radar = root->findChild<QObject*>("radarMap");
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 40);
+        QTRY_VERIFY(shellItem(root, "radarMap"));
+        QPointer<QObject> radar = shellItem(root, "radarMap");
         QTRY_VERIFY_WITH_TIMEOUT(eval(radar, "displayedFrame !== null").toBool(), 5000);
         QTRY_COMPARE_WITH_TIMEOUT(eval(radar, "frames.length").toInt(), 3, 5000);
         QVERIFY(!eval(root, "backend.disconnected").toBool());
@@ -302,11 +321,11 @@ class RadarImagesTest : public QObject {
         QCOMPARE(fixture.command().value("calls").toInt(), 5);
         window->show();
         QTest::qWait(100); // Showing the app intentionally returns to the forecast top.
-        QVERIFY(!root->findChild<QObject*>("radarMap"));
+        QVERIFY(!shellItem(root, "radarMap"));
         QCOMPARE(fixture.command().value("calls").toInt(), 5);
-        flick->setProperty("contentY", panel->property("y").toReal() + 40);
-        QTRY_VERIFY(root->findChild<QObject*>("radarMap"));
-        radar = root->findChild<QObject*>("radarMap");
+        flick->setProperty("contentY", root->property("mapContentTop").toReal() + 40);
+        QTRY_VERIFY(shellItem(root, "radarMap"));
+        radar = shellItem(root, "radarMap");
         QTRY_VERIFY(eval(radar, "displayedFrame !== null").toBool());
         QCOMPARE(fixture.command().value("calls").toInt(), 5); // Reopen reuses encoded cache.
         fixture.command({{"Op", "advance"}, {"Seconds", 1900}});
