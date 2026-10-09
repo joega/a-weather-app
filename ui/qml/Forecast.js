@@ -427,6 +427,63 @@ function weatherMap(v) {
         fetched_label: v.fetched_label
     };
 }
+function briefings(value) {
+    if (value === undefined)
+        return [];
+    if (!Array.isArray(value) || value.length > 3)
+        throw Error("Invalid briefing");
+    let seen = [], previousEnd = 0;
+    return value.map(row => {
+        if (!object(row) || ["today", "tonight", "tomorrow"].indexOf(row.period) < 0 || seen.indexOf(row.period) >= 0)
+            throw Error("Invalid briefing period");
+        seen.push(row.period);
+        const start = time(row.start), end = time(row.end);
+        if (Date.parse(start) < previousEnd || Date.parse(end) <= Date.parse(start) || Date.parse(end) - Date.parse(start) > 86400000)
+            throw Error("Invalid briefing interval");
+        previousEnd = Date.parse(end);
+        const low = optional(row.low_c, -150, 100), high = optional(row.high_c, -150, 100);
+        const probability = optional(row.peak_probability, 0, 1), gust = optional(row.gust_m_s, 0, 250);
+        if ((low === null) !== (high === null) || (low !== null && low > high) || (probability === null) !== (row.peak_label === null))
+            throw Error("Invalid briefing values");
+        for (const key of ["temperature_complete", "precipitation_complete", "wind_complete"])
+            if (typeof row[key] !== "boolean")
+                throw Error("Invalid briefing coverage");
+        if ((row.temperature_complete && low === null) || (row.precipitation_complete && probability === null) || (row.wind_complete && gust === null))
+            throw Error("Invalid complete briefing");
+        return {
+            period: row.period,
+            start: start,
+            end: end,
+            range_label: string(row.range_label, 96),
+            low_c: low,
+            high_c: high,
+            peak_probability: probability,
+            peak_label: row.peak_label === null ? null : string(row.peak_label, 64),
+            gust_m_s: gust,
+            temperature_complete: row.temperature_complete,
+            precipitation_complete: row.precipitation_complete,
+            wind_complete: row.wind_complete
+        };
+    });
+}
+function briefingText(row, units, windUnits) {
+    if (!row || (row.low_c === null && row.peak_probability === null && row.gust_m_s === null))
+        return "Hourly outlook unavailable.";
+    let parts = [];
+    if (row.low_c !== null)
+        parts.push("Hourly temperatures " + temp(row.low_c, units) + "–" + temp(row.high_c, units) + ".");
+    if (row.peak_probability !== null) {
+        if (row.precipitation_complete && row.peak_probability < 0.2)
+            parts.push("Low precipitation chances.");
+        else
+            parts.push((row.precipitation_complete ? "Precipitation chance peaks at " : "Available precipitation chances reach ") + percent(row.peak_probability) + " (" + row.peak_label + ").");
+    }
+    if (row.gust_m_s !== null && row.gust_m_s >= 8)
+        parts.push("Gusts up to " + wind(row.gust_m_s, units, windUnits) + ".");
+    if (!row.temperature_complete || !row.precipitation_complete || !row.wind_complete)
+        parts.push("Partial hourly forecast.");
+    return parts.join(" ");
+}
 function snapshot(v) {
     if (!object(v) || v.schema_version !== 1 || !object(v.controls) || !object(v.alerts) || !object(v.source) || !object(v.location))
         throw Error("Invalid snapshot");
@@ -556,6 +613,7 @@ function snapshot(v) {
         location_settings: settings,
         place_search: placeSearch(v.place_search),
         air_quality: airQuality(v.air_quality),
+        briefing: briefings(v.briefing),
         effects_setup: effectsSetup(v.effects_setup),
         notifications: notifications(v.notifications),
         timezone: string(v.location.timezone, 80),

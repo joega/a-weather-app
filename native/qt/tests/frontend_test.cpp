@@ -213,6 +213,14 @@ class FrontendTest : public QObject {
             qFatal("%s", qPrintable(e.error().toString()));
         return v;
     }
+    QQuickItem* visualItem(QQuickItem* item, const QString& name) {
+        if (item->objectName() == name)
+            return item;
+        for (auto* child : item->childItems())
+            if (auto* found = visualItem(child, name))
+                return found;
+        return nullptr;
+    }
     QJsonObject mapFixture(double latitude = 40.7128, double longitude = -74.006) {
         QJsonArray cells;
         for (int row = 0; row < 5; ++row)
@@ -1575,6 +1583,108 @@ class FrontendTest : public QObject {
         QTest::qWait(50);
         QVERIFY(window->grabWindow().save(QString(output).replace(".png", "-offline.png")));
         window->hide();
+    }
+    void briefingValidationAndInteraction() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        QQuickWindow* window = nullptr;
+        for (auto* candidate : QGuiApplication::allWindows())
+            if (candidate->objectName() == "weatherWindow")
+                window = qobject_cast<QQuickWindow*>(candidate);
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        auto value = metricSnapshot(1);
+        value["location_settings"] = selectedSnapshot(1, "Fixture")["location_settings"];
+        QJsonObject today{{"period", "today"},
+                          {"start", "2026-09-28T12:00:00Z"},
+                          {"end", "2026-09-28T18:00:00Z"},
+                          {"range_label", "12 PM UTC – 6 PM UTC"},
+                          {"low_c", 15},
+                          {"high_c", 20},
+                          {"peak_probability", 0.1},
+                          {"peak_label", "12 PM UTC – 1 PM UTC"},
+                          {"gust_m_s", 10},
+                          {"temperature_complete", true},
+                          {"precipitation_complete", true},
+                          {"wind_complete", true}};
+        auto tomorrow = today;
+        tomorrow["period"] = "tomorrow";
+        tomorrow["start"] = "2026-09-29T06:00:00Z";
+        tomorrow["end"] = "2026-09-29T18:00:00Z";
+        tomorrow["range_label"] = "6 AM UTC – 6 PM UTC";
+        tomorrow["precipitation_complete"] = false;
+        value["briefing"] = QJsonArray{today, tomorrow};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        root->setProperty("effectsOpen", false);
+        auto* outlook = root->findChild<QQuickItem*>("forecastOutlook");
+        auto* range = root->findChild<QObject*>("forecastBriefingRange");
+        QVERIFY(outlook && range);
+        QVERIFY(outlook->property("text").toString().contains("Low precipitation chances."));
+        QVERIFY(range->property("text").toString().startsWith("Cached outlook"));
+        auto* button = visualItem(window->contentItem(), "briefingPeriod_tomorrow");
+        QVERIFY(button);
+        const auto requests = transport.requests.size();
+        button->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QCOMPARE(root->property("briefingPeriod").toString(), QString("tomorrow"));
+        QVERIFY(outlook->property("text").toString().contains("Partial hourly forecast."));
+        QVERIFY(!outlook->property("text").toString().contains("Low precipitation chances."));
+        QCOMPARE(transport.requests.size(), requests);
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_BRIEFING_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+            for (const int width : {700, 1200}) {
+                window->resize(width, 850);
+                QTest::qWait(120);
+                QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
+            }
+        }
+        // Removing the selected period falls back without retaining the old city's summary.
+        value["snapshot_revision"] = 2;
+        value["briefing"] = QJsonArray{today};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        QVERIFY(outlook->property("text").toString().contains("Low precipitation chances."));
+        auto source = value["source"].toObject();
+        source["freshness"] = "expired";
+        value["source"] = source;
+        value["snapshot_revision"] = 3;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
+        QVERIFY(!outlook->isVisible());
+
+        QQmlComponent component(&engine);
+        component.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY(scope);
+        auto valid = [&](const QJsonArray& rows) {
+            QQmlExpression expression(
+                qmlContext(scope.data()), scope.data(),
+                "Forecast.briefings(" +
+                    QString::fromUtf8(QJsonDocument(rows).toJson(QJsonDocument::Compact)) + ")");
+            expression.evaluate();
+            return !expression.hasError();
+        };
+        QVERIFY(valid(QJsonArray{today, tomorrow}));
+        QVERIFY(!valid(QJsonArray{today, today}));
+        QVERIFY(!valid(QJsonArray{tomorrow, today}));
+        for (const auto& mutation :
+             QList<QPair<QString, QJsonValue>>{{"peak_probability", 1.1},
+                                               {"low_c", 40},
+                                               {"end", "bad"},
+                                               {"temperature_complete", "true"},
+                                               {"gust_m_s", QJsonValue::Null}}) {
+            auto invalid = today;
+            invalid[mutation.first] = mutation.second;
+            QVERIFY2(!valid(QJsonArray{invalid}), qPrintable(mutation.first));
+        }
+        // Older service snapshots remain accepted.
+        QCOMPARE(evaluate(engine, scope.data(), "Forecast.briefings(undefined).length").toInt(), 0);
     }
     void measurementConversions() {
         QQmlEngine engine;

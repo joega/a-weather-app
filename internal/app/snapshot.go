@@ -200,6 +200,10 @@ func (a *App) snapshot() M {
 	result["place_search"] = a.searchSnapshot()
 	result["update"] = a.updateSnapshot()
 	result["air_quality"] = a.airQualitySnapshot()
+	result["briefing"] = []any{}
+	if forecast != nil && (live["freshness"] == "fresh" || live["freshness"] == "stale") {
+		result["briefing"] = a.displayRows.briefing
+	}
 	result["alerts"] = M{"status": status, "items": display, "source": alertSource, "coverage": coverage, "fetched_at": alertFetched}
 	envelope := object(result["alerts"])
 	freshness := alerts["freshness"]
@@ -226,6 +230,7 @@ type displayRows struct {
 	date             string
 	builtAt, expires time.Time
 	hourly, daily    []any
+	briefing         []any
 }
 
 func (a *App) forecastRows(forecast M, zone *time.Location, now time.Time) ([]any, []any) {
@@ -283,13 +288,18 @@ func (a *App) forecastRows(forecast M, zone *time.Location, now time.Time) ([]an
 		}
 	}
 	expires := now.Add(24 * time.Hour)
+	local := now.In(zone)
+	evening := time.Date(local.Year(), local.Month(), local.Day(), 18, 0, 0, 0, zone)
+	if evening.After(now) && evening.Before(expires) {
+		expires = evening
+	}
 	for _, value := range hourly {
 		stamp, err := weather.Instant(object(value)["time"])
 		if err == nil && stamp.Add(time.Nanosecond).Before(expires) {
 			expires = stamp.Add(time.Nanosecond)
 		}
 	}
-	*c = displayRows{source: a.forecast, zone: zone.String(), date: date, builtAt: now, expires: expires, hourly: hourly, daily: daily}
+	*c = displayRows{source: a.forecast, zone: zone.String(), date: date, builtAt: now, expires: expires, hourly: hourly, daily: daily, briefing: forecastBriefing(hourly, zone, now)}
 	return hourly, daily
 }
 

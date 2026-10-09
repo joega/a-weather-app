@@ -12,6 +12,9 @@ QtObject {
     property string units: bridge.snapshot ? bridge.snapshot.controls.units : "F"
     readonly property string windUnits: bridge.snapshot ? bridge.snapshot.controls.wind_units : "auto"
     readonly property bool automaticUnits: bridge.snapshot ? bridge.snapshot.controls.units_mode === "auto" : true
+    property string briefingPeriod: "today"
+    readonly property var briefingRows: bridge.snapshot ? bridge.snapshot.briefing : []
+    readonly property var selectedBriefing: briefingRows.find(row => row.period === briefingPeriod) || briefingRows[0] || null
     property bool effectsOpen: false
     onEffectsOpenChanged: Qt.callLater(showUpdateNotice)
     property bool initialLocationChecked: false
@@ -397,14 +400,44 @@ QtObject {
                                 color: Tokens.accent
                             }
                         }
-                        PlainLabel {
-                            objectName: "forecastOutlook"
-                            visible: root.hours.length > 0
+                        ColumnLayout {
+                            visible: root.hours.length > 0 && bridge.snapshot !== null && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
                             Layout.fillWidth: true
-                            text: Forecast.outlook(root.hours, root.units, root.windUnits)
-                            font.pixelSize: 18
-                            wrapMode: Text.Wrap
-                            elide: Text.ElideNone
+                            spacing: 6
+                            ChoiceControl {
+                                visible: root.briefingRows.length > 0
+                                Layout.maximumWidth: 420
+                                Layout.fillWidth: true
+                                testName: "briefingPeriod"
+                                value: root.selectedBriefing ? root.selectedBriefing.period : ""
+                                choices: root.briefingRows.map(row => ({
+                                            label: ({
+                                                    today: "Today",
+                                                    tonight: "Tonight",
+                                                    tomorrow: "Tomorrow"
+                                                })[row.period],
+                                            value: row.period
+                                        }))
+                                onChosen: value => root.briefingPeriod = value
+                            }
+                            PlainLabel {
+                                objectName: "forecastBriefingRange"
+                                visible: root.selectedBriefing !== null
+                                Layout.fillWidth: true
+                                text: root.selectedBriefing ? (bridge.snapshot.source.freshness === "stale" ? "Cached outlook · " : "") + root.selectedBriefing.range_label : ""
+                                color: Tokens.secondary
+                                font.pixelSize: 12
+                                wrapMode: Text.Wrap
+                                elide: Text.ElideNone
+                            }
+                            PlainLabel {
+                                objectName: "forecastOutlook"
+                                Layout.fillWidth: true
+                                text: root.selectedBriefing ? Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits) : Forecast.outlook(root.hours, root.units, root.windUnits)
+                                font.pixelSize: 18
+                                wrapMode: Text.Wrap
+                                elide: Text.ElideNone
+                            }
                         }
                     }
                 }
