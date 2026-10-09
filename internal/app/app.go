@@ -167,27 +167,37 @@ func PatchControls(old, patch M) (M, error) {
 
 // ValidateProfile checks a persisted location identity and its forecast together.
 func ValidateProfile(v M) error {
+	location, err := validateProfileIdentity(v)
+	if err != nil {
+		return err
+	}
+	return weather.ValidateSnapshot(object(v["forecast"]), location)
+}
+
+// Identity validation is shared with saved places whose forecast cache may be
+// absent or evicted. Legacy profiles still require a valid forecast above.
+func validateProfileIdentity(v M) (M, error) {
 	v1 := v["schema_version"] == float64(1) && len(v) == 5
 	v2 := v["schema_version"] == float64(2) && len(v) == 7
 	if !v1 && !v2 {
-		return errors.New("location profile")
+		return nil, errors.New("location profile")
 	}
 	for k := range v {
 		if k != "schema_version" && k != "mode" && k != "zip_code" && k != "location" && k != "forecast" && !(v2 && (k == "country_code" || k == "place")) {
-			return errors.New("location profile fields")
+			return nil, errors.New("location profile fields")
 		}
 	}
 	if v2 {
 		if !validCountry(v["country_code"]) || (v["mode"] == "zip" && v["country_code"] != "US") {
-			return errors.New("location country")
+			return nil, errors.New("location country")
 		}
 		if v["mode"] == "place" {
 			p := object(v["place"])
 			if len(p) != 2 || p["provider"] != "open-meteo" || !placeInteger(p["id"], 1) || v["country_code"] == nil || v["zip_code"] != nil {
-				return errors.New("place identity")
+				return nil, errors.New("place identity")
 			}
 		} else if v["place"] != nil {
-			return errors.New("unexpected place identity")
+			return nil, errors.New("unexpected place identity")
 		}
 	}
 	selection := M{"mode": v["mode"]}
@@ -196,19 +206,19 @@ func ValidateProfile(v M) error {
 	}
 	if v["mode"] == "custom" || v["mode"] == "default" || (v2 && v["mode"] == "place") {
 		if v["zip_code"] != nil {
-			return errors.New("unexpected ZIP")
+			return nil, errors.New("unexpected ZIP")
 		}
 	} else {
 		s, e := weather.ValidateSelection(selection)
 		if e != nil || s["zip_code"] != v["zip_code"] {
-			return errors.New("location selection")
+			return nil, errors.New("location selection")
 		}
 	}
 	location, e := weather.ValidateLocation(object(v["location"]))
 	if e != nil {
-		return e
+		return nil, e
 	}
-	return weather.ValidateSnapshot(object(v["forecast"]), location)
+	return location, nil
 }
 func readSaved(state *safeio.Directory) (location, forecast, profile M, mode string, zip any, err error) {
 	profile, err = state.Read("location-profile.json", weather.MaxBytes)
