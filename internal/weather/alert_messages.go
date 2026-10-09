@@ -57,6 +57,37 @@ type AlertMessage struct {
 	Ends        time.Time        `json:"ends"`
 }
 
+// NormalizeAlertMessage validates a typed message at an internal input boundary.
+// It returns an independent value with UTC timestamps and sorted, unique
+// references, using the same rules as the provider parser. It does not sanitize
+// or shorten source text. In particular, callers must not hash unvalidated
+// identities supplied through a typed fixture or a different provider path.
+func NormalizeAlertMessage(m AlertMessage) (AlertMessage, error) {
+	refs := make([]any, 0, len(m.References))
+	if len(m.References) > AlertReferenceLimit {
+		return AlertMessage{}, errors.New("invalid alert references")
+	}
+	for _, r := range m.References {
+		refs = append(refs, Object{"identifier": r.ID, "sender": r.Sender, "sent": r.Sent.UTC().Format(time.RFC3339Nano)})
+	}
+	p := Object{"id": m.Identity.ID, "sender": m.Identity.Sender, "sent": m.Identity.Sent.UTC().Format(time.RFC3339Nano),
+		"messageType": m.Type, "references": refs, "senderName": m.Issuer, "event": m.Event,
+		"severity": m.Severity, "urgency": m.Urgency, "certainty": m.Certainty, "areaDesc": m.Area,
+		"headline": m.Headline, "description": m.Description, "instruction": m.Instruction}
+	for _, f := range []struct {
+		key string
+		t   time.Time
+	}{{"effective", m.Effective}, {"expires", m.Expires}, {"onset", m.Onset}, {"ends", m.Ends}} {
+		if !f.t.IsZero() {
+			p[f.key] = f.t.UTC().Format(time.RFC3339Nano)
+		}
+	}
+	if m.Identity.Sent.IsZero() {
+		return AlertMessage{}, errors.New("missing alert sent time")
+	}
+	return parseAlertMessage(p)
+}
+
 // AlertMessagePage describes a single bounded response. Complete only means no
 // next page was advertised; it never means no warnings exist or proves that a
 // previously active warning was canceled. The caller owns pagination budgets.

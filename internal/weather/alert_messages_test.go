@@ -316,3 +316,27 @@ func BenchmarkAlertMessages(b *testing.B) {
 		})
 	}
 }
+
+func TestNormalizeTypedAlertMessage(t *testing.T) {
+	a := messageFixture("a", "Alert", messageNow.Add(-time.Minute))
+	b := messageFixture("b", "Update", messageNow, a)
+	parsed, err := ParseAlertMessages(messagePayload(a, b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := parsed[1]
+	m.Identity.Sent = m.Identity.Sent.In(time.FixedZone("fixture", -4*3600))
+	m.References = append(m.References, m.References[0])
+	normalized, err := NormalizeAlertMessage(m)
+	if err != nil || !reflect.DeepEqual(normalized, parsed[1]) {
+		t.Fatal("typed normalization differs from provider parsing", normalized, err)
+	}
+	normalized.References[0].ID = "mutated"
+	if m.References[0].ID != "a" {
+		t.Fatal("normalization aliases caller references")
+	}
+	m.Identity.Sent = time.Time{}
+	if _, err := NormalizeAlertMessage(m); err == nil {
+		t.Fatal("missing typed identity time accepted")
+	}
+}
