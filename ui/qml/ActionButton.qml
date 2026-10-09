@@ -13,7 +13,7 @@ Button {
     Accessible.name: accessibleLabel !== "" ? accessibleLabel : text
     background: Rectangle {
         radius: 12
-        color: root.primary ? "#369de2" : root.selected ? "#704fa6d4" : root.down ? "#80506a80" : "#303d5a70"
+        color: root.primary ? "#176da0" : root.selected ? "#704fa6d4" : root.down ? "#80506a80" : "#303d5a70"
         border.color: root.activeFocus ? Tokens.accent : root.selected ? "#7bd6fc" : Tokens.border
         border.width: root.activeFocus ? 2 : 1
         opacity: root.enabled ? 1 : 0.45

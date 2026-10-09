@@ -5,6 +5,7 @@
 #include <QQmlExpression>
 #include <QQmlApplicationEngine>
 #include <QWindow>
+#include <QAccessible>
 #include <QQuickWindow>
 #include <QQuickItem>
 #include <QSGRendererInterface>
@@ -1961,13 +1962,32 @@ class FrontendTest : public QObject {
         QVERIFY(range->property("text").toString().contains("Some hours are unavailable"));
         auto* chart = qvariant_cast<QQuickItem*>(loader->property("item"));
         QVERIFY(chart);
+        auto* accessibleChart = QAccessible::queryAccessibleInterface(chart);
+        QVERIFY(accessibleChart);
+        QCOMPARE(accessibleChart->role(), QAccessible::Chart);
+        QVERIFY(accessibleChart->state().focusable);
+        QCOMPARE(accessibleChart->text(QAccessible::Name), QString("Pressure forecast chart"));
+        QVERIFY(accessibleChart->text(QAccessible::Description).contains("Mon 1 PM UTC"));
+        QVERIFY(accessibleChart->text(QAccessible::Description).contains("29.92 inHg"));
         chart->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Right);
         QCOMPARE(details->property("selectedIndex").toInt(), 1);
         QCOMPARE(selected->property("text").toString(), QString("Pressure: —"));
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .startsWith("Mon 2 PM UTC. Pressure: unavailable."));
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(details->property("selectedIndex").toInt(), 2);
         QCOMPARE(selected->property("text").toString(), QString("Pressure: 29.68 inHg"));
+        auto* actions = accessibleChart->actionInterface();
+        QVERIFY(actions);
+        QVERIFY(actions->actionNames().contains(QAccessibleActionInterface::decreaseAction()));
+        QVERIFY(actions->actionNames().contains(QAccessibleActionInterface::increaseAction()));
+        actions->doAction(QAccessibleActionInterface::decreaseAction());
+        QCOMPARE(details->property("selectedIndex").toInt(), 1);
+        actions->doAction(QAccessibleActionInterface::increaseAction());
+        QCOMPARE(details->property("selectedIndex").toInt(), 2);
+        actions->doAction(QAccessibleActionInterface::increaseAction());
+        QCOMPARE(details->property("selectedIndex").toInt(), 2);
         const auto prefix = qEnvironmentVariable("WEATHER_QT_DETAILS_SCREENSHOT_PREFIX");
         if (!prefix.isEmpty()) {
             QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
@@ -2007,6 +2027,67 @@ class FrontendTest : public QObject {
             evaluate(engine, scope.data(), "Forecast.metricValue(-10,'dew_point_c','F','auto')")
                 .toString(),
             QString("14°"));
+    }
+    void toggleReadableLayoutAndAccessibility() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import "qrc:/ui/qml"
+            Window {
+                width: 300; height: 230; visible: true; color: "#2c455a"
+                Column {
+                    x: 16; y: 16; width: parent.width - 32; spacing: 12
+                    ToggleControl {
+                        objectName: "wrappingToggle"; width: parent.width
+                        title: "Official warning notifications"
+                        caption: "Continues checking while the window is hidden."
+                        testName: "wrappingSwitch"
+                        onToggled: value => checked = value
+                    }
+                    PlainLabel { objectName: "followingLabel"; text: "Next setting" }
+                    ActionButton { text: "Apply"; primary: true }
+                }
+            })",
+                          QUrl());
+        QScopedPointer<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* window = qobject_cast<QQuickWindow*>(owner.data());
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        auto* control = owner->findChild<QQuickItem*>("wrappingToggle");
+        auto* toggle = owner->findChild<QQuickItem*>("wrappingSwitch");
+        QVERIFY(control && toggle);
+        auto* accessible = QAccessible::queryAccessibleInterface(toggle);
+        QVERIFY(accessible);
+        QCOMPARE(accessible->text(QAccessible::Name), control->property("title").toString());
+        QTest::qWait(60);
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_ACCESSIBILITY_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty())
+            QVERIFY(window->grabWindow().save(prefix + "-toggle.png"));
+        for (auto* label : control->findChildren<QQuickItem*>()) {
+            const auto text = label->property("text").toString();
+            if (text != control->property("title").toString() &&
+                text != control->property("caption").toString())
+                continue;
+            QVERIFY2(label->mapToItem(control, QPointF(label->width(), 0)).x() < toggle->x(),
+                     qPrintable(text));
+            QVERIFY(label->mapToItem(control, QPointF(0, label->height())).y() <=
+                    control->height() - 8);
+            QVERIFY(!label->property("truncated").toBool());
+        }
+        QCOMPARE(accessible->text(QAccessible::Description),
+                 control->property("caption").toString());
+        auto* actions = accessible->actionInterface();
+        QVERIFY(actions);
+        actions->doAction(QAccessibleActionInterface::toggleAction());
+        QVERIFY(control->property("checked").toBool());
+        QVERIFY(accessible->state().checked);
+        toggle->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QVERIFY(!control->property("checked").toBool());
+        control->setProperty("locked", true);
+        QVERIFY(accessible->state().disabled);
     }
     void savedLocationValidation() {
         QQmlEngine engine;

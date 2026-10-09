@@ -217,6 +217,7 @@ Popup {
                     hours: root.chartHours
                     units: root.units
                     metric: "precipitation_rate_mm_hr"
+                    metricLabel: "Hourly liquid-equivalent precipitation"
                     selectedIndex: root.selectedIndex
                     onSelected: index => root.selectedIndex = index
                 }

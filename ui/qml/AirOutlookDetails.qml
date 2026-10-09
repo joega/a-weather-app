@@ -175,6 +175,7 @@ Popup {
                     chartScale: AirOutlook.scale(root.hours, root.metric)
                     rangeDescription: AirOutlook.range(root.hours, root.metric)
                     valueFormatter: value => AirOutlook.format(value, root.metric, false)
+                    accessibleValueFormatter: value => AirOutlook.format(value, root.metric) + (root.info.scale ? ", " + AirOutlook.category(value, root.metric) : "")
                     selectedIndex: root.selectedIndex
                     onSelected: index => root.selectHour(index)
                 }

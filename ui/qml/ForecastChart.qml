@@ -12,22 +12,44 @@ Item {
     property var chartScale: Forecast.metricScale(hours, metric)
     property string rangeDescription: Forecast.metricRange(hours, metric, units, windUnits)
     property var valueFormatter: value => Forecast.metricValue(value, metric, units, windUnits)
+    property var accessibleValueFormatter: value => valueFormatter(value) + (["temperature_c", "apparent_temperature_c", "dew_point_c"].indexOf(metric) >= 0 ? units : "")
     property int selectedIndex: 0
+    readonly property string selectedDescription: {
+        const hour = hours[selectedIndex];
+        if (!hour)
+            return "No hourly data available.";
+        const label = hour.local_label || hour.label || hour.time || hour.local_hour || "Selected hour";
+        const value = hour[metric];
+        return label + ". " + metricLabel + ": " + (typeof value === "number" && Number.isFinite(value) ? accessibleValueFormatter(value) : "unavailable") + ".";
+    }
     signal selected(int index)
     activeFocusOnTab: true
     Accessible.role: Accessible.Chart
+    Accessible.focusable: true
     Accessible.name: metricLabel + " forecast chart"
-    Accessible.description: rangeDescription + " Use left and right arrows to select an hour."
-    Keys.onLeftPressed: if (selectedIndex > 0)
-        selected(selectedIndex - 1)
-    Keys.onRightPressed: if (selectedIndex < hours.length - 1)
-        selected(selectedIndex + 1)
+    Accessible.description: selectedDescription + " " + rangeDescription + " Use left and right arrows to select an hour, Home for the first, and End for the last."
+    Accessible.onDecreaseAction: selectHour(selectedIndex - 1)
+    Accessible.onIncreaseAction: selectHour(selectedIndex + 1)
+    function announceSelection() {
+        if (visible && activeFocus && typeof Accessible.announce === "function")
+            Accessible.announce(selectedDescription);
+    }
+    function selectHour(index) {
+        if (index < 0 || index >= hours.length || index === selectedIndex)
+            return;
+        selected(index);
+        // Let the parent's selection binding settle; held keys coalesce to the
+        // latest selected hour, without a timer or background announcements.
+        Qt.callLater(announceSelection);
+    }
+    Keys.onLeftPressed: selectHour(selectedIndex - 1)
+    Keys.onRightPressed: selectHour(selectedIndex + 1)
     Keys.onPressed: event => {
         if (event.key === Qt.Key_Home && root.hours.length) {
-            root.selected(0);
+            root.selectHour(0);
             event.accepted = true;
         } else if (event.key === Qt.Key_End && root.hours.length) {
-            root.selected(root.hours.length - 1);
+            root.selectHour(root.hours.length - 1);
             event.accepted = true;
         } else
             event.accepted = false;
@@ -138,7 +160,10 @@ Item {
             anchors.fill: parent
             enabled: root.hours.length > 0
             cursorShape: Qt.PointingHandCursor
-            onClicked: mouse => root.selected(Math.max(0, Math.min(root.hours.length - 1, Math.floor((mouse.x - 64) / (width - 82) * root.hours.length))))
+            onClicked: mouse => {
+                root.forceActiveFocus();
+                root.selectHour(Math.max(0, Math.min(root.hours.length - 1, Math.floor((mouse.x - 64) / (width - 82) * root.hours.length))));
+            }
         }
     }
     PlainLabel {

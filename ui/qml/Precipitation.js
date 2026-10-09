@@ -156,6 +156,7 @@ function chartHours(rows) {
         output.push({
             time: new Date(at).toISOString(),
             local_hour: h ? h.label.split(" – ")[0] : "Gap",
+            local_label: h ? h.label : new Date(at).toISOString(),
             precipitation_rate_mm_hr: h ? h.total_mm : null
         });
     }

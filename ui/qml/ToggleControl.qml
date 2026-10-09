@@ -14,22 +14,29 @@ Item {
         toggle.forceActiveFocus();
     }
     signal toggled(bool value)
-    implicitHeight: 68
+    implicitHeight: Math.max(68, labels.implicitHeight + 20, toggle.implicitHeight + 20)
     Column {
+        id: labels
         y: 10
-        width: parent.width - 78
+        width: Math.max(0, parent.width - 78)
         spacing: 4
         PlainLabel {
             text: root.title
+            width: parent.width
             font.pixelSize: 18
+            wrapMode: Text.Wrap
+            elide: Text.ElideNone
+            Accessible.ignored: true
         }
         PlainLabel {
             text: root.caption
+            visible: text !== ""
             color: Tokens.secondary
             font.pixelSize: 13
             width: parent.width
             wrapMode: Text.Wrap
             elide: Text.ElideNone
+            Accessible.ignored: true
         }
     }
     Switch {
@@ -40,6 +47,7 @@ Item {
         checked: root.checked
         enabled: !root.locked
         Accessible.name: root.title
+        Accessible.description: root.caption
         onClicked: {
             root.toggled(checked);
             if (!root.optimistic)

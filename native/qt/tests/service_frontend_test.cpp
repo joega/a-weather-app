@@ -1,6 +1,7 @@
 #include <QtTest>
 #include <QClipboard>
 #include <QImageReader>
+#include <QAccessible>
 #include "transport.h"
 #include "maptiles.h"
 #include <QQmlApplicationEngine>
@@ -1228,6 +1229,10 @@ class ServiceFrontendTest : public QObject {
         chart->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Home);
         QCOMPARE(named("precipitationInterval")->property("text").toString(), interval);
+        auto* accessibleChart = QAccessible::queryAccessibleInterface(chart);
+        QVERIFY(accessibleChart);
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .startsWith(interval + ". Hourly liquid-equivalent precipitation: 0.04 in."));
         auto* date = qobject_cast<QQuickItem*>(named("precipitationDate"));
         date->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Down);
@@ -1262,6 +1267,8 @@ class ServiceFrontendTest : public QObject {
                  QString("24.0 mm"));
         QCOMPARE(named("precipitationDaily_snow_cm")->property("text").toString(),
                  QString("9.6 cm"));
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .contains("Hourly liquid-equivalent precipitation: 1.0 mm."));
         QVERIFY(named("precipitationSnowDepth")->property("text").toString().contains("10.0 cm"));
         // Missing snow stays unknown; a partial liquid day shows its subtotal.
         const auto complete = eval("JSON.stringify(backend.precipitationResult)").toString();
@@ -1890,16 +1897,24 @@ class ServiceFrontendTest : public QObject {
         const auto requestCount = eval("backend.nextId").toInt();
         auto* chart = qobject_cast<QQuickItem*>(named("airOutlookChart"));
         QVERIFY(chart);
+        auto* accessibleChart = QAccessible::queryAccessibleInterface(chart);
+        QVERIFY(accessibleChart);
+        QVERIFY(accessibleChart->text(QAccessible::Description).contains(": 0, Good."));
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .startsWith(named("airOutlookTime")->property("text").toString() + ". "));
         chart->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(named("airOutlookValue")->property("text").toString(), QString("125"));
         QCOMPARE(named("airOutlookCategory")->property("text").toString(),
                  QString("Unhealthy for sensitive groups"));
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .contains(": 125, Unhealthy for sensitive groups."));
         QTest::keyClick(window, Qt::Key_Home);
         for (int i = 0; i < 3; ++i)
             QTest::keyClick(window, Qt::Key_Right);
         QCOMPARE(named("airOutlookValue")->property("text").toString(), QString::fromUtf8("—"));
         QCOMPARE(named("airOutlookCategory")->property("text").toString(), QString("Unavailable"));
+        QVERIFY(accessibleChart->text(QAccessible::Description).contains(": unavailable."));
         QTest::keyClick(window, Qt::Key_Home);
         auto* selector = qobject_cast<QQuickItem*>(named("airOutlookMetric"));
         QVERIFY(selector);
@@ -1909,6 +1924,9 @@ class ServiceFrontendTest : public QObject {
         for (const auto& value : values) {
             QTest::keyClick(window, Qt::Key_Down);
             QCOMPARE(named("airOutlookValue")->property("text").toString(), value);
+            QVERIFY(
+                accessibleChart->text(QAccessible::Description)
+                    .contains(": " + (value == QString::fromUtf8("—") ? "unavailable" : value)));
         }
         QCOMPARE(eval("backend.nextId").toInt(), requestCount);
         auto* popup = loader->property("item").value<QObject*>();
