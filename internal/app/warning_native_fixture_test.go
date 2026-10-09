@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
 )
 
@@ -28,9 +29,17 @@ func TestWarningNativeServiceFixture(t *testing.T) {
 		t.Fatal("private notification bus required")
 	}
 	base := time.Now().UTC().Truncate(time.Second)
+	started := time.Now()
+	performance := os.Getenv("WEATHER_NATIVE_WARNING_PERFORMANCE") == "1"
 	var clock, requests, history, active, forecasts atomic.Int64
 	clock.Store(base.Unix())
-	now := func() time.Time { return time.Unix(clock.Load(), 0).UTC() }
+	now := func() time.Time {
+		at := time.Unix(clock.Load(), 0).UTC()
+		if performance {
+			at = at.Add(time.Since(started).Truncate(time.Second))
+		}
+		return at
+	}
 	var feedMu sync.RWMutex
 	var messages []weather.AlertMessage
 	failed := false
@@ -67,7 +76,13 @@ func TestWarningNativeServiceFixture(t *testing.T) {
 		ResolveSelection: func(context.Context, M) (M, error) { return nil, errors.New("fixture resolution disabled") },
 		SearchPlaces:     func(context.Context, M) ([]any, error) { return nil, errors.New("fixture search disabled") },
 	}
-	a, state := runtimeLocations(t, options, 1)
+	var a *App
+	var state *safeio.Directory
+	if performance {
+		a, state = warningPerformanceApp(t, options)
+	} else {
+		a, state = runtimeLocations(t, options, 1)
+	}
 	runtime, err := os.MkdirTemp("/tmp", "weather-warning-e2e-")
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +157,7 @@ func TestWarningNativeServiceFixture(t *testing.T) {
 				failed = true
 			case "recover":
 				failed = false
-			case "new", "update", "cancel", "oversized":
+			case "new", "update", "cancel", "oversized", "large":
 				failed = false
 				message := alertTestMessage("native-"+command.Stage, now())
 				message.Expires = now().Add(time.Hour)
@@ -161,6 +176,9 @@ func TestWarningNativeServiceFixture(t *testing.T) {
 				} else if command.Stage == "oversized" {
 					message.Description = strings.Repeat("\x01", 32000)
 					message.Instruction = strings.Repeat("\x02", 16000)
+				} else if command.Stage == "large" {
+					message.Description = strings.Repeat("Full original source description. ", 1000)[:32000]
+					message.Instruction = strings.Repeat("Keep these original instructions. ", 500)[:16000]
 				}
 				messages = append(messages, message)
 			default:
@@ -192,4 +210,51 @@ func TestWarningNativeServiceFixture(t *testing.T) {
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// The optional non-race performance probe uses real elapsed time and a complete
+// cached forecast. All providers remain injected; this is never production CLI.
+func warningPerformanceApp(t *testing.T, options Options) (*App, *safeio.Directory) {
+	t.Helper()
+	state := testState(t)
+	now := options.Now()
+	var store *savedLocations
+	for city := 0; city < 3; city++ {
+		profile := savedFixture(city)
+		forecast := appFixture(now)
+		forecast["location"] = profile["location"]
+		hours, days := []any{}, []any{}
+		for i := 0; i < 240; i++ {
+			row := M{"time": now.Add(time.Duration(i+1) * time.Hour).Format(time.RFC3339), "condition": "clear", "is_day": true}
+			for key := range weather.WeatherBounds {
+				row[key] = 0.5
+			}
+			for key, bounds := range weather.OptionalWeatherBounds {
+				row[key] = bounds[0] + 0.5
+			}
+			hours = append(hours, row)
+		}
+		for i := 0; i < 10; i++ {
+			at := now.AddDate(0, 0, i)
+			days = append(days, M{"date": at.Format("2006-01-02"), "condition": "clear", "high_c": 22.0, "low_c": 10.0, "precipitation_probability": 0.5, "sunrise": at.Format(time.RFC3339), "sunset": at.Add(12 * time.Hour).Format(time.RFC3339)})
+		}
+		forecast["hourly"], forecast["daily"] = hours, days
+		profile["forecast"] = forecast
+		var err error
+		if city == 0 {
+			store, err = createSavedLocations(state, profile)
+		} else {
+			profile["country_code"] = "DE"
+			err = store.put(profile, city == 1, false)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, err := New(state, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { a.Close(context.Background()) })
+	return a, state
 }
