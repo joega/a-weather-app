@@ -23,6 +23,7 @@ Popup {
     property var pendingCapture: null
     property string notice: ""
     readonly property bool busy: pendingCapture !== null
+    signal imageFileRequested
     function notify(message) {
         notice = message;
         noticeTimer.restart();
@@ -32,7 +33,6 @@ Popup {
             pendingCapture.canceled = true;
         pendingCapture = null;
         frozenPreview = null;
-        saveDialog.active = false;
     }
     function copyText() {
         if (!preview || busy)
@@ -47,10 +47,11 @@ Popup {
     function chooseImageFile() {
         if (!visible || !preview || busy)
             return;
-        if (saveDialog.item)
-            saveDialog.item.open();
-        else
-            saveDialog.active = true;
+        imageFileRequested();
+    }
+    function imageFileDialogFinished() {
+        if (visible)
+            saveImageButton.forceActiveFocus();
     }
     function saveImage(destination) {
         if (!preview || busy || !visible)
@@ -70,14 +71,19 @@ Popup {
             if (ticket.canceled)
                 return;
             const height = Math.ceil(card.height * 720 / card.width);
-            if (height > 1600 || height < 1 || !card.grabToImage(result => {
+            // Qt multiplies the grab target by the window's display scale.
+            // Keep the exported physical pixels bounded on HiDPI displays too.
+            const windowScale = card.Window.window.devicePixelRatio;
+            const scale = typeof windowScale === "number" ? windowScale : card.Screen.devicePixelRatio;
+            const target = Qt.size(Math.floor(720 / scale), Math.floor(height / scale));
+            if (height > 1600 || target.width < 1 || target.height < 1 || !card.grabToImage(result => {
                 if (ticket.canceled)
                     return;
                 const saved = result.saveToFile(Qt.resolvedUrl(url));
                 pendingCapture = null;
                 frozenPreview = null;
                 notify(saved ? "Forecast image saved." : "Could not save the image. Choose another location and try again.");
-            }, Qt.size(720, height))) {
+            }, target)) {
                 pendingCapture = null;
                 frozenPreview = null;
                 notify("Could not create the image. Try again.");
@@ -121,31 +127,6 @@ Popup {
         visible: false
         textFormat: TextEdit.PlainText
         readOnly: true
-    }
-    Loader {
-        id: saveDialog
-        objectName: "forecastSaveDialogLoader"
-        active: false
-        source: "ForecastSaveDialog.qml"
-        onLoaded: {
-            item.parentWindow = root.parent.Window.window;
-            // Keep the chooser in this modal flow on Qt versions offering a
-            // popup-type choice. Older Qt Quick dialog fallbacks use an item.
-            if (typeof item.popupType === "number")
-                item.popupType = Popup.Item;
-            item.open();
-        }
-        onStatusChanged: if (status === Loader.Error)
-            root.notify("The file picker is unavailable. You can still copy the forecast text.")
-    }
-    Connections {
-        target: saveDialog.item
-        function onChosen(destination) {
-            root.saveImage(destination);
-        }
-        function onFinished() {
-            saveImageButton.forceActiveFocus();
-        }
     }
     contentItem: ScrollView {
         id: scroll

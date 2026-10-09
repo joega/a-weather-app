@@ -1375,6 +1375,213 @@ class ServiceFrontendTest : public QObject {
                         .toBool());
         phase("hidden");
     }
+    void featureSessionResources() {
+        if (!qEnvironmentVariableIsSet("WEATHER_QT_FEATURE_SESSION_MEASURE"))
+            QSKIP("Set WEATHER_QT_FEATURE_SESSION_MEASURE for sequential feature-session sampling");
+        ServiceFixture fixture;
+        fixture.cache(60, true);
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        auto forecast = fixture.saved("forecast.json");
+        const auto now = QDateTime::currentDateTimeUtc();
+        auto start = now;
+        start.setTime(QTime(now.time().hour(), 0));
+        QJsonArray hours, days, oldHours, precip, air;
+        for (int i = 0; i < 240; ++i) {
+            auto row = forecast["hourly"].toArray().first().toObject();
+            const auto stamp = start.addSecs(i * 3600).toString(Qt::ISODate);
+            row["time"] = stamp;
+            hours.append(row);
+            if (i < 60)
+                oldHours.append(QJsonArray{stamp, 10, .6, 2, 2});
+        }
+        for (int i = 0; i < 10; ++i) {
+            auto row = forecast["daily"].toArray().first().toObject();
+            row["date"] = now.date().addDays(i).toString(Qt::ISODate);
+            days.append(row);
+        }
+        forecast["hourly"] = hours;
+        forecast["daily"] = days;
+        fixture.save("forecast.json", forecast);
+        fixture.savedNewYorkPlace();
+        QJsonObject baseline{{"latitude", 40.7128},
+                             {"longitude", -74.006},
+                             {"timezone", "America/New_York"},
+                             {"source", "open-meteo-hourly-v1"},
+                             {"retrieved", now.addSecs(-3660).toString(Qt::ISODate)},
+                             {"hours", oldHours}};
+        fixture.save("forecast-history.json",
+                     {{"schema_version", 1},
+                      {"places", QJsonArray{QJsonObject{{"id", "place-5128581"},
+                                                        {"current", baseline},
+                                                        {"previous", QJsonValue::Null}}}}});
+        for (int i = 0; i < 290; ++i)
+            precip.append(QJsonArray{double(start.addSecs((i - 26) * 3600).toSecsSinceEpoch()), 1,
+                                     .3, .2, .4, .1, 1500, .45});
+        for (int i = 0; i < 48; ++i)
+            air.append(QJsonArray{double(start.addSecs(i * 3600).toSecsSinceEpoch()), 25, 20, 5, 10,
+                                  8, 12, 1, 230});
+        const auto cache = [&](const QString& name, const QString& source, const QJsonArray& data) {
+            fixture.save(name, {{"version", 1},
+                                {"source", source},
+                                {"latitude", 40.7128},
+                                {"longitude", -74.006},
+                                {"grid_latitude", 40.7128},
+                                {"grid_longitude", -74.006},
+                                {"timezone", "America/New_York"},
+                                {"fetched_at", now.toString(Qt::ISODate)},
+                                {"hours", data}});
+        };
+        cache("precipitation-detail.json", "open-meteo/hourly-precipitation/v1", precip);
+        cache("air-quality-outlook.json", "open-meteo/cams-global-outlook/v1", air);
+        // Production bindings are compiled once. Reuse inspection expressions so
+        // repeated test-only compilation does not contaminate retention samples.
+        QHash<QString, std::shared_ptr<QQmlExpression>> expressions;
+        const auto sessionEval = [&](const QString& source) {
+            auto& expression = expressions[source];
+            if (!expression)
+                expression = std::make_shared<QQmlExpression>(QQmlEngine::contextForObject(root),
+                                                              root, source);
+            auto result = expression->evaluate();
+            if (expression->hasError())
+                QTest::qFail(qPrintable(expression->error().toString()), __FILE__, __LINE__);
+            return result;
+        };
+        QElapsedTimer startup;
+        startup.start();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(sessionEval("backend.snapshot!==null && !backend.busy && "
+                                             "backend.changesState==='ready'")
+                                     .toBool(),
+                                 5000);
+        const auto startupMs = startup.elapsed();
+        const auto original = fixture.saved("forecast.json");
+        const auto precipCache = fixture.saved("precipitation-detail.json");
+        const auto airCache = fixture.saved("air-quality-outlook.json");
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            QTest::qWait(600);
+            const auto before = swaps.size();
+            const auto requests = sessionEval("backend.nextId").toInt();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ipc_requests"] = sessionEval("backend.nextId").toInt() - requests;
+            result["fixture_startup_ms"] = startupMs;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "FEATURE_SESSION_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        const auto allClosed = [&]() {
+            return sessionEval(
+                       "!root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && "
+                       "!root.astronomyOpen && !root.precipitationOpen && !root.airOutlookOpen && "
+                       "!root.shareOpen && !details.visible && outdoorLoader.item===null && "
+                       "dashboardLoader.item===null && changesLoader.item===null && "
+                       "astronomyLoader.item===null && precipitationLoader.item===null && "
+                       "airOutlookLoader.item===null && shareLoader.item===null && "
+                       "(!forecastSaveDialog.item || !forecastSaveDialog.item.visible) && "
+                       "backend.outdoorState==='closed' && backend.astronomyState==='closed' && "
+                       "!backend.precipitationWanted && backend.precipitationResult===null && "
+                       "!backend.airOutlookWanted && backend.airOutlookResult===null && "
+                       "!backend.mapWanted && !backend.radarWanted")
+                .toBool();
+        };
+        QVERIFY(allClosed());
+        phase("initial");
+        if (qEnvironmentVariableIsSet("WEATHER_QT_FEATURE_SESSION_INITIAL_ONLY"))
+            return;
+        const QStringList panels{"outdoor",       "dashboard",   "changes", "astronomy",
+                                 "precipitation", "air_quality", "metric",  "share"};
+        const QStringList opens{"root.openOutdoor()",
+                                "root.openDashboard()",
+                                "root.openChanges()",
+                                "root.openAstronomy()",
+                                "root.openPrecipitation('')",
+                                "root.openAirOutlook()",
+                                "details.showMetric('pressure_msl_hpa')",
+                                "root.openShare()"};
+        const QStringList ready{
+            "outdoorLoader.item!==null && backend.outdoorState==='ready'",
+            "dashboardLoader.item!==null",
+            "changesLoader.item!==null && backend.changesState==='ready'",
+            "astronomyLoader.item!==null && backend.astronomyState==='ready'",
+            "precipitationLoader.item!==null && backend.precipitationState==='fresh'",
+            "airOutlookLoader.item!==null && backend.airOutlookState==='fresh'",
+            "details.opened",
+            "shareLoader.item!==null && shareLoader.item.opened"};
+        const QStringList closes{"root.closeOutdoor()",       "root.closeDashboard()",
+                                 "root.closeChanges()",       "root.closeAstronomy()",
+                                 "root.closePrecipitation()", "root.closeAirOutlook()",
+                                 "details.close()",           "root.closeShare()"};
+        const auto quoted = [](const QString& value) {
+            const auto json = QJsonDocument(QJsonArray{value}).toJson(QJsonDocument::Compact);
+            return QString::fromUtf8(json.mid(1, json.size() - 2));
+        };
+        const auto output = fixture.directory.path() + "/session.png";
+        QPointer<QObject> retainedDialog;
+        for (int cycle = 1; cycle <= 20; ++cycle) {
+            for (int index = 0; index < panels.size(); ++index) {
+                sessionEval(opens[index]);
+                QTRY_VERIFY2_WITH_TIMEOUT(sessionEval(ready[index]).toBool(),
+                                          qPrintable(panels[index]), 3000);
+                QTest::qWait(40); // Allow an actual rendered frame, not just object creation.
+                if (panels[index] == "share") {
+                    // Warm the real picker, then export only to the fixture's private path.
+                    if (!qEnvironmentVariableIsSet("WEATHER_QT_FEATURE_SESSION_NO_PICKER")) {
+                        sessionEval("shareLoader.item.chooseImageFile()");
+                        auto* loader = named("forecastSaveDialogLoader");
+                        QTRY_VERIFY(loader->property("item").value<QObject*>());
+                        auto* dialog = loader->property("item").value<QObject*>();
+                        if (retainedDialog)
+                            QCOMPARE(dialog, retainedDialog.data());
+                        else
+                            retainedDialog = dialog;
+                        QTRY_VERIFY(dialog->property("visible").toBool());
+                        QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+                        QTRY_VERIFY(!dialog->property("visible").toBool());
+                    }
+                    if (!qEnvironmentVariableIsSet("WEATHER_QT_FEATURE_SESSION_NO_EXPORT")) {
+                        QVERIFY(sessionEval("shareLoader.item.saveImage(" +
+                                            quoted(QUrl::fromLocalFile(output).toString()) + ")")
+                                    .toBool());
+                        QTRY_VERIFY(!sessionEval("shareLoader.item.busy").toBool());
+                        QCOMPARE(sessionEval("shareLoader.item.notice").toString(),
+                                 QString("Forecast image saved."));
+                        QVERIFY(QFileInfo(output).size() > 0);
+                    }
+                }
+                if (cycle == 1) {
+                    qInfo().noquote()
+                        << "FEATURE_SESSION_PANEL"
+                        << QJsonDocument(
+                               QJsonObject{
+                                   {"panel", panels[index]},
+                                   {"ui_pss_kib", usage(QCoreApplication::applicationPid()).pssKiB},
+                                   {"service_pss_kib", usage(fixture.service.processId()).pssKiB}})
+                               .toJson(QJsonDocument::Compact);
+                }
+                sessionEval(closes[index]);
+                QTRY_VERIFY(allClosed());
+                QTRY_VERIFY(!sessionEval("backend.busy").toBool());
+            }
+            if (cycle == 1 || cycle == 10 || cycle == 20)
+                phase(QString("closed_after_%1_sessions").arg(cycle));
+        }
+        QCOMPARE(fixture.saved("forecast.json"), original);
+        QCOMPARE(fixture.saved("precipitation-detail.json"), precipCache);
+        QCOMPARE(fixture.saved("air-quality-outlook.json"), airCache);
+        window->hide();
+        QTRY_VERIFY(!sessionEval("backend.presentationActive").toBool());
+        QVERIFY(allClosed());
+        phase("hidden");
+        if (qEnvironmentVariableIsSet("WEATHER_QT_FEATURE_SESSION_COLLECT")) {
+            // Diagnostic only: never force global collection in production to
+            // conceal whether natural repeated use retains image or UI objects.
+            engine->collectGarbage();
+            phase("hidden_after_diagnostic_collection");
+        }
+    }
     void forecastSharingCopyImageAndLifecycle() {
         ServiceFixture fixture;
         fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
@@ -1551,12 +1758,25 @@ class ServiceFrontendTest : public QObject {
         phase("details_open");
         activate("closeForecastShare");
         QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QCOMPARE(dialogLoader->property("item").value<QObject*>(), dialog);
+        QVERIFY(!dialog->property("visible").toBool());
         QCOMPARE(window->activeFocusItem(), entry);
         window->resize(700, 650);
         eval("root.openShare()");
         QTRY_VERIFY(loader->property("item").value<QObject*>());
         popup = loader->property("item").value<QObject*>();
         QTRY_VERIFY(popup->property("opened").toBool());
+        // Reuse the lazily created chooser after its original preview is gone.
+        activate("saveForecastImage");
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QCOMPARE(dialogLoader->property("item").value<QObject*>(), dialog);
+        QVERIFY(QMetaObject::invokeMethod(dialog, "reject"));
+        QTRY_COMPARE(window->activeFocusItem(),
+                     qobject_cast<QQuickItem*>(named("saveForecastImage")));
+        window->requestActivate();
+        QTRY_VERIFY(window->isActive());
+        qobject_cast<QQuickItem*>(named("closeForecastShare"))->forceActiveFocus();
+        QTest::qWait(250); // Finish picker exit and the queued focus-reveal scroll.
         if (!prefix.isEmpty()) {
             QTest::qWait(100);
             QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
@@ -1592,8 +1812,12 @@ class ServiceFrontendTest : public QObject {
         }
         QCOMPARE(fixture.saved("forecast.json"), original);
         eval("root.openShare()");
+        QTRY_VERIFY(loader->property("item").value<QObject*>());
+        eval("shareLoader.item.chooseImageFile()");
+        QTRY_VERIFY(dialog->property("visible").toBool());
         window->hide();
         QTRY_VERIFY(eval("!root.shareOpen && shareLoader.item===null").toBool());
+        QTRY_VERIFY(!dialog->property("visible").toBool());
         phase("hidden");
     }
     void airQualityOutlookAndLazyLifecycle() {

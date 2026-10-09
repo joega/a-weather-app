@@ -50,6 +50,8 @@ QtObject {
         shareOpen = true;
     }
     function closeShare() {
+        if (forecastSaveDialog.item)
+            forecastSaveDialog.item.close();
         if (shareLoader.item)
             shareLoader.item.cancelExport();
         shareOpen = false;
@@ -1280,11 +1282,45 @@ QtObject {
             source: "ForecastShare.qml"
             onLoaded: {
                 item.snapshot = Qt.binding(() => bridge.snapshot);
+                item.imageFileRequested.connect(() => {
+                    if (forecastSaveDialog.item)
+                        forecastSaveDialog.item.open();
+                    else
+                        forecastSaveDialog.active = true;
+                });
                 item.closed.connect(() => {
                     if (root.shareOpen)
                         root.closeShare();
                 });
                 item.open();
+            }
+        }
+        // One chooser per window, created only on the first Save image action.
+        // Recreating Qt's file-dialog infrastructure on every share session
+        // retained memory. The small preview and its data still unload on close.
+        Loader {
+            id: forecastSaveDialog
+            objectName: "forecastSaveDialogLoader"
+            active: false
+            source: "ForecastSaveDialog.qml"
+            onLoaded: {
+                item.parentWindow = window;
+                if (typeof item.popupType === "number")
+                    item.popupType = Popup.Item;
+                item.open();
+            }
+            onStatusChanged: if (status === Loader.Error && shareLoader.item)
+                shareLoader.item.notify("The file picker is unavailable. You can still copy the forecast text.")
+        }
+        Connections {
+            target: forecastSaveDialog.item
+            function onChosen(destination) {
+                if (root.shareOpen && shareLoader.item)
+                    shareLoader.item.saveImage(destination);
+            }
+            function onFinished() {
+                if (root.shareOpen && shareLoader.item)
+                    shareLoader.item.imageFileDialogFinished();
             }
         }
         Loader {
