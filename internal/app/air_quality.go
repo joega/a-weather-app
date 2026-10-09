@@ -69,7 +69,7 @@ func (a *App) cancelAirQuality() {
 }
 
 func (a *App) beginAirQuality() {
-	if a.closed || a.options.Offline || a.options.FetchAirQuality == nil || a.locationBusy || a.aq.active || a.options.Now().Before(a.aq.nextFetch) {
+	if a.closed || !a.presented || a.primaryOnly || a.options.Offline || a.options.FetchAirQuality == nil || a.locationBusy || a.aq.active || a.options.Now().Before(a.aq.nextFetch) {
 		return
 	}
 	location := safeio.Clone(a.location)

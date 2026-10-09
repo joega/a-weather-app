@@ -25,9 +25,12 @@ detection is used only if previously enabled in Settings. To update or remove
 the package, stop any active desktop effects and quit the app before switching
 the plugin or launcher link. Keep the previous package and a backup of saved
 state until the new version is verified.
-Schema-1 profiles remain readable and are backed up as `location-profile-v1.json`
-before their first schema-2 update. Older app versions cannot read schema 2;
-restore the pre-update state backup when rolling back, with the app stopped.
+Startup migrates older location state into `saved-locations.json`, retaining the
+original files unchanged for rollback. The manifest becomes authoritative; saved
+forecast caches are bounded and loaded only for active cities. The saved-city
+picker is under development; current city selection still changes the primary
+place used by the bar and desktop effects. Keep a complete pre-update state
+backup for downgrades, especially to versions without worldwide city support.
 
 Desktop effects require a compatible Hyprland build and explicit activation in
 Settings. If effects are unavailable after a compositor update, the forecast

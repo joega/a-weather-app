@@ -199,11 +199,15 @@ func (s *Server) subscribe(p *peer, reply M) error {
 	p.subscribed = true
 	p.presentationActive = true
 	s.uiSeen = true
+	select {
+	case s.presentationWake <- struct{}{}:
+	default:
+	}
 	return nil
 }
 
-// Presentation is a subscriber property; hiding never suspends weather,
-// notifications, effects, or state-change events.
+// Presentation is a subscriber property. Hiding suspends viewed-only weather;
+// primary consumers and state-change events remain independent.
 func (s *Server) hasPresentation() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -249,6 +253,10 @@ func (s *Server) handle(p *peer) {
 			}
 		}
 		seen := s.uiSeen
+		select {
+		case s.presentationWake <- struct{}{}:
+		default:
+		}
 		s.mu.Unlock()
 		if wasUI && seen && remaining == 0 {
 			s.cancel()
@@ -421,6 +429,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 		// next weather/notification tick. Effects have their own independent clock.
 		if !time.Now().Before(nextTick) && ctx.Err() == nil {
 			tick, cancel := context.WithTimeout(ctx, time.Second)
+			a.setPresented(s.hasPresentation())
 			a.Tick(tick)
 			cancel()
 			if s.hasPresentation() && time.Since(lastBroadcast) >= 5*time.Second {
@@ -462,6 +471,7 @@ func Serve(ctx context.Context, path string, a *App, onReady func()) error {
 			s.mapEvent()
 			continue
 		case <-s.presentationWake:
+			a.setPresented(s.hasPresentation())
 			candidate := time.Now().Add(a.interval(s.hasPresentation()))
 			if candidate.Before(nextTick) {
 				nextTick = candidate

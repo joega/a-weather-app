@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/joega/a-weather-app/internal/safeio"
+	"github.com/joega/a-weather-app/internal/weather"
 )
 
 func TestPrivateFixtureFreshnessBothClocksAndNoMutation(t *testing.T) {
@@ -49,9 +50,11 @@ func TestBenchmarkPreparationLeavesSavedDocumentsUntouched(t *testing.T) {
 			if err := os.Chmod(saved, 0700); err != nil {
 				t.Fatal(err)
 			}
+			stamp := "2026-09-27T12:00:00Z"
+			location := weather.DefaultLocation()
 			profile := map[string]any{
-				"location": map[string]any{"name": "Saved location"},
-				"forecast": map[string]any{"fetched_at": "old", "current": map[string]any{"time": "old", "temperature_c": 15.0}},
+				"schema_version": 1.0, "mode": "custom", "zip_code": nil, "location": location,
+				"forecast": map[string]any{"schema_version": 1.0, "location": location, "fetched_at": stamp, "current": map[string]any{"time": stamp, "temperature_c": 15.0, "condition": "clear", "is_day": true}, "hourly": []any{}, "daily": []any{}, "alerts": weather.UnavailableAlerts()},
 			}
 			controls := map[string]any{"mode": "manual", "reduced_motion": false, "manual": map[string]any{"condition": "snow"}}
 			originals := map[string][]byte{}
@@ -100,7 +103,7 @@ func TestBenchmarkPreparationLeavesSavedDocumentsUntouched(t *testing.T) {
 			if notifications["settings"].(map[string]any)["enabled"] != true || notifications["snoozed_until"].(float64) <= float64(time.Now().Unix()) {
 				t.Fatalf("hidden fixture notifications are not enabled and snoozed: %v", notifications)
 			}
-			if forecast["fetched_at"] != "old" || forecast["current"].(map[string]any)["time"] != "old" {
+			if forecast["fetched_at"] != stamp || forecast["current"].(map[string]any)["time"] != stamp {
 				t.Fatal("preparation mutated the source forecast")
 			}
 			for file, original := range originals {

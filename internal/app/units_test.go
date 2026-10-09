@@ -136,7 +136,7 @@ func TestAutomaticUnitsFollowSuccessfulLocationChanges(t *testing.T) {
 	// A failed location operation must retain both the location and its units.
 	before := safeio.Clone(a.controls)
 	a.generation++
-	a.results <- completion{generation: a.generation, selection: M{"mode": "zip", "zip_code": "10001"}, err: context.DeadlineExceeded}
+	a.results <- completion{point: a.forecastPoint, generation: a.generation, selection: M{"mode": "zip", "zip_code": "10001"}, err: context.DeadlineExceeded}
 	a.poll()
 	if !reflect.DeepEqual(a.controls, before) || a.country != "GB" {
 		t.Fatal("failed location change altered units")

@@ -26,7 +26,7 @@ func briefingFixture(t *testing.T, now time.Time, zoneName string) *App {
 		hours = append(hours, M{"time": start.Add(time.Duration(i) * time.Hour).UTC().Format(time.RFC3339), "condition": "clear", "is_day": true, "temperature_c": 20.0, "precipitation_probability": 0.1, "wind_gust_m_s": 10.0})
 	}
 	forecast["hourly"] = hours
-	return &App{options: Options{Now: func() time.Time { return now }}, location: location, forecast: forecast, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
+	return &App{options: Options{Now: func() time.Time { return now }}, forecastPoint: &forecastPoint{location: location, forecast: forecast, mode: "default", country: "US"}, controls: DefaultControls(), launcherStatus: "ready"}
 }
 
 func TestBriefingPeriodsAndHourlyPrecipitation(t *testing.T) {

@@ -149,7 +149,7 @@ func TestAppRefreshPersistenceAndCancellation(t *testing.T) {
 	if a.forecast == nil {
 		t.Fatal("refresh result not adopted")
 	}
-	saved, e := a.state.Read("forecast.json", weather.MaxBytes)
+	_, saved, _, _, _, e := readSaved(a.state)
 	if e != nil || !reflect.DeepEqual(saved, a.forecast) {
 		t.Fatal("refresh not persisted", e)
 	}
@@ -186,7 +186,7 @@ func TestAppStaleCompletionAndAtomicLocation(t *testing.T) {
 		t.Fatal("resolver did not receive exact auto selection", selection)
 	}
 	stale := appFixture(now)
-	a.results <- completion{generation: oldGeneration, forecast: stale, location: oldLocation}
+	a.results <- completion{point: a.forecastPoint, generation: oldGeneration, forecast: stale, location: oldLocation}
 	a.Snapshot()
 	if !a.locationBusy || a.forecast != nil {
 		t.Fatal("stale completion adopted or cleared current worker")
@@ -198,7 +198,7 @@ func TestAppStaleCompletionAndAtomicLocation(t *testing.T) {
 	if a.mode != "auto" || a.zip != nil || !reflect.DeepEqual(a.location, boston) || a.forecast == nil {
 		t.Fatal("location and weather not adopted together")
 	}
-	profile, e := a.state.Read("location-profile.json", weather.MaxBytes)
+	_, _, profile, _, _, e := readSaved(a.state)
 	if e != nil || ValidateProfile(profile) != nil || !reflect.DeepEqual(profile, a.profile) {
 		t.Fatal("profile document not atomically persisted", e)
 	}
@@ -212,9 +212,10 @@ func TestAppLocationFailureLeavesProfile(t *testing.T) {
 		return nil, &weather.LocationError{Code: "zip_not_found", Message: "No ZIP"}
 	}})
 	before := safeio.Clone(a.location)
+	beforeProfile := safeio.Clone(a.profile)
 	a.Handle(context.Background(), request("set_location", M{"location": M{"mode": "zip", "zip_code": "02108"}}))
 	awaitCompletion(t, a)
-	if !reflect.DeepEqual(before, a.location) || a.profile != nil {
+	if !reflect.DeepEqual(before, a.location) || !reflect.DeepEqual(beforeProfile, a.profile) {
 		t.Fatal("failed lookup changed location")
 	}
 	if a.locationError != "zip_not_found" {
@@ -232,12 +233,12 @@ func TestAppSaveFailureKeepsPreviousState(t *testing.T) {
 	}})
 	before := safeio.Clone(a.location)
 	// An existing directory at the atomic document target refuses replacement.
-	if e := os.Mkdir(filepath.Join(a.state.Path, "location-profile.json"), 0700); e != nil {
+	if e := os.Mkdir(filepath.Join(a.state.Path, savedSlotName(0)), 0700); e != nil {
 		t.Fatal(e)
 	}
 	a.Handle(context.Background(), request("set_location", M{"location": M{"mode": "zip", "zip_code": "02108"}}))
 	awaitCompletion(t, a)
-	if a.locationError != "state_io_failed" || a.profile != nil || a.forecast != nil || !reflect.DeepEqual(a.location, before) {
+	if a.locationError != "state_io_failed" || a.forecast != nil || !reflect.DeepEqual(a.location, before) {
 		t.Fatal("failed profile save published unsaved location", a.Snapshot())
 	}
 	if e := os.Mkdir(filepath.Join(a.state.Path, "controls.json"), 0700); e != nil {

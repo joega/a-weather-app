@@ -123,7 +123,7 @@ func TestAirQualityOwnFreshnessAndExpiredValues(t *testing.T) {
 		{"clock-rollback", "invalid_future", -6 * time.Minute, -6 * time.Minute, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := &App{options: Options{Offline: true, Now: func() time.Time { return now }}, location: weather.DefaultLocation()}
+			a := &App{options: Options{Offline: true, Now: func() time.Time { return now }}, forecastPoint: &forecastPoint{location: weather.DefaultLocation()}}
 			a.aq.record = airQualityFixture(a.location, now.Add(-tc.fetchedAge), now.Add(-tc.validAge))
 			aq := a.airQualitySnapshot()
 			if aq["freshness"] != tc.freshness || aq["offline"] != true || aq["valid_at"] != a.aq.record["valid_at"] {
@@ -398,7 +398,7 @@ func TestAirQualityDisplayTimesUseSelectedZoneAcrossDST(t *testing.T) {
 		t.Run(tc.zone, func(t *testing.T) {
 			location := weather.DefaultLocation()
 			location["timezone"] = tc.zone
-			a := &App{location: location, options: Options{Now: func() time.Time { return fetched }}}
+			a := &App{forecastPoint: &forecastPoint{location: location}, options: Options{Now: func() time.Time { return fetched }}}
 			a.aq.record = airQualityFixture(location, fetched, valid)
 			aq := a.airQualitySnapshot()
 			if aq["valid_label"] != tc.valid || aq["fetched_label"] != tc.fetched {

@@ -67,25 +67,6 @@ func readZIPIdentity(state *safeio.Directory, location M) (M, error) {
 	return v, nil
 }
 
-// Keep the last schema-1 profile available for an explicit rollback. The new
-// profile is still published in one rename only after its forecast succeeds.
-func (a *App) backupLegacyProfile() error {
-	if a.profile == nil || a.profile["schema_version"] != float64(1) {
-		return nil
-	}
-	previous, err := a.state.Read("location-profile-v1.json", 2*1024*1024)
-	if err != nil {
-		return err
-	}
-	if previous != nil {
-		if previous["schema_version"] != float64(1) {
-			return errors.New("invalid rollback profile")
-		}
-		return ValidateProfile(previous)
-	}
-	return a.state.Write("location-profile-v1.json", a.profile, 2*1024*1024)
-}
-
 type searchCompletion struct {
 	generation float64
 	rows       []any

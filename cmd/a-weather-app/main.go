@@ -451,14 +451,11 @@ func prepareLocationWithResolver(state *safeio.Directory, zip, demo string, reso
 	} else {
 		loc = M{"name": "Boston, MA", "latitude": 42.3601, "longitude": -71.0589, "timezone": "America/New_York"}
 	}
-	profile, e := state.Read("location-profile.json", weather.MaxBytes)
+	profile, e := app.ReadPrimaryProfile(state)
 	if e != nil {
 		return e
 	}
 	if profile != nil {
-		if e = app.ValidateProfile(profile); e != nil {
-			return e
-		}
 		b, _ := json.Marshal(profile["location"])
 		c, _ := json.Marshal(loc)
 		if string(b) != string(c) {
@@ -513,7 +510,7 @@ func refreshSavedBar(root, statePath, runtimeDir string) error {
 	if err := verifyRuntime(root); err != nil {
 		return fmt.Errorf("runtime package verification failed: %w", err)
 	}
-	// A running GUI service already owns periodic refresh. This lock also
+	// A running GUI service owns publication. This lock also
 	// serializes separate bar instances on multiple monitors.
 	runtimeState, err := safeio.OpenDir(runtimeDir, true)
 	if err != nil {
@@ -530,6 +527,17 @@ func refreshSavedBar(root, statePath, runtimeDir string) error {
 	defer marker.Close()
 	lock, err := runtimeState.Lock("service.lock")
 	if errors.Is(err, syscall.EWOULDBLOCK) {
+		// The service owns the state lock. Admit one primary-city refresh
+		// through its bounded scheduler, even when the frontend browses elsewhere.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		reply, err := ipc.Call(ctx, filepath.Join(runtimeDir, "service.sock"), M{"op": "refresh_primary"})
+		if err != nil {
+			return err
+		}
+		if reply["ok"] != true {
+			return errors.New("bar refresh request failed")
+		}
 		return nil
 	}
 	if err != nil {

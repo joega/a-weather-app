@@ -133,7 +133,7 @@ func TestLateAlertGenerationAndShutdown(t *testing.T) {
 	newer.generation = generation + 1
 	newer.forecastGeneration = generation + 1
 	before := safeio.Clone(newer.forecast)
-	newer.results <- completion{generation: generation, location: newer.location, alerts: weather.UnavailableAlerts()}
+	newer.results <- completion{point: newer.forecastPoint, generation: generation, location: newer.location, alerts: weather.UnavailableAlerts()}
 	newer.poll()
 	if object(newer.forecast["alerts"])["status"] != object(before["alerts"])["status"] {
 		t.Fatal("old alerts adopted")
@@ -220,7 +220,7 @@ func TestRapidLocationChangeRejectsLateAlerts(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	close(released)
-	a.results <- completion{generation: oldGeneration, location: a.location, alerts: weather.UnavailableAlerts()}
+	a.results <- completion{point: a.forecastPoint, generation: oldGeneration, location: a.location, alerts: weather.UnavailableAlerts()}
 	if object(a.Snapshot()["alerts"])["freshness"] != "current" || a.location["name"] == "Other" {
 		t.Fatal("old location alerts overwritten current feed")
 	}

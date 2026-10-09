@@ -51,11 +51,11 @@ func TestPointMetricsSavedUpgradeOfflineAndFailedRefresh(t *testing.T) {
 	}
 	a.Handle(context.Background(), request("refresh", nil))
 	awaitCompletion(t, a)
-	saved, err := state.Read("location-profile.json", weather.MaxBytes)
+	_, _, saved, _, _, err := readSaved(state)
 	if err != nil || ValidateProfile(saved) != nil || saved["schema_version"] != 2.0 {
 		t.Fatal("metric refresh did not save a valid upgraded profile", err)
 	}
-	backup, err := state.Read("location-profile-v1.json", weather.MaxBytes)
+	backup, err := state.Read("location-profile.json", weather.MaxBytes)
 	if err != nil || !reflect.DeepEqual(backup, legacy) {
 		t.Fatal("legacy rollback changed", err)
 	}
@@ -82,7 +82,7 @@ func TestPointMetricsSavedUpgradeOfflineAndFailedRefresh(t *testing.T) {
 	fail = true
 	a.Handle(context.Background(), request("refresh", nil))
 	awaitCompletion(t, a)
-	after, err := state.Read("location-profile.json", weather.MaxBytes)
+	_, _, after, _, _, err := readSaved(state)
 	if err != nil || !reflect.DeepEqual(saved, after) || object(a.Snapshot()["current"])["pressure_msl_hpa"] != 1013.25 {
 		t.Fatal("failed refresh erased last-good metrics", err)
 	}
@@ -97,7 +97,7 @@ func TestPointMetricsFollowForecastFreshnessAndTime(t *testing.T) {
 	}{{0, "fresh"}, {46 * time.Minute, "stale"}, {121 * time.Minute, "expired"}} {
 		t.Run(tc.state, func(t *testing.T) {
 			now := fetched.Add(tc.age)
-			a := &App{options: Options{Now: func() time.Time { return now }}, location: weather.DefaultLocation(), forecast: f, controls: DefaultControls(), mode: "default", country: "US", launcherStatus: "ready"}
+			a := &App{options: Options{Now: func() time.Time { return now }}, forecastPoint: &forecastPoint{location: weather.DefaultLocation(), forecast: f, mode: "default", country: "US"}, controls: DefaultControls(), launcherStatus: "ready"}
 			s := a.snapshot()
 			if object(s["source"])["freshness"] != tc.state || object(s["current"])["time"] != fetched.Format(time.RFC3339) || object(s["current"])["uv_index"] != 0.0 {
 				t.Fatal("current metric timestamp/freshness changed or future UV borrowed")

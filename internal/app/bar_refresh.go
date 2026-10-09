@@ -12,11 +12,11 @@ import (
 // BarRefreshDue avoids network access for a fresh forecast or an installation
 // where the user has not chosen a location yet.
 func BarRefreshDue(state *safeio.Directory, now time.Time) (bool, error) {
-	_, forecast, profile, mode, _, err := readSaved(state)
+	_, forecast, _, mode, _, err := readSaved(state)
 	if err != nil {
 		return false, err
 	}
-	if profile == nil && mode == "default" {
+	if mode == "default" {
 		return false, nil
 	}
 	if forecast != nil {
@@ -41,7 +41,7 @@ func RefreshBarSaved(ctx context.Context, state *safeio.Directory, options Optio
 	if err != nil || !due {
 		return err
 	}
-	a, err := New(state, options)
+	a, err := newApp(state, options, true)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func RefreshBarSaved(ctx context.Context, state *safeio.Directory, options Optio
 	}
 	for {
 		a.poll()
-		if !a.fetchBusy && !a.locationBusy {
+		if !a.fetchBusy && !a.locationBusy && a.fetchCancel == nil {
 			if a.errorCode != nil || a.locationError != nil {
 				return errors.New("bar weather refresh failed")
 			}

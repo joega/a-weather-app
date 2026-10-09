@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/app"
 	"github.com/joega/a-weather-app/internal/ipc"
 	"github.com/joega/a-weather-app/internal/notifications"
 	"github.com/joega/a-weather-app/internal/safeio"
@@ -524,7 +525,7 @@ func benchmarkDocuments(saved string, reduced, effects bool) (map[string]any, ma
 		return nil, nil, nil, e
 	}
 	defer state.Close()
-	profile, e := state.Read("location-profile.json", 2*1024*1024)
+	profile, e := app.ReadPrimaryProfile(state)
 	if e != nil {
 		return nil, nil, nil, e
 	}

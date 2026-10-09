@@ -81,7 +81,7 @@ func TestGlobalPlaceAtomicSaveOfflineAndCountry(t *testing.T) {
 				t.Fatal(reply)
 			}
 			awaitCompletion(t, a)
-			saved, err := a.state.Read("location-profile.json", weather.MaxBytes)
+			_, _, saved, _, _, err := readSaved(a.state)
 			if err != nil || ValidateProfile(saved) != nil || saved["schema_version"] != 2.0 {
 				t.Fatal("profile", err, saved)
 			}
@@ -223,8 +223,8 @@ func TestLegacyProfileMigrationAndRollbackBackup(t *testing.T) {
 			a.options.Offline = false
 			a.Handle(context.Background(), request("refresh", nil))
 			awaitCompletion(t, a)
-			disk, _ = state.Read("location-profile.json", weather.MaxBytes)
-			backup, _ := state.Read("location-profile-v1.json", weather.MaxBytes)
+			_, _, disk, _, _, _ = readSaved(state)
+			backup, _ := state.Read("location-profile.json", weather.MaxBytes)
 			if disk["schema_version"] != 2.0 || ValidateProfile(disk) != nil || !reflect.DeepEqual(backup, profile) {
 				t.Fatal("migration or rollback backup failed", disk, backup)
 			}
@@ -232,31 +232,23 @@ func TestLegacyProfileMigrationAndRollbackBackup(t *testing.T) {
 	}
 }
 
-func TestMigrationBackupFailureLeavesLegacyProfile(t *testing.T) {
+func TestMigrationFailureLeavesLegacyProfile(t *testing.T) {
 	state := testState(t)
 	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 	profile := M{"schema_version": 1.0, "mode": "zip", "zip_code": "10001", "location": weather.DefaultLocation(), "forecast": appFixture(now)}
 	if err := state.Write("location-profile.json", profile, weather.MaxBytes); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(filepath.Join(state.Path, "location-profile-v1.json"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(state.Path, savedLocationsFile), 0700); err != nil {
 		t.Fatal(err)
 	}
-	a, err := New(state, Options{Offline: true, Now: func() time.Time { return now }, Fetch: func(_ context.Context, l M, n time.Time) (M, error) {
-		f := appFixture(n)
-		f["location"] = l
-		return f, nil
-	}})
-	if err != nil {
-		t.Fatal(err)
+	if a, err := New(state, Options{Offline: true, Now: func() time.Time { return now }}); err == nil {
+		a.Close(context.Background())
+		t.Fatal("unsafe migration target accepted")
 	}
-	defer a.Close(context.Background())
-	a.options.Offline = false
-	a.Handle(context.Background(), request("refresh", nil))
-	awaitCompletion(t, a)
 	disk, _ := state.Read("location-profile.json", weather.MaxBytes)
-	if !reflect.DeepEqual(disk, profile) || a.errorCode != "refresh_failed" {
-		t.Fatal("failed migration altered saved state")
+	if !reflect.DeepEqual(disk, profile) {
+		t.Fatal("failed migration altered rollback state")
 	}
 }
 
@@ -359,7 +351,7 @@ func TestZIPIdentityMigrationValidationAndProfilePrecedence(t *testing.T) {
 	a.options.Offline = false
 	a.Handle(context.Background(), request("refresh", nil))
 	awaitCompletion(t, a)
-	profile, _ := state.Read("location-profile.json", weather.MaxBytes)
+	_, _, profile, _, _, _ := readSaved(state)
 	if profile["schema_version"] != 2.0 || profile["mode"] != "zip" || ValidateProfile(profile) != nil {
 		t.Fatal("CLI identity not upgraded")
 	}
@@ -387,6 +379,10 @@ func TestZIPIdentityMigrationValidationAndProfilePrecedence(t *testing.T) {
 		bad := safeio.Clone(base)
 		for k, v := range patch {
 			bad[k] = v
+		}
+		fresh := testState(t)
+		if err := fresh.Write("location.json", loc, 8192); err != nil {
+			t.Fatal(err)
 		}
 		if err = fresh.Write("location-identity.json", bad, 8192); err != nil {
 			t.Fatal(err)

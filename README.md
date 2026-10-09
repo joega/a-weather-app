@@ -444,22 +444,30 @@ asset servers only when you choose to update. Private update state includes
 `update-status.json`, `update-transaction.json`, and empty lock files in the
 configured state directory. Runtime versions, staging directories and the
 installation lock live under the managed data directory.
-Location profiles use schema 2. Schema-1 profiles and older separate location
-and forecast files remain readable; a profile upgrades after a successful saved
-forecast. Before upgrading a schema-1 profile, the app keeps
-`location-profile-v1.json` in the same private state directory. To roll back to
-an older app, quit first, back up the current state, and restore that file as
-`location-profile.json` with mode `0600`. Older versions cannot read schema-2
-profiles or worldwide place selections; a full pre-update state backup is
-required to restore those installations.
+Saved-location state uses `saved-locations.json` with explicit primary and viewed
+identities. Startup migrates schema-1/schema-2 profiles or older separate location
+and forecast files, including in offline mode. Original files remain unchanged
+for rollback. The list is limited to 20 places; four full forecasts are retained
+across five atomic cache slots, with at most 10 MiB of slot files. Only the viewed
+and primary cities stay decoded for consumers. Saving a place does not enable
+background fetching for it. The saved-city picker is still under development;
+the existing city-selection flow continues to change the primary location.
+The new manifest is authoritative once migration succeeds. A damaged forecast
+cache leaves its saved identity available; invalid metadata does not silently
+restore a different city from older files. Before downgrading, quit the app and
+back up the whole state directory. The immediately preceding app can use the
+retained legacy files, which represent the state at migration. Still older
+versions may require a pre-update backup because they cannot read schema-2
+profiles or worldwide city selections.
 Effects use a private `a-weather-app-effects-*` directory under the system
 temporary directory (`$TMPDIR` when configured, normally `/tmp`), with bounded
 logs. Failed cleanup retains that directory for inspection. Launcher failures
 may retain `guardian-last-error.log` in the state directory.
 
 `./a-weather-app --bar` reads cached status without starting the app or making
-network requests. `--refresh-bar` makes one due refresh for the saved location
-without opening the window. `--state-dir` selects an isolated state directory; ZIP and demo
+network requests. `--refresh-bar` makes one due refresh for the primary location
+without opening the window. If the service is running, it admits that refresh
+through the same bounded queue, even while another city is being viewed. `--state-dir` selects an isolated state directory; ZIP and demo
 overrides retain their original `locations/ZIP` and `demos/boston` subdirectories.
 Output directories must be owned by you with mode `0700`; input files must be
 regular, owned by you, and not writable by other users. Symlinks are refused.
