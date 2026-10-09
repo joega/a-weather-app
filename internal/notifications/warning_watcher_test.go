@@ -178,6 +178,39 @@ func TestWarningWatcherReservesBeforeSendAndDeduplicatesRestart(t *testing.T) {
 	}
 }
 
+func TestWarningRecentNoticesRetainScopeOutcomeAndOriginalTimezone(t *testing.T) {
+	calls := make(chan warningSendCall, 2)
+	w := warningWatch(t, testState(t), warningProbe(calls, false))
+	location := warningTarget()
+	warningEnable(t, w, location, warningTestNow)
+	m := warningFixture("recent", "Alert", warningTestNow)
+	warningFeed(w, warningTestNow, m)
+	call := warningCall(t, calls)
+	rows := w.Snapshot()["recent"].([]any)
+	if len(rows) != 1 || rows[0].(M)["delivery"] != "pending" || rows[0].(M)["key"] != m.Identity.Key() {
+		t.Fatal("pending notice missing", rows)
+	}
+	warningFinish(t, w, call, location, warningTestNow, errors.New("daemon rejected"))
+	rows = w.Snapshot()["recent"].([]any)
+	if rows[0].(M)["delivery"] != "failed" {
+		t.Fatal("failed notice mislabeled", rows)
+	}
+	rows[0].(M)["place"] = "mutated"
+	if w.Snapshot()["recent"].([]any)[0].(M)["place"] == "mutated" {
+		t.Fatal("snapshot changed owned notice")
+	}
+	other := M{"name": "London", "latitude": 51.5, "longitude": -0.1, "timezone": "Europe/London"}
+	w.Tick(other, "GB", true, warningTestNow.Add(time.Minute))
+	n, _, ok := w.Detail(call.notice.Location, call.notice.Key, warningTestNow.Add(time.Minute))
+	if !ok || n.Timezone != "America/New_York" || n.Place != location["name"] {
+		t.Fatal("detail followed new primary", n)
+	}
+	w.Tick(other, "GB", true, warningTestNow.Add(24*time.Hour))
+	if len(w.Snapshot()["recent"].([]any)) != 0 {
+		t.Fatal("expired recent notice retained")
+	}
+}
+
 func TestWarningWatcherFailedAndUncertainNeverRetry(t *testing.T) {
 	for _, test := range []struct {
 		name   string

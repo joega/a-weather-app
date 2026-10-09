@@ -65,6 +65,7 @@ GlassPanel {
     property bool effectsRunning: false
     property bool persistent: false
     property var notifications: Forecast.notifications()
+    property var officialWarnings: Forecast.warningNotifications()
     property string timezone: "UTC"
     property var setup: ({
             status: "unchecked",
@@ -111,6 +112,10 @@ GlassPanel {
     signal notificationsPatch(var values)
     signal notificationPauseRequested
     signal notificationResumeRequested
+    signal warningPatch(var values)
+    signal warningPauseRequested
+    signal warningResumeRequested
+    signal warningDetailRequested(var reference)
     property string launcherStatus: "ready"
     property var updateStatus: Forecast.updateStatus(null)
     signal checkUpdatesRequested
@@ -132,6 +137,11 @@ GlassPanel {
     function focusLocation() {
         showSection(locationSection);
         citySearch.focusQuery();
+    }
+    function showNotifications(reference) {
+        showSection(notificationsSection);
+        if (!notificationsSection.focusWarning(reference))
+            notificationsButton.forceActiveFocus();
     }
     function showSection(section) {
         settingsScroll.contentY = Math.max(0, Math.min(section.y, Math.max(0, settingsScroll.contentHeight - settingsScroll.height)));
@@ -183,6 +193,7 @@ GlassPanel {
                 onClicked: root.showSection(locationSection)
             }
             ActionButton {
+                id: notificationsButton
                 objectName: "settingsNotificationsSection"
                 text: "Notifications"
                 selected: root.activeSection === notificationsSection
@@ -483,6 +494,9 @@ GlassPanel {
                 id: notificationsSection
                 Layout.fillWidth: true
                 notifications: root.notifications
+                officialWarnings: root.officialWarnings
+                primaryName: root.primaryLocation
+                settingsVisible: root.visible
                 timezone: root.timezone
                 busy: root.busy
                 serviceAvailable: root.serviceAvailable
@@ -491,6 +505,10 @@ GlassPanel {
                 onPauseRequested: root.notificationPauseRequested()
                 onResumeRequested: root.notificationResumeRequested()
                 onQuitRequested: root.quitRequested()
+                onWarningPatch: values => root.warningPatch(values)
+                onWarningPauseRequested: root.warningPauseRequested()
+                onWarningResumeRequested: root.warningResumeRequested()
+                onWarningDetailRequested: reference => root.warningDetailRequested(reference)
             }
             Rectangle {
                 Layout.fillWidth: true

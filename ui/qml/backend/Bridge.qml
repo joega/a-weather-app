@@ -43,9 +43,37 @@ Item {
     property string queuedMapOp: ""
     property var queuedSearch: null
     property bool cancelSearchQueued: false
+    property var warningTarget: null
+    property var warningDetail: null
+    property string warningState: "closed"
+    property string warningError: ""
+    property int warningGeneration: 0
+    property int pendingWarningGeneration: -1
+    property var pendingWarningTarget: null
+    property var queuedWarning: null
     property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation"].indexOf(pendingOp) < 0)
     signal closed(int exitCode)
     signal toggleWindow
+    signal warningRequested(var reference)
+    function loadWarning(reference) {
+        warningGeneration++;
+        warningTarget = Forecast.warningReference(reference);
+        warningDetail = null;
+        warningError = "";
+        warningState = "loading";
+        if (!send("warning_detail", warningTarget)) {
+            warningState = "unavailable";
+            warningError = "Warning details are unavailable while the weather service is disconnected.";
+        }
+    }
+    function closeWarning() {
+        warningGeneration++;
+        warningTarget = null;
+        warningDetail = null;
+        warningState = "closed";
+        warningError = "";
+        queuedWarning = null;
+    }
     function send(op, patch) {
         if (closing && op !== "quit")
             return false;
@@ -55,6 +83,10 @@ Item {
             return false;
         }
         if (pending >= 0) {
+            if (op === "warning_detail") {
+                queuedWarning = Forecast.warningReference(patch);
+                return true;
+            }
             if (op === "snapshot")
                 return false;
             if (op === "set_presentation") {
@@ -110,8 +142,13 @@ Item {
             request.active = patch.active;
         if (op === "set_controls")
             request.controls = patch;
-        if (op === "set_notifications")
+        if (op === "set_notifications" || op === "set_warning_notifications")
             request.notifications = patch;
+        if (op === "warning_detail") {
+            request.warning = Forecast.warningReference(patch);
+            pendingWarningTarget = request.warning;
+            pendingWarningGeneration = warningGeneration;
+        }
         if (op === "set_location" || op === "add_location" || op === "saved_location")
             request.location = patch;
         if (op === "search_places")
@@ -179,6 +216,12 @@ Item {
             send(op, patch);
             return;
         }
+        if (queuedWarning !== null) {
+            const reference = queuedWarning;
+            queuedWarning = null;
+            send("warning_detail", reference);
+            return;
+        }
         if (cancelSearchQueued) {
             cancelSearchQueued = false;
             send("cancel_place_search");
@@ -198,6 +241,7 @@ Item {
         queuedSearch = null;
         cancelSearchQueued = false;
         stopQueued = false;
+        queuedWarning = null;
     }
     function finishClose(exitCode) {
         if (closeReported)
@@ -216,6 +260,11 @@ Item {
         error = message;
         pending = -1;
         pendingOp = "";
+        if (warningState !== "closed") {
+            warningDetail = null;
+            warningState = "unavailable";
+            warningError = "Warning details are unavailable while the weather service is disconnected.";
+        }
         clearQueuedActions();
         deadline.stop();
         root.weatherTransport.disconnectService();
@@ -229,6 +278,13 @@ Item {
         if (revision <= lastSnapshotRevision)
             return;
         let next = Forecast.snapshot(raw);
+        if (snapshot && snapshot.warning_notifications.settings.enabled && !next.warning_notifications.settings.enabled && warningTarget !== null) {
+            warningGeneration++;
+            queuedWarning = null;
+            warningDetail = null;
+            warningState = "unavailable";
+            warningError = "Warning monitoring was turned off. Recent notices have been cleared.";
+        }
         lastSnapshotRevision = revision;
         snapshot = next;
         if (diagnostic)
@@ -242,7 +298,11 @@ Item {
             if (value.event !== undefined) {
                 if (value.event === "toggle_window")
                     toggleWindow();
-                else if (value.event === "map") {
+                else if (value.event === "warning_open") {
+                    const reference = Forecast.warningReference(value.warning);
+                    if (!closing)
+                        warningRequested(reference);
+                } else if (value.event === "map") {
                     if (mapWanted)
                         weatherMap = Forecast.weatherMap(value.map);
                 } else if (value.event === "service_stopped") {
@@ -275,11 +335,25 @@ Item {
                     finishClose(1);
                 return;
             }
+            if (completedOp === "warning_detail") {
+                let detail = value.ok ? Forecast.warningDetail(value.warning) : null;
+                if (detail && (detail.location !== pendingWarningTarget.location || detail.key !== pendingWarningTarget.key))
+                    throw Error("Warning reply does not match its request");
+                if (!closing && warningTarget !== null && pendingWarningGeneration === warningGeneration) {
+                    warningDetail = detail;
+                    warningState = detail ? "ready" : "unavailable";
+                    warningError = detail ? "" : value.error === "warning_detail_too_large" ? "This original notice exceeds the detail size limit. Its instructions have not been shortened." : "This notice is no longer available in this session. It may have expired from the recent list, or monitoring was turned off. Check the current alert feed.";
+                }
+                pendingWarningTarget = null;
+                pendingWarningGeneration = -1;
+                drainUserAction();
+                return;
+            }
             if (!closing) {
                 if (value.ok)
                     error = "";
                 else
-                    error = value.error === "location_limit" ? "You can save up to 20 places. Remove one before adding another." : value.error === "offline" ? "Adding a place requires an internet connection. Saved places remain available." : value.error === "save_unconfirmed" ? "The change is visible, but saving could not be confirmed." : completedOp === "saved_location" ? "The saved place could not be changed. Try again." : completedOp === "set_location" || completedOp === "add_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
+                    error = value.error === "location_limit" ? "You can save up to 20 places. Remove one before adding another." : value.error === "offline" ? "Adding a place requires an internet connection. Saved places remain available." : value.error === "save_unconfirmed" ? "The change is visible, but saving could not be confirmed." : completedOp === "saved_location" ? "The saved place could not be changed. Try again." : completedOp === "set_location" || completedOp === "add_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications", "set_warning_notifications", "pause_warning_notifications", "resume_warning_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
             }
             drainUserAction();
         } catch (e) {

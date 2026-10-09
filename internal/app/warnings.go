@@ -36,7 +36,7 @@ func (a *App) configureWarnings(patch M) error {
 }
 func (a *App) warningSnapshot() M {
 	if a.warnings == nil {
-		return M{"settings": notifications.WarningDefaults(), "state": "off", "reason": "", "paused_until": nil, "supported": false, "delivery": "none", "fetched_at": nil, "complete": false, "last": nil, "actions": false, "ready": false}
+		return M{"settings": notifications.WarningDefaults(), "state": "off", "reason": "", "paused_until": nil, "supported": false, "delivery": "none", "fetched_at": nil, "complete": false, "last": nil, "recent": []any{}, "actions": false, "ready": false}
 	}
 	v := a.warnings.Snapshot()
 	capable, ready, actions := a.warningDesktop.status()
@@ -57,8 +57,14 @@ func (a *App) warningDetail(id float64, query M) M {
 	if !ok {
 		return reply
 	}
+	zone, err := time.LoadLocation(notice.Timezone)
+	if err != nil {
+		zone = time.UTC
+	}
+	label := func(t time.Time) string { return t.In(zone).Format("Mon Jan 2, 3:04 PM MST") }
 	result := M{"version": 1.0, "request_id": id, "ok": true, "warning": M{
 		"location": location, "key": key, "place": notice.Place, "kind": notice.Kind,
+		"timezone": zone.String(), "sent_label": label(message.Identity.Sent), "effective_label": label(message.Effective), "expires_label": label(message.Expires),
 		"event": message.Event, "issuer": message.Issuer, "headline": message.Headline,
 		"description": message.Description, "instruction": message.Instruction, "area": message.Area,
 		"severity": message.Severity, "urgency": message.Urgency, "certainty": message.Certainty,

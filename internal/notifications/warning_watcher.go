@@ -31,10 +31,11 @@ type warningDeliveryJob struct {
 }
 
 type warningDetailRecord struct {
-	notice  WarningNotice
-	message weather.AlertMessage
-	created time.Time
-	bytes   int
+	notice   WarningNotice
+	message  weather.AlertMessage
+	created  time.Time
+	bytes    int
+	delivery string
 }
 
 // WarningWatcher owns opt-in policy, one primary target, bounded source bodies,
@@ -388,8 +389,10 @@ func (w *WarningWatcher) collect(now time.Time) {
 		}
 		job.cancel()
 		w.job, w.delivery, w.dirty = nil, status, true
+		w.setDetailDelivery(job.receipt.Decision, status)
 		if err := w.ledger.Finish(job.receipt, status, now); err != nil {
 			w.delivery = "uncertain"
+			w.setDetailDelivery(job.receipt.Decision, "uncertain")
 			reason := "save_unconfirmed"
 			if errors.Is(err, ErrWarningClock) {
 				reason = "clock_changed"
@@ -399,6 +402,7 @@ func (w *WarningWatcher) collect(now time.Time) {
 	default:
 		if job.ctx.Err() != nil {
 			w.delivery = "uncertain"
+			w.setDetailDelivery(job.receipt.Decision, "uncertain")
 		}
 	}
 }
@@ -553,18 +557,31 @@ func (w *WarningWatcher) Interval(now time.Time) time.Duration {
 func (w *WarningWatcher) Snapshot() M {
 	var fetched any
 	if !w.fetched.IsZero() {
-		fetched = w.fetched.UTC().Format(time.RFC3339Nano)
+		fetched = w.fetched.UTC().Format(time.RFC3339)
 	}
 	var last any
 	if w.lastNotice != nil {
 		last = M{"key": w.lastNotice.Key, "location": w.lastNotice.Location, "place": w.lastNotice.Place, "kind": w.lastNotice.Kind, "title": w.lastNotice.Title}
 	}
-	return M{"settings": safeio.Clone(w.document["settings"].(M)), "state": w.mode, "reason": w.reason, "paused_until": w.document["paused_until"], "supported": w.send != nil, "delivery": w.delivery, "fetched_at": fetched, "complete": w.complete, "last": last}
+	recent := make([]any, 0, len(w.details))
+	for i := len(w.details) - 1; i >= 0; i-- {
+		d := w.details[i]
+		recent = append(recent, M{"key": d.notice.Key, "location": d.notice.Location, "place": d.notice.Place, "title": d.notice.Title, "kind": d.notice.Kind, "created_at": d.created.UTC().Format(time.RFC3339), "delivery": d.delivery})
+	}
+	return M{"settings": safeio.Clone(w.document["settings"].(M)), "state": w.mode, "reason": w.reason, "paused_until": w.document["paused_until"], "supported": w.send != nil, "delivery": w.delivery, "fetched_at": fetched, "complete": w.complete, "last": last, "recent": recent}
+}
+
+func (w *WarningWatcher) setDetailDelivery(decision WarningDecision, status string) {
+	for i := range w.details {
+		if w.details[i].notice.Key == decision.Key && w.details[i].notice.Location == decision.Location {
+			w.details[i].delivery = status
+		}
+	}
 }
 
 func (w *WarningWatcher) rememberDetail(notice WarningNotice, m weather.AlertMessage, now time.Time) {
 	bytes := 0
-	for _, v := range []string{notice.Key, notice.Location, notice.Kind, notice.Place, notice.Title, notice.Body, notice.Urgency, m.Identity.ID, m.Identity.Sender, m.Type, m.Issuer, m.Event, m.Area, m.Headline, m.Description, m.Instruction, m.Severity, m.Urgency, m.Certainty} {
+	for _, v := range []string{notice.Key, notice.Location, notice.Kind, notice.Place, notice.Timezone, notice.Title, notice.Body, notice.Urgency, m.Identity.ID, m.Identity.Sender, m.Type, m.Issuer, m.Event, m.Area, m.Headline, m.Description, m.Instruction, m.Severity, m.Urgency, m.Certainty} {
 		bytes += len(v)
 	}
 	for _, ref := range m.References {
@@ -586,7 +603,7 @@ func (w *WarningWatcher) rememberDetail(notice WarningNotice, m weather.AlertMes
 		kept[0] = warningDetailRecord{}
 		kept = kept[1:]
 	}
-	w.details = append(kept, warningDetailRecord{notice, m, now, bytes})
+	w.details = append(kept, warningDetailRecord{notice: notice, message: m, created: now, bytes: bytes, delivery: "pending"})
 	w.detailBytes = total + bytes
 }
 

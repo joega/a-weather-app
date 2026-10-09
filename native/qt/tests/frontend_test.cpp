@@ -230,6 +230,80 @@ class FrontendTest : public QObject {
                 {"european_aqi", 125},
                 {"pm2_5_ug_m3", 12.4}};
     }
+    QJsonObject warningDetailFixture(QChar key = 'b') {
+        return {
+            {"location", QString(64, 'a')},
+            {"key", QString(64, key)},
+            {"place", "Boston, MA"},
+            {"kind", "new"},
+            {"timezone", "America/New_York"},
+            {"sent_label", "Fri Oct 9, 8:00 AM EDT"},
+            {"effective_label", "Fri Oct 9, 8:00 AM EDT"},
+            {"expires_label", "Sat Oct 10, 12:00 PM EDT"},
+            {"event", "Flood Warning"},
+            {"issuer", "NWS Boston / Norton"},
+            {"headline", "Flood warning for the Charles River"},
+            {"description", "Water levels are rising after sustained rainfall. Low-lying roads may "
+                            "become impassable.\nThis is a test fixture, not a live warning."},
+            {"instruction", "Move to higher ground.\nDo not drive through flooded roads.\n<b>This "
+                            "source text must remain plain text.</b>"},
+            {"area", "Boston and surrounding communities"},
+            {"severity", "Severe"},
+            {"urgency", "Immediate"},
+            {"certainty", "Observed"},
+            {"sent", "2026-10-09T12:00:00Z"},
+            {"effective", "2026-10-09T12:00:00Z"},
+            {"expires", "2026-10-10T16:00:00Z"}};
+    }
+    QJsonObject warningSnapshot(qint64 revision, bool enabled = true) {
+        auto value = selectedSnapshot(revision, "Berlin, Germany");
+        auto saved = savedSnapshot(revision, 2)["saved_locations"].toObject();
+        auto places = saved["items"].toArray();
+        auto primary = places[0].toObject();
+        primary["name"] = "Boston, MA";
+        primary["label"] = "";
+        places[0] = primary;
+        auto viewed = places[1].toObject();
+        viewed["name"] = "Berlin, Germany";
+        viewed["country_code"] = "DE";
+        viewed["timezone"] = "Europe/Berlin";
+        viewed["summary"] = QJsonValue::Null;
+        places[1] = viewed;
+        saved["items"] = places;
+        saved["viewed"] = viewed["id"];
+        value["saved_locations"] = saved;
+        auto locationSettings = value["location_settings"].toObject();
+        locationSettings["country_code"] = "DE";
+        value["location_settings"] = locationSettings;
+        auto detail = warningDetailFixture();
+        QJsonObject summary{{"key", detail["key"]},
+                            {"location", detail["location"]},
+                            {"place", detail["place"]},
+                            {"title", detail["event"]},
+                            {"kind", "new"}};
+        auto recent = summary;
+        recent["created_at"] = "2026-10-09T12:00:00Z";
+        recent["delivery"] = "sent";
+        value["warning_notifications"] = QJsonObject{
+            {"settings", QJsonObject{{"enabled", enabled},
+                                     {"minimum_severity", "severe"},
+                                     {"quiet_enabled", true},
+                                     {"quiet_start", 22},
+                                     {"quiet_end", 7},
+                                     {"urgent_override", false}}},
+            {"state", enabled ? "watching" : "off"},
+            {"reason", ""},
+            {"paused_until", QJsonValue::Null},
+            {"supported", true},
+            {"ready", enabled},
+            {"actions", false},
+            {"delivery", enabled ? "sent" : "none"},
+            {"fetched_at", enabled ? QJsonValue("2026-10-09T12:00:00Z") : QJsonValue::Null},
+            {"complete", enabled},
+            {"last", enabled ? QJsonValue(summary) : QJsonValue::Null},
+            {"recent", enabled ? QJsonArray{recent} : QJsonArray{}}};
+        return value;
+    }
     void deliver(FakeTransport& transport, const QJsonObject& v) {
         emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));
     }
@@ -2379,6 +2453,334 @@ class FrontendTest : public QObject {
         QVERIFY(window);
         QTRY_VERIFY(window->isVisible());
         QTRY_VERIFY(window->isExposed());
+    }
+    void warningQueueRejectsOldOrMismatchedDetails() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        auto load = [&](QChar key) {
+            const QVariant reference =
+                QVariantMap{{"location", QString(64, 'a')}, {"key", QString(64, key)}};
+            return QMetaObject::invokeMethod(bridge.data(), "loadWarning",
+                                             Q_ARG(QVariant, reference));
+        };
+        QVERIFY(evaluate(engine, bridge.data(), "send('set_controls', {units:'C'})").toBool());
+        QVERIFY(load('b'));
+        QVERIFY(load('c'));
+        QCOMPARE(transport.requests.size(), 1);
+        deliver(transport, {{"version", 1}, {"request_id", 0}, {"ok", true}});
+        QCOMPARE(transport.requests.size(), 2);
+        QCOMPARE(transport.requests.last()["op"].toString(), "warning_detail");
+        QCOMPARE(transport.requests.last()["warning"].toMap()["key"].toString(), QString(64, 'c'));
+        QVERIFY(QMetaObject::invokeMethod(bridge.data(), "closeWarning"));
+        deliver(transport, {{"version", 1},
+                            {"request_id", 1},
+                            {"ok", true},
+                            {"warning", warningDetailFixture('c')}});
+        QCOMPARE(bridge->property("warningState").toString(), "closed");
+        QVERIFY(evaluate(engine, bridge.data(), "warningDetail === null").toBool());
+        QVERIFY(load('b'));
+        deliver(
+            transport,
+            {{"version", 1}, {"request_id", 2}, {"ok", true}, {"warning", warningDetailFixture()}});
+        QCOMPARE(bridge->property("warningState").toString(), "ready");
+        QCOMPARE(evaluate(engine, bridge.data(), "warningDetail.instruction").toString(),
+                 warningDetailFixture()["instruction"].toString());
+        QVERIFY(load('c'));
+        deliver(
+            transport,
+            {{"version", 1}, {"request_id", 3}, {"ok", true}, {"warning", warningDetailFixture()}});
+        QVERIFY(bridge->property("disconnected").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "warningDetail === null").toBool());
+    }
+    void warningContractsAndUnavailableDetails() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        const auto status = warningSnapshot(1)["warning_notifications"].toObject();
+        auto valid = [&](const QJsonObject& value, const QString& validator) {
+            return evaluate(
+                       engine, bridge.data(),
+                       "(function(){try { Forecast." + validator + "(" +
+                           QString::fromUtf8(QJsonDocument(value).toJson(QJsonDocument::Compact)) +
+                           "); return true; } catch(e) { return false; }})()")
+                .toBool();
+        };
+        QVERIFY(valid(status, "warningNotifications"));
+        auto bad = status;
+        auto settings = bad["settings"].toObject();
+        settings["quiet_start"] = 7;
+        bad["settings"] = settings;
+        QVERIFY(!valid(bad, "warningNotifications"));
+        bad = status;
+        bad["ready"] = false;
+        bad["actions"] = true;
+        QVERIFY(!valid(bad, "warningNotifications"));
+        bad = status;
+        auto recent = bad["recent"].toArray();
+        for (int i = 0; i < 16; ++i)
+            recent.append(recent.first());
+        bad["recent"] = recent;
+        QVERIFY(!valid(bad, "warningNotifications"));
+        auto detail = warningDetailFixture();
+        QVERIFY(valid(detail, "warningDetail"));
+        detail["description"] = QString(32001, 'x');
+        QVERIFY(!valid(detail, "warningDetail"));
+        const QVariant reference =
+            QVariantMap{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}};
+        QVERIFY(
+            QMetaObject::invokeMethod(bridge.data(), "loadWarning", Q_ARG(QVariant, reference)));
+        deliver(
+            transport,
+            {{"version", 1}, {"request_id", 0}, {"ok", false}, {"error", "warning_unavailable"}});
+        QCOMPARE(bridge->property("warningState").toString(), "unavailable");
+        QVERIFY(!bridge->property("disconnected").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "warningDetail === null").toBool());
+    }
+    void warningOptOutClearsReadyAndPendingDetails() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        const QVariant reference =
+            QVariantMap{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}};
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            deliver(transport, {{"version", 1},
+                                {"event", "snapshot"},
+                                {"snapshot", warningSnapshot(attempt * 2 + 1)}});
+            QVERIFY(QMetaObject::invokeMethod(bridge.data(), "loadWarning",
+                                              Q_ARG(QVariant, reference)));
+            const QJsonObject reply{{"version", 1},
+                                    {"request_id", attempt},
+                                    {"ok", true},
+                                    {"warning", warningDetailFixture()}};
+            if (attempt == 0) {
+                deliver(transport, reply);
+                QCOMPARE(bridge->property("warningState").toString(), "ready");
+            }
+            deliver(transport, {{"version", 1},
+                                {"event", "snapshot"},
+                                {"snapshot", warningSnapshot(attempt * 2 + 2, false)}});
+            if (attempt == 1)
+                deliver(transport, reply);
+            QCOMPARE(bridge->property("warningState").toString(), "unavailable");
+            QVERIFY(bridge->property("warningError").toString().contains("turned off"));
+            QVERIFY(evaluate(engine, bridge.data(), "warningDetail === null").toBool());
+            QVERIFY(!bridge->property("disconnected").toBool());
+            QVERIFY(QMetaObject::invokeMethod(bridge.data(), "closeWarning"));
+        }
+    }
+    void warningNativeClickShowsLazyOriginalDetailAndKeepsAlive() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window);
+        deliver(transport,
+                {{"version", 1}, {"event", "snapshot"}, {"snapshot", warningSnapshot(1)}});
+        auto* loader = root->findChild<QObject*>("warningDetailsLoader");
+        QVERIFY(loader);
+        QVERIFY(!loader->property("active").toBool());
+        QVERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(QMetaObject::invokeMethod(root, "dismissWindow"));
+        QTRY_VERIFY(!window->isVisible());
+        QCOMPARE(transport.requests.size(), 0); // Warning opt-in hides rather than quitting.
+        const QJsonObject reference{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}};
+        deliver(transport, {{"version", 1},
+                            {"event", "warning_open"},
+                            {"warning", reference},
+                            {"activation_token", ""}});
+        QTRY_VERIFY(window->isVisible());
+        QTRY_VERIFY(window->isExposed());
+        QVERIFY(loader->property("active").toBool());
+        QTRY_VERIFY(loader->property("item").value<QObject*>());
+        auto* popup = loader->property("item").value<QObject*>();
+        QTRY_VERIFY(popup->property("opened").toBool());
+        QCOMPARE(transport.requests.last()["op"].toString(), "warning_detail");
+        deliver(transport, {{"version", 1},
+                            {"request_id", transport.requests.last()["request_id"].toInt()},
+                            {"ok", true},
+                            {"warning", warningDetailFixture()}});
+        QTRY_COMPARE(popup->property("state").toString(), "ready");
+        auto* place = popup->findChild<QObject*>("warningDetailPlace");
+        QVERIFY(place);
+        QCOMPARE(place->property("text").toString(), "Boston, MA");
+        QQuickItem* source = nullptr;
+        QTRY_VERIFY((source = visualItem(window->contentItem(), "warningSource_instruction")));
+        QCOMPARE(source->property("text").toString(),
+                 warningDetailFixture()["instruction"].toString());
+        QCOMPARE(source->property("textFormat").toInt(), 0);
+        QVERIFY(source->property("readOnly").toBool());
+        for (int i = 0; i < 8 && window->activeFocusItem() != source; ++i)
+            QTest::keyClick(window, Qt::Key_Tab);
+        QCOMPARE(window->activeFocusItem(), source);
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_WARNING_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-detail-wide.png"));
+            window->resize(700, 650);
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-detail-compact.png"));
+        }
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!loader->property("active").toBool());
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(evaluate(engine, root, "backend.warningDetail === null").toBool());
+        QVERIFY(window->isVisible());
+        QVERIFY(evaluate(engine, root, "!backend.closing").toBool());
+        // A click with the window already visible must still show it, never toggle it off.
+        deliver(transport, {{"version", 1},
+                            {"event", "warning_open"},
+                            {"warning", reference},
+                            {"activation_token", ""}});
+        QTRY_VERIFY(window->isVisible());
+        QVERIFY(root->property("warningOpen").toBool());
+    }
+    void warningSettingsWaitForSavedStateAndOpenRecentNotice() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window);
+        deliver(transport,
+                {{"version", 1}, {"event", "snapshot"}, {"snapshot", warningSnapshot(1, false)}});
+        auto* settingsLoader = root->findChild<QObject*>("warningSettingsLoader");
+        QVERIFY(settingsLoader);
+        QVERIFY(!settingsLoader->property("active").toBool());
+        root->setProperty("effectsOpen", true);
+        QTRY_VERIFY(settingsLoader->property("item").value<QObject*>());
+        auto* drawer = root->findChild<QObject*>("effectsDrawer");
+        QVERIFY(
+            QMetaObject::invokeMethod(drawer, "showNotifications", Q_ARG(QVariant, QVariant())));
+        auto* panel = settingsLoader->property("item").value<QObject*>();
+        auto* toggle = qobject_cast<QQuickItem*>(panel->findChild<QObject*>("warningEnabled"));
+        QVERIFY(toggle);
+        toggle->forceActiveFocus();
+        QTRY_VERIFY(window->isExposed());
+        QTest::keyClick(window, Qt::Key_Space);
+        QCOMPARE(transport.requests.size(), 1);
+        QCOMPARE(transport.requests.last()["op"].toString(), "set_warning_notifications");
+        QCOMPARE(transport.requests.last()["notifications"].toMap()["enabled"].toBool(), true);
+        QVERIFY(!toggle->property("checked").toBool());
+        deliver(
+            transport,
+            {{"version", 1}, {"request_id", 0}, {"ok", true}, {"snapshot", warningSnapshot(2)}});
+        QTRY_VERIFY(toggle->property("checked").toBool());
+        QVERIFY(
+            QMetaObject::invokeMethod(drawer, "showNotifications", Q_ARG(QVariant, QVariant())));
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_WARNING_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-settings-wide.png"));
+            window->resize(700, 650);
+            QTest::qWait(80);
+            QVERIFY(window->grabWindow().save(prefix + "-settings-compact.png"));
+        }
+        auto* recent = qobject_cast<QQuickItem*>(panel->findChild<QObject*>("recentWarning0"));
+        if (!recent)
+            recent = visualItem(window->contentItem(), "recentWarning0");
+        QVERIFY(recent);
+        recent->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY(root->property("warningOpen").toBool());
+        QVERIFY(!settingsLoader->property("active").toBool());
+        QCOMPARE(transport.requests.last()["op"].toString(), "warning_detail");
+        auto* detailLoader = root->findChild<QObject*>("warningDetailsLoader");
+        QTRY_VERIFY(detailLoader->property("item").value<QObject*>());
+        auto* popup = detailLoader->property("item").value<QObject*>();
+        QTRY_VERIFY(popup->property("opened").toBool());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(root->property("effectsOpen").toBool());
+        QTRY_VERIFY(settingsLoader->property("active").toBool());
+        QTRY_VERIFY(window->activeFocusItem() &&
+                    window->activeFocusItem()->objectName() == "recentWarning0");
+        root->setProperty("effectsOpen", false);
+        QTRY_VERIFY(!settingsLoader->property("item").value<QObject*>());
+    }
+    void warningLongSourceAndRepeatedCloseReleaseObjects() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window);
+        window->resize(700, 650);
+        auto snapshot = warningSnapshot(1);
+        auto controls = snapshot["controls"].toObject();
+        controls["reduced_motion"] = true;
+        snapshot["controls"] = controls;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", snapshot}});
+        QTRY_VERIFY(window->isExposed());
+        auto* loader = root->findChild<QObject*>("warningDetailsLoader");
+        QVERIFY(loader);
+        const QJsonObject reference{{"location", QString(64, 'a')}, {"key", QString(64, 'b')}};
+        auto detail = warningDetailFixture();
+        detail["instruction"] = QString("Original instructions.\n").repeated(800).left(16000);
+        detail["description"] = QString("Original description.\n").repeated(1600).left(32000);
+        for (int i = 0; i < 20; ++i) {
+            deliver(transport, {{"version", 1},
+                                {"event", "warning_open"},
+                                {"warning", reference},
+                                {"activation_token", ""}});
+            QTRY_VERIFY(loader->property("item").value<QObject*>());
+            QPointer<QObject> popup = loader->property("item").value<QObject*>();
+            QTRY_VERIFY(popup->property("opened").toBool());
+            deliver(transport, {{"version", 1},
+                                {"request_id", transport.requests.last()["request_id"].toInt()},
+                                {"ok", true},
+                                {"warning", detail}});
+            QTRY_COMPARE(popup->property("state").toString(), "ready");
+            QPointer<QQuickItem> instructions =
+                visualItem(window->contentItem(), "warningSource_instruction");
+            QPointer<QQuickItem> area = visualItem(window->contentItem(), "warningSource_area");
+            QVERIFY(instructions && area);
+            QCOMPARE(instructions->property("text").toString(), detail["instruction"].toString());
+            instructions->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_A, Qt::ControlModifier);
+            QCOMPARE(instructions->property("selectedText").toString(),
+                     detail["instruction"].toString());
+            area->forceActiveFocus();
+            auto* scroll = visualItem(window->contentItem(), "warningDetailsScroll");
+            QVERIFY(scroll);
+            QTRY_VERIFY(area->mapToScene(QPointF(0, 0)).y() >=
+                            scroll->mapToScene(QPointF(0, 0)).y() &&
+                        area->mapToScene(QPointF(0, area->height())).y() <=
+                            scroll->mapToScene(QPointF(0, scroll->height())).y() + 1);
+            if (i == 0) {
+                const auto prefix = qEnvironmentVariable("WEATHER_QT_WARNING_SCREENSHOT_PREFIX");
+                if (!prefix.isEmpty()) {
+                    QTest::qWait(80);
+                    QVERIFY(window->grabWindow().save(prefix + "-long-source-end.png"));
+                }
+            }
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(popup.isNull());
+            QVERIFY(instructions.isNull() && area.isNull());
+            QVERIFY(!loader->property("active").toBool());
+            QVERIFY(evaluate(engine, root, "backend.warningDetail === null").toBool());
+        }
     }
     void unsupportedNotifications() {
         FakeTransport transport;

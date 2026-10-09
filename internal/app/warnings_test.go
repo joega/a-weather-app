@@ -67,6 +67,14 @@ func TestWarningsRuntimePrimaryDemandAndExactDetails(t *testing.T) {
 	if reply["ok"] != true || object(reply["warning"])["instruction"] != m.Instruction || object(reply["warning"])["place"] != "City 0" {
 		t.Fatal("original detail not preserved", reply)
 	}
+	detail := object(reply["warning"])
+	zone, err := time.LoadLocation(stringOf(a.primary.location["timezone"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail) != 20 || detail["timezone"] != zone.String() || detail["sent_label"] != m.Identity.Sent.In(zone).Format("Mon Jan 2, 3:04 PM MST") || detail["expires_label"] != m.Expires.In(zone).Format("Mon Jan 2, 3:04 PM MST") {
+		t.Fatal("original detail timezone or wire fields changed", detail)
+	}
 	query["location"] = strings.Repeat("f", 64)
 	reply, _ = a.Handle(context.Background(), request("warning_detail", M{"warning": query}))
 	if reply["error"] != "warning_unavailable" {

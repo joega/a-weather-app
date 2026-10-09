@@ -325,6 +325,29 @@ Watching continues while the window is hidden. Use Stop watching or Quit app to
 end it. Saved opt-in resumes on your next manual launch; no autostart or service
 is installed. Notifications do not require native desktop effects.
 
+Development builds also expose **Official US warnings** in this section. This
+separate opt-in monitors the primary place even while you browse another city
+or hide the window. Choose a severity threshold, local quiet hours, an optional
+urgent override, or a one-hour delivery pause. The pause stops all warning
+delivery while monitoring continues. Turn off warnings to stop that monitoring.
+
+Official warnings use Qt's D-Bus notification support, independently of the
+`notify-send` precipitation outlooks. When the desktop notification service is
+ready, warning checks normally run roughly every 2–3 minutes. Offline, stale,
+incomplete and unsupported states appear in Settings. Delivery can be delayed;
+this is not a real-time emergency alert service. Nothing runs during suspend
+or after quitting the app.
+
+Click a warning notification, or choose a recent notice in Settings, to read
+its original issuer, place, validity period and full instructions. Recent
+notices keep their original place and timezone after you switch cities. The
+list holds at most 16 notices for 24 hours in the current session and clears
+when warnings are disabled or the app restarts. Desktop acceptance does not
+confirm that a notice was read. Failed or uncertain attempts are not retried
+automatically, avoiding duplicate delivery after restart. Final end-to-end
+warning delivery and enabled-monitor performance validation remain in progress
+before release.
+
 ## Air quality
 
 Air quality uses a separate Open-Meteo request and cache for the selected place.
@@ -443,7 +466,8 @@ available in saved offline forecasts. Older caches show `—` until refreshed.
 
 Private settings, locations, forecasts and bounded notification reservations
 live in `$XDG_STATE_HOME/a-weather-app`, or `~/.local/state/a-weather-app`.
-The app does not store notification body history; your desktop daemon may.
+The app does not persist notification body history; your desktop daemon may.
+Opt-in official warning details use a bounded, session-only memory cache.
 Daily release checks contact GitHub's release API and the repository release pin.
 They send no weather location or saved settings. Downloads contact GitHub release
 asset servers only when you choose to update. Private update state includes

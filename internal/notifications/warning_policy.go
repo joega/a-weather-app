@@ -115,11 +115,12 @@ func warningAllowed(settings M, decision WarningDecision, message weather.AlertM
 // A successful sender result means acceptance, never proof the user read it.
 type WarningNotice struct {
 	Key, Location, Kind, Place string
+	Timezone                   string
 	Title, Body, Urgency       string
 }
 
 func warningNotice(decision WarningDecision, m weather.AlertMessage, place string, zone *time.Location, settings M) WarningNotice {
-	event := m.Event
+	event := Text(m.Event, 120)
 	if strings.TrimSpace(event) == "" {
 		event = "Official weather warning"
 	}
@@ -129,7 +130,7 @@ func warningNotice(decision WarningDecision, m weather.AlertMessage, place strin
 	} else if decision.Kind == "canceled" {
 		prefix = "Canceled: "
 	}
-	issuer := m.Issuer
+	issuer := Text(m.Issuer, 100)
 	if strings.TrimSpace(issuer) == "" {
 		issuer = "National Weather Service"
 	}
@@ -146,5 +147,5 @@ func warningNotice(decision WarningDecision, m weather.AlertMessage, place strin
 	if settings["urgent_override"] == true && warningUrgent(m) {
 		urgency = "critical"
 	}
-	return WarningNotice{Key: decision.Key, Location: decision.Location, Kind: decision.Kind, Place: Text(place, 100), Title: Text(prefix+event, 120), Body: strings.Join(parts, "\n"), Urgency: urgency}
+	return WarningNotice{Key: decision.Key, Location: decision.Location, Kind: decision.Kind, Place: Text(place, 100), Timezone: zone.String(), Title: Text(prefix+event, 120), Body: strings.Join(parts, "\n"), Urgency: urgency}
 }

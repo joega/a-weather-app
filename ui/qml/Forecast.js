@@ -305,6 +305,155 @@ function notifications(v) {
         supported: v.supported
     };
 }
+function warningReference(v) {
+    if (!object(v) || Object.keys(v).length !== 2 || typeof v.location !== "string" || typeof v.key !== "string" || !/^[a-f0-9]{64}$/.test(v.location) || !/^[a-f0-9]{64}$/.test(v.key))
+        throw Error("Invalid warning reference");
+    return {
+        location: v.location,
+        key: v.key
+    };
+}
+function warningSummary(v, recent) {
+    if (!object(v) || Object.keys(v).length !== (recent ? 7 : 5) || ["new", "updated", "canceled"].indexOf(v.kind) < 0)
+        throw Error("Invalid warning summary");
+    let result = warningReference({
+        location: v.location,
+        key: v.key
+    });
+    result.place = string(v.place, 100);
+    result.title = string(v.title, 120);
+    result.kind = v.kind;
+    if (recent) {
+        if (["pending", "sent", "failed", "uncertain"].indexOf(v.delivery) < 0)
+            throw Error("Invalid warning delivery");
+        result.created_at = time(v.created_at);
+        result.delivery = v.delivery;
+    }
+    return result;
+}
+function warningNotifications(v) {
+    if (v === undefined)
+        return {
+            settings: {
+                enabled: false,
+                minimum_severity: "severe",
+                quiet_enabled: true,
+                quiet_start: 22,
+                quiet_end: 7,
+                urgent_override: false
+            },
+            state: "off",
+            reason: "",
+            paused_until: null,
+            supported: false,
+            ready: false,
+            actions: false,
+            delivery: "none",
+            fetched_at: null,
+            complete: false,
+            last: null,
+            recent: []
+        };
+    const keys = ["settings", "state", "reason", "paused_until", "supported", "ready", "actions", "delivery", "fetched_at", "complete", "last", "recent"];
+    if (!object(v) || Object.keys(v).length !== keys.length || keys.some(k => !Object.prototype.hasOwnProperty.call(v, k)) || !object(v.settings) || Object.keys(v.settings).length !== 6 || ["off", "waiting", "watching", "quiet", "paused", "unavailable"].indexOf(v.state) < 0 || ["none", "pending", "sent", "failed", "uncertain"].indexOf(v.delivery) < 0 || !Array.isArray(v.recent) || v.recent.length > 16)
+        throw Error("Invalid official warning state");
+    for (const key of ["supported", "ready", "actions", "complete"])
+        if (typeof v[key] !== "boolean")
+            throw Error("Invalid official warning capability");
+    const s = v.settings;
+    for (const key of ["enabled", "quiet_enabled", "urgent_override"])
+        if (typeof s[key] !== "boolean")
+            throw Error("Invalid official warning setting");
+    if (["severe", "moderate", "all"].indexOf(s.minimum_severity) < 0 || s.quiet_start === s.quiet_end)
+        throw Error("Invalid warning policy");
+    integer(s.quiet_start, 0, 23);
+    integer(s.quiet_end, 0, 23);
+    const reason = string(v.reason, 64);
+    if (!/^[a-z_]*$/.test(reason) || v.actions && !v.ready)
+        throw Error("Invalid warning status");
+    const until = v.paused_until === null ? null : number(v.paused_until, 0, 253402300799);
+    if (v.state === "paused" && until === null)
+        throw Error("Missing warning pause expiry");
+    return {
+        settings: {
+            enabled: s.enabled,
+            minimum_severity: s.minimum_severity,
+            quiet_enabled: s.quiet_enabled,
+            quiet_start: s.quiet_start,
+            quiet_end: s.quiet_end,
+            urgent_override: s.urgent_override
+        },
+        state: v.state,
+        reason: reason,
+        paused_until: until,
+        supported: v.supported,
+        ready: v.ready,
+        actions: v.actions,
+        delivery: v.delivery,
+        fetched_at: v.fetched_at === null ? null : time(v.fetched_at),
+        complete: v.complete,
+        last: v.last === null ? null : warningSummary(v.last, false),
+        recent: v.recent.map(row => warningSummary(row, true))
+    };
+}
+// Original CAP text is bounded and rendered as plain text. Unlike UI labels,
+// it may contain source whitespace/formatting; never turn it into rich text.
+function warningSourceText(v, limit) {
+    if (typeof v !== "string" || codepoints(v) > limit)
+        throw Error("Invalid warning source text");
+    return v;
+}
+function warningDetail(v) {
+    const keys = ["location", "key", "place", "kind", "timezone", "sent_label", "effective_label", "expires_label", "event", "issuer", "headline", "description", "instruction", "area", "severity", "urgency", "certainty", "sent", "effective", "expires"];
+    if (!object(v) || Object.keys(v).length !== keys.length || keys.some(k => !Object.prototype.hasOwnProperty.call(v, k)) || ["new", "updated", "canceled"].indexOf(v.kind) < 0 || ["Extreme", "Severe", "Moderate", "Minor", "Unknown"].indexOf(v.severity) < 0 || ["Immediate", "Expected", "Future", "Past", "Unknown"].indexOf(v.urgency) < 0 || ["Observed", "Likely", "Possible", "Unlikely", "Unknown"].indexOf(v.certainty) < 0)
+        throw Error("Invalid warning detail");
+    let result = warningReference({
+        location: v.location,
+        key: v.key
+    });
+    for (const [key, limit] of [["place", 100], ["timezone", 80], ["sent_label", 120], ["effective_label", 120], ["expires_label", 120]])
+        result[key] = string(v[key], limit);
+    for (const [key, limit] of [["event", 512], ["issuer", 256], ["headline", 2048], ["description", 32000], ["instruction", 16000], ["area", 8192]])
+        result[key] = warningSourceText(v[key], limit);
+    for (const key of ["kind", "severity", "urgency", "certainty"])
+        result[key] = v[key];
+    for (const key of ["sent", "effective", "expires"])
+        result[key] = time(v[key]);
+    return result;
+}
+function warningStatus(v, available) {
+    if (!available)
+        return "Monitoring unavailable · weather service disconnected";
+    if (v.state === "unavailable")
+        return ({
+                delivery_unavailable: "Monitoring unavailable · desktop notification service is not ready",
+                delivery_unsupported: "Monitoring unavailable · native delivery is not supported",
+                target_unavailable: "Monitoring unavailable · connect and resolve the primary place",
+                not_supported_here: "Official warning monitoring is available for US places",
+                stale_feed: "Monitoring unavailable · warning data is stale",
+                incomplete_history: "Monitoring unavailable · warning history is incomplete",
+                capacity_reached: "Monitoring unavailable · warning history capacity reached",
+                save_unconfirmed: "Monitoring unavailable · saving could not be confirmed",
+                state_unavailable: "Monitoring unavailable · saved settings could not be read",
+                ledger_unavailable: "Monitoring unavailable · warning history could not be opened",
+                clock_changed: "Monitoring unavailable · the clock changed; waiting for fresh data"
+            })[v.reason] || "Monitoring unavailable · a complete warning check could not be confirmed";
+    return ({
+            off: "Official warning monitoring is off",
+            waiting: "Waiting for a complete, fresh warning check",
+            watching: "Monitoring official NWS warnings",
+            quiet: v.settings.urgent_override ? "Quiet hours · urgent overrides are enabled" : "Quiet hours · warning delivery is paused",
+            paused: "Warning delivery paused · monitoring continues"
+        })[v.state];
+}
+function warningDeliveryLabel(status) {
+    return ({
+            pending: "Sending…",
+            sent: "Accepted by desktop",
+            failed: "Not sent",
+            uncertain: "Delivery unconfirmed"
+        })[status] || "";
+}
 const aqAttribution = "CAMS global model data via Open-Meteo (CC BY 4.0)";
 function airQuality(v) {
     if (v === undefined)
@@ -823,6 +972,7 @@ function snapshot(v) {
         briefing: briefings(v.briefing),
         effects_setup: effectsSetup(v.effects_setup),
         notifications: notifications(v.notifications),
+        warning_notifications: warningNotifications(v.warning_notifications),
         timezone: string(v.location.timezone, 80),
         controls: controls,
         atmosphere: atmosphere(v.atmosphere),

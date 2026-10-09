@@ -22,6 +22,8 @@
 <file alias="qml/UpdatePanel.qml">../../ui/qml/UpdatePanel.qml</file>
 <file alias="qml/MetricsPanel.qml">../../ui/qml/MetricsPanel.qml</file>
 <file alias="qml/NotificationsPanel.qml">../../ui/qml/NotificationsPanel.qml</file>
+<file alias="qml/WarningNotificationsPanel.qml">../../ui/qml/WarningNotificationsPanel.qml</file>
+<file alias="qml/WarningDetails.qml">../../ui/qml/WarningDetails.qml</file>
 <file alias="qml/PlainLabel.qml">../../ui/qml/PlainLabel.qml</file>
 <file alias="qml/Tokens.qml">../../ui/qml/Tokens.qml</file>
 <file alias="qml/ToggleControl.qml">../../ui/qml/ToggleControl.qml</file>

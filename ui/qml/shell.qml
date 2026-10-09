@@ -23,6 +23,47 @@ QtObject {
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
     property bool locationsOpen: false
     property Item locationReturnFocus: null
+    property bool warningOpen: false
+    property bool warningBackToSettings: false
+    property Item warningReturnFocus: null
+    function openWarning(reference, fromDesktop) {
+        if (bridge.closing)
+            return;
+        if (!warningOpen) {
+            warningReturnFocus = window.activeFocusItem;
+            warningBackToSettings = !fromDesktop && effectsOpen;
+        }
+        warningOpen = true;
+        effectsOpen = false;
+        locationsOpen = false;
+        details.close();
+        bridge.loadWarning(reference);
+        window.show();
+        window.raise();
+        window.requestActivate();
+    }
+    function closeWarning() {
+        const reference = bridge.warningTarget;
+        warningOpen = false;
+        bridge.closeWarning();
+        const back = warningBackToSettings;
+        warningBackToSettings = false;
+        Qt.callLater(() => {
+            if (root.warningOpen || !window.visible)
+                return;
+            if (back && bridge.available) {
+                root.effectsOpen = true;
+                effects.showNotifications(reference);
+            } else {
+                const target = root.warningReturnFocus;
+                if (target && target.visible && target.enabled)
+                    target.forceActiveFocus();
+                else
+                    settingsButton.forceActiveFocus();
+            }
+            root.warningReturnFocus = null;
+        });
+    }
     function openLocations() {
         if (!savedLocations) {
             openSettings(true);
@@ -41,7 +82,7 @@ QtObject {
                 bridge.send("cancel_place_search");
             Qt.callLater(() => {
                 const target = root.locationReturnFocus;
-                if (!root.effectsOpen) {
+                if (!root.effectsOpen && !root.warningOpen) {
                     if (target && target.visible && target.enabled)
                         target.forceActiveFocus();
                     else
@@ -58,7 +99,7 @@ QtObject {
         if (!effectsOpen)
             Qt.callLater(() => {
                 const target = root.settingsReturnFocus || settingsButton;
-                if (!root.locationsOpen && target && target.visible && target.enabled)
+                if (!root.locationsOpen && !root.warningOpen && target && target.visible && target.enabled)
                     target.forceActiveFocus();
                 root.settingsReturnFocus = null;
             });
@@ -80,7 +121,7 @@ QtObject {
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
     function showUpdateNotice() {
-        if (!window.visible || root.effectsOpen || root.locationsOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+        if (!window.visible || root.effectsOpen || root.locationsOpen || root.warningOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
             return;
         if (bridge.send("acknowledge_update", {
             installed: root.updateStatus.installed
@@ -96,7 +137,7 @@ QtObject {
     }
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
     readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     onMapActiveChanged: {
         if (mapActive && !bridge.mapWanted)
             bridge.openMap();
@@ -105,8 +146,9 @@ QtObject {
     }
     readonly property bool liveDesktop: bridge.snapshot !== null && bridge.snapshot.effect_persistent && bridge.snapshot.effect_status !== "stopped"
     readonly property bool watchingPrecipitation: bridge.snapshot !== null && bridge.snapshot.notifications.settings.enabled
+    readonly property bool watchingWarnings: bridge.snapshot !== null && bridge.snapshot.warning_notifications.settings.enabled
     function dismissWindow() {
-        if ((root.liveDesktop || root.watchingPrecipitation) && bridge.available) {
+        if ((root.liveDesktop || root.watchingPrecipitation || root.watchingWarnings) && bridge.available) {
             root.effectsOpen = false;
             root.locationsOpen = false;
             window.hide();
@@ -198,6 +240,7 @@ QtObject {
                 window.requestActivate();
             }
         }
+        onWarningRequested: reference => root.openWarning(reference, true)
         onSnapshotChanged: {
             if (snapshot && !root.initialLocationChecked) {
                 root.initialLocationChecked = true;
@@ -224,6 +267,10 @@ QtObject {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (root.warningOpen && warningLoader.item) {
+                warningLoader.item.revealFocus(item);
+                return;
+            }
             if (root.locationsOpen && locationLoader.item) {
                 locationLoader.item.revealFocus(item);
                 return;
@@ -254,6 +301,8 @@ QtObject {
             if (!visible) {
                 root.updateNoticeActive = false;
                 root.locationsOpen = false;
+                if (root.warningOpen)
+                    root.closeWarning();
             } else
                 Qt.callLater(() => {
                     root.showUpdateNotice();
@@ -267,7 +316,7 @@ QtObject {
         }
         Shortcut {
             sequence: "Ctrl+L"
-            enabled: !details.visible
+            enabled: !details.visible && !root.warningOpen
             onActivated: root.openLocations()
         }
         Shortcut {
@@ -685,6 +734,7 @@ QtObject {
                     selected_output: null
                 })
             notifications: bridge.snapshot ? bridge.snapshot.notifications : Forecast.notifications()
+            officialWarnings: bridge.snapshot ? bridge.snapshot.warning_notifications : Forecast.warningNotifications()
             timezone: root.primaryTimezone
             actionError: bridge.error
             canStart: bridge.available && root.primaryForecastAvailable && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
@@ -719,6 +769,10 @@ QtObject {
             onNotificationsPatch: values => bridge.send("set_notifications", values)
             onNotificationPauseRequested: bridge.send("snooze_notifications")
             onNotificationResumeRequested: bridge.send("resume_notifications")
+            onWarningPatch: values => bridge.send("set_warning_notifications", values)
+            onWarningPauseRequested: bridge.send("pause_warning_notifications")
+            onWarningResumeRequested: bridge.send("resume_warning_notifications")
+            onWarningDetailRequested: reference => root.openWarning(reference, false)
             launcherStatus: bridge.snapshot ? bridge.snapshot.launcher_status : "ready"
             updateStatus: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
             onCheckUpdatesRequested: bridge.send("check_updates")
@@ -779,6 +833,21 @@ QtObject {
                 }
                 onSearchRequested: values => bridge.send("search_places", values)
                 onCancelSearchRequested: bridge.send("cancel_place_search")
+            }
+        }
+        Loader {
+            id: warningLoader
+            objectName: "warningDetailsLoader"
+            active: root.warningOpen
+            onLoaded: item.open()
+            sourceComponent: WarningDetails {
+                warning: bridge.warningDetail
+                state: bridge.warningState
+                error: bridge.warningError
+                onClosed: {
+                    if (root.warningOpen)
+                        root.closeWarning();
+                }
             }
         }
     }

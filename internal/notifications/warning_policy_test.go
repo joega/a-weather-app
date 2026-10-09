@@ -103,3 +103,12 @@ func TestWarningNoticeRetainsOriginalSeparatelyAndBoundsText(t *testing.T) {
 		t.Fatal("urgent revision presentation", n)
 	}
 }
+
+func TestWarningNoticeEmptySanitizedLabelsUseReadableFallbacks(t *testing.T) {
+	m := warningFixture("empty sanitized label", "Alert", warningTestNow)
+	m.Event, m.Issuer = "<>&\u2066", "\x00\u2066"
+	n := warningNotice(WarningDecision{warningTestLocation, m.Identity.Key(), "new"}, m, "Town", time.UTC, WarningDefaults())
+	if n.Title != "Official weather warning" || !strings.Contains(n.Body, "National Weather Service") || n.Timezone != "UTC" {
+		t.Fatal("unreadable source labels crossed native boundary", n)
+	}
+}

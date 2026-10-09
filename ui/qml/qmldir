@@ -15,6 +15,8 @@ ChoiceControl 1.0 ChoiceControl.qml
 ToggleControl 1.0 ToggleControl.qml
 EffectsDrawer 1.0 EffectsDrawer.qml
 NotificationsPanel 1.0 NotificationsPanel.qml
+WarningNotificationsPanel 1.0 WarningNotificationsPanel.qml
+WarningDetails 1.0 WarningDetails.qml
 AlertsPanel 1.0 AlertsPanel.qml
 ForecastChart 1.0 ForecastChart.qml
 ForecastDetails 1.0 ForecastDetails.qml
