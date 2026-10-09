@@ -198,6 +198,7 @@ func (a *App) snapshot() M {
 		settings["place"] = safeio.Clone(a.place)
 	}
 	result["place_search"] = a.searchSnapshot()
+	result["saved_locations"] = a.savedLocationsSnapshot()
 	result["update"] = a.updateSnapshot()
 	result["air_quality"] = a.airQualitySnapshot()
 	result["briefing"] = []any{}

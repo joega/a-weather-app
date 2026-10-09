@@ -158,6 +158,34 @@ class FrontendTest : public QObject {
                         {"country_code", "US"}, {"place", QJsonValue::Null}};
         return value;
     }
+    QJsonObject savedSnapshot(qint64 revision, int count = 20) {
+        auto value = selectedSnapshot(revision, "City 0");
+        QJsonArray rows;
+        for (int i = 0; i < count; ++i) {
+            QJsonValue summary = QJsonValue::Null;
+            if (i < 4)
+                summary = QJsonObject{{"temperature_c", 15 + i},
+                                      {"condition", "rain"},
+                                      {"is_day", true},
+                                      {"fetched_at", "2026-10-08T12:00:00Z"},
+                                      {"valid_at", "2026-10-08T12:00:00Z"},
+                                      {"freshness", i == 2 ? "expired" : "stale"},
+                                      {"alert_status", i == 0 ? "cached" : "unavailable"}};
+            rows.append(QJsonObject{{"id", QString("place-%1").arg(100 + i)},
+                                    {"name", QString("City %1").arg(i)},
+                                    {"label", i == 0 ? "Home" : ""},
+                                    {"mode", "place"},
+                                    {"country_code", "US"},
+                                    {"timezone", "America/New_York"},
+                                    {"summary", summary}});
+        }
+        value["saved_locations"] = QJsonObject{{"schema_version", 1},
+                                               {"primary", "place-100"},
+                                               {"viewed", "place-100"},
+                                               {"primary_forecast_available", false},
+                                               {"items", rows}};
+        return value;
+    }
     QJsonObject metricSnapshot(qint64 revision) {
         auto v = snapshot(revision, "Metric fixture");
         auto source = v["source"].toObject();
@@ -865,12 +893,15 @@ class FrontendTest : public QObject {
         }
         update["state"] = "downloading";
         update["message"] = "Downloading the new version…";
+        state["saved_locations"] = savedSnapshot(1, 3)["saved_locations"];
         state["update"] = update;
         state["snapshot_revision"] = 2;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
         QTRY_VERIFY(!install->property("enabled").toBool());
         QVERIFY(!check->property("enabled").toBool());
         QCOMPARE(install->property("text").toString(), QString("Updating…"));
+        evaluate(engine, root, "openLocations()");
+        QVERIFY(root->property("locationsOpen").toBool());
         update["state"] = "updated";
         update["installed"] = "0.51.9";
         update["available"] = "";
@@ -880,6 +911,8 @@ class FrontendTest : public QObject {
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
         auto* success = qobject_cast<QQuickItem*>(root->findChild<QObject*>("updatedNotice"));
         QVERIFY(success);
+        QVERIFY(!success->isVisible());
+        root->setProperty("locationsOpen", false);
         QTRY_VERIFY(success->isVisible());
         QCOMPARE(success->findChild<QObject*>("updatedVersionNotice")->property("text").toString(),
                  QString("Updated to 0.51.9."));
@@ -1791,6 +1824,177 @@ class FrontendTest : public QObject {
             evaluate(engine, scope.data(), "Forecast.metricValue(-10,'dew_point_c','F','auto')")
                 .toString(),
             QString("14°"));
+    }
+    void savedLocationValidation() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY2(scope, qPrintable(component.errorString()));
+        auto valid = savedSnapshot(1)["saved_locations"].toObject();
+        auto accepts = [&](const QJsonObject& value) {
+            const auto json =
+                QString::fromUtf8(QJsonDocument(value).toJson(QJsonDocument::Compact));
+            return evaluate(engine, scope.data(),
+                            "(function(){try { Forecast.savedLocations(" + json +
+                                "); return true; } catch(e) { return false; }})()")
+                .toBool();
+        };
+        QVERIFY(accepts(valid));
+        auto changed = valid;
+        changed["unexpected"] = true;
+        QVERIFY(!accepts(changed));
+        changed = valid;
+        changed["primary"] = "place-999";
+        QVERIFY(!accepts(changed));
+        changed = valid;
+        auto rows = valid["items"].toArray();
+        rows.append(rows.first());
+        changed["items"] = rows;
+        QVERIFY(!accepts(changed));
+        for (const auto& field : QStringList{"label", "mode", "country_code", "summary"}) {
+            changed = valid;
+            rows = valid["items"].toArray();
+            auto row = rows.first().toObject();
+            if (field == "label")
+                row[field] = "Home\u202e";
+            else if (field == "mode")
+                row[field] = "zip";
+            else if (field == "country_code")
+                row[field] = "DE"; // A cached NWS warning cannot claim foreign coverage.
+            else {
+                auto summary = row[field].toObject();
+                summary["temperature_c"] = 101;
+                row[field] = summary;
+            }
+            rows.replace(0, row);
+            changed["items"] = rows;
+            QVERIFY2(!accepts(changed), qPrintable(field));
+        }
+        QCOMPARE(evaluate(engine, scope.data(), "Forecast.savedLocations(undefined)").isNull(),
+                 true);
+    }
+    void savedLocationPickerNavigationAndActions() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window = root->findChild<QQuickWindow*>("weatherWindow");
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        auto state = savedSnapshot(1);
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        root->setProperty("effectsOpen", false);
+        window->resize(700, 650);
+        auto* location = root->findChild<QQuickItem*>("openLocation");
+        auto* loader = root->findChild<QQuickItem*>("locationPickerLoader");
+        QVERIFY(location && loader);
+        QVERIFY(loader->property("item").isNull());
+        location->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTRY_VERIFY(root->property("locationsOpen").toBool());
+        QTRY_VERIFY(!loader->property("item").isNull());
+        auto* picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
+        QVERIFY(picker);
+        auto* list = picker->findChild<QQuickItem*>("savedLocationList");
+        QVERIFY(list);
+        QTRY_VERIFY(list->hasActiveFocus());
+        QCOMPARE(list->property("count").toInt(), 20);
+        QVERIFY(!visualItem(picker, "viewSaved_19")); // Offscreen rows are not instantiated.
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_SAVED_SCREENSHOT_PREFIX");
+        auto capture = [&](const QString& suffix) {
+            if (prefix.isEmpty())
+                return true;
+            if (!QFileInfo(prefix).absoluteDir().mkpath("."))
+                return false;
+            QTest::qWait(120);
+            return window->grabWindow().save(prefix + suffix + ".png");
+        };
+        QVERIFY(capture("list700"));
+        QTest::keyClick(window, Qt::Key_Right);
+        auto* alias = picker->findChild<QQuickItem*>("savedLocationAlias");
+        auto* remove = picker->findChild<QQuickItem*>("removeSavedLocation");
+        auto* replacement = picker->findChild<QQuickItem*>("replacementPrimary");
+        QVERIFY(alias && remove && replacement);
+        QTRY_VERIFY(alias->hasActiveFocus());
+        QCOMPARE(alias->property("text").toString(), QString("Home"));
+        QVERIFY(!remove->isEnabled());
+        QCOMPARE(replacement->property("currentIndex").toInt(), -1);
+        alias->setProperty("text", "Apartment");
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(transport.requests.size(), 1);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("saved_location"));
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "rename"}, {"id", "place-100"}, {"label", "Apartment"}}));
+        auto ack = [&] {
+            deliver(transport, {{"version", 1},
+                                {"request_id", transport.requests.last()["request_id"].toInt()},
+                                {"ok", true}});
+            QCoreApplication::processEvents();
+        };
+        ack();
+        replacement->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Down);
+        QTRY_VERIFY(remove->isEnabled());
+        QCOMPARE(picker->property("replacementId").toString(), QString("place-101"));
+        QVERIFY(capture("edit700"));
+        remove->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_COMPARE(transport.requests.size(), 2);
+        QCOMPARE(
+            transport.requests.last()["location"].toMap(),
+            (QVariantMap{{"action", "remove"}, {"id", "place-100"}, {"replacement", "place-101"}}));
+        ack();
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(loader->property("item").isNull());
+        QTRY_VERIFY(location->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTRY_VERIFY(!loader->property("item").isNull());
+        picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
+        list = picker->findChild<QQuickItem*>("savedLocationList");
+        QTRY_VERIFY(list->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_Down);
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(transport.requests.size(), 3);
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "view"}, {"id", "place-101"}}));
+        QTRY_VERIFY(loader->property("item").isNull());
+        ack();
+        // Opening and closing the picker without searching does not request data.
+        for (int i = 0; i < 5; ++i) {
+            QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+            QTRY_VERIFY(!loader->property("item").isNull());
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(loader->property("item").isNull());
+        }
+        QTest::qWait(400);
+        QCOMPARE(transport.requests.size(), 3);
+        state = savedSnapshot(2, 3);
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTRY_VERIFY(!loader->property("item").isNull());
+        picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
+        auto* add = picker->findChild<QQuickItem*>("addSavedLocation");
+        add->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        auto* query = picker->findChild<QQuickItem*>("savedplaceQuery");
+        QVERIFY(query);
+        QTRY_VERIFY(query->hasActiveFocus());
+        QVERIFY(capture("add700"));
+        auto* zip = picker->findChild<QQuickItem*>("savedLocationZip");
+        zip->setProperty("text", "10001");
+        zip->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(transport.requests.size(), 4);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("add_location"));
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"mode", "zip"}, {"zip_code", "10001"}}));
+        QTRY_VERIFY(loader->property("item").isNull());
     }
     void mainLocationNavigation() {
         FakeTransport transport;

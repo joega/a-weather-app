@@ -15,6 +15,42 @@ QtObject {
     property string briefingPeriod: "today"
     readonly property var briefingRows: bridge.snapshot ? bridge.snapshot.briefing : []
     readonly property var selectedBriefing: briefingRows.find(row => row.period === briefingPeriod) || briefingRows[0] || null
+    readonly property var savedLocations: bridge.snapshot ? bridge.snapshot.saved_locations : null
+    readonly property var viewedPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.viewed) : null
+    readonly property var primaryPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.primary) : null
+    readonly property bool primaryForecastAvailable: savedLocations ? savedLocations.primary_forecast_available : root.forecast !== null
+    readonly property string primaryName: primaryPlace ? Forecast.savedName(primaryPlace) : root.location
+    readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
+    property bool locationsOpen: false
+    property Item locationReturnFocus: null
+    function openLocations() {
+        if (!savedLocations) {
+            openSettings(true);
+            return;
+        }
+        if (!locationsOpen)
+            locationReturnFocus = window.activeFocusItem;
+        effectsOpen = false;
+        details.close();
+        locationsOpen = true;
+    }
+    onLocationsOpenChanged: {
+        Qt.callLater(showUpdateNotice);
+        if (!locationsOpen) {
+            if (bridge.queuedSearch !== null || bridge.pendingOp === "search_places" || (bridge.snapshot && bridge.snapshot.place_search.status !== "idle"))
+                bridge.send("cancel_place_search");
+            Qt.callLater(() => {
+                const target = root.locationReturnFocus;
+                if (!root.effectsOpen) {
+                    if (target && target.visible && target.enabled)
+                        target.forceActiveFocus();
+                    else
+                        locationsButton.forceActiveFocus();
+                }
+                root.locationReturnFocus = null;
+            });
+        }
+    }
     property Item settingsReturnFocus: null
     property bool effectsOpen: false
     onEffectsOpenChanged: {
@@ -22,12 +58,13 @@ QtObject {
         if (!effectsOpen)
             Qt.callLater(() => {
                 const target = root.settingsReturnFocus || settingsButton;
-                if (target && target.visible && target.enabled)
+                if (!root.locationsOpen && target && target.visible && target.enabled)
                     target.forceActiveFocus();
                 root.settingsReturnFocus = null;
             });
     }
     function openSettings(locationSearch) {
+        locationsOpen = false;
         if (!effectsOpen)
             settingsReturnFocus = window.activeFocusItem;
         effectsOpen = true;
@@ -43,7 +80,7 @@ QtObject {
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
     function showUpdateNotice() {
-        if (!window.visible || root.effectsOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
+        if (!window.visible || root.effectsOpen || root.locationsOpen || !bridge.available || bridge.busy || root.updateStatus.state !== "updated" || root.shownUpdateVersion === root.updateStatus.installed)
             return;
         if (bridge.send("acknowledge_update", {
             installed: root.updateStatus.installed
@@ -59,7 +96,7 @@ QtObject {
     }
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
     readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
-    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
+    readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
     onMapActiveChanged: {
         if (mapActive && !bridge.mapWanted)
             bridge.openMap();
@@ -71,6 +108,7 @@ QtObject {
     function dismissWindow() {
         if ((root.liveDesktop || root.watchingPrecipitation) && bridge.available) {
             root.effectsOpen = false;
+            root.locationsOpen = false;
             window.hide();
         } else
             bridge.shutdown();
@@ -96,8 +134,10 @@ QtObject {
     property var atmosphere: bridge.snapshot ? bridge.snapshot.atmosphere : null
     property string timezone: bridge.snapshot ? bridge.snapshot.timezone : "UTC"
     property string location: bridge.snapshot ? bridge.snapshot.location : "Loading location…"
-    readonly property string city: location.indexOf(", ") < 0 ? location : location.substring(0, location.lastIndexOf(", "))
+    readonly property string city: viewedPlace && viewedPlace.label !== "" ? viewedPlace.label : location.indexOf(", ") < 0 ? location : location.substring(0, location.lastIndexOf(", "))
     readonly property string region: {
+        if (viewedPlace && viewedPlace.label !== "")
+            return location;
         let suffix = location.indexOf(", ") < 0 ? "" : location.substring(location.lastIndexOf(", ") + 2);
         return suffix === "MA" ? "Massachusetts" : suffix;
     }
@@ -112,6 +152,8 @@ QtObject {
         }
     }
     property var controls: bridge.snapshot ? bridge.snapshot.controls : ({
+            units: "F",
+            units_mode: "auto",
             mode: "live",
             strength: "normal",
             manual: {
@@ -127,10 +169,14 @@ QtObject {
     property string freshness: {
         if (bridge.error)
             return bridge.error;
+        if (bridge.snapshot && bridge.snapshot.location_settings.busy)
+            return "Finding location and loading forecast…";
+        if (bridge.snapshot && bridge.snapshot.location_settings.error)
+            return Forecast.locationErrorText(bridge.snapshot.location_settings.error);
         if (bridge.snapshot && bridge.snapshot.source.refreshing)
             return "Refreshing live forecast…";
         if (bridge.snapshot && bridge.snapshot.location_settings.mode === "default" && !forecast)
-            return "Choose a city, your current location, or a ZIP code in Settings";
+            return "Choose a city, your current location, or a ZIP code in Locations";
         if (!bridge.snapshot || !forecast)
             return "Live forecast unavailable · Refresh to try again";
         let s = bridge.snapshot.source;
@@ -155,8 +201,12 @@ QtObject {
         onSnapshotChanged: {
             if (snapshot && !root.initialLocationChecked) {
                 root.initialLocationChecked = true;
-                if (snapshot.location_settings.mode === "default")
-                    root.effectsOpen = true;
+                if (snapshot.location_settings.mode === "default") {
+                    if (snapshot.saved_locations === null)
+                        root.effectsOpen = true;
+                    else
+                        root.locationsOpen = true;
+                }
             }
         }
     }
@@ -174,6 +224,10 @@ QtObject {
             let item = window.activeFocusItem;
             if (!item)
                 return;
+            if (root.locationsOpen && locationLoader.item) {
+                locationLoader.item.revealFocus(item);
+                return;
+            }
             if (details.visible) {
                 details.revealFocus(item);
                 return;
@@ -197,9 +251,10 @@ QtObject {
             flick.contentY = Math.max(0, Math.min(next, Math.max(0, flick.contentHeight - flick.height)));
         })
         onVisibleChanged: {
-            if (!visible)
+            if (!visible) {
                 root.updateNoticeActive = false;
-            else
+                root.locationsOpen = false;
+            } else
                 Qt.callLater(() => {
                     root.showUpdateNotice();
                     if (forecastScroll.contentItem)
@@ -213,18 +268,21 @@ QtObject {
         Shortcut {
             sequence: "Ctrl+L"
             enabled: !details.visible
-            onActivated: root.openSettings(true)
+            onActivated: root.openLocations()
         }
         Shortcut {
             sequence: "Escape"
-            enabled: root.effectsOpen
-            onActivated: root.effectsOpen = false
+            enabled: root.effectsOpen || root.locationsOpen
+            onActivated: {
+                root.effectsOpen = false;
+                root.locationsOpen = false;
+            }
         }
         Atmosphere {
             id: forecastAtmosphere
             objectName: "forecastAtmosphere"
             anchors.fill: parent
-            presentationActive: bridge.available && window.visible && !root.effectsOpen && !details.visible
+            presentationActive: bridge.available && window.visible && !root.effectsOpen && !root.locationsOpen && !details.visible
             condition: root.current ? root.current.condition : "unknown"
             isDay: root.current ? root.current.is_day : true
             cloudCover: root.atmosphere ? root.atmosphere.cloud_cover : 0.5
@@ -244,7 +302,7 @@ QtObject {
             id: forecastScroll
             readonly property Flickable flickable: contentItem as Flickable
             objectName: "forecastScroll"
-            enabled: !root.effectsOpen
+            enabled: !root.effectsOpen && !root.locationsOpen
             anchors.fill: parent
             clip: true
             contentWidth: availableWidth
@@ -310,10 +368,11 @@ QtObject {
                                     onChosen: values => bridge.send("set_controls", values)
                                 }
                                 ActionButton {
+                                    id: locationsButton
                                     objectName: "openLocation"
-                                    text: "Location"
-                                    accessibleLabel: "Choose location (Ctrl+L)"
-                                    onClicked: root.openSettings(true)
+                                    text: "Locations"
+                                    accessibleLabel: "Saved locations (Ctrl+L)"
+                                    onClicked: root.openLocations()
                                 }
                                 ActionButton {
                                     id: settingsButton
@@ -375,6 +434,14 @@ QtObject {
                                 Item {
                                     width: 1
                                     height: headerBody.actionsBelowLocation ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
+                                }
+                                PlainLabel {
+                                    objectName: "primaryLocationHint"
+                                    visible: root.savedLocations !== null
+                                    width: parent.width
+                                    text: root.savedLocations && root.savedLocations.viewed === root.savedLocations.primary ? "Primary location" : "Desktop weather · " + root.primaryName
+                                    font.pixelSize: 13
+                                    color: Tokens.secondary
                                 }
                                 PlainLabel {
                                     objectName: "currentTemperature"
@@ -594,8 +661,11 @@ QtObject {
                 forceActiveFocus()
             controls: root.controls
             location: root.location
+            primaryLocation: root.primaryName
+            hasSavedLocations: root.savedLocations !== null
+            onManageLocationsRequested: root.openLocations()
             busy: bridge.busy
-            forecastAvailable: root.forecast !== null
+            forecastAvailable: root.primaryForecastAvailable
             locationSettings: bridge.snapshot ? bridge.snapshot.location_settings : ({
                     mode: "default",
                     zip_code: null,
@@ -615,9 +685,9 @@ QtObject {
                     selected_output: null
                 })
             notifications: bridge.snapshot ? bridge.snapshot.notifications : Forecast.notifications()
-            timezone: root.timezone
+            timezone: root.primaryTimezone
             actionError: bridge.error
-            canStart: bridge.available && root.forecast !== null && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
+            canStart: bridge.available && root.primaryForecastAvailable && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
             serviceAvailable: bridge.available
             effectsRunning: bridge.snapshot !== null && bridge.snapshot.effect_status !== "stopped"
             persistent: root.liveDesktop
@@ -637,7 +707,7 @@ QtObject {
             }
             onCloseRequested: root.effectsOpen = false
             onPatch: values => bridge.send("set_controls", values)
-            onLocationRequested: values => bridge.send("set_location", values)
+            onLocationRequested: values => bridge.send(root.savedLocations ? "add_location" : "set_location", values)
             onPlaceSearchRequested: values => bridge.send("search_places", values)
             onPlaceSearchCancelRequested: bridge.send("cancel_place_search")
             onStartRequested: bridge.send("start_effects")
@@ -655,6 +725,61 @@ QtObject {
             onInstallUpdateRequested: bridge.send("install_update")
             onInstallLauncherRequested: bridge.send("install_launcher")
             onQuitRequested: bridge.shutdown()
+        }
+        Rectangle {
+            anchors.fill: parent
+            visible: root.locationsOpen
+            color: "#650b1c29"
+            MouseArea {
+                anchors.fill: parent
+                onClicked: root.locationsOpen = false
+            }
+        }
+        Loader {
+            id: locationLoader
+            objectName: "locationPickerLoader"
+            active: root.locationsOpen && root.savedLocations !== null
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.margins: 18
+            width: Math.min(610, window.width - 36)
+            onLoaded: Qt.callLater(() => {
+                if (!item)
+                    return;
+                if (bridge.snapshot && bridge.snapshot.location_settings.mode === "default")
+                    item.showAdd();
+                else
+                    item.focusInitial();
+            })
+            sourceComponent: LocationPicker {
+                objectName: "locationPicker"
+                registry: root.savedLocations
+                controls: root.controls
+                search: bridge.snapshot ? bridge.snapshot.place_search : Forecast.placeSearch(undefined)
+                locationSettings: bridge.snapshot ? bridge.snapshot.location_settings : ({
+                        busy: false,
+                        error: null
+                    })
+                serviceAvailable: bridge.available
+                busy: bridge.busy
+                actionError: bridge.error
+                onCloseRequested: root.locationsOpen = false
+                onViewRequested: id => {
+                    if (bridge.send("saved_location", {
+                        action: "view",
+                        id: id
+                    }))
+                        root.locationsOpen = false;
+                }
+                onActionRequested: action => bridge.send("saved_location", action)
+                onAddRequested: selection => {
+                    if (bridge.send("add_location", selection))
+                        root.locationsOpen = false;
+                }
+                onSearchRequested: values => bridge.send("search_places", values)
+                onCancelSearchRequested: bridge.send("cancel_place_search")
+            }
         }
     }
 }

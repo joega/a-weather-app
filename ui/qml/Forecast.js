@@ -604,6 +604,92 @@ function briefingText(row, units, windUnits) {
         parts.push("Partial hourly forecast.");
     return parts.join(" ");
 }
+function savedLocations(v) {
+    if (v === undefined || v === null)
+        return null;
+    const exact = (o, keys) => object(o) && Object.keys(o).length === keys.length && keys.every(k => Object.prototype.hasOwnProperty.call(o, k));
+    const validId = id => typeof id === "string" && /^(current|default|zip-[0-9]{5}|place-[1-9][0-9]{0,9}|custom-[a-f0-9]{64})$/.test(id);
+    if (!exact(v, ["schema_version", "primary", "viewed", "items", "primary_forecast_available"]) || v.schema_version !== 1 || !validId(v.primary) || !validId(v.viewed) || typeof v.primary_forecast_available !== "boolean" || !Array.isArray(v.items) || v.items.length < 1 || v.items.length > 20)
+        throw Error("Invalid saved locations");
+    let ids = [];
+    const items = v.items.map(row => {
+        if (!exact(row, ["id", "name", "label", "mode", "country_code", "timezone", "summary"]) || !validId(row.id) || ids.indexOf(row.id) >= 0 || ["default", "auto", "zip", "place", "custom"].indexOf(row.mode) < 0)
+            throw Error("Invalid saved place");
+        ids.push(row.id);
+        if ((row.mode === "auto" && row.id !== "current") || (row.mode === "default" && row.id !== "default") || (["zip", "place", "custom"].indexOf(row.mode) >= 0 && row.id.indexOf(row.mode + "-") !== 0))
+            throw Error("Invalid saved identity");
+        const country = countryCode(row.country_code);
+        if ((row.mode === "zip" && country !== "US") || (row.mode === "place" && country === null))
+            throw Error("Invalid saved country");
+        let summary = null;
+        if (row.summary !== null) {
+            const data = row.summary;
+            if (!exact(data, ["temperature_c", "condition", "is_day", "fetched_at", "valid_at", "freshness", "alert_status"]) || (data.is_day !== null && typeof data.is_day !== "boolean") || ["fresh", "stale", "expired", "invalid_future"].indexOf(data.freshness) < 0 || ["active", "cached", "none", "unavailable", "not_supported_here"].indexOf(data.alert_status) < 0)
+                throw Error("Invalid saved summary");
+            if ((["active", "cached", "none"].indexOf(data.alert_status) >= 0 && country !== "US") || (data.alert_status === "not_supported_here" && (country === null || country === "US")))
+                throw Error("Invalid saved alert coverage");
+            summary = {
+                temperature_c: optional(data.temperature_c, -150, 100),
+                condition: condition(data.condition),
+                is_day: data.is_day,
+                fetched_at: time(data.fetched_at),
+                valid_at: time(data.valid_at),
+                freshness: data.freshness,
+                alert_status: data.alert_status
+            };
+        }
+        const zone = string(row.timezone, 100);
+        if (!/^[A-Za-z0-9_+\-/]+$/.test(zone))
+            throw Error("Invalid saved timezone");
+        const label = string(row.label, 80);
+        if (label !== label.trim())
+            throw Error("Invalid saved label");
+        return {
+            id: row.id,
+            name: string(row.name, 244),
+            label: label,
+            mode: row.mode,
+            country_code: country,
+            timezone: zone,
+            summary: summary
+        };
+    });
+    if (ids.indexOf(v.primary) < 0 || ids.indexOf(v.viewed) < 0)
+        throw Error("Missing saved selection");
+    return {
+        primary: v.primary,
+        viewed: v.viewed,
+        items: items,
+        primary_forecast_available: v.primary_forecast_available
+    };
+}
+function savedName(row) {
+    return row ? row.label || row.name : "Location unavailable";
+}
+function savedUnits(row, controls) {
+    return controls.units_mode === "auto" ? (row.country_code === null || row.country_code === "US" ? "F" : "C") : controls.units;
+}
+function savedAlertText(row) {
+    return row && row.summary ? ({
+            active: "NWS alert in saved feed",
+            cached: "Cached NWS alert",
+            none: "No active alerts in saved NWS feed",
+            unavailable: "Alert status unavailable",
+            not_supported_here: "Official alerts not supported here"
+        })[row.summary.alert_status] : "Alert status unavailable";
+}
+function locationErrorText(error) {
+    return ({
+            lookup_failed: "Location lookup failed. Try again.",
+            zip_not_found: "ZIP code not found. Check the code and try again.",
+            zip_ambiguous: "This ZIP code matches more than one location. Try another code.",
+            place_not_found: "Selected city is no longer available. Search again.",
+            stale_selection: "Search result expired. Search again.",
+            timeout: "Location lookup timed out. Try again.",
+            state_io_failed: "Location could not be saved. Try again.",
+            save_unconfirmed: "Location changed, but saving could not be confirmed. Try again."
+        })[error] || "";
+}
 function snapshot(v) {
     if (!object(v) || v.schema_version !== 1 || !object(v.controls) || !object(v.alerts) || !object(v.source) || !object(v.location))
         throw Error("Invalid snapshot");
@@ -732,6 +818,7 @@ function snapshot(v) {
         location: string(v.location.name, 244),
         location_settings: settings,
         place_search: placeSearch(v.place_search),
+        saved_locations: savedLocations(v.saved_locations),
         air_quality: airQuality(v.air_quality),
         briefing: briefings(v.briefing),
         effects_setup: effectsSetup(v.effects_setup),

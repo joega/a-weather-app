@@ -80,6 +80,7 @@ type App struct {
 	*forecastPoint
 	primary         *forecastPoint
 	saved           *savedLocations
+	savedList       savedListPresentation
 	primaryOnly     bool
 	barRefreshUntil time.Time
 	presented       bool

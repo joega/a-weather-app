@@ -62,7 +62,27 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				a.search.rows = append(a.search.rows, M{"id": float64(i + 1), "name": strings.Repeat("🌧", 120), "admin1": strings.Repeat("🌧", 244), "country": strings.Repeat("🌧", 120), "country_code": "DE"})
 			}
+			saved := M{"schema_version": 1.0, "generation": strings.Repeat("a", 32), "primary": "place-100", "viewed": "place-100", "places": []any{}, "cache_order": []any{}}
+			// Exercise JSON-escaped printable location names and labels with
+			// non-whitespace ends that satisfy the stricter alias rules.
+			savedText := func(n int) string { return "A" + strings.Repeat("\u2028", n-2) + "B" }
+			for i := 0; i < savedLocationLimit; i++ {
+				profile := savedFixture(i)
+				object(profile["location"])["name"] = strings.Repeat("<", 244)
+				id, _ := savedLocationID(profile)
+				saved["places"] = append(saved["places"].([]any), M{"id": id, "label": savedText(80), "profile": savedProfileIdentity(profile), "cache_slot": nil, "cache_token": nil, "summary": savedSummary(profile)})
+			}
+			if err := validateSavedLocations(saved); err != nil {
+				t.Fatal("maximal saved metadata fixture", err)
+			}
+			a.saved = &savedLocations{doc: saved}
+			a.primary = a.forecastPoint
 			snapshot := a.snapshot()
+			list := object(snapshot["saved_locations"])
+			listRaw, err := json.Marshal(list)
+			if err != nil || len(list["items"].([]any)) != savedLocationLimit || len(listRaw) > 48*1024 {
+				t.Fatal("saved list exceeded its metadata budget or lost rows", len(listRaw), err)
+			}
 			raw, e := json.Marshal(snapshot)
 			if e != nil || len(raw) > snapshotByteLimit {
 				t.Fatalf("snapshot exceeds byte budget: %d, %v", len(raw), e)
@@ -143,7 +163,7 @@ func TestSnapshotEscapedUnicodeFitsWireBudget(t *testing.T) {
 			if string(repeat) != string(raw) {
 				t.Fatal("byte cap is nondeterministic")
 			}
-			t.Logf("snapshot=%d bytes, reply=%d bytes, event=%d bytes, tree=%d nodes", len(raw), len(wire), len(event), nodes)
+			t.Logf("snapshot=%d bytes, reply=%d bytes, event=%d bytes, tree=%d nodes, saved list=%d bytes", len(raw), len(wire), len(event), nodes, len(listRaw))
 		})
 	}
 }

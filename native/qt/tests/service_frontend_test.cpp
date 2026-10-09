@@ -191,6 +191,63 @@ class ServiceFixture {
               {"country_code", "GB"},
               {"place", QJsonObject{{"provider", "open-meteo"}, {"id", 2643743}}}});
     }
+    void savedCities(int count = 20) {
+        cache(60);
+        const auto source = saved("forecast.json");
+        QJsonArray places, order;
+        for (int i = 0; i < count; ++i) {
+            const auto id = QString("place-%1").arg(100 + i);
+            const auto token = QString("%1").arg(i + 1, 32, 16, QLatin1Char('0'));
+            auto location = source["location"].toObject();
+            location["name"] = QString("City %1").arg(i);
+            location["latitude"] = 20 + i;
+            location["timezone"] = i == 1 ? "Europe/London" : "America/New_York";
+            QJsonObject profile{
+                {"schema_version", 2},
+                {"mode", "place"},
+                {"zip_code", QJsonValue::Null},
+                {"location", location},
+                {"forecast", QJsonValue::Null},
+                {"country_code", i == 1 ? "GB" : "US"},
+                {"place", QJsonObject{{"provider", "open-meteo"}, {"id", 100 + i}}}};
+            QJsonObject entry{{"id", id},
+                              {"label", ""},
+                              {"profile", profile},
+                              {"cache_slot", QJsonValue::Null},
+                              {"cache_token", QJsonValue::Null},
+                              {"summary", QJsonValue::Null}};
+            if (i < 4) {
+                auto forecast = source;
+                forecast["location"] = location;
+                auto current = forecast["current"].toObject();
+                current["temperature_c"] = 15 + i;
+                forecast["current"] = current;
+                auto cachedProfile = profile;
+                cachedProfile["forecast"] = forecast;
+                save(QString("saved-forecast-%1.json").arg(i),
+                     {{"schema_version", 1}, {"token", token}, {"profile", cachedProfile}});
+                entry["cache_slot"] = i;
+                entry["cache_token"] = token;
+                entry["summary"] =
+                    QJsonObject{{"temperature_c", 15 + i},
+                                {"condition", "clear"},
+                                {"is_day", true},
+                                {"fetched_at", source["fetched_at"]},
+                                {"valid_at", current["time"]},
+                                {"alert_expires", QJsonValue::Null},
+                                {"alert_fetched_at", QJsonValue::Null},
+                                {"alert_status", i == 1 ? "not_supported_here" : "unavailable"}};
+                order.append(id);
+            }
+            places.append(entry);
+        }
+        save("saved-locations.json", {{"schema_version", 1},
+                                      {"generation", QString(32, 'a')},
+                                      {"primary", "place-100"},
+                                      {"viewed", "place-100"},
+                                      {"places", places},
+                                      {"cache_order", order}});
+    }
     void airQualityCache(int fetchedAge, int validAge) {
         const auto now = QDateTime::currentDateTimeUtc();
         auto location = saved("forecast.json")["location"].toObject();
@@ -464,7 +521,7 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY_WITH_TIMEOUT(window->isExposed() && eval("backend.snapshot!==null").toBool(),
                                  5000);
         const auto startupMs = startup.elapsed();
-        root->setProperty("effectsOpen", false);
+        QTest::keyClick(window, Qt::Key_Escape);
         window->hide();
         QTRY_VERIFY_WITH_TIMEOUT(!eval("backend.mapWanted").toBool(), 3000);
         QTest::qWait(1000);
@@ -507,6 +564,11 @@ class ServiceFrontendTest : public QObject {
         QVERIFY2(!qEnvironmentVariable("GO_APP").isEmpty(),
                  "GO_APP must name the compiled Go service");
         QGuiApplication::setQuitOnLastWindowClosed(false);
+    }
+    void init() {
+        QTest::failOnWarning(
+            QRegularExpression(".*(TypeError:|ReferenceError:|Binding loop|Unable to assign|Cannot "
+                               "assign|failed to load component).*"));
     }
     void cleanup() {
         teardownTrace("engine begin");
@@ -602,6 +664,77 @@ class ServiceFrontendTest : public QObject {
         QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
         QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(), QProcess::NotRunning, 5000);
     }
+    void savedLocationsOfflineLifecycle() {
+        ServiceFixture fixture;
+        fixture.savedCities();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(), 5000);
+        QTRY_VERIFY(window->isExposed());
+        QCOMPARE(eval("root.savedLocations.items.length").toInt(), 20);
+        QCOMPARE(eval("root.primaryName").toString(), QString("City 0"));
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTRY_VERIFY(eval("root.locationsOpen").toBool());
+        auto* list = qobject_cast<QQuickItem*>(named("savedLocationList"));
+        QTRY_VERIFY(list->hasActiveFocus());
+        QTest::keyClick(window, Qt::Key_Down);
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(eval("root.location").toString(), QString("City 1"));
+        QCOMPARE(eval("root.current.temperature_c").toInt(), 16);
+        QCOMPARE(eval("root.units").toString(), QString("C"));
+        QCOMPARE(eval("root.primaryName").toString(), QString("City 0"));
+        QCOMPARE(fixture.saved("saved-locations.json")["primary"].toString(), QString("place-100"));
+        QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+        QTRY_VERIFY(eval("root.locationsOpen").toBool());
+        list = qobject_cast<QQuickItem*>(named("savedLocationList"));
+        QTRY_VERIFY(list->hasActiveFocus());
+        QCOMPARE(list->property("currentIndex").toInt(), 1);
+        QTest::keyClick(window, Qt::Key_Right);
+        auto* alias = qobject_cast<QQuickItem*>(named("savedLocationAlias"));
+        QTRY_VERIFY(alias->hasActiveFocus());
+        alias->setProperty("text", "Office");
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(eval("root.viewedPlace.label").toString(), QString("Office"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            item->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        activate("moveLocationUp");
+        QTRY_COMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-101"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        activate("makeLocationPrimary");
+        QTRY_COMPARE(eval("root.primaryName").toString(), QString("Office"));
+        QCOMPARE(eval("root.primaryTimezone").toString(), QString("Europe/London"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        QVERIFY(!named("removeSavedLocation")->property("enabled").toBool());
+        auto* replacement = qobject_cast<QQuickItem*>(named("replacementPrimary"));
+        replacement->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Down);
+        QTRY_VERIFY(named("removeSavedLocation")->property("enabled").toBool());
+        activate("removeSavedLocation");
+        QTRY_COMPARE(eval("root.savedLocations.items.length").toInt(), 19);
+        QTRY_COMPARE(eval("root.location").toString(), QString("City 0"));
+        QCOMPARE(eval("root.primaryName").toString(), QString("City 0"));
+        QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
+        auto saved = fixture.saved("saved-locations.json");
+        QCOMPARE(saved["primary"].toString(), QString("place-100"));
+        QCOMPARE(saved["viewed"].toString(), QString("place-100"));
+        QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
+        eval("bridge.shutdown()");
+        QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(), QProcess::NotRunning, 5000);
+        cleanup();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(), 5000);
+        QCOMPARE(eval("root.savedLocations.items.length").toInt(), 19);
+        QCOMPARE(eval("root.savedLocations.primary").toString(), QString("place-100"));
+        QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-100"));
+        QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
+        QCOMPARE(fixture.saved("saved-locations.json"), saved);
+    }
     void emptyOfflineWindow() {
         ServiceFixture fixture;
         QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
@@ -689,7 +822,7 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.current!==null").toBool(), 5000);
         QTRY_VERIFY(window->isExposed());
-        root->setProperty("effectsOpen", false);
+        QTest::keyClick(window, Qt::Key_Escape);
         BarFixture widget;
         const bool hasQuickshell = !QStandardPaths::findExecutable("qs").isEmpty();
         QVERIFY2(hasQuickshell || !qEnvironmentVariableIsSet("WEATHER_REQUIRE_BAR_TEST"),
@@ -728,7 +861,7 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY_WITH_TIMEOUT(eval("root.automaticUnits").toBool(), 3000);
         checkBar(celsiusLabel);
         QCOMPARE(fixture.saved("controls.json")["units_mode"].toString(), QString("auto"));
-        root->setProperty("effectsOpen", true);
+        eval("root.openSettings(false)");
         selectUnits("C", "settingsUnitsChoice");
         QTRY_VERIFY_WITH_TIMEOUT(!eval("root.automaticUnits").toBool(), 3000);
         QCOMPARE(named("unitsChoice")->property("displayText").toString(), QString("°C"));
@@ -832,7 +965,7 @@ class ServiceFrontendTest : public QObject {
                  QString("Mean sea level"));
         QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),
                  QString("Dew point 55°"));
-        root->setProperty("effectsOpen", false);
+        QTest::keyClick(window, Qt::Key_Escape);
         eval("details.showHour(root.hours[0])");
         QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
         QCOMPARE(named("detailMetricValue_uv")->property("text").toString(), QString("3.2"));
@@ -840,7 +973,7 @@ class ServiceFrontendTest : public QObject {
                  QString("29.79 inHg"));
         QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(), QString("49°"));
         click("closeForecastDetails");
-        root->setProperty("effectsOpen", false);
+        QTest::keyClick(window, Qt::Key_Escape);
         selectUnits("C");
         QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), QString("C"), 3000);
         QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),
@@ -917,7 +1050,7 @@ class ServiceFrontendTest : public QObject {
                  QString("Model forecast valid ") + validLabel + " · Fetched " + fetchedLabel);
         QVERIFY(validLabel.contains("(-04:00)") || validLabel.contains("(-05:00)"));
         if (freshness == "fresh") {
-            root->setProperty("effectsOpen", false);
+            QTest::keyClick(window, Qt::Key_Escape);
             selectUnits("C");
             QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), QString("C"), 3000);
             QCOMPARE(named("airQualityValue_us")->property("text").toString(), QString("0"));
@@ -971,13 +1104,13 @@ class ServiceFrontendTest : public QObject {
                      ->property("text")
                      .toString()
                      .contains("National Weather Service"));
-        root->setProperty("effectsOpen", true);
+        eval("root.openSettings(false)");
         named("placeQuery")->setProperty("text", "Berlin");
         QTRY_COMPARE_WITH_TIMEOUT(eval("bridge.snapshot.place_search.status").toString(),
                                   QString("error"), 5000);
         QCOMPARE(eval("bridge.snapshot.place_search.error").toString(), QString("offline"));
         QVERIFY(named("placeSearchStatus")->property("text").toString().contains("offline"));
-        root->setProperty("effectsOpen", false);
+        QTest::keyClick(window, Qt::Key_Escape);
         QTRY_COMPARE_WITH_TIMEOUT(eval("bridge.snapshot.place_search.status").toString(),
                                   QString("idle"), 3000);
         QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
@@ -992,7 +1125,7 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(), 5000);
         QTRY_VERIFY(window->isExposed());
-        root->setProperty("effectsOpen", true);
+        eval("root.openSettings(false)");
         auto* query = qobject_cast<QQuickItem*>(named("placeQuery"));
         QVERIFY(query);
         named("placeCountry")->setProperty("text", "DE");
@@ -1027,7 +1160,7 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(window->isExposed());
         QVERIFY(eval("root.freshness").toString().startsWith("Stale forecast"));
         QCOMPARE(eval("root.hours.length").toInt(), 1);
-        root->setProperty("effectsOpen", false);
+        QTest::keyClick(window, Qt::Key_Escape);
         selectUnits("C");
         QTRY_COMPARE_WITH_TIMEOUT(eval("root.units").toString(), QString("C"), 3000);
         QCOMPARE(fixture.saved("controls.json")["units"].toString(), QString("C"));

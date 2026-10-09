@@ -112,7 +112,7 @@ Item {
             request.controls = patch;
         if (op === "set_notifications")
             request.notifications = patch;
-        if (op === "set_location")
+        if (op === "set_location" || op === "add_location" || op === "saved_location")
             request.location = patch;
         if (op === "search_places")
             request.search = patch;
@@ -279,7 +279,7 @@ Item {
                 if (value.ok)
                     error = "";
                 else
-                    error = completedOp === "set_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
+                    error = value.error === "location_limit" ? "You can save up to 20 places. Remove one before adding another." : value.error === "offline" ? "Adding a place requires an internet connection. Saved places remain available." : value.error === "save_unconfirmed" ? "The change is visible, but saving could not be confirmed." : completedOp === "saved_location" ? "The saved place could not be changed. Try again." : completedOp === "set_location" || completedOp === "add_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
             }
             drainUserAction();
         } catch (e) {

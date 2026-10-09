@@ -14,6 +14,8 @@ ColumnLayout {
             results: [],
             error: null
         })
+    property string objectPrefix: ""
+    property string selectionHint: "Optional country code, such as DE or BR. Choose a result to change location."
     property bool serviceAvailable: true
     property bool locationBusy: false
     property bool armed: false
@@ -71,7 +73,7 @@ ColumnLayout {
         invalidate()
     Timer {
         id: debounce
-        objectName: "placeSearchDebounce"
+        objectName: root.objectPrefix + "placeSearchDebounce"
         interval: 350
         repeat: false
         onTriggered: {
@@ -99,7 +101,7 @@ ColumnLayout {
         Layout.fillWidth: true
         TextField {
             id: cityInput
-            objectName: "placeQuery"
+            objectName: root.objectPrefix + "placeQuery"
             Layout.fillWidth: true
             maximumLength: 120
             enabled: root.serviceAvailable && !root.locationBusy
@@ -128,7 +130,7 @@ ColumnLayout {
         }
         TextField {
             id: countryInput
-            objectName: "placeCountry"
+            objectName: root.objectPrefix + "placeCountry"
             Layout.preferredWidth: 106
             maximumLength: 2
             validator: RegularExpressionValidator {
@@ -152,7 +154,7 @@ ColumnLayout {
     }
     PlainLabel {
         Layout.fillWidth: true
-        text: "Optional country code, such as DE or BR. Choose a result to change location."
+        text: root.selectionHint
         font.pixelSize: 13
         color: Tokens.secondary
         wrapMode: Text.Wrap
@@ -167,7 +169,7 @@ ColumnLayout {
         elide: Text.ElideNone
     }
     PlainLabel {
-        objectName: "placeSearchStatus"
+        objectName: root.objectPrefix + "placeSearchStatus"
         Layout.fillWidth: true
         visible: text !== ""
         text: !root.serviceAvailable ? "Search unavailable while disconnected." : cityInput.text.trim().length === 1 ? "Enter at least two characters." : countryInput.text.length === 1 ? "Enter a two-letter country code or leave it blank." : !root.showingSearch ? "" : root.search.status === "loading" ? "Searching places…" : root.search.status === "error" ? (root.search.error === "offline" ? "Search unavailable offline." : root.search.error === "timeout" ? "Search timed out. Edit the query to retry." : "Place search failed. Edit the query to retry.") : root.search.status === "ready" && root.search.results.length === 0 ? "No matching places found." : ""
@@ -178,7 +180,7 @@ ColumnLayout {
     }
     ListView {
         id: results
-        objectName: "placeResults"
+        objectName: root.objectPrefix + "placeResults"
         Layout.fillWidth: true
         Layout.preferredHeight: Math.min(contentHeight, 260)
         visible: count > 0
@@ -194,7 +196,7 @@ ColumnLayout {
             required property int index
             width: results.width
             height: Math.max(42, resultLabel.implicitHeight + 12)
-            objectName: "placeResult_" + index
+            objectName: root.objectPrefix + "placeResult_" + index
             enabled: root.serviceAvailable && !root.locationBusy
             Accessible.name: modelData.name + (modelData.admin1 ? ", " + modelData.admin1 : "") + ", " + modelData.country
             onClicked: root.pick(modelData)

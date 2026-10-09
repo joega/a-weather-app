@@ -25,6 +25,9 @@ GlassPanel {
             pause_fullscreen: true
         })
     property string location: "Location unavailable"
+    property string primaryLocation: location
+    property bool hasSavedLocations: false
+    signal manageLocationsRequested
     property var locationSettings: ({
             mode: "default",
             zip_code: null,
@@ -287,8 +290,32 @@ GlassPanel {
             PlainLabel {
                 objectName: "settingsLocation"
                 Layout.fillWidth: true
-                text: root.location
+                text: "Viewing · " + root.location
                 font.pixelSize: 18
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                visible: root.hasSavedLocations
+                text: "Primary · " + root.primaryLocation
+                color: Tokens.accent
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: 15
+            }
+            ActionButton {
+                objectName: "manageSavedLocations"
+                text: "Manage saved locations"
+                visible: root.hasSavedLocations
+                onClicked: root.manageLocationsRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                visible: root.hasSavedLocations
+                text: "Search below to add and view a city. Change the primary location in the saved list."
+                color: Tokens.secondary
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: 14
             }
             PlainLabel {
                 objectName: "locationMode"
@@ -303,6 +330,7 @@ GlassPanel {
                 id: citySearch
                 Layout.fillWidth: true
                 search: root.placeSearch
+                selectionHint: root.hasSavedLocations ? "Choose a result to add and view it. The primary location stays the same." : "Optional country code, such as DE or BR. Choose a result to change location."
                 serviceAvailable: root.serviceAvailable
                 locationBusy: root.locationLocked
                 onSearchRequested: values => root.placeSearchRequested(values)
@@ -340,7 +368,7 @@ GlassPanel {
                 }
                 ActionButton {
                     objectName: "applyLocationZip"
-                    text: "Apply"
+                    text: root.hasSavedLocations ? "Add ZIP" : "Apply"
                     primary: true
                     enabled: !root.locationLocked && /^[0-9]{5}$/.test(zipInput.text)
                     onClicked: root.applyZip()
@@ -627,7 +655,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Manual previews do not change the live forecast. Live desktop always follows the selected location’s weather."
+                text: "Manual previews do not change the live forecast. Live desktop always follows the primary location’s weather."
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: 13

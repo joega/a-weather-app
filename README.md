@@ -316,7 +316,7 @@ checksums detect mismatches; release provenance must be verified separately.
 ## Notifications
 
 Enable precipitation watching in Settings → Notifications. Choose a probability
-threshold, quiet hours in the selected location's timezone, or a one-hour pause.
+threshold, quiet hours in the primary location's timezone, or a one-hour pause.
 Outlooks use hourly forecast periods, not minute-precise onset predictions.
 Stale/unavailable forecasts suppress delivery, and duplicate events are reserved
 to avoid repeated notifications. The desktop daemon controls presentation.
@@ -450,8 +450,14 @@ and forecast files, including in offline mode. Original files remain unchanged
 for rollback. The list is limited to 20 places; four full forecasts are retained
 across five atomic cache slots, with at most 10 MiB of slot files. Only the viewed
 and primary cities stay decoded for consumers. Saving a place does not enable
-background fetching for it. The saved-city picker is still under development;
-the existing city-selection flow continues to change the primary location.
+background fetching for it. Open **Locations** (Ctrl+L) to switch cities, add a
+place, rename or reorder entries, or choose **Make primary**. Browsing or adding
+a city keeps the existing primary location used by the bar, desktop effects and
+background notifications. Removing the primary requires an explicit replacement.
+The first chosen place becomes primary when starting from the unchosen default.
+The picker is constructed only while open; its list uses cached summaries with
+freshness and warning coverage, and does not fetch every saved city. Summary
+timestamps use your desktop timezone. Missing or expired weather displays a dash.
 The new manifest is authoritative once migration succeeds. A damaged forecast
 cache leaves its saved identity available; invalid metadata does not silently
 restore a different city from older files. Before downgrading, quit the app and
