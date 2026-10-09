@@ -6,6 +6,10 @@
 <file alias="qml/DashboardOrder.qml">../../ui/qml/DashboardOrder.qml</file>
 <file alias="qml/DashboardEditor.qml">../../ui/qml/DashboardEditor.qml</file>
 <file alias="qml/DashboardLayout.qml">../../ui/qml/DashboardLayout.qml</file>
+<file alias="qml/Share.js">../../ui/qml/Share.js</file>
+<file alias="qml/ForecastShare.qml">../../ui/qml/ForecastShare.qml</file>
+<file alias="qml/ForecastShareCard.qml">../../ui/qml/ForecastShareCard.qml</file>
+<file alias="qml/ForecastSaveDialog.qml">../../ui/qml/ForecastSaveDialog.qml</file>
 <file alias="qml/Forecast.js">../../ui/qml/Forecast.js</file>
 <file alias="qml/Changes.js">../../ui/qml/Changes.js</file>
 <file alias="qml/Astronomy.js">../../ui/qml/Astronomy.js</file>

@@ -1,4 +1,6 @@
 #include <QtTest>
+#include <QClipboard>
+#include <QImageReader>
 #include "transport.h"
 #include "maptiles.h"
 #include <QQmlApplicationEngine>
@@ -16,6 +18,7 @@
 #include <QDir>
 #include <QStandardPaths>
 #include <unistd.h>
+#include <functional>
 #include <memory>
 
 static void teardownTrace(const char* phase) {
@@ -1370,6 +1373,227 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(eval("!root.precipitationOpen && !backend.precipitationWanted && "
                          "backend.precipitationResult===null && precipitationLoader.item===null")
                         .toBool());
+        phase("hidden");
+    }
+    void forecastSharingCopyImageAndLifecycle() {
+        ServiceFixture fixture;
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60);
+        auto forecast = fixture.saved("forecast.json");
+        const auto day = forecast["daily"].toArray().first().toObject();
+        QJsonArray days;
+        for (int i = 0; i < 3; ++i) {
+            auto row = day;
+            row["date"] = QDate::fromString(day["date"].toString(), Qt::ISODate)
+                              .addDays(i)
+                              .toString(Qt::ISODate);
+            days.append(row);
+        }
+        forecast["daily"] = days;
+        fixture.save("forecast.json", forecast);
+        fixture.savedNewYorkPlace();
+        const auto original = fixture.saved("forecast.json");
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        const bool probe = qEnvironmentVariableIsSet("WEATHER_QT_SHARE_MEASURE");
+        QSignalSpy swaps(window, &QQuickWindow::frameSwapped);
+        const auto phase = [&](const QString& name) {
+            if (!probe)
+                return;
+            QTest::qWait(200);
+            const auto before = swaps.size();
+            auto result = measure(name, fixture.service.processId());
+            result["frame_swaps"] = swaps.size() - before;
+            result["ui_pss_kib"] = usage(QCoreApplication::applicationPid()).pssKiB;
+            result["service_pss_kib"] = usage(fixture.service.processId()).pssKiB;
+            qInfo().noquote() << "SHARE_PERF"
+                              << QJsonDocument(result).toJson(QJsonDocument::Compact);
+        };
+        phase("initial");
+        auto* loader = named("forecastShareLoader");
+        QVERIFY(loader);
+        QVERIFY(!loader->property("item").value<QObject*>());
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        auto* entry = qobject_cast<QQuickItem*>(named("openForecastShare"));
+        QVERIFY(entry);
+        activate("openForecastShare");
+        QTRY_VERIFY(loader->property("item").value<QObject*>());
+        auto* popup = loader->property("item").value<QObject*>();
+        QTRY_VERIFY(popup->property("opened").toBool());
+        QVERIFY(eval("root.shareOpen && !root.mapActive && !backend.forecastVisible").toBool());
+        QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
+        QVERIFY(!named("forecastSaveDialogLoader")->property("item").value<QObject*>());
+        const auto before = eval("backend.nextId").toInt();
+        activate("copyForecastText");
+        auto text = QGuiApplication::clipboard()->text();
+        QVERIFY(text.contains("New York, NY"));
+        QVERIFY(text.contains("America/New_York"));
+        QVERIFY(text.contains("59°F"));
+        QVERIFY(text.contains("Current conditions valid "));
+        QVERIFY(text.contains(" UTC"));
+        QVERIFY(text.contains("Precipitation chance 0%"));
+        QVERIFY(text.contains("Current official alert status unavailable."));
+        QVERIFY(text.contains("Open-Meteo"));
+        QVERIFY(text.contains("CC BY 4.0"));
+        QVERIFY(!text.contains("40.7128"));
+        QVERIFY(!text.contains("-74.006"));
+        activate("shareIncludePlace");
+        activate("copyForecastText");
+        text = QGuiApplication::clipboard()->text();
+        QVERIFY(text.startsWith("Weather forecast\n"));
+        QVERIFY(!text.contains("New York, NY"));
+        QCOMPARE(eval("backend.nextId").toInt(), before);
+        if (probe)
+            QTest::qWait(5200);
+        phase("preview_open");
+        // Exercise actual PNG encoding, including the card portion outside the
+        // scroll viewport. No app chrome, coordinates or place label is exported.
+        const auto output = fixture.directory.path() + "/forecast.png";
+        const auto quoted = [](const QString& value) {
+            const auto json = QJsonDocument(QJsonArray{value}).toJson(QJsonDocument::Compact);
+            return QString::fromUtf8(json.mid(1, json.size() - 2));
+        };
+        // Save goes through the lazily loaded file picker. Cancel creates no file.
+        activate("saveForecastImage");
+        auto* dialogLoader = named("forecastSaveDialogLoader");
+        QTRY_VERIFY(dialogLoader->property("item").value<QObject*>());
+        auto* dialog = dialogLoader->property("item").value<QObject*>();
+        auto* firstFilename = qobject_cast<QQuickItem*>(named("fileNameTextField"));
+        QVERIFY(firstFilename);
+        QTRY_VERIFY(firstFilename->isVisible());
+        if (!qEnvironmentVariable("WEATHER_QT_SHARE_SCREENSHOT_PREFIX").isEmpty()) {
+            QTest::qWait(200);
+            QVERIFY(window->grabWindow().save(
+                qEnvironmentVariable("WEATHER_QT_SHARE_SCREENSHOT_PREFIX") + "-picker.png"));
+        }
+        firstFilename->window()->requestActivate();
+        QTRY_VERIFY(firstFilename->window()->isActive());
+        QTest::keyClick(firstFilename->window(), Qt::Key_Escape);
+        QTRY_VERIFY(!dialog->property("visible").toBool());
+        QTest::qWait(250); // Allow the fallback picker's exit transition to finish.
+        QVERIFY(!QFile::exists(output));
+        window->requestActivate();
+        QTRY_VERIFY(window->isActive());
+        activate("saveForecastImage");
+        QTRY_VERIFY(dialogLoader->property("item").value<QObject*>());
+        dialog = dialogLoader->property("item").value<QObject*>();
+        QTRY_VERIFY(dialog->property("visible").toBool());
+        QVERIFY(
+            dialog->setProperty("currentFolder", QUrl::fromLocalFile(fixture.directory.path())));
+        QTRY_COMPARE(dialog->property("currentFolder").toUrl(),
+                     QUrl::fromLocalFile(fixture.directory.path()));
+        auto* filename = qobject_cast<QQuickItem*>(named("fileNameTextField"));
+        QVERIFY(filename);
+        filename->forceActiveFocus();
+        QInputMethodEvent input;
+        input.setCommitString("forecast.png");
+        QCoreApplication::sendEvent(filename, &input);
+        QCOMPARE(filename->property("text").toString(), QString("forecast.png"));
+        filename->window()->requestActivate();
+        QTRY_VERIFY(filename->window()->isActive());
+        QTest::keyClick(filename->window(), Qt::Key_Return);
+        const std::function<QQuickItem*(QQuickItem*)> findSave =
+            [&](QQuickItem* item) -> QQuickItem* {
+            if (item->inherits("QQuickAbstractButton") &&
+                item->property("text").toString().remove('&') == "Save")
+                return item;
+            for (auto* child : item->childItems())
+                if (auto* result = findSave(child))
+                    return result;
+            return nullptr;
+        };
+        auto* saveAction = findSave(filename->window()->contentItem());
+        QVERIFY(saveAction);
+        saveAction->forceActiveFocus();
+        QTest::keyClick(saveAction->window(), Qt::Key_Space);
+        QTRY_COMPARE(popup->property("notice").toString(), QString("Forecast image saved."));
+        QVERIFY(!popup->property("busy").toBool());
+        QImageReader reader(output);
+        QCOMPARE(reader.format(), QByteArray("png"));
+        QCOMPARE(reader.size().width(), 720);
+        QVERIFY(reader.size().height() > 400 && reader.size().height() <= 1600);
+        const auto exported = reader.read();
+        QVERIFY(!exported.isNull());
+        QVERIFY(exported.pixelColor(20, exported.height() - 20).alpha() == 255);
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_SHARE_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(exported.save(prefix + "-export.png"));
+            QVERIFY(window->grabWindow().save(prefix + "-wide.png"));
+        }
+        // A failed destination is visible and does not disable retry.
+        const auto bad =
+            QUrl::fromLocalFile(fixture.directory.path() + "/missing/forecast.png").toString();
+        QVERIFY(eval("shareLoader.item.saveImage(" + quoted(bad) + ")").toBool());
+        QTRY_VERIFY(!popup->property("busy").toBool());
+        QVERIFY(popup->property("notice").toString().startsWith("Could not save"));
+        // Preview updates cannot leak unavailable values or turn null into zero.
+        eval(
+            "(function(){const s=JSON.parse(JSON.stringify(backend.snapshot)); "
+            "s.source.freshness='stale'; s.forecast.current.temperature_c=null; "
+            "s.forecast.daily[0].precipitation_probability=null; shareLoader.item.snapshot=s;})()");
+        text = popup->property("plainText").toString();
+        QVERIFY(text.contains("Stale forecast"));
+        QVERIFY(text.contains("Precipitation chance —"));
+        QVERIFY(!text.contains("59°F"));
+        eval("(function(){const s=JSON.parse(JSON.stringify(backend.snapshot)); "
+             "s.source.freshness='expired'; shareLoader.item.snapshot=s;})()");
+        QCOMPARE(popup->property("plainText").toString(), QString());
+        QVERIFY(!named("copyForecastText")->property("enabled").toBool());
+        eval("shareLoader.item.snapshot=backend.snapshot");
+        if (probe)
+            QTest::qWait(5200); // Let the one-shot success/error notice expire.
+        phase("details_open");
+        activate("closeForecastShare");
+        QTRY_VERIFY(!loader->property("item").value<QObject*>());
+        QCOMPARE(window->activeFocusItem(), entry);
+        window->resize(700, 650);
+        eval("root.openShare()");
+        QTRY_VERIFY(loader->property("item").value<QObject*>());
+        popup = loader->property("item").value<QObject*>();
+        QTRY_VERIFY(popup->property("opened").toBool());
+        if (!prefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(prefix + "-compact.png"));
+        }
+        auto* flick = named("forecastShareScroll")->property("contentItem").value<QObject*>();
+        QTRY_VERIFY(flick->property("contentHeight").toReal() > flick->property("height").toReal());
+        QTRY_COMPARE(window->activeFocusItem(),
+                     qobject_cast<QQuickItem*>(named("closeForecastShare")));
+        QTest::keyClick(window, Qt::Key_PageDown);
+        QTRY_VERIFY(flick->property("contentY").toReal() > 0);
+        if (!prefix.isEmpty())
+            QVERIFY(window->grabWindow().save(prefix + "-footer.png"));
+        // Closing before the queued capture begins leaves no output file.
+        const auto canceled = fixture.directory.path() + "/canceled.png";
+        QVERIFY(eval("shareLoader.item.saveImage(" +
+                     quoted(QUrl::fromLocalFile(canceled).toString()) +
+                     "); root.closeShare(); true")
+                    .toBool());
+        QTest::qWait(50);
+        QVERIFY(!QFile::exists(canceled));
+        for (int i = 0; i < (probe ? 40 : 5); ++i) {
+            eval("root.openShare()");
+            QTRY_VERIFY(loader->property("item").value<QObject*>());
+            QPointer<QObject> guard = loader->property("item").value<QObject*>();
+            QTRY_VERIFY(guard->property("opened").toBool());
+            activate("copyForecastText");
+            QTest::keyClick(window, Qt::Key_Escape);
+            QTRY_VERIFY(guard.isNull());
+            if (i == 19)
+                phase("closed_after_20");
+            if (i == 39)
+                phase("closed_after_40");
+        }
+        QCOMPARE(fixture.saved("forecast.json"), original);
+        eval("root.openShare()");
+        window->hide();
+        QTRY_VERIFY(eval("!root.shareOpen && shareLoader.item===null").toBool());
         phase("hidden");
     }
     void airQualityOutlookAndLazyLifecycle() {

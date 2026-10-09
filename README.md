@@ -39,6 +39,13 @@ you press **Find times**. Suggestions explain missing data and exceeded limits;
 UV, air quality, ice and official warnings are not included in the ranking.
 The planner loads on demand and adds no weather requests or background polling.
 
+**Share forecast** copies a concise text summary or saves a PNG of current
+conditions and up to three forecast days. Both include units, timezone, valid
+and retrieval times, source attribution, freshness and alert availability.
+You can omit the place name; the timezone remains visible and coordinates are
+never included. Sharing uses the forecast already loaded, opens on demand and
+adds no weather requests or background polling.
+
 **Rain & snow**, beside the ten-day forecast or inside a day's details, opens
 daily liquid-equivalent precipitation, rain and showers, new snowfall, and hourly
 amounts. Choose a date to see available ground-snow and freezing-level samples.
