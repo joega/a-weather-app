@@ -381,8 +381,9 @@ by Open-Meteo; values are rounded for display.
 ## Local weather map
 
 Scroll to **Local weather maps** on the main forecast screen. **Precipitation**
-is selected first; labeled **Temperature** and **Wind** tabs switch the same map
-view, centered on the viewed location with a fixed 10-mile radius. Only the
+is selected first; **Temperature** and **Wind** share its forecast timeline,
+centered on the viewed location with a fixed 10-mile radius. **Radar** switches
+to recent observations with its own timeline and movable map. Only the
 selected map is created when the section enters view; leaving it releases the
 map and stops rendering. Tabs reuse the loaded forecast and basemap tiles.
 Temperature shading, restrained wind trails, and modeled hourly precipitation
@@ -405,6 +406,30 @@ Trails fade at birth and expiry and reset when the forecast hour or location cha
 
 Precipitation is the model total for the hour ending at the selected time, not
 radar or a live measurement. Zero precipitation has no shading.
+
+The **Radar** tab shows NOAA/NWS MRMS reflectivity for the contiguous United
+States, on an OpenStreetMap background. It loads only while selected and in
+view. The newest image appears first, followed by up to two hours of history
+(at most 24 observations, sampled about five minutes apart). The displayed local
+observation time changes only after its image is ready. Previous/Next and the
+slider select observations; Play loops the available history, and Latest returns
+to the newest image. Reduced motion and Static quality disable playback.
+
+Drag to pan, use +/− to zoom, Recenter to return to the viewed place, or Expand
+for a taller map. With keyboard focus on the map, arrows pan, +/− zoom, and Home
+recenters. Radar is past observation, not a prediction of rain starting or
+stopping. The legend shows reflectivity in dBZ on an approximately 1 km source
+grid; transparent areas may lack radar coverage, and reflectivity does not
+classify rain versus snow. Stale, unavailable and unsupported data are labeled.
+
+Radar fetches stop when the map closes, goes offscreen, or the app is hidden.
+Only the displayed and next image are decoded for playback. Encoded frame history
+is limited to 12 MiB for one viewport and retained for five minutes after closing,
+then reclaimed on the next ordinary service tick. Changing the view discards its
+old imagery. No radar history is written to disk. Initial history is fetched
+sequentially, with at least 500 ms between request starts; metadata refreshes at
+most once every two minutes while viewed. Failed requests back off for at least
+a minute. The provider receives the selected map bounds and observation times.
 
 Measurement displays follow the selected unit system: °F uses mph, inches,
 miles and inHg; °C uses km/h, millimetres, kilometres and hPa. Auto uses °F for
@@ -468,8 +493,9 @@ store an IP-address response field. Normal refresh is limited to once per
 Open-Meteo's free service permits non-commercial use and requires attribution;
 commercial use requires an appropriate [Open-Meteo plan](https://open-meteo.com/en/pricing).
 See its [service terms](https://open-meteo.com/en/terms). Forecasts are model
-output; this app does not provide radar maps, air-quality station readings or
-minute-by-minute rain predictions.
+output. Radar observations use the separate NOAA/NWS feed described above;
+the app does not provide air-quality station readings or minute-by-minute rain
+predictions.
 
 Current conditions and selected-hour details include UV index, mean sea level
 pressure in inHg with °F or hPa with °C, and dew point at 2 m in your chosen temperature unit. These are

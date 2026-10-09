@@ -20,3 +20,6 @@ warning-e2e-test
 wayland-activation-test
 .wayland-test-build/
 .wayland-test.mk
+radarimages-test
+.radar-test-build/
+.radar-test.mk

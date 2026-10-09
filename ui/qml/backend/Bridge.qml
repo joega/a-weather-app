@@ -13,6 +13,11 @@ Item {
             error: "",
             data: null
         })
+    property var weatherRadar: Forecast.emptyRadar()
+    property bool radarWanted: false
+    property int radarToken: 0
+    property int pendingRadarToken: -1
+    property var queuedRadar: null
     property bool mapWanted: false
     property bool presentationActive: true
     property bool subscribed: false
@@ -93,6 +98,13 @@ Item {
                 queuedPresentation = patch.active;
                 return true;
             }
+            if (op === "radar_view" || op === "radar_close") {
+                queuedRadar = {
+                    op: op,
+                    patch: patch ? JSON.parse(JSON.stringify(patch)) : null
+                };
+                return true;
+            }
             if (op === "map_open" || op === "map_close") {
                 queuedMapOp = op === pendingOp ? "" : op;
                 return true;
@@ -149,6 +161,10 @@ Item {
             pendingWarningTarget = request.warning;
             pendingWarningGeneration = warningGeneration;
         }
+        if (op === "radar_view") {
+            request.view = patch;
+            pendingRadarToken = patch.client_token;
+        }
         if (op === "set_location" || op === "add_location" || op === "saved_location")
             request.location = patch;
         if (op === "search_places")
@@ -163,6 +179,26 @@ Item {
         }
         deadline.restart();
         return true;
+    }
+    function openRadar(latitude, longitude, zoom) {
+        radarWanted = true;
+        radarToken = (radarToken + 1) % 2147483648;
+        weatherRadar = Forecast.emptyRadar("loading");
+        if (latitude === null || longitude === null || Math.abs(latitude) > 85) {
+            weatherRadar = Forecast.emptyRadar("unsupported");
+            return false;
+        }
+        return send("radar_view", {
+            latitude: latitude,
+            longitude: longitude,
+            zoom: zoom,
+            client_token: radarToken
+        });
+    }
+    function closeRadar() {
+        radarWanted = false;
+        weatherRadar = Forecast.emptyRadar();
+        return send("radar_close");
     }
     function openMap() {
         mapWanted = true;
@@ -209,6 +245,12 @@ Item {
             send(op);
             return;
         }
+        if (queuedRadar !== null) {
+            const next = queuedRadar;
+            queuedRadar = null;
+            send(next.op, next.patch);
+            return;
+        }
         if (queuedUserOp !== "") {
             let op = queuedUserOp, patch = queuedUserPatch;
             queuedUserOp = "";
@@ -238,6 +280,7 @@ Item {
         queuedUserOp = "";
         queuedUserPatch = null;
         queuedMapOp = "";
+        queuedRadar = null;
         queuedSearch = null;
         cancelSearchQueued = false;
         stopQueued = false;
@@ -306,8 +349,11 @@ Item {
                     if (mapWanted)
                         weatherMap = Forecast.weatherMap(value.map);
                 } else if (value.event === "radar") {
-                    // Radar metadata is independent of the forecast snapshot.
-                    // The native radar view will subscribe when opened.
+                    if (radarWanted) {
+                        const next = Forecast.radarState(value.radar);
+                        if (next.client_token === radarToken)
+                            weatherRadar = next;
+                    }
                 } else if (value.event === "service_stopped") {
                     closing = true;
                     quitAcknowledged = value.ok;
@@ -331,6 +377,8 @@ Item {
             }
             if (value.snapshot)
                 applySnapshot(value.snapshot);
+            if (completedOp === "radar_view" && !value.ok && radarWanted && pendingRadarToken === radarToken)
+                weatherRadar = Forecast.emptyRadar("unavailable");
             if (completedOp === "quit") {
                 quitAcknowledged = value.ok;
                 shutdownFailed = !value.ok;

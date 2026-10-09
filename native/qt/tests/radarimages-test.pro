@@ -1,0 +1,10 @@
+QT += testlib quick network dbus
+CONFIG += console c++17 testcase
+TARGET = radarimages-test
+INCLUDEPATH += .
+SOURCES += tests/radarimages_test.cpp radarimages.cpp protocol.cpp desktopwarnings.cpp transport.cpp maptiles.cpp
+HEADERS += radarimages.h pngvalidation.h protocol.h desktopwarnings.h transport.h maptiles.h tests/radarservicefixture.h
+OBJECTS_DIR = .radar-test-build
+MOC_DIR = .radar-test-build
+RESOURCES += resources.qrc
+RCC_DIR = .radar-test-build

@@ -9,6 +9,7 @@ QtObject {
     property var graphicsCapabilities: null
     required property var weatherTransport
     property var mapTiles: null
+    property var radarImages: null
     property var windowActivation: null
     property string units: bridge.snapshot ? bridge.snapshot.controls.units : "F"
     readonly property string windUnits: bridge.snapshot ? bridge.snapshot.controls.wind_units : "auto"
@@ -146,11 +147,43 @@ QtObject {
     readonly property bool hasMapLocation: bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default"
     readonly property bool mapsNearViewport: mapSection.height > 100 && mapSection.y + mapSection.height + 18 > forecastScroll.flickable.contentY - 64 && mapSection.y + 18 < forecastScroll.flickable.contentY + forecastScroll.height + 64
     readonly property bool mapActive: window.visible && window.visibility !== Window.Hidden && window.visibility !== Window.Minimized && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !details.visible && bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy && root.mapsNearViewport
-    onMapActiveChanged: {
-        if (mapActive && !bridge.mapWanted)
+    readonly property bool forecastMapActive: root.mapActive && mapSection.selectedLayer !== "radar"
+    readonly property bool radarActive: root.mapActive && mapSection.selectedLayer === "radar"
+    onForecastMapActiveChanged: {
+        if (forecastMapActive && !bridge.mapWanted)
             bridge.openMap();
-        else if (!mapActive && bridge.mapWanted)
+        else if (!forecastMapActive && bridge.mapWanted)
             bridge.closeMap();
+    }
+    onRadarActiveChanged: {
+        if (root.radarImages)
+            root.radarImages.setActive(radarActive);
+        if (radarActive)
+            radarDemand.start();
+        else {
+            radarDemand.stop();
+            if (bridge.radarWanted)
+                bridge.closeRadar();
+        }
+    }
+    // Let presentation bindings enqueue the foreground announcement first.
+    // The service deliberately rejects radar demand while hidden.
+    property Timer radarDemand: Timer {
+        interval: 0
+        onTriggered: if (root.radarActive && !bridge.radarWanted)
+            bridge.openRadar(bridge.snapshot.latitude, bridge.snapshot.longitude, 7)
+    }
+    readonly property string mapLocationKey: bridge.snapshot ? [bridge.snapshot.latitude, bridge.snapshot.longitude, root.viewedPlace ? root.viewedPlace.id : ""].join("/") : ""
+    onMapLocationKeyChanged: {
+        if (forecastMapActive && bridge.mapWanted) {
+            bridge.closeMap();
+            bridge.openMap();
+        }
+        if (radarActive && bridge.radarWanted) {
+            if (root.radarImages)
+                root.radarImages.invalidate();
+            bridge.openRadar(bridge.snapshot.latitude, bridge.snapshot.longitude, 7);
+        }
     }
     readonly property bool liveDesktop: bridge.snapshot !== null && bridge.snapshot.effect_persistent && bridge.snapshot.effect_status !== "stopped"
     readonly property bool watchingPrecipitation: bridge.snapshot !== null && bridge.snapshot.notifications.settings.enabled
@@ -196,10 +229,6 @@ QtObject {
     onLocationChanged: {
         if (details)
             details.close();
-        if (mapActive && bridge.mapWanted) {
-            bridge.closeMap();
-            bridge.openMap();
-        }
     }
     property var controls: bridge.snapshot ? bridge.snapshot.controls : ({
             units: "F",
@@ -658,6 +687,11 @@ QtObject {
                     tileClient: root.mapTiles
                     Layout.fillWidth: true
                     mapState: bridge.weatherMap
+                    radarState: bridge.weatherRadar
+                    imageControl: root.radarImages
+                    locationLatitude: bridge.snapshot && bridge.snapshot.latitude !== null ? bridge.snapshot.latitude : 0
+                    locationLongitude: bridge.snapshot && bridge.snapshot.longitude !== null ? bridge.snapshot.longitude : 0
+                    onRadarViewRequested: (latitude, longitude, zoom) => bridge.openRadar(latitude, longitude, zoom)
                     location: root.city
                     units: root.units
                     windUnits: root.windUnits

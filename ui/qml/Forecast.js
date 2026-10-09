@@ -965,6 +965,8 @@ function snapshot(v) {
         launcher_status: v.launcher_status || "ready",
         forecast: f,
         location: string(v.location.name, 244),
+        latitude: optional(v.location.latitude, -90, 90),
+        longitude: optional(v.location.longitude, -180, 180),
         location_settings: settings,
         place_search: placeSearch(v.place_search),
         saved_locations: savedLocations(v.saved_locations),
@@ -1102,4 +1104,53 @@ function updateStatus(v) {
         message: string(v.message, 512),
         checked_at: integer(v.checked_at, 0, 253402300799)
     };
+}
+
+function emptyRadar(status) {
+    return {
+        status: status || "closed",
+        refreshing: false,
+        error: "",
+        frames: [],
+        legend: "",
+        view: null,
+        latest: "",
+        latest_label: "",
+        client_token: 0
+    };
+}
+function radarTime(value) {
+    string(value, 40);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$/.test(value) || !isFinite(Date.parse(value)))
+        throw Error("Invalid radar time");
+    return value;
+}
+function radarState(v) {
+    if (!object(v) || Object.keys(v).length !== 9 || ["closed", "loading", "current", "stale", "unavailable", "unsupported", "offline"].indexOf(v.status) < 0 || typeof v.refreshing !== "boolean" || ["", "fetch_failed", "invalid_image", "history_limited", "unavailable"].indexOf(v.error) < 0 || !Array.isArray(v.frames) || v.frames.length > 24 || !object(v.view) || Object.keys(v.view).length !== 4)
+        throw Error("Invalid radar metadata");
+    integer(v.client_token, 0, 2147483647);
+    string(v.latest_label, 80);
+    radarTime(v.latest);
+    for (const key of ["west", "south", "east", "north"])
+        number(v.view[key], -20037509, 20037509);
+    if (v.view.east <= v.view.west || v.view.north <= v.view.south)
+        throw Error("Invalid radar viewport");
+    let previous = -Infinity, ids = [];
+    for (const f of v.frames) {
+        if (!object(f) || Object.keys(f).length !== 4 || ["ready", "pending", "failed", "limited"].indexOf(f.state) < 0 || typeof f.id !== "string" || (f.state === "ready" ? !/^[a-f0-9]{64}$/.test(f.id) : f.id !== ""))
+            throw Error("Invalid radar frame");
+        radarTime(f.time);
+        string(f.label, 80);
+        const stamp = Date.parse(f.time);
+        if (stamp <= previous || f.id && ids.indexOf(f.id) >= 0)
+            throw Error("Invalid radar sequence");
+        previous = stamp;
+        if (f.id)
+            ids.push(f.id);
+    }
+    if (typeof v.legend !== "string" || v.legend !== "" && !/^[a-f0-9]{64}$/.test(v.legend))
+        throw Error("Invalid radar legend");
+    if (["closed", "offline", "unsupported", "unavailable"].indexOf(v.status) >= 0 && (v.frames.length || v.legend !== ""))
+        throw Error("Invalid unavailable radar payload");
+    return v;
 }

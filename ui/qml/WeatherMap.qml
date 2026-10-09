@@ -17,6 +17,11 @@ ColumnLayout {
             hour_labels: [],
             fetched_label: null
         })
+    property var radarState: Forecast.emptyRadar()
+    property var imageControl: null
+    property real locationLatitude: 0
+    property real locationLongitude: 0
+    signal radarViewRequested(real latitude, real longitude, int zoom)
     property string location: ""
     property string units: "F"
     property string windUnits: "auto"
@@ -27,12 +32,19 @@ ColumnLayout {
     property real viewportTop: 0
     property real viewportHeight: 0
     property alias layerIndex: layerTabs.currentIndex
-    readonly property string selectedLayer: ["precipitation", "temperature", "wind"][layerTabs.currentIndex] || "precipitation"
-    onSelectedLayerChanged: playing = false
+    readonly property string selectedLayer: ["precipitation", "temperature", "wind", "radar"][layerTabs.currentIndex] || "precipitation"
+    property string previousLayer: "precipitation"
+    onSelectedLayerChanged: {
+        playing = false;
+        if (selectedLayer === "radar" || previousLayer === "radar")
+            clearTiles();
+        previousLayer = selectedLayer;
+    }
     property int hourIndex: 0
     property bool playing: false
     property var tileImages: ({})
     property var failedTiles: ({})
+    property real radarHeight: 630
     property int tileGeneration: 0
     // Contract: request/close and tileReady/tileFailed signals; null disables tiles.
     property var tileClient: null
@@ -108,7 +120,7 @@ ColumnLayout {
             elide: Text.ElideRight
         }
         PlainLabel {
-            text: root.mapData ? root.mapData.hours.length + " hours" : ""
+            text: root.selectedLayer === "radar" ? "Past observations" : root.mapData ? root.mapData.hours.length + " hours" : ""
             color: Tokens.secondary
             font.pixelSize: 13
         }
@@ -121,14 +133,14 @@ ColumnLayout {
         spacing: 6
         background: Item {}
         Repeater {
-            model: ["Precipitation", "Temperature", "Wind"]
+            model: ["Precipitation", "Temperature", "Wind", "Radar"]
             TabButton {
                 id: tab
                 required property string modelData
                 required property int index
                 objectName: "mapLayerTab" + index
                 text: modelData
-                Accessible.name: modelData + " forecast map"
+                Accessible.name: modelData === "Radar" ? "Observed radar map" : modelData + " forecast map"
                 implicitHeight: 40
                 background: Rectangle {
                     radius: 10
@@ -146,6 +158,7 @@ ColumnLayout {
         }
     }
     RowLayout {
+        visible: root.selectedLayer !== "radar"
         Layout.fillWidth: true
         ActionButton {
             objectName: "mapPreviousHour"
@@ -180,6 +193,7 @@ ColumnLayout {
         }
     }
     PlainLabel {
+        visible: root.selectedLayer !== "radar"
         Layout.fillWidth: true
         text: root.mapData ? "Forecast valid " + root.mapState.hour_labels[root.hourIndex] + " · Hour " + (root.hourIndex + 1) + " of " + root.mapData.hours.length : root.hasLocation ? "Local model maps load as you scroll here" : "Choose a location to see local maps"
         font.pixelSize: 14
@@ -189,10 +203,33 @@ ColumnLayout {
         id: mapView
         objectName: "selectedMapView"
         Layout.fillWidth: true
-        Layout.preferredHeight: 396
+        Layout.preferredHeight: root.selectedLayer === "radar" ? root.radarHeight : 396
         // Keep section geometry stable while releasing hidden map objects.
         active: root.active
-        sourceComponent: WeatherMapCard {
+        sourceComponent: root.selectedLayer === "radar" ? radarComponent : forecastComponent
+    }
+    PlainLabel {
+        Layout.fillWidth: true
+        visible: root.selectedLayer !== "radar" && root.mapData !== null
+        text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km * 1000, root.units) + " · 5×5 samples requested ~" + Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units) + " apart · smooth visual interpolation, no added forecast detail · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""
+        font.pixelSize: 12
+        color: Tokens.secondary
+        wrapMode: Text.Wrap
+        elide: Text.ElideNone
+    }
+    PlainLabel {
+        Layout.fillWidth: true
+        visible: root.selectedLayer !== "radar" && root.mapData !== null
+        text: root.mapData ? root.mapData.attribution + (root.mapData.resolution_km >= 10 ? " · Coarse global pattern; neighborhood detail unavailable." : "") : ""
+        font.pixelSize: 11
+        color: Tokens.secondary
+        wrapMode: Text.Wrap
+        elide: Text.ElideNone
+    }
+
+    Component {
+        id: forecastComponent
+        WeatherMapCard {
             id: selectedCard
             objectName: root.selectedLayer === "precipitation" ? "mapPrecipitationModule" : root.selectedLayer === "temperature" ? "mapTemperatureModule" : "mapWindModule"
             mapLayer: root.selectedLayer
@@ -213,22 +250,27 @@ ColumnLayout {
             tileActive: root.cardVisible(selectedCard)
         }
     }
-    PlainLabel {
-        Layout.fillWidth: true
-        visible: root.mapData !== null
-        text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km * 1000, root.units) + " · 5×5 samples requested ~" + Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units) + " apart · smooth visual interpolation, no added forecast detail · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""
-        font.pixelSize: 12
-        color: Tokens.secondary
-        wrapMode: Text.Wrap
-        elide: Text.ElideNone
-    }
-    PlainLabel {
-        Layout.fillWidth: true
-        visible: root.mapData !== null
-        text: root.mapData ? root.mapData.attribution + (root.mapData.resolution_km >= 10 ? " · Coarse global pattern; neighborhood detail unavailable." : "") : ""
-        font.pixelSize: 11
-        color: Tokens.secondary
-        wrapMode: Text.Wrap
-        elide: Text.ElideNone
+    Component {
+        id: radarComponent
+        RadarMap {
+            id: radarCard
+            failedTiles: root.failedTiles
+            onImplicitHeightChanged: if (implicitHeight > 0)
+                root.radarHeight = implicitHeight
+            radarState: root.radarState
+            imageControl: root.imageControl
+            tileClient: root.tileClient
+            tileImages: root.tileImages
+            tileGeneration: root.tileGeneration
+            active: root.active
+            presentationActive: root.flowVisible(radarCard)
+            reducedMotion: root.reducedMotion
+            visualQuality: root.visualQuality
+            locationLatitude: root.locationLatitude
+            locationLongitude: root.locationLongitude
+            viewportHeight: root.viewportHeight
+            onViewRequested: (latitude, longitude, zoom) => root.radarViewRequested(latitude, longitude, zoom)
+            onClearBasemap: root.clearTiles()
+        }
     }
 }

@@ -239,3 +239,38 @@ func TestRadarSocketImageRoundTrip(t *testing.T) {
 		t.Fatal(r)
 	}
 }
+
+func TestRadarViewTokenAndLocalTimeLabels(t *testing.T) {
+	now := savedRuntimeNow
+	a := radarApp(t, &appRadarProvider{body: []byte("frame")}, func() time.Time { return now })
+	a.mu.Lock()
+	a.location["timezone"] = "America/New_York"
+	a.mu.Unlock()
+	view := M{"latitude": 40.0, "longitude": -74.0, "zoom": 7.0, "client_token": 17.0}
+	result, _ := a.Handle(context.Background(), request("radar_view", M{"view": view}))
+	if result["ok"] != true {
+		t.Fatal(result)
+	}
+	p := awaitRadar(t, a, func(p *radar.Presentation) bool { return len(p.Frames) > 0 })
+	if p.ClientToken != 17 || !strings.HasSuffix(p.LatestLabel, "EDT") || p.Frames[0].Label != p.LatestLabel {
+		t.Fatal("missing view identity or local observation time", p)
+	}
+	revision, _ := a.radarSince(nil)
+	view["client_token"] = 18.0
+	result, _ = a.Handle(context.Background(), request("radar_view", M{"view": view}))
+	_, next := a.radarSince(&revision)
+	if result["ok"] != true || next == nil || next.ClientToken != 18 {
+		t.Fatal("same-view reopen lost new identity", next)
+	}
+	for _, invalid := range []any{-1.0, 2147483648.0, 1.5, "19", nil} {
+		view["client_token"] = invalid
+		result, _ = a.Handle(context.Background(), request("radar_view", M{"view": view}))
+		if result["ok"] != false {
+			t.Fatal("invalid token accepted", invalid)
+		}
+	}
+	_, next = a.radarSince(nil)
+	if next.ClientToken != 18 {
+		t.Fatal("invalid request changed view identity")
+	}
+}

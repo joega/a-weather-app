@@ -29,18 +29,21 @@ type Provider interface {
 }
 
 type Frame struct {
+	Label string    `json:"label"`
 	Time  time.Time `json:"time"`
 	ID    string    `json:"id"`
 	State string    `json:"state"`
 }
 type Presentation struct {
-	Status     string    `json:"status"`
-	Refreshing bool      `json:"refreshing"`
-	Error      string    `json:"error"`
-	Frames     []Frame   `json:"frames"`
-	Legend     string    `json:"legend"`
-	View       View      `json:"view"`
-	Latest     time.Time `json:"latest"`
+	ClientToken int       `json:"client_token"`
+	LatestLabel string    `json:"latest_label"`
+	Status      string    `json:"status"`
+	Refreshing  bool      `json:"refreshing"`
+	Error       string    `json:"error"`
+	Frames      []Frame   `json:"frames"`
+	Legend      string    `json:"legend"`
+	View        View      `json:"view"`
+	Latest      time.Time `json:"latest"`
 }
 type cachedFrame struct {
 	Frame

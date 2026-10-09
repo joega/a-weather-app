@@ -11,6 +11,7 @@ test:
 	qmake6 tests/frontend-test.pro -o .frontend-test.mk
 	$(MAKE) -f .frontend-test.mk
 	env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software ./frontend-test
+	$(MAKE) test-radar
 	$(MAKE) test-warnings
 	$(MAKE) test-warning-e2e
 test-warnings:
@@ -45,3 +46,12 @@ clean:
 	$(RM) desktopwarnings-test .warnings-test.mk .warnings-test-build/*.o .warnings-test-build/moc_* .warnings-test-build/desktopwarnings_test.moc
 	$(RM) warning-e2e-test .warning-e2e.mk .warning-e2e-build/*.o .warning-e2e-build/moc_* .warning-e2e-build/qrc_* .warning-e2e-build/warning_e2e_test.moc .warning-e2e-build/service.test
 	$(RM) wayland-activation-test .wayland-test.mk .wayland-test-build/*.o .wayland-test-build/moc_* .wayland-test-build/wayland_activation_test.moc .wayland-test-build/xdg-activation-*
+	$(RM) radarimages-test .radar-test.mk .radar-test-build/*.o .radar-test-build/moc_* .radar-test-build/radarimages_test.moc .radar-test-build/qrc_* .radar-test-build/service.test
+
+.PHONY: test-radar
+test-radar:
+	mkdir -p .radar-test-build
+	cd ../.. && $(GO) test -race -c -o native/qt/.radar-test-build/service.test ./internal/app
+	qmake6 tests/radarimages-test.pro -o .radar-test.mk
+	$(MAKE) -f .radar-test.mk
+	env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software GO_RADAR_FIXTURE="$(abspath .radar-test-build/service.test)" ./radarimages-test

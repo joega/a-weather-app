@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"math"
+	"time"
 
 	"github.com/joega/a-weather-app/internal/radar"
 )
@@ -15,8 +16,18 @@ func (a *App) openRadar(view M) error {
 	lat, latOK := a.location["latitude"].(float64)
 	lon, lonOK := a.location["longitude"].(float64)
 	zoom := 7
+	token := 0
 	if view != nil {
-		if len(view) != 3 {
+		if len(view) != 3 && len(view) != 4 {
+			return errors.New("invalid radar view")
+		}
+		if raw, present := view["client_token"]; present {
+			n, ok := raw.(float64)
+			if !ok || math.IsNaN(n) || math.IsInf(n, 0) || n < 0 || n > 2147483647 || n != math.Trunc(n) {
+				return errors.New("invalid radar token")
+			}
+			token = int(n)
+		} else if len(view) != 3 {
 			return errors.New("invalid radar view")
 		}
 		lat, latOK = view["latitude"].(float64)
@@ -37,6 +48,7 @@ func (a *App) openRadar(view M) error {
 	if a.radar == nil {
 		a.radar = radar.NewController(a.options.Radar, a.options.Offline, a.signalRadar)
 	}
+	a.radarClientToken = token
 	return a.radar.Open(bounds, a.options.Now())
 }
 func (a *App) closeRadar() {
@@ -55,7 +67,21 @@ func (a *App) radarSince(last *uint64) (uint64, *radar.Presentation) {
 	if a.radar == nil {
 		return 0, nil
 	}
-	return a.radar.Since(last, a.options.Now())
+	revision, p := a.radar.Since(last, a.options.Now())
+	if p != nil {
+		p.ClientToken = a.radarClientToken
+		zone, err := time.LoadLocation(stringOf(a.location["timezone"]))
+		if err != nil {
+			zone = time.UTC
+		}
+		for i := range p.Frames {
+			p.Frames[i].Label = p.Frames[i].Time.In(zone).Format("Mon Jan 2, 3:04:05 PM MST")
+		}
+		if !p.Latest.IsZero() {
+			p.LatestLabel = p.Latest.In(zone).Format("Mon Jan 2, 3:04:05 PM MST")
+		}
+	}
+	return revision, p
 }
 
 // radarImage never triggers remote image downloads. A separate unsubscribed

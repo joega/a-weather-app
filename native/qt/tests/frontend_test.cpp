@@ -25,6 +25,9 @@
 #include "maptiles.h"
 #include "graphicscapabilities.h"
 #include "windowactivation.h"
+#include "radarimages.h"
+#include <QThread>
+#include <cmath>
 #include <functional>
 
 // Build exact PNG framing without asking an image decoder to parse metadata.
@@ -86,6 +89,30 @@ class FakeMapTiles : public QObject {
   signals:
     void tileReady(const QString& key, const QString& dataURL);
     void tileFailed(const QString& key, const QString& reason);
+};
+
+// Delayed images make timestamp/texture swaps and scrub coalescing observable.
+class FakeRadarImages : public QQuickImageProvider {
+  public:
+    std::shared_ptr<RadarImageDemand> demand;
+    std::atomic<int> calls{0}, inactiveCalls{0};
+    std::atomic<bool> failNext{false};
+    explicit FakeRadarImages(std::shared_ptr<RadarImageDemand> state)
+        : QQuickImageProvider(Image, ForceAsynchronousImageLoading), demand(std::move(state)) {}
+    QImage requestImage(const QString& id, QSize* size, const QSize&) override {
+        ++calls;
+        if (!demand->active.load())
+            ++inactiveCalls;
+        const bool legend = id.startsWith("legend/");
+        if (!legend)
+            QThread::msleep(200);
+        if (failNext.exchange(false))
+            return {};
+        QImage image(legend ? QSize(500, 30) : QSize(512, 512), QImage::Format_ARGB32);
+        image.fill(legend ? QColor("#e9e069") : QColor("#7aae6050"));
+        *size = image.size();
+        return image;
+    }
 };
 
 // A cacheable local basemap; no public tile service is needed for lifecycle tests.
@@ -304,6 +331,38 @@ class FrontendTest : public QObject {
             {"last", enabled ? QJsonValue(summary) : QJsonValue::Null},
             {"recent", enabled ? QJsonArray{recent} : QJsonArray{}}};
         return value;
+    }
+    QJsonObject radarFixture(int token = 1) {
+        const double x = -74.006 / 180 * 20037508.342789244;
+        const double y = std::asinh(std::tan(40.7128 * M_PI / 180)) / M_PI * 20037508.342789244;
+        const double half = 40075016.68557849 / 128;
+        QJsonArray frames;
+        for (int i = 0; i < 3; ++i)
+            frames.append(
+                QJsonObject{{"time", QString("2026-10-09T17:%1:13.123456789Z").arg(10 + i * 5)},
+                            {"label", QString("Fri Oct 9, 1:%1:13 PM EDT").arg(10 + i * 5)},
+                            {"id", QString(64, QChar('a' + i))},
+                            {"state", "ready"}});
+        return {{"status", "current"},
+                {"refreshing", false},
+                {"error", ""},
+                {"client_token", token},
+                {"latest", "2026-10-09T17:20:13.123456789Z"},
+                {"latest_label", "Fri Oct 9, 1:20:13 PM EDT"},
+                {"frames", frames},
+                {"legend", QString(64, 'd')},
+                {"view", QJsonObject{{"west", x - half},
+                                     {"east", x + half},
+                                     {"south", y - half},
+                                     {"north", y + half}}}};
+    }
+    void drain(FakeTransport& transport, int& acknowledged) {
+        for (int i = 0; i < 20 && acknowledged < transport.requests.size(); ++i) {
+            const auto request = transport.requests.at(acknowledged++);
+            deliver(transport,
+                    {{"version", 1}, {"request_id", request["request_id"].toInt()}, {"ok", true}});
+        }
+        QCOMPARE(acknowledged, transport.requests.size());
     }
     void deliver(FakeTransport& transport, const QJsonObject& v) {
         emit transport.message(QString::fromUtf8(QJsonDocument(v).toJson(QJsonDocument::Compact)));
@@ -2285,7 +2344,7 @@ class FrontendTest : public QObject {
             qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
         auto* tabs = panel->findChild<QObject*>("mapLayerTabs");
         QVERIFY(mapWindow && tabs);
-        QTRY_COMPARE(tabs->property("count").toInt(), 3);
+        QTRY_COMPARE(tabs->property("count").toInt(), 4);
         QQuickItem* firstTab = nullptr;
         QVERIFY(QMetaObject::invokeMethod(tabs, "itemAt", Q_RETURN_ARG(QQuickItem*, firstTab),
                                           Q_ARG(int, 0)));
@@ -2446,6 +2505,174 @@ class FrontendTest : public QObject {
         window->hide();
         QTRY_VERIFY(tiles.closes > 0);
         QVERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
+    }
+    void radarLatestIntentAndValidation() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        QVERIFY(evaluate(engine, bridge.data(), "openRadar(40,-74,7)").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "closeRadar()").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "openRadar(41,-75,8)").toBool());
+        QCOMPARE(transport.requests.size(), 1);
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(1)}});
+        QCOMPARE(evaluate(engine, bridge.data(), "weatherRadar.status").toString(),
+                 QString("loading"));
+        deliver(transport,
+                {{"version", 1}, {"request_id", 0}, {"ok", false}, {"error", "unavailable"}});
+        QCOMPARE(transport.requests.size(), 2);
+        QCOMPARE(transport.requests.last()["view"].toMap()["latitude"].toDouble(), 41.0);
+        QCOMPARE(transport.requests.last()["view"].toMap()["client_token"].toInt(), 2);
+        QCOMPARE(evaluate(engine, bridge.data(), "weatherRadar.status").toString(),
+                 QString("loading"));
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(2)}});
+        QCOMPARE(evaluate(engine, bridge.data(), "weatherRadar.frames.length").toInt(), 3);
+        QVERIFY(!bridge->property("disconnected").toBool());
+        // Zero time in initial/loading metadata and nanosecond NOAA times are accepted.
+        QVERIFY(
+            evaluate(engine, bridge.data(), "Forecast.radarTime('0001-01-01T00:00:00Z').length > 0")
+                .toBool());
+        const auto json =
+            QString::fromUtf8(QJsonDocument(radarFixture()).toJson(QJsonDocument::Compact));
+        const QStringList mutations{"v.frames[0].id='image://elsewhere/file'",
+                                    "v.frames[1].time=v.frames[0].time",
+                                    "v.frames[1].id=v.frames[0].id",
+                                    "v.frames[0].state='pending'",
+                                    "v.view.east=v.view.west",
+                                    "v.legend='../bad'",
+                                    "v.client_token=-1",
+                                    "v.extra=true",
+                                    "v.status='unsupported'",
+                                    "v.frames[0].time='not a timestamp'",
+                                    "v.latest_label='x'.repeat(81)",
+                                    "v.frames=Array(25).fill(v.frames[0])"};
+        for (const auto& mutation : mutations)
+            QVERIFY2(
+                evaluate(engine, bridge.data(),
+                         "(function(){let v=" + json + ";" + mutation +
+                             ";try{Forecast.radarState(v);return false}catch(e){return true}})()")
+                    .toBool(),
+                qPrintable(mutation));
+        QVERIFY(evaluate(engine, bridge.data(), "closeRadar()").toBool());
+        deliver(transport, {{"version", 1}, {"request_id", 1}, {"ok", true}});
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("radar_close"));
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(2)}});
+        QCOMPARE(evaluate(engine, bridge.data(), "weatherRadar.frames.length").toInt(), 0);
+    }
+    void radarOnDemandPlaybackAndNavigation() {
+        FakeTransport transport;
+        FakeMapTiles tiles;
+        RadarImageControl control;
+        QQmlApplicationEngine engine;
+        auto* images = new FakeRadarImages(control.state());
+        engine.addImageProvider("radar", images);
+        engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
+                                     {"mapTiles", QVariant::fromValue(&tiles)},
+                                     {"radarImages", QVariant::fromValue(&control)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto data = selectedSnapshot(1, "New York, NY");
+        auto location = data["location"].toObject();
+        location["latitude"] = 40.7128;
+        location["longitude"] = -74.006;
+        data["location"] = location;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", data}});
+        auto* panel = root->findChild<QObject*>("weatherMaps");
+        auto* flick =
+            root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
+        QVERIFY(panel && flick);
+        QVERIFY(!root->findChild<QObject*>("radarMap"));
+        QCOMPARE(images->calls.load(), 0);
+        QTest::qWait(100);
+        flick->setProperty("contentY", panel->property("y").toReal() + 40);
+        QTRY_VERIFY(evaluate(engine, root, "backend.mapWanted").toBool());
+        int acknowledged = 0;
+        drain(transport, acknowledged);
+        panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 3);
+        QTRY_VERIFY(root->findChild<QObject*>("radarMap"));
+        drain(transport, acknowledged);
+        QVERIFY(control.state()->active.load());
+        QTRY_VERIFY(!root->findChild<QObject*>("mapPrecipitationModule"));
+        QVERIFY(!evaluate(engine, root, "backend.mapWanted").toBool());
+        QPointer<QObject> radar = root->findChild<QObject*>("radarMap");
+        const int token = evaluate(engine, root, "backend.radarToken").toInt();
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(token)}});
+        QTRY_VERIFY_WITH_TIMEOUT(evaluate(engine, radar, "displayedFrame !== null").toBool(), 2000);
+        QCOMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        QCOMPARE(evaluate(engine, radar, "zoom").toInt(), 7);
+        QVERIFY(qAbs(evaluate(engine, radar, "centerLat").toDouble() - 40.7128) < 0.00001);
+        QVERIFY(qAbs(evaluate(engine, radar, "centerLon").toDouble() + 74.006) < 0.00001);
+        QVERIFY(tiles.requests <= 9);
+        QTRY_COMPARE(images->calls.load(),
+                     2); // One displayed frame plus legend, no history textures.
+        QCOMPARE(images->inactiveCalls.load(), 0);
+        evaluate(engine, radar, "select(0)");
+        QCOMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        QTRY_COMPARE(images->calls.load(), 3);
+        evaluate(engine, radar, "select(1)"); // Coalesce while the first replacement is loading.
+        QTRY_COMPARE_WITH_TIMEOUT(evaluate(engine, radar, "displayedFrame.id").toString(),
+                                  QString(64, 'b'), 2000);
+        QCOMPARE(images->calls.load(), 4);
+        QVERIFY(radar->findChild<QObject*>("radarObservationTime")
+                    ->property("text")
+                    .toString()
+                    .contains("1:15:13 PM EDT"));
+        QCOMPARE(
+            int(!radar->findChild<QObject*>("radarImageA")->property("source").toUrl().isEmpty()) +
+                int(!radar->findChild<QObject*>("radarImageB")
+                         ->property("source")
+                         .toUrl()
+                         .isEmpty()),
+            1);
+        radar->setProperty("visualQuality", "full");
+        QVERIFY(radar->property("canPlay").toBool());
+        evaluate(engine, radar, "playing=true");
+        QTRY_VERIFY_WITH_TIMEOUT(
+            evaluate(engine, radar, "displayedFrame.id !== '" + QString(64, 'b') + "'").toBool(),
+            2000);
+        radar->setProperty("reducedMotion", true);
+        QVERIFY(!radar->property("playing").toBool());
+        images->failNext.store(true);
+        evaluate(engine, radar, "select(0)");
+        QTRY_VERIFY(radar->property("imageError").toBool());
+        evaluate(engine, radar, "latest()");
+        QTRY_COMPARE(evaluate(engine, radar, "displayedFrame ? displayedFrame.id : ''").toString(),
+                     QString(64, 'c'));
+        QVERIFY(!radar->property("imageError").toBool());
+        const auto previousHeight =
+            radar->findChild<QObject*>("radarMapArea")->property("height").toDouble();
+        QMetaObject::invokeMethod(radar->findChild<QObject*>("radarExpand"), "clicked");
+        QTRY_VERIFY(radar->findChild<QObject*>("radarMapArea")->property("height").toDouble() >
+                    previousHeight);
+        auto* area = qobject_cast<QQuickItem*>(radar->findChild<QObject*>("radarMapArea"));
+        QVERIFY(area && area->window());
+        area->forceActiveFocus();
+        QTest::keyClick(area->window(), Qt::Key_Right);
+        drain(transport, acknowledged);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("radar_view"));
+        QVERIFY(transport.requests.last()["view"].toMap()["longitude"].toDouble() > -74.006);
+        QVERIFY(evaluate(engine, radar, "displayedFrame === null").toBool());
+        QVERIFY(control.state()->generation.load() > 1);
+        // Old images/events cannot refill the new viewport while it loads.
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(token)}});
+        QTest::qWait(250);
+        QVERIFY(evaluate(engine, radar, "displayedFrame === null").toBool());
+        QTest::keyClick(area->window(), Qt::Key_Home);
+        drain(transport, acknowledged);
+        QCOMPARE(transport.requests.last()["view"].toMap()["zoom"].toInt(), 7);
+        QCOMPARE(transport.requests.last()["view"].toMap()["longitude"].toDouble(), -74.006);
+        root->setProperty("effectsOpen", true);
+        drain(transport, acknowledged);
+        QTRY_VERIFY(radar.isNull());
+        QVERIFY(!control.state()->active.load());
+        QVERIFY(!evaluate(engine, root, "backend.radarWanted").toBool());
+        const int calls = images->calls.load();
+        QTest::qWait(750);
+        QCOMPARE(images->calls.load(), calls);
+        QVERIFY(tiles.active.isEmpty());
     }
     void mapRapidToggleKeepsLatestIntent() {
         FakeTransport transport;

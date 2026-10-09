@@ -1,5 +1,6 @@
 #include "transport.h"
 #include "maptiles.h"
+#include "radarimages.h"
 #include "graphicscapabilities.h"
 #include "windowactivation.h"
 #include <QGuiApplication>
@@ -102,9 +103,13 @@ int main(int argc, char** argv) {
     MapTiles mapTiles;
     GraphicsCapabilities graphics;
     WindowActivation windowActivation;
+    RadarImageControl radarImages;
     QQmlApplicationEngine engine;
+    engine.addImageProvider("radar",
+                            new RadarImageProvider(args.value("socket"), radarImages.state()));
     engine.setInitialProperties(
-        {{"graphicsCapabilities", QVariant::fromValue<QObject*>(&graphics)},
+        {{"radarImages", QVariant::fromValue<QObject*>(&radarImages)},
+         {"graphicsCapabilities", QVariant::fromValue<QObject*>(&graphics)},
          {"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
          {"windowActivation", QVariant::fromValue<QObject*>(&windowActivation)},
          {"mapTiles", QVariant::fromValue<QObject*>(&mapTiles)}});
@@ -176,6 +181,7 @@ int main(int argc, char** argv) {
                     },
                     Qt::QueuedConnection);
     const int result = app.exec();
+    radarImages.setActive(false); // Cancel image-thread work before the engine tears down.
     if (args.isSet("measure-frames")) {
         std::sort(frameIntervals.begin(), frameIntervals.end());
         const auto count = frameIntervals.size();

@@ -112,6 +112,7 @@ type App struct {
 	aq                    airQualityState
 	wmap                  mapState
 	radar                 *radar.Controller
+	radarClientToken      int
 	notifications         *notifications.Watcher
 	results               chan completion
 	Changed               chan struct{}
