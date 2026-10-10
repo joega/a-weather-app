@@ -20,7 +20,12 @@ GlassPanel {
     property string aliasId: ""
     property string aliasDraft: ""
     property var pendingMutation: null
-    readonly property var rows: registry ? registry.items : []
+    readonly property var storedRows: registry ? registry.items : []
+    readonly property var rows: homeFirstRows()
+    function homeFirstRows() {
+        const home = storedRows.find(row => row.id === registry.primary);
+        return home ? [home].concat(storedRows.filter(row => row.id !== home.id)) : storedRows;
+    }
     readonly property bool canAct: serviceAvailable && !busy && !adding
     readonly property bool adding: locationSettings.busy
     signal closeRequested
@@ -71,6 +76,19 @@ GlassPanel {
         }
         actionRequested(action);
     }
+    function movePlace(row, direction) {
+        const index = rows.findIndex(item => item.id === row.id);
+        const neighbor = rows[index + direction];
+        if (row.id === registry.primary || !neighbor || neighbor.id === registry.primary)
+            return;
+        // The panel pins Home without changing the saved order. Translate the
+        // adjacent displayed city back to the service's stored insertion index.
+        mutatePlace(row, {
+            action: "move",
+            id: row.id,
+            index: storedRows.findIndex(item => item.id === neighbor.id)
+        });
+    }
     function showSaved() {
         page = "saved";
         Qt.callLater(focusInitial);
@@ -113,7 +131,7 @@ GlassPanel {
         if (!action)
             return;
         const row = rows.find(item => item.id === action.id);
-        const confirmed = action.action === "rename" ? row && row.label === action.label : action.action === "primary" ? registry.primary === action.id : action.action === "remove" ? !row : action.action === "move" ? rows[action.index] && rows[action.index].id === action.id : false;
+        const confirmed = action.action === "rename" ? row && row.label === action.label : action.action === "primary" ? registry.primary === action.id : action.action === "remove" ? !row : action.action === "move" ? storedRows[action.index] && storedRows[action.index].id === action.id : false;
         if (confirmed) {
             pendingMutation = null;
             if (action.action === "rename" && aliasId === action.id)
@@ -388,25 +406,17 @@ GlassPanel {
                                     objectName: "moveSavedUp_" + placeRow.index
                                     iconName: "chevron-up"
                                     accessibleLabel: "Move " + placeRow.label + " up"
-                                    enabled: root.canAct && placeRow.index > 0
+                                    enabled: root.canAct && !placeRow.home && placeRow.index > 1
                                     onClicked: if (enabled)
-                                        root.mutatePlace(placeRow.modelData, {
-                                            action: "move",
-                                            id: placeRow.modelData.id,
-                                            index: placeRow.index - 1
-                                        })
+                                        root.movePlace(placeRow.modelData, -1)
                                 }
                                 ActionButton {
                                     objectName: "moveSavedDown_" + placeRow.index
                                     iconName: "chevron-down"
                                     accessibleLabel: "Move " + placeRow.label + " down"
-                                    enabled: root.canAct && placeRow.index < root.rows.length - 1
+                                    enabled: root.canAct && !placeRow.home && placeRow.index < root.rows.length - 1
                                     onClicked: if (enabled)
-                                        root.mutatePlace(placeRow.modelData, {
-                                            action: "move",
-                                            id: placeRow.modelData.id,
-                                            index: placeRow.index + 1
-                                        })
+                                        root.movePlace(placeRow.modelData, 1)
                                 }
                                 Item {
                                     Layout.fillWidth: true
@@ -427,7 +437,7 @@ GlassPanel {
                             PlainLabel {
                                 Layout.fillWidth: true
                                 visible: root.rows.length <= 1 || placeRow.home
-                                text: root.rows.length <= 1 ? "Keep at least one location." : "Set another location as Home before removing this one."
+                                text: root.rows.length <= 1 ? "Keep at least one location." : "Home stays first. Choose another Home to remove this location."
                                 color: Tokens.secondary
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone

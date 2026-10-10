@@ -2713,6 +2713,9 @@ class FrontendTest : public QObject {
         auto boston = locations[1].toObject();
         boston["name"] = "Boston, Massachusetts, Suffolk, United States";
         locations.replace(1, boston);
+        // Home is third in persisted order; opening the panel must only project it first.
+        const auto home = locations.takeAt(0);
+        locations.insert(2, home);
         registry["items"] = locations;
         state["saved_locations"] = registry;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
@@ -2732,6 +2735,13 @@ class FrontendTest : public QObject {
         QVERIFY(list);
         QTRY_VERIFY(list->hasActiveFocus());
         QCOMPARE(list->property("count").toInt(), 20);
+        QCOMPARE(
+            evaluate(engine, picker, "rows.map(row => row.id).slice(0, 4).join(',')").toString(),
+            QString("place-100,place-101,place-102,place-103"));
+        QCOMPARE(
+            evaluate(engine, root, "savedLocations.items.map(row => row.id).slice(0, 4).join(',')")
+                .toString(),
+            QString("place-101,place-102,place-100,place-103"));
         QTRY_VERIFY(visualItem(picker, "savedLocationName_1"));
         QCOMPARE(visualItem(picker, "savedLocationName_1")->property("text").toString(),
                  QString("Boston, MA"));
@@ -2748,9 +2758,15 @@ class FrontendTest : public QObject {
             return window->grabWindow().save(prefix + suffix + scaleSuffix + ".png");
         };
         QVERIFY(capture("list700"));
+        auto focusRow = [&](int index) {
+            list->forceActiveFocus();
+            evaluate(engine, picker, QString("selectPlace(rows[%1].id)").arg(index));
+            QTRY_COMPARE(list->property("currentIndex").toInt(), index);
+        };
         auto activate = [&](const char* name) {
+            QTRY_VERIFY(visualItem(picker, name) && visualItem(picker, name)->isVisible() &&
+                        visualItem(picker, name)->isEnabled());
             auto* item = visualItem(picker, name);
-            QVERIFY(item && item->isVisible() && item->isEnabled());
             item->forceActiveFocus();
             QTest::keyClick(window, Qt::Key_Space);
         };
@@ -2781,6 +2797,8 @@ class FrontendTest : public QObject {
         QCOMPARE(picker->property("page").toString(), QString("saved"));
         QVERIFY(!visualItem(picker, "removeSaved_0")->isEnabled());
         QVERIFY(!visualItem(picker, "moveSavedUp_0")->isEnabled());
+        QVERIFY(!visualItem(picker, "moveSavedDown_0")->isEnabled());
+        QVERIFY(!visualItem(picker, "moveSavedUp_1")->isEnabled());
         QVERIFY(capture("edit700"));
         list->setProperty("currentIndex", 19);
         QTRY_VERIFY(visualItem(picker, "moveSavedDown_19"));
@@ -2816,45 +2834,64 @@ class FrontendTest : public QObject {
         QTest::keyClick(window, Qt::Key_Return);
         QTRY_COMPARE(transport.requests.size(), 2);
         ack();
-        auto apartment = locations[0].toObject();
+        auto apartment = locations[2].toObject();
         apartment["label"] = "Apartment";
-        locations.replace(0, apartment);
+        locations.replace(2, apartment);
         publishRegistry();
-        activate("moveSavedUp_1");
+        // Move the second non-Home past the first; the raw target is before Home.
+        const QJsonValue other = locations[1];
+        focusRow(2); // Enlarged text keeps the third row outside the initial viewport.
+        activate("moveSavedUp_2");
         QTRY_COMPARE(transport.requests.size(), 3);
         QCOMPARE(transport.requests.last()["location"].toMap(),
-                 (QVariantMap{{"action", "move"}, {"id", "place-101"}, {"index", 0}}));
+                 (QVariantMap{{"action", "move"}, {"id", "place-102"}, {"index", 0}}));
         ack();
-        locations.replace(0, boston);
-        locations.replace(1, apartment);
-        publishRegistry();
-        QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
-        QVERIFY(!visualItem(picker, "moveSavedUp_0")->isEnabled());
-        activate("moveSavedDown_0");
-        QTRY_COMPARE(transport.requests.size(), 4);
-        QCOMPARE(transport.requests.last()["location"].toMap(),
-                 (QVariantMap{{"action", "move"}, {"id", "place-101"}, {"index", 1}}));
-        ack();
-        locations.replace(0, apartment);
+        locations.replace(0, other);
         locations.replace(1, boston);
         publishRegistry();
         QTRY_COMPARE(list->property("currentIndex").toInt(), 1);
+        QTRY_VERIFY(picker->property("pendingMutation").isNull());
+        QTRY_VERIFY(visualItem(picker, "moveSavedUp_1") &&
+                    !visualItem(picker, "moveSavedUp_1")->isEnabled());
+        activate("moveSavedDown_1");
+        QTRY_COMPARE(transport.requests.size(), 4);
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "move"}, {"id", "place-102"}, {"index", 1}}));
+        ack();
+        locations.replace(0, boston);
+        locations.replace(1, other);
+        publishRegistry();
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 2);
+        QTRY_VERIFY(picker->property("pendingMutation").isNull());
+        focusRow(1);
         activate("primarySaved_1");
         QTRY_COMPARE(transport.requests.size(), 5);
         QCOMPARE(transport.requests.last()["location"].toMap(),
                  (QVariantMap{{"action", "primary"}, {"id", "place-101"}}));
-        QVERIFY(!visualItem(picker, "removeSaved_0")->isEnabled());
         ack();
         registry["primary"] = "place-101";
         publishRegistry();
-        QTRY_VERIFY(visualItem(picker, "removeSaved_0")->isEnabled());
-        QVERIFY(!visualItem(picker, "removeSaved_1")->isEnabled());
-        activate("removeSaved_0");
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
+        QCOMPARE(
+            evaluate(engine, picker, "rows.map(row => row.id).slice(0, 4).join(',')").toString(),
+            QString("place-101,place-102,place-100,place-103"));
+        QCOMPARE(
+            evaluate(engine, root, "savedLocations.items.map(row => row.id).slice(0, 4).join(',')")
+                .toString(),
+            QString("place-101,place-102,place-100,place-103"));
+        QTRY_VERIFY(visualItem(picker, "removeSaved_0") &&
+                    !visualItem(picker, "removeSaved_0")->isEnabled());
+        QTRY_VERIFY(visualItem(picker, "moveSavedDown_0") &&
+                    !visualItem(picker, "moveSavedDown_0")->isEnabled());
+        focusRow(2);
+        QTRY_VERIFY(visualItem(picker, "removeSaved_2") &&
+                    visualItem(picker, "removeSaved_2")->isEnabled());
+        activate("removeSaved_2");
         QTRY_COMPARE(transport.requests.size(), 6);
         QCOMPARE(transport.requests.last()["location"].toMap(),
                  (QVariantMap{{"action", "remove"}, {"id", "place-100"}, {"replacement", ""}}));
         ack();
-        locations.removeAt(0);
+        locations.removeAt(2);
         registry["viewed"] = "place-101";
         publishRegistry();
         QTRY_COMPARE(list->property("count").toInt(), 19);

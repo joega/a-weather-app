@@ -690,6 +690,12 @@ class ServiceFrontendTest : public QObject {
     void savedLocationsOfflineLifecycle() {
         ServiceFixture fixture;
         fixture.savedCities();
+        auto initialRegistry = fixture.saved("saved-locations.json");
+        auto initialPlaces = initialRegistry["places"].toArray();
+        const auto home = initialPlaces.takeAt(0);
+        initialPlaces.insert(2, home);
+        initialRegistry["places"] = initialPlaces;
+        fixture.save("saved-locations.json", initialRegistry);
         QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
         QVERIFY(attach(fixture));
         QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(), 5000);
@@ -700,6 +706,10 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(eval("root.locationsOpen").toBool());
         auto* list = qobject_cast<QQuickItem*>(named("savedLocationList"));
         QTRY_VERIFY(list->hasActiveFocus());
+        auto* initialPicker = named("locationPickerLoader")->property("item").value<QObject*>();
+        QVERIFY(initialPicker);
+        QCOMPARE(named("savedLocationName_0")->property("text").toString(), QString("City 0"));
+        QCOMPARE(fixture.saved("saved-locations.json")["places"].toArray(), initialPlaces);
         QTest::keyClick(window, Qt::Key_Down);
         QTest::keyClick(window, Qt::Key_Return);
         QTRY_COMPARE(eval("root.location").toString(), QString("City 1"));
@@ -739,31 +749,39 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(!eval("bridge.busy").toBool());
         QCOMPARE(eval("bridge.nextId").toInt(), beforeEditing + 1);
         QCOMPARE(fixture.saved("saved-locations.json")["places"]
-                     .toArray()[1]
+                     .toArray()[0]
                      .toObject()["label"]
                      .toString(),
                  QString("Office"));
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
         const auto beforeReorder = eval("bridge.nextId").toInt();
-        activate("moveSavedUp_1");
-        QTRY_COMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-101"));
+        QVERIFY(!named("moveSavedUp_1")->property("enabled").toBool());
+        QVERIFY(!named("moveSavedDown_0")->property("enabled").toBool());
+        activate("moveSavedDown_1");
+        QTRY_COMPARE(eval("root.savedLocations.items[1].id").toString(), QString("place-101"));
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 2);
         QTRY_VERIFY(!eval("bridge.busy").toBool());
         QCOMPARE(eval("bridge.nextId").toInt(), beforeReorder + 1);
         QCOMPARE(eval("root.current.temperature_c").toInt(), 16);
-        activate("primarySaved_0");
+        activate("primarySaved_2");
         QTRY_COMPARE(eval("root.primaryName").toString(), QString("Office"));
         QCOMPARE(eval("root.primaryTimezone").toString(), QString("Europe/London"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
         QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
-        QVERIFY(named("removeSaved_1")->property("enabled").toBool());
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
+        QVERIFY(named("removeSaved_2")->property("enabled").toBool());
+        QCOMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-102"));
+        QCOMPARE(eval("root.savedLocations.items[1].id").toString(), QString("place-101"));
+        QCOMPARE(eval("root.savedLocations.items[2].id").toString(), QString("place-100"));
         // Choose another Home explicitly in the list before removing the old Home.
-        activate("primarySaved_1");
+        activate("primarySaved_2");
         QTRY_COMPARE(eval("root.primaryName").toString(), QString("City 0"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
-        QVERIFY(named("removeSaved_0")->property("enabled").toBool());
-        QVERIFY(!named("removeSaved_1")->property("enabled").toBool());
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
+        QVERIFY(named("removeSaved_2")->property("enabled").toBool());
+        QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
-        activate("removeSaved_0");
+        activate("removeSaved_2");
         QTRY_COMPARE(eval("root.savedLocations.items.length").toInt(), 19);
         QTRY_COMPARE(eval("root.location").toString(), QString("City 0"));
         QCOMPARE(eval("root.primaryName").toString(), QString("City 0"));
@@ -777,10 +795,11 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(alias->hasActiveFocus());
         alias->setProperty("text", "Cabin");
         QTest::keyClick(window, Qt::Key_Return);
-        QTRY_COMPARE(eval("root.savedLocations.items[1].label").toString(), QString("Cabin"));
+        QTRY_COMPARE(eval("root.savedLocations.items[0].label").toString(), QString("Cabin"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
-        activate("moveSavedUp_1");
-        QTRY_COMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-102"));
+        activate("moveSavedDown_1");
+        QTRY_COMPARE(eval("root.savedLocations.items[2].id").toString(), QString("place-102"));
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 2);
         QTRY_VERIFY(!eval("bridge.busy").toBool());
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-100"));
         QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
@@ -800,8 +819,8 @@ class ServiceFrontendTest : public QObject {
         auto saved = fixture.saved("saved-locations.json");
         QCOMPARE(saved["primary"].toString(), QString("place-100"));
         QCOMPARE(saved["viewed"].toString(), QString("place-100"));
-        QCOMPARE(saved["places"].toArray()[0].toObject()["id"].toString(), QString("place-102"));
-        QCOMPARE(saved["places"].toArray()[0].toObject()["label"].toString(), QString("Cabin"));
+        QCOMPARE(saved["places"].toArray()[2].toObject()["id"].toString(), QString("place-102"));
+        QCOMPARE(saved["places"].toArray()[2].toObject()["label"].toString(), QString("Cabin"));
         // Browsing is temporary; the same saved list opens at Home next launch.
         eval("bridge.send('saved_location', {action:'view', id:'place-102'})");
         QTRY_COMPARE(eval("root.location").toString(), QString("City 2"));
