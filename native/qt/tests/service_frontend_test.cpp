@@ -554,6 +554,7 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(window->isExposed());
         auto* section = named("weatherMaps");
         QVERIFY(section);
+        section->setProperty("layerIndex", 1); // Measure forecast maps explicitly; Radar is first.
         auto* scroll = root->findChild<QObject*>("forecastScroll");
         QVERIFY(scroll);
         auto* flick = scroll->property("contentItem").value<QObject*>();

@@ -26,6 +26,8 @@ GlassPanel {
     property bool playing: false
     property bool followLatest: true
     property bool imageError: false
+    property bool manualLoadingVisible: false
+    readonly property bool manualFramePending: active && !playing && !followLatest && !imageError && displayedFrame !== null && desiredID !== "" && desiredID !== displayedFrame.id
     property string desiredID: ""
     property var displayedFrame: null
     property int frontSlot: 0
@@ -51,15 +53,28 @@ GlassPanel {
             return "Radar is unavailable offline.";
         if (radarState.status === "unavailable")
             return "Radar is temporarily unavailable. Forecast maps are still available.";
-        if (radarState.status === "loading")
+        if (radarState.status === "loading" && displayedFrame === null)
             return "Loading radar…";
         if (radarState.latest === "")
             return "Observed radar loads when this map is in view.";
         const minutes = Math.max(0, Math.floor((clockNow - Date.parse(radarState.latest)) / 60000));
-        return (radarState.status === "stale" ? "Stale radar · " : "Latest composite · ") + (minutes < 1 ? "less than a minute ago" : minutes + " min ago") + (radarState.refreshing ? " · updating" : "");
+        return (radarState.status === "stale" ? "Stale radar · " : "Latest radar · ") + (minutes < 1 ? "less than a minute ago" : minutes + " min ago");
     }
     signal viewRequested(real latitude, real longitude, int zoom)
     signal clearBasemap
+    function resetLoadingFeedback() {
+        manualLoadingVisible = false;
+        if (manualFramePending)
+            manualLoadingDelay.restart();
+        else
+            manualLoadingDelay.stop();
+    }
+    onDesiredIDChanged: resetLoadingFeedback()
+    onDisplayedFrameChanged: resetLoadingFeedback()
+    onPlayingChanged: resetLoadingFeedback()
+    onFollowLatestChanged: resetLoadingFeedback()
+    onImageErrorChanged: resetLoadingFeedback()
+    onManualFramePendingChanged: resetLoadingFeedback()
     function source(kind, id) {
         return id ? "image://radar/" + kind + "/" + id + "/" + reloadToken : "";
     }
@@ -74,7 +89,6 @@ GlassPanel {
         second.frame = null;
         frontSlot = 0;
         followLatest = true;
-        ++reloadToken;
     }
     function syncFrames() {
         if (!active || frames.length === 0) {
@@ -159,61 +173,37 @@ GlassPanel {
         const y = (bounds.south + bounds.north) / 2 + dy * span;
         moveTo(Math.atan(Math.sinh(y / 20037508.342789244 * Math.PI)) * 180 / Math.PI, x / 20037508.342789244 * 180, zoom);
     }
-    function tiles() {
-        if (!active || !bounds)
-            return [];
-        const n = Math.pow(2, zoom), unit = 40075016.68557849 / n;
-        const left = (bounds.west + 20037508.342789244) / unit;
-        const top = (20037508.342789244 - bounds.north) / unit;
-        let result = [];
-        for (let y = Math.floor(top); y < Math.ceil(top + 2); ++y)
-            for (let x = Math.floor(left); x < Math.ceil(left + 2); ++x)
-                if (x >= 0 && y >= 0 && x < n && y < n)
-                    result.push({
-                        key: zoom + "/" + x + "/" + y,
-                        x: x,
-                        y: y,
-                        left: (x - left) / 2,
-                        top: (y - top) / 2
-                    });
-        return result;
-    }
-    readonly property var visibleTiles: tiles()
-    function requestTiles() {
-        if (!tileClient || !active)
-            return;
-        for (const tile of visibleTiles)
-            tileClient.request(zoom, tile.x, tile.y, radarState.status === "offline");
-    }
-    onVisibleTilesChanged: tileSync.restart()
-    onTileGenerationChanged: tileSync.restart()
-    onRadarStateChanged: {
-        if (viewKey !== loadedView) {
-            loadedView = viewKey;
-            resetImages();
-            clearBasemap();
-        }
-        frameSync.restart();
-    }
+    readonly property var visibleTiles: basemap.visibleTiles
+    onViewKeyChanged: frameSync.restart()
+    onRadarStateChanged: frameSync.restart()
     onActiveChanged: if (!active)
         resetImages()
     else
         frameSync.restart()
     onCanPlayChanged: if (!canPlay)
         playing = false
-    Component.onCompleted: {
-        requestTiles();
-        syncFrames();
+    Component.onCompleted: frameSync.restart()
+    Timer {
+        id: manualLoadingDelay
+        objectName: "radarManualLoadingDelay"
+        interval: 1000
+        repeat: false
+        onTriggered: if (root.manualFramePending)
+            root.manualLoadingVisible = true
     }
     Timer {
         id: frameSync
         interval: 0
-        onTriggered: root.syncFrames()
-    }
-    Timer {
-        id: tileSync
-        interval: 0
-        onTriggered: root.requestTiles()
+        onTriggered: {
+            // Reconcile after derived bindings settle. Metadata refreshes with
+            // unchanged geography preserve both the displayed image and tiles.
+            if (root.viewKey !== root.loadedView) {
+                root.loadedView = root.viewKey;
+                root.resetImages();
+                root.clearBasemap();
+            }
+            root.syncFrames();
+        }
     }
     Timer {
         interval: 30000
@@ -257,6 +247,7 @@ GlassPanel {
             }
         }
         PlainLabel {
+            objectName: "radarFreshness"
             Layout.fillWidth: true
             text: root.freshnessText
             color: root.radarState.status === "stale" ? Tokens.gold : Tokens.secondary
@@ -313,7 +304,7 @@ GlassPanel {
                 if (root.imageError)
                     return "Could not load this radar image. Choose Latest to try again.";
                 if (root.displayedFrame)
-                    return "Radar at " + root.displayedFrame.label + (root.desiredID !== root.displayedFrame.id ? " · loading selected image…" : "");
+                    return "Radar at " + root.displayedFrame.label + (root.manualLoadingVisible ? " · loading selected time…" : "");
                 return root.active && root.desiredID !== "" ? "Loading radar image…" : "";
             }
             color: Tokens.secondary
@@ -359,18 +350,18 @@ GlassPanel {
                 anchors.centerIn: parent
                 width: parent.width
                 height: width
-                Repeater {
-                    model: root.visibleTiles
-                    Image {
-                        required property var modelData
-                        x: modelData.left * plane.width
-                        y: modelData.top * plane.height
-                        width: plane.width / 2 + 0.5
-                        height: width
-                        source: root.tileImages[modelData.key] || ""
-                        asynchronous: true
-                        cache: false
-                    }
+                RadarBasemap {
+                    id: basemap
+                    anchors.fill: parent
+                    bounds: root.bounds
+                    viewportHeight: mapArea.height
+                    tileClient: root.tileClient
+                    tileImages: root.tileImages
+                    failedTiles: root.failedTiles
+                    tileGeneration: root.tileGeneration
+                    active: root.active && root.presentationActive
+                    offline: root.radarState.status === "offline"
+                    onResetRequested: root.clearBasemap()
                 }
                 Image {
                     id: first

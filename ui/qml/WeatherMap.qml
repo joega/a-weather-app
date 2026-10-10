@@ -32,8 +32,27 @@ ColumnLayout {
     property real viewportTop: 0
     property real viewportHeight: 0
     property alias layerIndex: layerTabs.currentIndex
-    readonly property string selectedLayer: ["precipitation", "temperature", "wind", "radar"][layerTabs.currentIndex] || "precipitation"
-    property string previousLayer: "precipitation"
+    readonly property string selectedLayer: ["radar", "precipitation", "temperature", "wind"][layerTabs.currentIndex] || "radar"
+    property string previousLayer: "radar"
+    property bool defaultLayer: true
+    property bool adjustingDefault: false
+    function resetDefaultLayer() {
+        adjustingDefault = true;
+        defaultLayer = true;
+        layerTabs.currentIndex = 0;
+        adjustingDefault = false;
+    }
+    onLocationChanged: resetDefaultLayer()
+    onRadarStateChanged: defaultLayerSync.restart()
+    function applyDefaultFallback() {
+        // Forecast maps remain the useful default outside observed-radar coverage.
+        // A user's explicit tab choice is never changed by a refresh.
+        if (defaultLayer && radarState.status === "unsupported") {
+            adjustingDefault = true;
+            layerTabs.currentIndex = 1;
+            adjustingDefault = false;
+        }
+    }
     onSelectedLayerChanged: {
         playing = false;
         if (selectedLayer === "radar" || previousLayer === "radar")
@@ -104,6 +123,11 @@ ColumnLayout {
     Component.onDestruction: if (tileClient)
         tileClient.close()
     Timer {
+        id: defaultLayerSync
+        interval: 0
+        onTriggered: root.applyDefaultFallback()
+    }
+    Timer {
         interval: 1000
         repeat: true
         running: root.playing && root.canPlay
@@ -145,10 +169,12 @@ ColumnLayout {
         // The layout owns the bar width; its tabs divide that available space.
         implicitWidth: 0
         currentIndex: 0
+        onCurrentIndexChanged: if (!root.adjustingDefault)
+            root.defaultLayer = false
         spacing: 6
         background: Item {}
         Repeater {
-            model: ["Precipitation", "Temperature", "Wind", "Radar"]
+            model: ["Radar", "Precipitation", "Temperature", "Wind"]
             TabButton {
                 id: tab
                 required property string modelData
@@ -156,7 +182,7 @@ ColumnLayout {
                 objectName: "mapLayerTab" + index
                 text: modelData
                 Accessible.name: modelData === "Radar" ? "Observed radar map" : modelData + " forecast map"
-                width: (layerTabs.availableWidth - layerTabs.spacing * 3) * [0.32, 0.30, 0.18, 0.20][index]
+                width: (layerTabs.availableWidth - layerTabs.spacing * 3) * [0.20, 0.32, 0.30, 0.18][index]
                 implicitHeight: Math.max(40, implicitContentHeight + topPadding + bottomPadding)
                 background: Rectangle {
                     radius: 10
@@ -384,7 +410,10 @@ ColumnLayout {
         RadarMap {
             id: radarCard
             failedTiles: root.failedTiles
-            onImplicitHeightChanged: if (implicitHeight > 0)
+            // The column can briefly report padding-only height while it is
+            // being constructed. Keep the placeholder until the map is laid out
+            // so viewport demand cannot collapse and destroy its own loader.
+            onImplicitHeightChanged: if (implicitHeight >= 372)
                 root.radarHeight = implicitHeight
             radarState: root.radarState
             imageControl: root.imageControl
