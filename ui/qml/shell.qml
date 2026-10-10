@@ -975,6 +975,28 @@ QtObject {
                 }
             }
         }
+        ActionButton {
+            id: backToTopButton
+            objectName: "backToTop"
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.rightMargin: 28
+            anchors.bottomMargin: 18
+            iconName: "chevron-up"
+            accessibleLabel: "Back to top"
+            visible: bridge.presentationActive && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !root.astronomyOpen && !root.precipitationOpen && !root.airOutlookOpen && !root.shareOpen && !details.visible && forecastScroll.flickable.contentY > Math.max(240, forecastScroll.height * 0.65)
+            background: Rectangle {
+                radius: 12
+                color: backToTopButton.down ? "#365a76" : "#263f55"
+                border.color: backToTopButton.activeFocus ? Tokens.accent : Tokens.border
+                border.width: backToTopButton.activeFocus ? 2 : 1
+            }
+            onClicked: {
+                forecastScroll.flickable.cancelFlick();
+                forecastScroll.flickable.contentY = forecastScroll.flickable.originY;
+                locationsButton.forceActiveFocus();
+            }
+        }
         Component {
             id: hourlyComponent
             HourlyPanel {

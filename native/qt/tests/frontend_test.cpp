@@ -2400,6 +2400,149 @@ class FrontendTest : public QObject {
               "{schema_version:1,text_scale:1,high_contrast:false,error:null,extra:1}"})
             QVERIFY2(!valid(invalid), invalid);
     }
+    void backToTopNavigation_data() {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<double>("textScale");
+        QTest::newRow("desktop") << 1200 << 1.0;
+        QTest::newRow("narrow") << 700 << 1.0;
+        QTest::newRow("narrow-enlarged") << 700 << 1.5;
+    }
+    void backToTopNavigation() {
+        QFETCH(int, width);
+        QFETCH(double, textScale);
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window = root->findChild<QQuickWindow*>("weatherWindow");
+        QVERIFY(window);
+        window->resize(width, 850);
+        QTRY_VERIFY(window->isExposed());
+        auto state = metricSnapshot(1);
+        const auto saved = savedSnapshot(1, 3);
+        state["location_settings"] = saved["location_settings"];
+        state["saved_locations"] = saved["saved_locations"];
+        state["appearance"] = QJsonObject{{"schema_version", 1},
+                                          {"text_scale", textScale},
+                                          {"high_contrast", false},
+                                          {"error", QJsonValue::Null}};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        root->setProperty("effectsOpen", false);
+        auto* scroll = root->findChild<QQuickItem*>("forecastScroll");
+        auto* top = shellItem(root, "backToTop");
+        auto* location = shellItem(root, "openLocation");
+        QVERIFY(scroll && top && location);
+        auto* flick = scroll->property("contentItem").value<QQuickItem*>();
+        QVERIFY(flick);
+        const auto origin = [&] { return flick->property("originY").toReal(); };
+        const auto threshold = [&] { return qMax(240.0, scroll->height() * .65); };
+        const auto toBottom = [&] {
+            flick->setProperty("contentY", origin() + flick->property("contentHeight").toReal() -
+                                               flick->height());
+        };
+        QTRY_VERIFY(flick->property("contentHeight").toReal() - flick->height() >
+                    threshold() + 120);
+        flick->setProperty("contentY", origin());
+        QTRY_VERIFY(!top->isVisible());
+        flick->setProperty("contentY", origin() + threshold() - 1);
+        QTRY_VERIFY(!top->isVisible());
+        toBottom();
+        QTRY_VERIFY(top->isVisible());
+        const auto anchored = top->mapToScene(QPointF());
+        QVERIFY(anchored.x() >= 0 && anchored.y() >= 0);
+        QVERIFY(anchored.x() + top->width() <= window->width());
+        QVERIFY(anchored.y() + top->height() <= window->height());
+        QVERIFY(anchored.x() + top->width() > window->width() - 100);
+        QVERIFY(anchored.y() + top->height() > window->height() - 100);
+        flick->setProperty("contentY", flick->property("contentY").toReal() - 100);
+        QCoreApplication::processEvents();
+        QCOMPARE(top->mapToScene(QPointF()), anchored); // Anchored to the viewport, not content.
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_SCROLL_SCREENSHOT_PREFIX");
+        auto capture = [&](const QString& suffix) {
+            if (prefix.isEmpty())
+                return true;
+            if (!QFileInfo(prefix).absoluteDir().mkpath("."))
+                return false;
+            QTest::qWait(80);
+            return window->grabWindow().save(
+                prefix +
+                QString("-%1-%2-%3.png").arg(width).arg(qRound(textScale * 100)).arg(suffix));
+        };
+        QVERIFY(capture("bottom"));
+        // The shortcut must never float over the settings drawer, Locations, or a detail sheet.
+        evaluate(engine, root, "openSettings(false)");
+        QTRY_VERIFY(root->property("effectsOpen").toBool());
+        QTRY_VERIFY(!top->isVisible());
+        root->setProperty("effectsOpen", false);
+        QCoreApplication::processEvents();
+        toBottom();
+        QTRY_VERIFY(top->isVisible());
+        evaluate(engine, root, "openLocations()");
+        QTRY_VERIFY(root->property("locationsOpen").toBool());
+        QTRY_VERIFY(!top->isVisible());
+        root->setProperty("locationsOpen", false);
+        QCoreApplication::processEvents();
+        toBottom();
+        QTRY_VERIFY(top->isVisible());
+        evaluate(engine, root, "details.showHour(root.hours[0])");
+        auto* details = root->findChild<QObject*>("forecastDetails");
+        QVERIFY(details);
+        QTRY_VERIFY(details->property("visible").toBool());
+        QTRY_VERIFY(!top->isVisible());
+        evaluate(engine, root, "details.close()");
+        QCoreApplication::processEvents();
+        toBottom();
+        QTRY_VERIFY(top->isVisible());
+        window->hide();
+        QTRY_VERIFY(!top->property("visible").toBool());
+        window->show();
+        QTRY_VERIFY(window->isExposed());
+        toBottom();
+        QTRY_VERIFY(top->isVisible());
+        window->showMinimized();
+        QTRY_COMPARE(window->visibility(), QWindow::Minimized);
+        QTRY_VERIFY(!top->property("visible").toBool());
+        window->showNormal();
+        QTRY_VERIFY(window->isExposed());
+        qsizetype acknowledged = 0;
+        const auto acknowledgeRequests = [&] {
+            // Presentation and map changes queue requests; finish them without service deadlines.
+            while (acknowledged < transport.requests.size()) {
+                const auto request = transport.requests.at(acknowledged++);
+                deliver(transport, {{"version", 1},
+                                    {"request_id", request["request_id"].toLongLong()},
+                                    {"ok", true}});
+                QCoreApplication::processEvents();
+            }
+        };
+        // Both normal and reduced-motion modes use one immediate jump, followed by useful focus.
+        for (const bool reduced : {false, true}) {
+            if (reduced) {
+                state["snapshot_revision"] = 2;
+                auto controls = state["controls"].toObject();
+                controls["reduced_motion"] = true;
+                state["controls"] = controls;
+                deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+            }
+            QCoreApplication::processEvents();
+            toBottom();
+            QTRY_VERIFY(top->isVisible());
+            acknowledgeRequests();
+            const auto point = top->mapToScene(QPointF(top->width() / 2, top->height() / 2));
+            QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, point.toPoint());
+            QCOMPARE(flick->property("contentY").toReal(), origin());
+            QTRY_VERIFY(location->hasActiveFocus());
+            QTRY_VERIFY(!top->isVisible());
+            QVERIFY(!flick->property("moving").toBool());
+            QVERIFY(capture(reduced ? "top-reduced" : "top"));
+            acknowledgeRequests();
+        }
+        window->hide();
+    }
     void metricDetailsOnDemandAndKeyboard() {
         FakeTransport transport;
         QQmlApplicationEngine engine;

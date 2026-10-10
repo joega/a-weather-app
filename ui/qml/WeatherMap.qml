@@ -360,6 +360,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredHeight: root.selectedLayer === "radar" ? root.radarHeight : 396
         // Keep section geometry stable while releasing hidden map objects.
+        asynchronous: true
         active: root.active
         sourceComponent: root.selectedLayer === "radar" ? radarComponent : forecastComponent
     }
