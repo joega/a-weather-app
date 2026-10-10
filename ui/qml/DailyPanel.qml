@@ -11,7 +11,6 @@ GlassPanel {
     property bool compact: false
     readonly property int rowHeight: Math.ceil((compact ? 33 : 37) * Tokens.textScale)
     signal daySelected(var day)
-    signal precipitationRequested
     property real rangeLow: {
         let n = 100;
         for (let d of days)
@@ -33,15 +32,6 @@ GlassPanel {
         text: "10-day forecast"
         font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
-    }
-    ActionButton {
-        objectName: "openPrecipitation"
-        anchors.right: parent.right
-        anchors.rightMargin: 16
-        y: 8
-        text: "Rain & snow totals"
-        accessibleLabel: "Open rain and snow accumulation details"
-        onClicked: root.precipitationRequested()
     }
     PlainLabel {
         visible: root.days.length === 0

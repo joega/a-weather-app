@@ -770,16 +770,10 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(eval("root.freshness").toString().contains("Choose a city"));
         QVERIFY(!QFile::exists(fixture.state + "/notifications.json"));
         QVERIFY(!eval("root.liveDesktop").toBool());
-        // Totals remains a usable entry point even before a city is chosen.
-        // Explain the missing location inside the panel instead of leaving a
-        // disabled button with no reason.
+        // The optional detail guard also handles calls before a city is chosen,
+        // without fetching data or exposing a totals button on the dashboard.
         eval("root.effectsOpen=false;root.locationsOpen=false");
-        QTest::qWait(100);
-        auto* totals = qobject_cast<QQuickItem*>(named("openPrecipitation"));
-        QVERIFY(totals && totals->isEnabled());
-        totals->forceActiveFocus();
-        QTest::qWait(80);
-        click("openPrecipitation");
+        eval("root.openPrecipitation('')");
         QTRY_VERIFY(eval("root.precipitationOpen").toBool());
         QCOMPARE(eval("backend.precipitationState").toString(), QString("unavailable"));
         QCOMPARE(eval("backend.precipitationError").toString(),
@@ -1253,16 +1247,14 @@ class ServiceFrontendTest : public QObject {
             QTest::qWait(50);
             QTest::keyClick(window, Qt::Key_Space);
         };
-        auto* entry = qobject_cast<QQuickItem*>(named("openPrecipitation"));
+        auto* dayEntry = qobject_cast<QQuickItem*>(named("forecastDay_0"));
+        QVERIFY(dayEntry);
+        dayEntry->forceActiveFocus();
+        QTest::qWait(80);
+        click("forecastDay_0");
+        QTRY_VERIFY(eval("details.opened").toBool());
+        auto* entry = qobject_cast<QQuickItem*>(named("detailPrecipitation"));
         QVERIFY(entry);
-        // A partially visible header button must not move out from under the
-        // pointer between press and release when it acquires mouse focus.
-        auto* forecastFlick = named("forecastScroll")->property("contentItem").value<QObject*>();
-        auto* forecastContent = forecastFlick->property("contentItem").value<QQuickItem*>();
-        QVERIFY(forecastContent);
-        forecastFlick->setProperty("contentY",
-                                   entry->mapToItem(forecastContent, QPointF()).y() + 8);
-        QTest::qWait(100);
         const auto entryCenter =
             entry->mapToScene(QPointF(entry->width() / 2, entry->height() / 2)).toPoint();
         QVERIFY(entryCenter.y() > 0 && entryCenter.y() < window->height());
@@ -1276,6 +1268,8 @@ class ServiceFrontendTest : public QObject {
             eval("root.precipitationOpen && !root.mapActive && !backend.forecastVisible").toBool());
         QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
         QCOMPARE(eval("backend.precipitationResult.days.length").toInt(), 10);
+        QCOMPARE(eval("backend.precipitationResult.date").toString(),
+                 eval("root.days[0].date").toString());
         QVERIFY(named("precipitationDaily_total_mm")->property("text").toString().contains("in"));
         QVERIFY(named("precipitationDaily_snow_cm")->property("text").toString().contains("in"));
         QVERIFY(named("precipitationSnowDepth")
@@ -1283,6 +1277,7 @@ class ServiceFrontendTest : public QObject {
                     .toString()
                     .contains("above sea level"));
         const auto day = eval("backend.precipitationResult.date").toString();
+        const auto today = eval("backend.precipitationResult.today").toString();
         const auto interval = named("precipitationInterval")->property("text").toString();
         activate("precipitationNextHour");
         QVERIFY(named("precipitationInterval")->property("text").toString() != interval);
@@ -1304,7 +1299,7 @@ class ServiceFrontendTest : public QObject {
         activate("precipitationToday");
         QTRY_COMPARE(
             eval("backend.precipitationResult ? backend.precipitationResult.date : ''").toString(),
-            day);
+            today);
         // A completion event may precede the older opening reply on the socket.
         // Its revision must keep a ready dataset from being replaced by loading.
         QVERIFY(
@@ -1357,7 +1352,7 @@ class ServiceFrontendTest : public QObject {
         }
         activate("closePrecipitation");
         QTRY_VERIFY(!loader->property("item").value<QObject*>());
-        QCOMPARE(window->activeFocusItem(), entry);
+        QCOMPARE(window->activeFocusItem(), dayEntry);
         window->resize(700, 650);
         eval("root.openPrecipitation('')");
         QTRY_COMPARE(eval("backend.precipitationState").toString(), QString("fresh"));

@@ -1018,7 +1018,6 @@ QtObject {
                 units: root.units
                 compact: root.compactDashboard
                 onDaySelected: day => details.showDay(day)
-                onPrecipitationRequested: root.openPrecipitation("")
             }
         }
         Component {
