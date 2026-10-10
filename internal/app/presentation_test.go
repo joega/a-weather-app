@@ -10,6 +10,18 @@ import (
 )
 
 func TestPresentationSubscriptionAndRestore(t *testing.T) {
+	for _, cached := range []bool{false, true} {
+		name := "available"
+		if cached {
+			name = "cached_during_mutation"
+		}
+		t.Run(name, func(t *testing.T) {
+			testPresentationSubscriptionAndRestore(t, cached)
+		})
+	}
+}
+
+func testPresentationSubscriptionAndRestore(t *testing.T, cached bool) {
 	f := serveFixture(t)
 	c := connect(t, f.path)
 	r := bufio.NewReader(c)
@@ -34,9 +46,26 @@ func TestPresentationSubscriptionAndRestore(t *testing.T) {
 	if hidden["ok"] != true || hidden["snapshot"] != nil {
 		t.Fatal("hide returned full snapshot", hidden)
 	}
+	changed := send("set_controls", M{"controls": M{"units": "C"}})
+	changedSnapshot := object(changed["snapshot"])
+	if changed["ok"] != true || object(changedSnapshot["controls"])["units"] != "C" {
+		t.Fatal("hidden control change failed", changed)
+	}
+	changedRevision := changedSnapshot["snapshot_revision"].(float64)
+	if changedRevision <= revision {
+		t.Fatal("hidden control change did not advance snapshot", changed)
+	}
+	if cached {
+		// Snapshot deliberately serves the last complete state while a mutation
+		// owns the app mutex. Restoring visibility must retain the acknowledged
+		// change without requiring a new revision or waiting for that mutex.
+		f.a.mu.Lock()
+		defer f.a.mu.Unlock()
+	}
 	restored := send("set_presentation", M{"active": true})
-	if restored["ok"] != true || object(restored["snapshot"])["snapshot_revision"].(float64) <= revision {
-		t.Fatal("restore lacks fresh snapshot", restored)
+	restoredSnapshot := object(restored["snapshot"])
+	if restored["ok"] != true || restoredSnapshot["snapshot_revision"].(float64) < changedRevision || object(restoredSnapshot["controls"])["units"] != "C" {
+		t.Fatal("restore lost acknowledged hidden change", restored)
 	}
 }
 
