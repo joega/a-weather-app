@@ -43,6 +43,15 @@ GlassPanel {
     readonly property real centerLon: bounds ? (bounds.west + bounds.east) / 2 / 20037508.342789244 * 180 : locationLongitude
     readonly property real centerLat: bounds ? Math.atan(Math.sinh((bounds.south + bounds.north) / 2 / 20037508.342789244 * Math.PI)) * 180 / Math.PI : locationLatitude
     readonly property string viewKey: bounds ? [bounds.west, bounds.south, bounds.east, bounds.north].join("/") : ""
+    readonly property bool atLocation: centeredOnLocation()
+    function centeredOnLocation() {
+        if (!bounds || zoom !== 7)
+            return false;
+        const extent = 20037508.342789244, half = span / 2;
+        const homeX = Math.max(-extent + half, Math.min(extent - half, locationLongitude / 180 * extent));
+        const homeY = Math.max(-extent + half, Math.min(extent - half, extent * Math.asinh(Math.tan(Math.max(-85, Math.min(85, locationLatitude)) * Math.PI / 180)) / Math.PI));
+        return Math.abs((bounds.west + bounds.east) / 2 - homeX) < 1 && Math.abs((bounds.south + bounds.north) / 2 - homeY) < 1;
+    }
     readonly property bool canPlay: active && presentationActive && frames.length > 1 && !reducedMotion && visualQuality !== "static"
     readonly property int displayedIndex: displayedFrame ? frames.findIndex(f => f.id === displayedFrame.id) : -1
     readonly property int desiredIndex: frames.findIndex(f => f.id === desiredID)
@@ -199,6 +208,7 @@ GlassPanel {
             // unchanged geography preserve both the displayed image and tiles.
             if (root.viewKey !== root.loadedView) {
                 root.loadedView = root.viewKey;
+                mapDrag.cancelDrag();
                 root.resetImages();
                 root.clearBasemap();
             }
@@ -321,7 +331,7 @@ GlassPanel {
             activeFocusOnTab: true
             Accessible.role: Accessible.Canvas
             Accessible.name: "Observed radar map. " + (root.displayedFrame ? root.displayedFrame.label : root.freshnessText)
-            Accessible.description: "Arrow keys pan. Plus and minus zoom. Home returns to the viewed location. Blank areas can lack radar coverage."
+            Accessible.description: "Drag to pan. Arrow keys pan. Plus and minus zoom. Home returns to the viewed location. Blank areas can lack radar coverage."
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Left)
                     root.pan(-0.2, 0);
@@ -347,6 +357,11 @@ GlassPanel {
             }
             Item {
                 id: plane
+                objectName: "radarMapPlane"
+                transform: Translate {
+                    x: mapDrag.offsetX
+                    y: mapDrag.offsetY
+                }
                 anchors.centerIn: parent
                 width: parent.width
                 height: width
@@ -398,19 +413,49 @@ GlassPanel {
                 }
             }
             MouseArea {
+                id: mapDrag
+                objectName: "radarMapDrag"
                 anchors.fill: parent
+                enabled: root.active && root.presentationActive && root.bounds !== null
+                preventStealing: true
+                cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                 property real startX: 0
                 property real startY: 0
+                property real offsetX: 0
+                property real offsetY: 0
+                property bool dragging: false
+                function cancelDrag() {
+                    dragging = false;
+                    offsetX = 0;
+                    offsetY = 0;
+                }
+                onEnabledChanged: if (!enabled)
+                    cancelDrag()
                 onPressed: mouse => {
+                    cancelDrag();
                     startX = mouse.x;
                     startY = mouse.y;
                     mapArea.forceActiveFocus();
                 }
+                onPositionChanged: mouse => {
+                    if (!pressed)
+                        return;
+                    const dx = mouse.x - startX, dy = mouse.y - startY;
+                    if (!dragging && Math.abs(dx) + Math.abs(dy) < drag.threshold)
+                        return;
+                    dragging = true;
+                    root.playing = false;
+                    offsetX = dx;
+                    offsetY = dy;
+                }
                 onReleased: mouse => {
-                    const dx = (startX - mouse.x) / width, dy = (mouse.y - startY) / width;
-                    if (Math.abs(dx) + Math.abs(dy) > 0.02)
+                    const moved = dragging && Math.abs(startX - mouse.x) + Math.abs(startY - mouse.y) >= drag.threshold;
+                    const dx = (startX - mouse.x) / plane.width, dy = (mouse.y - startY) / plane.width;
+                    cancelDrag();
+                    if (moved)
                         root.pan(dx, dy);
                 }
+                onCanceled: cancelDrag()
             }
             PlainLabel {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -449,6 +494,7 @@ GlassPanel {
                 ActionButton {
                     objectName: "radarRecenter"
                     text: "Recenter"
+                    enabled: root.bounds !== null && !root.atLocation
                     onClicked: root.moveTo(root.locationLatitude, root.locationLongitude, 7)
                 }
             }

@@ -3782,6 +3782,89 @@ class FrontendTest : public QObject {
         QTRY_COMPARE(evaluate(engine, radar, "displayedFrame ? displayedFrame.id : ''").toString(),
                      QString(64, 'c'));
         QVERIFY(!radar->property("imageError").toBool());
+        // Pointer drags preview locally, keep the enclosing dashboard still,
+        // and request exactly one new view when released.
+        auto* pointerArea = qobject_cast<QQuickItem*>(radar->findChild<QObject*>("radarMapArea"));
+        auto* drag = radar->findChild<QObject*>("radarMapDrag");
+        auto* recenter = qobject_cast<QQuickItem*>(radar->findChild<QObject*>("radarRecenter"));
+        QVERIFY(pointerArea && pointerArea->window() && drag && recenter);
+        QVERIFY(!recenter->isEnabled());
+        const auto acceptRequestedView = [&] {
+            const auto view = transport.requests.last()["view"].toMap();
+            auto response = radarFixture(evaluate(engine, root, "backend.radarToken").toInt());
+            auto bounds = response["view"].toObject();
+            const double dx = (view["longitude"].toDouble() + 74.006) / 180 * 20037508.342789244;
+            const double dy = (std::asinh(std::tan(view["latitude"].toDouble() * M_PI / 180)) -
+                               std::asinh(std::tan(40.7128 * M_PI / 180))) /
+                              M_PI * 20037508.342789244;
+            for (const auto& key : {"west", "east"})
+                bounds[key] = bounds[key].toDouble() + dx;
+            for (const auto& key : {"south", "north"})
+                bounds[key] = bounds[key].toDouble() + dy;
+            response["view"] = bounds;
+            deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", response}});
+        };
+        for (const QPoint displacement : {QPoint(80, 0), QPoint(0, 70)}) {
+            const auto start =
+                pointerArea
+                    ->mapToScene(QPointF(pointerArea->width() / 2, pointerArea->height() / 2))
+                    .toPoint();
+            const auto scrollBefore = flick->property("contentY").toReal();
+            const auto requestsBefore = transport.requests.size();
+            const auto tilesBefore = tiles.requests;
+            const auto tokenBefore = evaluate(engine, root, "backend.radarToken").toInt();
+            QTest::mousePress(pointerArea->window(), Qt::LeftButton, Qt::NoModifier, start);
+            QTest::mouseMove(pointerArea->window(), start + displacement / 2, 10);
+            QTest::mouseMove(pointerArea->window(), start + displacement, 10);
+            QCOMPARE(drag->property("offsetX").toInt(), displacement.x());
+            QCOMPARE(drag->property("offsetY").toInt(), displacement.y());
+            QCOMPARE(flick->property("contentY").toReal(), scrollBefore);
+            QCOMPARE(transport.requests.size(), requestsBefore);
+            QCOMPARE(tiles.requests, tilesBefore);
+            QTest::mouseRelease(pointerArea->window(), Qt::LeftButton, Qt::NoModifier,
+                                start + displacement);
+            drain(transport, acknowledged);
+            QCOMPARE(evaluate(engine, root, "backend.radarToken").toInt(), tokenBefore + 1);
+            QCOMPARE(transport.requests.size(), requestsBefore + 1);
+            QCOMPARE(drag->property("offsetX").toReal(), 0.0);
+            QCOMPARE(drag->property("offsetY").toReal(), 0.0);
+            const auto view = transport.requests.last()["view"].toMap();
+            QVERIFY(displacement.x() ? view["longitude"].toDouble() < -74.006
+                                     : view["latitude"].toDouble() > 40.7128);
+            acceptRequestedView();
+            QTRY_VERIFY(evaluate(engine, radar, "displayedFrame !== null").toBool());
+            QVERIFY(recenter->isEnabled());
+            QTest::mouseClick(
+                pointerArea->window(), Qt::LeftButton, Qt::NoModifier,
+                recenter->mapToScene(QPointF(recenter->width() / 2, recenter->height() / 2))
+                    .toPoint());
+            drain(transport, acknowledged);
+            QCOMPARE(evaluate(engine, root, "backend.radarToken").toInt(), tokenBefore + 2);
+            QCOMPARE(transport.requests.last()["view"].toMap()["latitude"].toDouble(), 40.7128);
+            QCOMPARE(transport.requests.last()["view"].toMap()["longitude"].toDouble(), -74.006);
+            acceptRequestedView();
+            QTRY_VERIFY(evaluate(engine, radar, "displayedFrame !== null").toBool());
+            QVERIFY(!recenter->isEnabled());
+        }
+        const auto start =
+            pointerArea->mapToScene(QPointF(pointerArea->width() / 2, pointerArea->height() / 2))
+                .toPoint();
+        const auto tokenBefore = evaluate(engine, root, "backend.radarToken").toInt();
+        QTest::mousePress(pointerArea->window(), Qt::LeftButton, Qt::NoModifier, start);
+        QTest::mouseMove(pointerArea->window(), start + QPoint(1, 1), 10);
+        QTest::mouseRelease(pointerArea->window(), Qt::LeftButton, Qt::NoModifier,
+                            start + QPoint(1, 1));
+        QCOMPARE(evaluate(engine, root, "backend.radarToken").toInt(), tokenBefore);
+        QTest::mousePress(pointerArea->window(), Qt::LeftButton, Qt::NoModifier, start);
+        QTest::mouseMove(pointerArea->window(), start + QPoint(50, 50), 10);
+        QVERIFY(drag->property("dragging").toBool());
+        radar->setProperty("presentationActive", false);
+        QCOMPARE(drag->property("offsetX").toReal(), 0.0);
+        QCOMPARE(drag->property("offsetY").toReal(), 0.0);
+        QTest::mouseRelease(pointerArea->window(), Qt::LeftButton, Qt::NoModifier,
+                            start + QPoint(50, 50));
+        QCOMPARE(evaluate(engine, root, "backend.radarToken").toInt(), tokenBefore);
+        radar->setProperty("presentationActive", true);
         const auto previousHeight =
             radar->findChild<QObject*>("radarMapArea")->property("height").toDouble();
         QMetaObject::invokeMethod(radar->findChild<QObject*>("radarExpand"), "clicked");
