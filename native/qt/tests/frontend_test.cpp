@@ -5469,6 +5469,252 @@ class FrontendTest : public QObject {
             QCOMPARE(transport.requests.size(), 0);
         }
     }
+    void alertsResponsiveGridAndDetails_data() {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<double>("textScale");
+        QTest::addColumn<int>("columns");
+        QTest::newRow("desktop") << 1200 << 1.0 << 2;
+        QTest::newRow("narrow") << 600 << 1.0 << 1;
+        QTest::newRow("enlarged") << 700 << 1.5 << 1;
+    }
+    void alertsResponsiveGridAndDetails() {
+        QFETCH(int, width);
+        QFETCH(double, textScale);
+        QFETCH(int, columns);
+        const QString longTitle =
+            "Severe thunderstorm warning for northern and central coastal communities with "
+            "damaging winds and large hail";
+        const QString longDescription = "The warning covers the listed communities. " +
+                                        QString("Detailed official text. ").repeated(80);
+        QJsonArray alerts;
+        const QStringList severities{"Extreme", "Severe", "Moderate", "Moderate",
+                                     "Minor",   "Minor",  "Unknown",  "Unknown"};
+        for (int index = 0; index < 8; ++index)
+            alerts.append(QJsonObject{
+                {"id", QString("alert-%1").arg(index)},
+                {"event", index == 0 ? longTitle : QString("Weather warning %1").arg(index + 1)},
+                {"severity", severities[index]},
+                {"expires", "2026-10-10T21:00:00Z"},
+                {"expires_label", "Today, 5 PM EDT"},
+                {"headline", QString("Official warning headline %1").arg(index + 1)},
+                {"instruction", "Move indoors and follow instructions from local authorities."},
+                {"description", longDescription},
+                {"text_truncated", index == 0}});
+        QJsonArray sixAlerts;
+        for (int index = 0; index < 6; ++index)
+            sixAlerts.append(alerts[index]);
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import "qrc:/ui/qml"
+            Window {
+                id: host
+                property var testAlerts
+                property real testScale: 1
+                property int testWidth: 1200
+                width: testWidth
+                height: Math.max(850, panel.implicitHeight + 32)
+                visible: true
+                color: "#243c52"
+                Component.onCompleted: Tokens.textScale = testScale
+                AlertsPanel {
+                    id: panel
+                    x: 16; y: 16; width: parent.width - 32
+                    height: implicitHeight
+                    alerts: host.testAlerts
+                    source: "National Weather Service"
+                }
+            })",
+                          QUrl());
+        QScopedPointer<QObject> owner(
+            component.createWithInitialProperties({{"testAlerts", sixAlerts.toVariantList()},
+                                                   {"testScale", textScale},
+                                                   {"testWidth", width}}));
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* window = qobject_cast<QQuickWindow*>(owner.data());
+        auto* panel = owner->findChild<QQuickItem*>("alertsPanel");
+        auto* grid = owner->findChild<QQuickItem*>("alertsGrid");
+        QVERIFY(window && panel && grid);
+        QTRY_VERIFY(window->isExposed());
+        QTRY_COMPARE(panel->property("columnCount").toInt(), columns);
+        QVERIFY(!panel->findChild<QObject*>("alertsViewport"));
+        const auto summary = [&](int index) {
+            return visualItem(panel, QString("alertDetails_%1").arg(index));
+        };
+        const auto title = [&](int index) {
+            return visualItem(panel, QString("alertTitle_%1").arg(index));
+        };
+        const auto summariesFit = [&](int count) {
+            for (int index = 0; index < count; ++index) {
+                auto* button = summary(index);
+                if (!button || !button->isVisible() || button->width() <= 0)
+                    return false;
+                const auto top = button->mapToItem(panel, QPointF());
+                if (top.x() < 0 || top.y() < 0 || top.x() + button->width() > panel->width() + 1 ||
+                    top.y() + button->height() > panel->height() + 1)
+                    return false;
+            }
+            return true;
+        };
+        QTRY_VERIFY(summariesFit(6));
+        for (int index = 0; index < 6; ++index) {
+            QVERIFY(title(index));
+            QVERIFY(title(index)->property("text").toString().startsWith(
+                sixAlerts[index].toObject()["event"].toString()));
+            QVERIFY(!title(index)->property("truncated").toBool());
+            QCOMPARE(title(index)->property("elide").toInt(), int(Qt::ElideNone));
+            if (index > 0) {
+                const auto previous = summary(index - 1)->mapToItem(grid, QPointF());
+                const auto current = summary(index)->mapToItem(grid, QPointF());
+                if (columns == 2 && index % 2 == 1) {
+                    QVERIFY(current.x() > previous.x());
+                    QVERIFY(qAbs(current.y() - previous.y()) < 1);
+                } else {
+                    QVERIFY(current.y() >= previous.y() + summary(index - 1)->height() - 1);
+                    QVERIFY(qAbs(current.x() - summary(0)->mapToItem(grid, QPointF()).x()) < 1);
+                }
+            }
+        }
+        QVERIFY(title(0)->property("lineCount").toInt() > 1);
+        const auto collapsedHeight = panel->height();
+        const auto lastSummaryBottom =
+            summary(5)->mapToItem(panel, QPointF(0, summary(5)->height())).y();
+        auto* accessible = QAccessible::queryAccessibleInterface(summary(0));
+        QVERIFY(accessible);
+        QCOMPARE(accessible->role(), QAccessible::Button);
+        QVERIFY(accessible->text(QAccessible::Name).contains(longTitle));
+        QVERIFY(accessible->text(QAccessible::Name).contains("Extreme"));
+        QVERIFY(accessible->text(QAccessible::Name).contains("Show details"));
+        summary(0)->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_COMPARE(panel->property("expandedId").toString(), QString("alert-0"));
+        QTRY_VERIFY(panel->height() > collapsedHeight);
+        QTRY_VERIFY(visualItem(panel, "alertDescription_0"));
+        auto* description = visualItem(panel, "alertDescription_0");
+        QVERIFY(description->isVisible());
+        QVERIFY(description->property("text").toString().contains(longDescription));
+        QVERIFY(!description->property("truncated").toBool());
+        QCOMPARE(description->property("elide").toInt(), int(Qt::ElideNone));
+        QVERIFY(description->mapToItem(panel, QPointF()).y() > lastSummaryBottom);
+        QVERIFY(description->width() >= grid->width() - 32);
+        QVERIFY(visualItem(panel, "alertShortened_0") &&
+                visualItem(panel, "alertShortened_0")->isVisible());
+        QVERIFY(visualItem(panel, "alertOfficialSource_0") &&
+                visualItem(panel, "alertOfficialSource_0")->isVisible());
+        QVERIFY(accessible->text(QAccessible::Name).contains("Hide details"));
+        QVERIFY(summariesFit(6));
+        summary(0)->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY(panel->property("expandedId").toString().isEmpty());
+        QTRY_COMPARE(panel->height(), collapsedHeight);
+        QVERIFY(!visualItem(panel, "alertDescription_0") ||
+                !visualItem(panel, "alertDescription_0")->isVisible());
+
+        owner->setProperty("testAlerts", alerts.toVariantList());
+        QTRY_VERIFY(summariesFit(8));
+        QTRY_VERIFY(panel->height() > collapsedHeight);
+        if (columns == 1)
+            QVERIFY(panel->height() > 290);
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_ALERTS_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(
+                prefix + QString("-%1-%2.png").arg(width).arg(qRound(textScale * 100))));
+        }
+        owner->setProperty("testAlerts", QJsonArray{alerts[0]}.toVariantList());
+        QTRY_COMPARE(panel->property("columnCount").toInt(), 1);
+        QTRY_VERIFY(summariesFit(1));
+        QTRY_VERIFY(summary(0)->width() >= grid->width() - 1);
+        QVERIFY(!summary(1));
+    }
+    void alertExpansionRevealsDetailsInDashboardScroll() {
+        QJsonArray alerts;
+        const QString description =
+            QString("Full warning details and safety instructions. ").repeated(70);
+        for (int index = 0; index < 8; ++index)
+            alerts.append(
+                QJsonObject{{"id", QString("alert-%1").arg(index)},
+                            {"event", QString("Weather warning %1").arg(index + 1)},
+                            {"severity", "Moderate"},
+                            {"expires", "2026-10-10T21:00:00Z"},
+                            {"expires_label", "Today, 5 PM EDT"},
+                            {"headline", QString("Complete official warning %1").arg(index + 1)},
+                            {"instruction", "Follow local safety instructions."},
+                            {"description", description},
+                            {"text_truncated", false}});
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import "qrc:/ui/qml"
+            Window {
+                id: host
+                property var testAlerts
+                width: 700; height: 500; visible: true
+                Component.onCompleted: Tokens.textScale = 1
+                Flickable {
+                    id: dashboard
+                    objectName: "alertsDashboardScroll"
+                    anchors.fill: parent
+                    clip: true
+                    contentWidth: width
+                    contentHeight: panel.y + panel.height + 16
+                    boundsBehavior: Flickable.StopAtBounds
+                    AlertsPanel {
+                        id: panel
+                        x: 16; y: 300; width: dashboard.width - 32
+                        height: implicitHeight
+                        alerts: host.testAlerts
+                        source: "National Weather Service"
+                    }
+                }
+            })",
+                          QUrl());
+        QScopedPointer<QObject> owner(
+            component.createWithInitialProperties({{"testAlerts", alerts.toVariantList()}}));
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* window = qobject_cast<QQuickWindow*>(owner.data());
+        auto* dashboard = owner->findChild<QQuickItem*>("alertsDashboardScroll");
+        auto* panel = owner->findChild<QQuickItem*>("alertsPanel");
+        QVERIFY(window && dashboard && panel);
+        QTRY_VERIFY(window->isExposed());
+        QTRY_COMPARE(panel->property("columnCount").toInt(), 1);
+        QTRY_VERIFY(visualItem(panel, "alertDetails_7"));
+        auto* button = visualItem(panel, "alertDetails_0");
+        QVERIFY(button);
+        const auto collapsedHeight = panel->height();
+        const auto inViewport = [&](QQuickItem* item) {
+            const auto point = item->mapToItem(dashboard, QPointF());
+            return point.y() >= 0 && point.y() + item->height() <= dashboard->height();
+        };
+        QTRY_VERIFY(inViewport(button));
+        button->forceActiveFocus();
+        for (const bool pointer : {false, true}) {
+            if (pointer) {
+                const auto center =
+                    button->mapToScene(QPointF(button->width() / 2, button->height() / 2));
+                QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, center.toPoint());
+            } else
+                QTest::keyClick(window, Qt::Key_Space);
+            QTRY_COMPARE(panel->property("expandedId").toString(), QString("alert-0"));
+            QTRY_VERIFY(panel->height() > collapsedHeight);
+            auto* heading = visualItem(panel, "alertDetailHeading_0");
+            auto* details = visualItem(panel, "alertDescription_0");
+            QVERIFY(heading && details && heading->isVisible() && details->isVisible());
+            QTRY_VERIFY(inViewport(heading));
+            QVERIFY(heading->mapToItem(dashboard, QPointF()).y() <= 18);
+            QVERIFY(dashboard->property("contentY").toReal() > 300);
+            QVERIFY(details->property("text").toString().contains(description));
+            QVERIFY(!details->property("truncated").toBool());
+            QTest::keyClick(window, Qt::Key_Space);
+            QTRY_VERIFY(panel->property("expandedId").toString().isEmpty());
+            QTRY_COMPARE(panel->height(), collapsedHeight);
+            QTRY_VERIFY(inViewport(button));
+            QVERIFY(button->hasActiveFocus());
+        }
+    }
     void pendingAlertsKeepForecastUsable() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
