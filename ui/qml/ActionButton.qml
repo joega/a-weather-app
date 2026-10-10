@@ -8,12 +8,30 @@ Button {
     property string iconName: ""
     property string accessibleLabel: ""
     property real iconSize: text === "" ? 16 : 18
+    hoverEnabled: true
     implicitHeight: Math.max(40, contentItem.implicitHeight + 16)
     implicitWidth: Math.max(44, contentItem.implicitWidth + 28)
     Accessible.name: accessibleLabel !== "" ? accessibleLabel : text
-    ToolTip.visible: text === "" && accessibleLabel !== "" && (hovered || activeFocus)
-    ToolTip.text: accessibleLabel
-    ToolTip.delay: 600
+    ToolTip {
+        id: tooltip
+        objectName: "actionTooltip"
+        visible: root.enabled && root.text === "" && root.accessibleLabel !== "" && root.hovered
+        text: root.accessibleLabel
+        delay: 600
+        padding: 10
+        width: Math.min(implicitWidth, Tokens.fontSize(320))
+        contentItem: PlainLabel {
+            text: tooltip.text
+            color: Tokens.foreground
+            font.pixelSize: Tokens.fontSize(13)
+            wrapMode: Text.Wrap
+        }
+        background: Rectangle {
+            radius: 8
+            color: "#162b3e"
+            border.color: Tokens.border
+        }
+    }
     background: Rectangle {
         radius: 12
         color: root.primary ? "#176da0" : root.selected ? "#704fa6d4" : root.down ? "#80506a80" : "#303d5a70"

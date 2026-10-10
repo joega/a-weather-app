@@ -2304,6 +2304,27 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(
             named("astronomyDaylight")->property("text").toString().contains("remaining today"));
         QVERIFY(named("astronomyMoonPhase")->property("text").toString().contains("illuminated"));
+        auto* closeButton = qobject_cast<QQuickItem*>(named("closeAstronomy"));
+        QVERIFY(closeButton);
+        auto* tooltip = closeButton->findChild<QObject*>("actionTooltip");
+        QVERIFY(tooltip);
+        QTest::mouseMove(window, QPoint(5, 5));
+        closeButton->forceActiveFocus();
+        QTest::qWait(700);
+        QVERIFY(closeButton->hasActiveFocus());
+        QVERIFY(!tooltip->property("visible").toBool());
+        QTest::mouseMove(
+            window,
+            closeButton->mapToScene(QPointF(closeButton->width() / 2, closeButton->height() / 2))
+                .toPoint());
+        QTRY_VERIFY(tooltip->property("visible").toBool());
+        const auto tooltipPrefix = qEnvironmentVariable("WEATHER_QT_ASTRONOMY_SCREENSHOT_PREFIX");
+        if (!tooltipPrefix.isEmpty()) {
+            QTest::qWait(100);
+            QVERIFY(window->grabWindow().save(tooltipPrefix + "-tooltip.png"));
+        }
+        QTest::mouseMove(window, QPoint(5, 5));
+        QTRY_VERIFY(!tooltip->property("visible").toBool());
         const auto activate = [&](const char* name) {
             auto* item = qobject_cast<QQuickItem*>(named(name));
             QVERIFY(item);
