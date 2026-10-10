@@ -1,6 +1,8 @@
 #include <QtTest>
 #include <QClipboard>
 #include <QImageReader>
+#include <QLocale>
+#include <QTimeZone>
 #include <QAccessible>
 #include "transport.h"
 #include "maptiles.h"
@@ -1791,15 +1793,39 @@ class ServiceFrontendTest : public QObject {
         fixture.cache(60);
         auto forecast = fixture.saved("forecast.json");
         const auto day = forecast["daily"].toArray().first().toObject();
-        QJsonArray days;
+        const QTimeZone zone("America/New_York");
+        // Future days keep this complete export fixture independent of the
+        // service's intentional removal of past forecast hours.
+        const auto firstDate = QDateTime::currentDateTimeUtc().toTimeZone(zone).date().addDays(1);
+        const auto baseHour = forecast["hourly"].toArray().first().toObject();
+        QJsonArray days, hours;
         for (int i = 0; i < 3; ++i) {
             auto row = day;
-            row["date"] = QDate::fromString(day["date"].toString(), Qt::ISODate)
-                              .addDays(i)
-                              .toString(Qt::ISODate);
+            row["date"] = firstDate.addDays(i).toString(Qt::ISODate);
+            row["low_c"] = 12 + i * 2;
+            row["high_c"] = 25 + i * 2;
             days.append(row);
         }
+        // Point temperatures and interval-ending precipitation cover all three
+        // local days, including the final evening's next-midnight probability.
+        for (int i = 0; i <= 72; ++i) {
+            const int hour = i % 24;
+            const int dayIndex = i / 24;
+            auto row = baseHour;
+            row["time"] = QDateTime(firstDate.addDays(dayIndex), QTime(hour, 0), zone)
+                              .toUTC()
+                              .toString(Qt::ISODate);
+            row["temperature_c"] =
+                12 + dayIndex * 2 + (hour < 6 ? 0 : (hour - 6) / 6 * 4) + hour % 6;
+            row["precipitation_probability"] = hour == 0 || hour > 18 ? .7
+                                               : hour <= 6            ? 0
+                                               : hour <= 12           ? .15
+                                                                      : .45;
+            row["condition"] = hour < 12 ? "clear" : hour < 18 ? "cloudy" : "rain";
+            hours.append(row);
+        }
         forecast["daily"] = days;
+        forecast["hourly"] = hours;
         fixture.save("forecast.json", forecast);
         fixture.savedNewYorkPlace();
         const auto original = fixture.saved("forecast.json");
@@ -1832,6 +1858,12 @@ class ServiceFrontendTest : public QObject {
         };
         auto* entry = qobject_cast<QQuickItem*>(named("openForecastShare"));
         QVERIFY(entry);
+        // Finish the forecast's normal first-frame acknowledgement before
+        // measuring requests caused by entering Settings or sharing.
+        QTRY_VERIFY_WITH_TIMEOUT(
+            eval("backend.changesAttemptedKey===backend.forecastContext && backend.pending<0")
+                .toBool(),
+            3000);
         const auto beforeSettings = eval("backend.nextId").toInt();
         showSettingsSection("settingsExperimentalSection");
         QCOMPARE(eval("backend.nextId").toInt(), beforeSettings);
@@ -1853,6 +1885,15 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(text.contains("Current conditions valid "));
         QVERIFY(text.contains(" UTC"));
         QVERIFY(text.contains("Precipitation chance 0%"));
+        QVERIFY(text.contains(QLocale::c().toString(firstDate, "ddd, d MMM yyyy")));
+        QVERIFY(text.contains("Morning (6 AM–noon):"));
+        QVERIFY(text.contains("Afternoon (Noon–6 PM):"));
+        QVERIFY(text.contains("Evening (6 PM–midnight):"));
+        QVERIFY(text.contains("Peak chance 15%"));
+        QVERIFY(text.contains("Peak chance 45%"));
+        QVERIFY(text.contains("Peak chance 70%"));
+        QVERIFY(!text.contains("No hourly data"));
+        QVERIFY(!text.contains(" · Partial"));
         QVERIFY(text.contains("Current official alert status unavailable."));
         QVERIFY(text.contains("Open-Meteo"));
         QVERIFY(text.contains("CC BY 4.0"));

@@ -243,6 +243,51 @@ class FrontendTest : public QObject {
         v["hourly"] = QJsonArray{hour};
         return v;
     }
+    QJsonObject shareFixture() {
+        QJsonArray days, hours;
+        const QTimeZone zone("Pacific/Kiritimati");
+        for (int day = 0; day < 4; ++day) {
+            const auto date = QDate(2026, 10, 10).addDays(day);
+            days.append(QJsonObject{{"date", date.toString(Qt::ISODate)},
+                                    {"condition", day == 1 ? "rain" : "clear"},
+                                    {"high_c", 25 + day * 2},
+                                    {"low_c", day * 2},
+                                    {"precipitation_probability", .6}});
+            for (int hour = 0; hour < 24; ++hour) {
+                const int period = hour < 6 ? -1 : (hour - 6) / 6;
+                hours.append(QJsonObject{
+                    {"time", QDateTime(date, QTime(hour, 0), zone).toUTC().toString(Qt::ISODate)},
+                    {"local_date", date.toString(Qt::ISODate)},
+                    {"local_hour", QString("%1 %2")
+                                       .arg(hour % 12 == 0 ? 12 : hour % 12)
+                                       .arg(hour < 12 ? "AM" : "PM")},
+                    {"temperature_c", period < 0 ? -50 : day * 2 + period * 10 + hour % 6},
+                    {"precipitation_probability", hour == 0 || hour > 18 ? .6
+                                                  : hour <= 6            ? .9
+                                                  : hour <= 12           ? 0
+                                                                         : .3}});
+            }
+        }
+        return {{"location", "North Attleboro, Massachusetts"},
+                {"timezone", "Pacific/Kiritimati"},
+                {"location_settings", QJsonObject{{"busy", false}}},
+                {"source", QJsonObject{{"freshness", "fresh"}}},
+                {"controls", QJsonObject{{"units", "F"}, {"wind_units", "auto"}}},
+                {"alerts", QJsonObject{{"items", QJsonArray{}}, {"freshness", "current"}}},
+                {"forecast",
+                 QJsonObject{{"fetched_at", "2026-10-09T14:45:00Z"},
+                             {"source", QJsonObject{{"name", "Open-Meteo"},
+                                                    {"attribution", "Weather data by "
+                                                                    "Open-Meteo.com (CC BY 4.0)"}}},
+                             {"current", QJsonObject{{"time", "2026-10-09T14:30:00Z"},
+                                                     {"temperature_c", 15},
+                                                     {"apparent_temperature_c", 14},
+                                                     {"wind_speed_m_s", 2},
+                                                     {"condition", "clear"},
+                                                     {"is_day", true}}},
+                             {"daily", days},
+                             {"hourly", hours}}}};
+    }
     QJsonObject outdoorFixture() {
         return {
             {"preferences", QJsonObject{{"schema_version", 1},
@@ -2092,6 +2137,214 @@ class FrontendTest : public QObject {
         QCOMPARE(transport.requests.size(), requests);
         QTest::keyClick(window, Qt::Key_Escape);
         QTRY_VERIFY(!root->property("effectsOpen").toBool());
+    }
+    void shareDatesAndLocalDayPeriods() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData("import QtQml\nimport \"qrc:/ui/qml/Share.js\" as Share\nQtObject {}",
+                          QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY(scope);
+        QCOMPARE(evaluate(engine, scope.data(), "Share.dateLabel('2026-10-10')").toString(),
+                 QString("Sat, 10 Oct 2026"));
+        const auto summarize = [&](const QJsonObject& fixture) {
+            const auto json =
+                QString::fromUtf8(QJsonDocument(fixture).toJson(QJsonDocument::Compact));
+            return QJsonDocument::fromJson(
+                       evaluate(engine, scope.data(),
+                                "JSON.stringify(Share.summary(" + json + ",true))")
+                           .toString()
+                           .toUtf8())
+                .object();
+        };
+        const auto fixture = shareFixture();
+        const auto result = summarize(fixture);
+        const auto days = result["days"].toArray();
+        QCOMPARE(days.size(), 3); // Export stays bounded to the first three forecast days.
+        QCOMPARE(days[0].toObject()["date"].toString(), QString("Sat, 10 Oct 2026"));
+        QCOMPARE(days[1].toObject()["date"].toString(), QString("Sun, 11 Oct 2026"));
+        const auto periods = days[0].toObject()["periods"].toArray();
+        QCOMPARE(periods.size(), 3);
+        const QStringList names{"Morning", "Afternoon", "Evening"};
+        const QStringList ranges{"6 AM–noon", "Noon–6 PM", "6 PM–midnight"};
+        const QStringList temperatures{"32°F–41°F", "50°F–59°F", "68°F–77°F"};
+        for (int i = 0; i < 3; ++i) {
+            const auto period = periods[i].toObject();
+            QCOMPARE(period["name"].toString(), names[i]);
+            QCOMPARE(period["range"].toString(), ranges[i]);
+            QCOMPARE(period["temperatures"].toString(), temperatures[i]);
+            QCOMPARE(period["coverage"].toString(), QString());
+        }
+        QCOMPARE(periods[0].toObject()["precipitation"].toString(), QString("Peak chance 0%"));
+        QCOMPARE(periods[1].toObject()["precipitation"].toString(), QString("Peak chance 30%"));
+        QCOMPARE(periods[2].toObject()["precipitation"].toString(), QString("Peak chance 60%"));
+        // Temperature points use 6..11, 12..17, 18..23. Probabilities describe intervals
+        // ending at 7..12, 13..18, and 19..next midnight; the overnight 90% is excluded.
+        // The local morning starts on the previous UTC date, which cannot group these rows.
+        const auto sourceHours = fixture["forecast"].toObject()["hourly"].toArray();
+        QVERIFY(sourceHours[6].toObject()["time"].toString().startsWith("2026-10-09"));
+        QCOMPARE(sourceHours[6].toObject()["local_date"].toString(), QString("2026-10-10"));
+        auto boundary = fixture;
+        auto boundaryForecast = boundary["forecast"].toObject();
+        auto boundaryHours = boundaryForecast["hourly"].toArray();
+        auto nextMidnight = boundaryHours[24].toObject();
+        nextMidnight["precipitation_probability"] = .8;
+        boundaryHours[24] = nextMidnight;
+        boundaryForecast["hourly"] = boundaryHours;
+        boundary["forecast"] = boundaryForecast;
+        const auto boundaryPeriods =
+            summarize(boundary)["days"].toArray()[0].toObject()["periods"].toArray();
+        QCOMPARE(boundaryPeriods[2].toObject()["precipitation"].toString(),
+                 QString("Peak chance 80%"));
+        QCOMPARE(boundaryPeriods[2].toObject()["temperatures"].toString(),
+                 QString("68°F–77°F")); // Next midnight's temperature is outside evening.
+        auto metric = fixture;
+        metric["controls"] = QJsonObject{{"units", "C"}, {"wind_units", "auto"}};
+        QCOMPARE(summarize(metric)["days"]
+                     .toArray()[0]
+                     .toObject()["periods"]
+                     .toArray()[0]
+                     .toObject()["temperatures"]
+                     .toString(),
+                 QString("0°C–5°C"));
+        auto partial = fixture;
+        auto forecast = partial["forecast"].toObject();
+        auto hours = forecast["hourly"].toArray();
+        auto missing = hours[7].toObject();
+        missing["temperature_c"] = QJsonValue::Null;
+        hours[7] = missing;
+        auto unknownRain = hours[8].toObject();
+        unknownRain["precipitation_probability"] = QJsonValue::Null;
+        hours[8] = unknownRain;
+        // A duplicate hour cannot fill a gap in coverage or improve its metrics.
+        hours.removeAt(11);
+        hours.insert(11, hours[10]);
+        forecast["hourly"] = hours;
+        partial["forecast"] = forecast;
+        auto morning =
+            summarize(partial)["days"].toArray()[0].toObject()["periods"].toArray()[0].toObject();
+        QCOMPARE(morning["coverage"].toString(), QString("Partial"));
+        QCOMPARE(morning["temperatures"].toString(), QString("32°F–39°F"));
+        QCOMPARE(morning["precipitation"].toString(), QString("Peak chance 0%"));
+        auto unknown = fixture;
+        forecast = unknown["forecast"].toObject();
+        hours = forecast["hourly"].toArray();
+        for (int i = 6; i <= 12; ++i) {
+            auto hour = hours[i].toObject();
+            hour["temperature_c"] = QJsonValue::Null;
+            hour["precipitation_probability"] = QJsonValue::Null;
+            hours[i] = hour;
+        }
+        forecast["hourly"] = hours;
+        unknown["forecast"] = forecast;
+        const auto unknownMorning =
+            summarize(unknown)["days"].toArray()[0].toObject()["periods"].toArray()[0].toObject();
+        QCOMPARE(unknownMorning["coverage"].toString(), QString("Partial"));
+        QCOMPARE(unknownMorning["temperatures"].toString(), QString("—"));
+        QCOMPARE(unknownMorning["precipitation"].toString(), QString("Peak chance —"));
+        // No local date means no trustworthy grouping; UTC cannot stand in for it.
+        auto empty = fixture;
+        forecast = empty["forecast"].toObject();
+        hours = forecast["hourly"].toArray();
+        for (int i = 0; i < hours.size(); ++i) {
+            auto hour = hours[i].toObject();
+            hour.remove("local_date");
+            hours[i] = hour;
+        }
+        forecast["hourly"] = hours;
+        empty["forecast"] = forecast;
+        const auto emptyPeriods =
+            summarize(empty)["days"].toArray()[0].toObject()["periods"].toArray();
+        for (const auto& value : emptyPeriods) {
+            const auto period = value.toObject();
+            QCOMPARE(period["coverage"].toString(), QString("No hourly data"));
+            QCOMPARE(period["temperatures"].toString(), QString("—"));
+            QCOMPARE(period["precipitation"].toString(), QString("Peak chance —"));
+        }
+    }
+    void shareCardDayPeriodsLayout_data() {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<double>("textScale");
+        QTest::newRow("compact") << 700 << 1.0;
+        QTest::newRow("compact-enlarged") << 700 << 1.5;
+        QTest::newRow("wide") << 1200 << 1.0;
+        QTest::newRow("wide-enlarged") << 1200 << 1.5;
+    }
+    void shareCardDayPeriodsLayout() {
+        QFETCH(int, width);
+        QFETCH(double, textScale);
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import QtQuick.Window
+            import "qrc:/ui/qml"
+            Window {
+                id: host
+                width: 1200
+                height: 850
+                visible: true
+                color: "#0b1725"
+                property var fixtureSnapshot
+                property real testTextScale: 1
+                onTestTextScaleChanged: Tokens.textScale = testTextScale
+                Component.onCompleted: Tokens.textScale = testTextScale
+                ForecastShare {
+                    id: preview
+                    snapshot: host.fixtureSnapshot
+                    Component.onCompleted: open()
+                }
+            }
+        )",
+                          QUrl());
+        QScopedPointer<QObject> owner(component.createWithInitialProperties(
+            {{"width", width},
+             {"testTextScale", textScale},
+             {"fixtureSnapshot", shareFixture().toVariantMap()}}));
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* window = qobject_cast<QQuickWindow*>(owner.data());
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        auto* popup = owner->findChild<QObject*>("forecastShare");
+        QVERIFY(popup);
+        QTRY_VERIFY(popup->property("opened").toBool());
+        QTest::qWait(120);
+        auto* card = visualItem(window->contentItem(), "forecastShareCard");
+        QVERIFY(card);
+        for (int day = 0; day < 3; ++day) {
+            auto* dayItem = visualItem(card, qPrintable(QString("shareDay_%1").arg(day)));
+            auto* periods = visualItem(card, qPrintable(QString("sharePeriods_%1").arg(day)));
+            QVERIFY(dayItem && periods);
+            for (int period = 0; period < 3; ++period) {
+                auto* item =
+                    visualItem(card, qPrintable(QString("sharePeriod_%1_%2").arg(day).arg(period)));
+                QVERIFY(item);
+                const auto left = item->mapToItem(card, QPointF()).x();
+                const auto top = item->mapToItem(card, QPointF()).y();
+                QVERIFY(left >= 0 && left + item->width() <= card->width() + 1);
+                QVERIFY(top >= 0 && top + item->height() <= card->height() + 1);
+                if (period > 0) {
+                    auto* previous = visualItem(
+                        card, qPrintable(QString("sharePeriod_%1_%2").arg(day).arg(period - 1)));
+                    const auto here = item->mapToScene(QPointF());
+                    const auto before = previous->mapToScene(QPointF());
+                    QVERIFY(here.x() >= before.x() + previous->width() - 1 ||
+                            here.y() >= before.y() + previous->height() - 1);
+                }
+            }
+        }
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_SHARE_CARD_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+            const auto suffix = QString("-%1-%2").arg(width).arg(qRound(textScale * 100));
+            QVERIFY(window->grabWindow().save(prefix + suffix + ".png"));
+            const auto capture = card->grabToImage();
+            QVERIFY(capture);
+            QSignalSpy ready(capture.data(), &QQuickItemGrabResult::ready);
+            QTRY_VERIFY(!ready.isEmpty());
+            QVERIFY(capture->image().save(prefix + suffix + "-card.png"));
+        }
+        owner->setProperty("testTextScale", 1.0);
     }
     void liveTimestampPrecision() {
         QQmlEngine engine;
