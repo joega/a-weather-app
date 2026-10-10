@@ -52,7 +52,7 @@ GlassPanel {
         if (radarState.status === "unavailable")
             return "Radar is temporarily unavailable. Forecast maps are still available.";
         if (radarState.status === "loading")
-            return "Loading observed radar…";
+            return "Loading radar…";
         if (radarState.latest === "")
             return "Observed radar loads when this map is in view.";
         const minutes = Math.max(0, Math.floor((clockNow - Date.parse(radarState.latest)) / 60000));
@@ -308,7 +308,14 @@ GlassPanel {
         PlainLabel {
             objectName: "radarObservationTime"
             Layout.fillWidth: true
-            text: root.imageError ? "Could not display the selected frame. Choose Latest to retry." : root.displayedFrame ? "Observed " + root.displayedFrame.label + (root.desiredID !== root.displayedFrame.id ? " · loading selected frame…" : "") : "Waiting for an observed frame…"
+            visible: text !== ""
+            text: {
+                if (root.imageError)
+                    return "Could not load this radar image. Choose Latest to try again.";
+                if (root.displayedFrame)
+                    return "Radar at " + root.displayedFrame.label + (root.desiredID !== root.displayedFrame.id ? " · loading selected image…" : "");
+                return root.active && root.desiredID !== "" ? "Loading radar image…" : "";
+            }
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(13)
             wrapMode: Text.Wrap
