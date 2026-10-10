@@ -3,58 +3,63 @@
 A native Qt Quick weather app for Linux, with an animated sky and optional
 weather effects across your Hyprland desktop. Designed for Omarchy.
 
-![A Weather App with animated sky and live desktop rain](media/demo.gif)
+[![San Diego forecast with animated sky and weather alerts](preview.png)](preview.png)
 
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
 - Modeled air quality with separate US/European AQI scales and PM2.5 concentration.
-- Local map modules for temperature, wind and precipitation on the forecast screen.
+- Tabbed maps for observed US radar and forecast precipitation, temperature and wind.
 - Official US weather alerts with individual instructions and expiry times.
-- Worldwide city search, saved US ZIP locations and optional approximate local detection.
+- Worldwide city search and a saved-location sidebar with a Home location.
+- US ZIP search and optional approximate local detection.
+- Sun and Moon details with sunrise, sunset, daylight and lunar phase.
 - Quiet, opt-in hourly precipitation notifications with pause and quiet hours.
 - Daily update checks and one-click verified updates from the app or weather bar.
 - Optional desktop rain, runoff and pooling; snow accumulation and melting.
 
 ## Screenshots
 
-The first three images use synthetic Boston weather. The map images use a Boston
-forecast captured on September 28, 2026. These illustrate the interface, not
-current conditions.
+These screenshots show the development build with live weather data captured on
+October 10, 2026. Conditions and alerts reflect that capture, not current weather.
 
-| Forecast and animated sky | Hourly forecast details | Desktop effects controls |
-| --- | --- | --- |
-| [![Forecast](preview.png)](preview.png) | [![Hourly wind chart](media/forecast-details.png)](media/forecast-details.png) | [![Desktop effects settings](media/desktop-effects.png)](media/desktop-effects.png) |
-
-| Temperature and wind maps | Precipitation map |
+| Boston · forecast | London · saved locations |
 | --- | --- |
-| [![Temperature and wind map modules for Boston](media/local-maps-boston.png)](media/local-maps-boston.png) | [![Precipitation map module for Boston](media/precipitation-map-boston.png)](media/precipitation-map-boston.png) |
+| [![Boston forecast](media/forecast-boston.png)](media/forecast-boston.png) | [![London forecast with saved-location sidebar](media/locations-london.png)](media/locations-london.png) |
 
-Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
-you stop them; the separate preview runs for five minutes.
+| Tokyo · hourly details | Mumbai · forecast |
+| --- | --- |
+| [![Tokyo hourly forecast details](media/forecast-details-tokyo.png)](media/forecast-details-tokyo.png) | [![Mumbai forecast](media/forecast-mumbai.png)](media/forecast-mumbai.png) |
 
-**Settings → Application → Find a time to go outside** compares up to three windows in the next 48 hours
-using the hourly forecast already loaded. Choose a duration, temperature range,
-precipitation and wind limits, and daylight preference. Preferences are saved when
-you press **Find times**. Suggestions explain missing data and exceeded limits;
-UV, air quality, ice and official warnings are not included in the ranking.
-The planner loads on demand and adds no weather requests or background polling.
+| San Diego · observed radar | Mumbai · air quality |
+| --- | --- |
+| [![San Diego observed radar and playback timeline](media/radar-san-diego.png)](media/radar-san-diego.png) | [![Mumbai air-quality information](media/air-quality-mumbai.png)](media/air-quality-mumbai.png) |
 
-The **Share icon beside Refresh** copies a concise text summary or saves a PNG of current
-conditions and up to three forecast days. Both include units, timezone, valid
-and retrieval times, source attribution, freshness and alert availability.
-You can omit the place name; the timezone remains visible and coordinates are
-never included. Sharing uses the forecast already loaded, opens on demand and
-adds no weather requests or background polling.
+Select an image for full size. Use the **Locations** sidebar button in the toolbar,
+or **Ctrl+L**, to switch places. Home is the startup location and
+also controls desktop weather and notifications. Select an hour, day or weather
+card to explore its details. Maps load as they come into view; only the selected
+layer is displayed. Observed radar covers the contiguous United States.
+
+The toolbar's **sliders icon** opens Settings. Its **monitor icon** toggles
+**Live desktop**, checking compatibility when needed. Desktop effects stay on
+until you stop them; the separate preview runs for five minutes.
+
+**Settings → Experimental**, at the bottom of Settings, contains features still
+being refined: **Outdoor planner**, **Forecast changes** and **Share forecast**.
+The planner compares upcoming windows using temperature, rain, wind and daylight
+preferences; UV, air quality, ice and official warnings are not included in its
+ranking. Forecast changes compares the latest forecast with one previously viewed.
+Sharing copies a text summary or saves a PNG with units, timestamps, attribution
+and freshness. You can omit the place name; coordinates are never included.
+These tools open on demand and use the forecast already loaded.
 
 **Settings → Appearance** offers 100%, 125% and 150% text sizes and a
 high-contrast option with solid panels and stronger text and borders. Forecast
 rows and controls adapt to enlarged text. These preferences survive restart,
 apply to forecast image exports, and add no weather requests or polling.
-**Customize dashboard** is in the same Appearance section. Forecast comparisons
-are under **Settings → Application → Forecast changes**. Use the location-pin
-icon beside the city name, or **Ctrl+L**, to change locations.
+**Customize dashboard** is in the same Appearance section.
 
-**Rain & snow**, beside the ten-day forecast or inside a day's details, opens
+**Rain & snow totals**, inside a day's details, opens
 daily liquid-equivalent precipitation, rain and showers, new snowfall, and hourly
 amounts. Choose a date to see available ground-snow and freezing-level samples.
 These are modeled values for the whole local day, including earlier hours;
@@ -217,7 +222,7 @@ owned directory and run its compiled `./a-weather-app`. Keep the existing
 installation and a backup of saved data for rollback; do not replace artifacts
 while native effects are loaded. Local builds are not published or installed automatically.
 
-On first launch, open Settings and search for a city, choose a five-digit US ZIP, or explicitly
+On first launch, open Locations and search for a city, choose a five-digit US ZIP, or explicitly
 choose approximate local detection. New York is the fallback location. Refresh
 failures retain cached weather with freshness indicators; unavailable alerts
 are never treated as an all-clear.
@@ -572,17 +577,20 @@ identities. Startup migrates schema-1/schema-2 profiles or older separate locati
 and forecast files, including in offline mode. Original files remain unchanged
 for rollback. The list is limited to 20 places; four full forecasts are retained
 across five atomic cache slots, with at most 10 MiB of slot files. Only the viewed
-and primary cities stay decoded for consumers. Saving a place does not enable
-background fetching for it. Open **Locations** (Ctrl+L) to switch cities, add a
-place, rename or reorder entries, or choose **Set as Home** in a location’s edit
-view. There is one automatically saved list; weather timestamps describe the
+and primary cities stay decoded for consumers. While the app is visible, eligible
+saved places receive lightweight current-condition updates, even with the sidebar
+closed. Open **Locations** (Ctrl+L) to switch cities. Its header's **sliders icon**
+reveals Add location and inline controls to remove, rename or reorder entries,
+or choose **Set as Home**. Select the icon again to finish editing.
+There is one automatically saved list; weather timestamps describe the
 forecast, not saved sets. Each app startup opens Home. Browsing or adding a city
 keeps Home unchanged; the bar, desktop effects and background notifications also
 follow Home. Removing Home requires an explicit replacement. The existing primary
 location becomes Home without changing saved places or their order.
 The first chosen place becomes primary when starting from the unchosen default.
-The picker is constructed only while open; its list uses cached summaries with
-freshness and warning coverage, and does not fetch every saved city. Summary
+The picker is constructed only while open; its list reuses compact summaries with
+freshness and warning coverage. Updating these summaries does not load a full
+forecast for each saved city. Summary
 timestamps use your desktop timezone. Missing or expired weather displays a dash.
 The new manifest is authoritative once migration succeeds. A damaged forecast
 cache leaves its saved identity available; invalid metadata does not silently
