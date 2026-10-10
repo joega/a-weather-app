@@ -124,13 +124,18 @@ func TranslateQt(raw []byte) ([]byte, error) {
 	body = strings.ReplaceAll(body, "void fragment()", "void main()")
 	body = strings.ReplaceAll(body, "vec2 uv = UV;", "vec2 uv = qt_TexCoord0;")
 	body = strings.ReplaceAll(body, "void main()", precipitation+"\nvoid main()")
+	// Only the forecast window reserves its text area. Preserve the canonical
+	// desktop sky and cloud lighting, and constrain both discs independently.
+	body = strings.ReplaceAll(body, "    float sun_distance =", "    sun_position = max(sun_position, vec2(celestial_left, celestial_top));\n    float sun_distance =")
+	body = strings.ReplaceAll(body, "clamp(1.0 - sun_position.x, 0.18, 0.82)", "clamp(0.5 - sin(radians(sun_azimuth - 180.0)) * 0.43, 0.18, 0.82)")
+	body = strings.ReplaceAll(body, "    vec2 moon_uv =", "    moon_position = max(moon_position, vec2(celestial_left, celestial_top));\n    vec2 moon_uv =")
 	// Keep some moving cloud relief behind the lower forecast cards too. The
 	// desktop shader keeps its original unobstructed horizon response.
 	body = strings.ReplaceAll(body, "float cloud_horizon = 1.0 - smoothstep(0.77, 1.0, uv.y);", "float cloud_horizon = mix(0.18, 1.0, 1.0 - smoothstep(0.77, 1.0, uv.y));")
 	body = strings.ReplaceAll(body, "    vec3 fog_color =", cloudAdapter+"    vec3 fog_color =")
 	body = strings.ReplaceAll(body, "    COLOR =", rainAdapter+"    fragColor =")
 	body = strings.ReplaceAll(body, "vec4(clamp(sky, vec3(0.0), vec3(1.0)), 1.0);", "vec4(clamp(sky, vec3(0.0), vec3(1.0)), 1.0) * qt_Opacity;")
-	return []byte("// Generated from godot/shaders/atmosphere.gdshader; do not edit.\n#version 440\nlayout(location = 0) in vec2 qt_TexCoord0;\nlayout(location = 0) out vec4 fragColor;\nlayout(std140, binding = 0) uniform buf {\n    mat4 qt_Matrix;\n    float qt_Opacity;\n" + strings.Join(fields, "\n") + "\n    float rain_amount;\n    float snow_amount;\n    float wind_x;\n};\n" + body), nil
+	return []byte("// Generated from godot/shaders/atmosphere.gdshader; do not edit.\n#version 440\nlayout(location = 0) in vec2 qt_TexCoord0;\nlayout(location = 0) out vec4 fragColor;\nlayout(std140, binding = 0) uniform buf {\n    mat4 qt_Matrix;\n    float qt_Opacity;\n" + strings.Join(fields, "\n") + "\n    float rain_amount;\n    float snow_amount;\n    float wind_x;\n    float celestial_left;\n    float celestial_top;\n};\n" + body), nil
 }
 func TranslateNative(raw []byte) ([]byte, error) {
 	source, err := shaderSource(raw)

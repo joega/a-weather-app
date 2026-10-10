@@ -18,6 +18,8 @@ struct buf
     float rain_amount;
     float snow_amount;
     float wind_x;
+    float celestial_left;
+    float celestial_top;
 };
 
 uniform buf _384;
@@ -161,6 +163,7 @@ void main()
     float haze = exp((-max(0.87999999523162841796875 - uv.y, 0.0)) * 9.0);
     sky += (mix(vec3(0.02300000004470348358154296875, 0.0280000008642673492431640625, 0.0419999994337558746337890625), vec3(0.0900000035762786865234375, 0.100000001490116119384765625, 0.07999999821186065673828125), vec3(daylight)) * haze);
     vec2 sun_position = vec2(0.5 + (sin(radians(_384.sun_azimuth - 180.0)) * 0.430000007152557373046875), 0.87999999523162841796875 - (sin(radians(elevation)) * 0.920000016689300537109375));
+    sun_position = max(sun_position, vec2(_384.celestial_left, _384.celestial_top));
     float sun_distance = length((uv - sun_position) * vec2(aspect, 1.0));
     float sun_visible = smoothstep(-3.0, 1.0, elevation) * (1.0 - smoothstep(0.7200000286102294921875, 0.980000019073486328125, cover));
     sun_visible *= (1.0 - smoothstep(0.25, 0.949999988079071044921875, fog));
@@ -178,18 +181,19 @@ void main()
     vec2 star_position = vec2(hash21(param_1), hash21(param_2));
     float star_distance = length(fract(star_grid) - star_position);
     float star = (1.0 - smoothstep(0.02500000037252902984619140625, 0.104999996721744537353515625, star_distance)) * step(0.981000006198883056640625, star_seed);
-    float _933;
+    float _942;
     if (_384.reduced_motion != 0u)
     {
-        _933 = 0.85000002384185791015625;
+        _942 = 0.85000002384185791015625;
     }
     else
     {
-        _933 = 0.85000002384185791015625 + (0.1500000059604644775390625 * sin((time * 0.3499999940395355224609375) + (star_seed * 67.0)));
+        _942 = 0.85000002384185791015625 + (0.1500000059604644775390625 * sin((time * 0.3499999940395355224609375) + (star_seed * 67.0)));
     }
-    float twinkle = _933;
+    float twinkle = _942;
     sky += ((((vec3(0.64999997615814208984375, 0.7400000095367431640625, 0.920000016689300537109375) * star) * twinkle) * night_visibility) * (1.0 - vertical));
-    vec2 moon_position = vec2(clamp(1.0 - sun_position.x, 0.180000007152557373046875, 0.819999992847442626953125), 0.2199999988079071044921875);
+    vec2 moon_position = vec2(clamp(0.5 - (sin(radians(_384.sun_azimuth - 180.0)) * 0.430000007152557373046875), 0.180000007152557373046875, 0.819999992847442626953125), 0.2199999988079071044921875);
+    moon_position = max(moon_position, vec2(_384.celestial_left, _384.celestial_top));
     vec2 moon_uv = (uv - moon_position) * vec2(aspect, 1.0);
     float moon_distance = length(moon_uv);
     float moon_disk = 1.0 - smoothstep(0.02099999971687793731689453125, 0.0240000002086162567138671875, moon_distance);
@@ -206,8 +210,8 @@ void main()
     float param_7 = dusk;
     float param_8 = flash;
     float param_9 = 0.60000002384185791015625;
-    vec4 _1065 = cloud_layer(param_3, param_4, param_5, param_6, param_7, param_8, param_9);
-    vec4 high_clouds = _1065;
+    vec4 _1085 = cloud_layer(param_3, param_4, param_5, param_6, param_7, param_8, param_9);
+    vec4 high_clouds = _1085;
     vec2 param_10 = (sky_point * vec2(3.7999999523162841796875, 5.19999980926513671875)) + vec2(-drift, 21.299999237060546875);
     vec2 param_11 = light_direction;
     float param_12 = cover;
@@ -215,8 +219,8 @@ void main()
     float param_14 = dusk;
     float param_15 = flash;
     float param_16 = 0.87000000476837158203125;
-    vec4 _1088 = cloud_layer(param_10, param_11, param_12, param_13, param_14, param_15, param_16);
-    vec4 low_clouds = _1088;
+    vec4 _1108 = cloud_layer(param_10, param_11, param_12, param_13, param_14, param_15, param_16);
+    vec4 low_clouds = _1108;
     float cloud_horizon = mix(0.180000007152557373046875, 1.0, 1.0 - smoothstep(0.769999980926513671875, 1.0, uv.y));
     sky = mix(sky, high_clouds.xyz, vec3(high_clouds.w * cloud_horizon));
     sky = mix(sky, low_clouds.xyz, vec3(low_clouds.w * cloud_horizon));
@@ -230,14 +234,14 @@ void main()
         float param_21 = dusk;
         float param_22 = 0.0;
         float param_23 = 0.4199999868869781494140625;
-        vec4 _1146 = cloud_layer(param_17, param_18, param_19, param_20, param_21, param_22, param_23);
-        vec4 wisps = _1146;
+        vec4 _1166 = cloud_layer(param_17, param_18, param_19, param_20, param_21, param_22, param_23);
+        vec4 wisps = _1166;
         vec3 wisp_light = mix(vec3(0.3499999940395355224609375, 0.4199999868869781494140625, 0.550000011920928955078125), vec3(0.939999997615814208984375, 0.9700000286102294921875, 1.0), vec3(daylight));
-        vec4 _1154 = wisps;
-        vec3 _1158 = mix(_1154.xyz, wisp_light, vec3(0.449999988079071044921875));
-        wisps.x = _1158.x;
-        wisps.y = _1158.y;
-        wisps.z = _1158.z;
+        vec4 _1174 = wisps;
+        vec3 _1178 = mix(_1174.xyz, wisp_light, vec3(0.449999988079071044921875));
+        wisps.x = _1178.x;
+        wisps.y = _1178.y;
+        wisps.z = _1178.z;
         sky = mix(sky, wisps.xyz, vec3((wisps.w * wisp_strength) * cloud_horizon));
     }
     vec3 fog_color = mix(vec3(0.119999997317790985107421875, 0.1500000059604644775390625, 0.20999999344348907470703125), vec3(0.7200000286102294921875, 0.7799999713897705078125, 0.800000011920928955078125), vec3(daylight));

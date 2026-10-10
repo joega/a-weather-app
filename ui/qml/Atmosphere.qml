@@ -9,6 +9,9 @@ Item {
     property real fogDensity: condition === "fog" ? 0.8 : 0.0
     property real sunElevation: isDay ? 35.0 : -25.0
     property real sunAzimuth: 180.0
+    // Reserve space for forecast text without moving clouds or adding a layer.
+    property real celestialLeft: 0
+    property real celestialTop: 0
     property real wind: 35.0
     property real windSpeed: 0.0
     property var graphicsCapabilities: null
@@ -108,6 +111,8 @@ Item {
                 property real scene_time: root.visualTime
                 property real sun_elevation: Math.max(-90, Math.min(90, root.sunElevation))
                 property real sun_azimuth: root.sunAzimuth
+                property real celestial_left: root.celestialLeft / Math.max(1, root.width)
+                property real celestial_top: root.celestialTop / Math.max(1, root.height)
                 property real cloud_cover: Math.max(0, Math.min(1, root.cloudCover))
                 property real fog_density: Math.max(0, Math.min(1, root.fogDensity))
                 property real cloud_offset: root.cloudOffset

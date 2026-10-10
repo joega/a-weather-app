@@ -691,6 +691,8 @@ QtObject {
             fogDensity: root.atmosphere ? root.atmosphere.fog_density : 0
             sunElevation: root.atmosphere ? root.atmosphere.sun_elevation : 20
             sunAzimuth: root.atmosphere ? root.atmosphere.sun_azimuth : 180
+            celestialLeft: Math.max(width * 0.6, forecastColumn.x + currentTemperature.width + Tokens.fontSize(48) + height * 0.024)
+            celestialTop: forecastColumn.y + currentTemperature.y + currentTemperature.height / 2
             wind: root.atmosphere ? root.atmosphere.wind_x : 0
             windSpeed: root.current && root.current.wind_speed_m_s !== null ? root.current.wind_speed_m_s : 0
             rainAmount: root.atmosphere ? root.atmosphere.rain_intensity : 0
@@ -875,6 +877,7 @@ QtObject {
                                     color: Tokens.secondary
                                 }
                                 PlainLabel {
+                                    id: currentTemperature
                                     objectName: "currentTemperature"
                                     text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
                                     font.pixelSize: Tokens.fontSize(96)

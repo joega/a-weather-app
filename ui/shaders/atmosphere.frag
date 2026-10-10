@@ -17,6 +17,8 @@ layout(std140, binding = 0) uniform buf {
     float rain_amount;
     float snow_amount;
     float wind_x;
+    float celestial_left;
+    float celestial_top;
 };
 // Integrated on the CPU so a wind change cannot reposition the cloud field.
 // Value noise uses arithmetic hashes, avoiding trigonometry in the cloud loops.
@@ -150,6 +152,7 @@ void main() {
 
     vec2 sun_position = vec2(0.5 + sin(radians(sun_azimuth - 180.0)) * 0.43,
                              0.88 - sin(radians(elevation)) * 0.92);
+    sun_position = max(sun_position, vec2(celestial_left, celestial_top));
     float sun_distance = length((uv - sun_position) * vec2(aspect, 1.0));
     float sun_visible = smoothstep(-3.0, 1.0, elevation) * (1.0 - smoothstep(0.72, 0.98, cover));
     sun_visible *= 1.0 - smoothstep(0.25, 0.95, fog);
@@ -170,7 +173,8 @@ void main() {
     sky += vec3(0.65, 0.74, 0.92) * star * twinkle * night_visibility * (1.0 - vertical);
 
     // An artistic crescent, not an astronomical lunar phase calculation.
-    vec2 moon_position = vec2(clamp(1.0 - sun_position.x, 0.18, 0.82), 0.22);
+    vec2 moon_position = vec2(clamp(0.5 - sin(radians(sun_azimuth - 180.0)) * 0.43, 0.18, 0.82), 0.22);
+    moon_position = max(moon_position, vec2(celestial_left, celestial_top));
     vec2 moon_uv = (uv - moon_position) * vec2(aspect, 1.0);
     float moon_distance = length(moon_uv);
     float moon_disk = 1.0 - smoothstep(0.021, 0.024, moon_distance);

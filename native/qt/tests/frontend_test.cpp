@@ -8,6 +8,7 @@
 #include <QAccessible>
 #include <QQuickWindow>
 #include <QQuickItem>
+#include <QQuickItemGrabResult>
 #include <QSGRendererInterface>
 #include <QFileInfo>
 #include <QDir>
@@ -829,11 +830,20 @@ class FrontendTest : public QObject {
         QVERIFY(!timer->property("running").toBool());
     }
     void renderAtmosphereAndWindReview() {
-        const auto output = qEnvironmentVariable("WEATHER_QT_FLOW_SCREENSHOTS");
+        const auto celestialOutput = qEnvironmentVariable("WEATHER_QT_CELESTIAL_SCREENSHOTS");
+        const auto output = celestialOutput.isEmpty()
+                                ? qEnvironmentVariable("WEATHER_QT_FLOW_SCREENSHOTS")
+                                : celestialOutput;
         if (output.isEmpty())
             QSKIP("Set WEATHER_QT_FLOW_SCREENSHOTS for native visual review");
         QVERIFY(QDir().mkpath(output));
+        // Match the production launcher's desktop GL format for shader preflight.
+        QSurfaceFormat format;
+        format.setVersion(3, 3);
+        format.setProfile(QSurfaceFormat::CoreProfile);
+        QSurfaceFormat::setDefaultFormat(format);
         FakeTransport transport;
+        GraphicsCapabilities capabilities;
         MapTiles tiles;
         QTemporaryDir temporary;
         const auto tileCache = qEnvironmentVariable("WEATHER_QT_FLOW_TILE_CACHE");
@@ -844,6 +854,7 @@ class FrontendTest : public QObject {
         QQmlApplicationEngine engine;
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"graphicsCapabilities", QVariant::fromValue<QObject*>(&capabilities)},
              {"mapTiles", QVariant::fromValue<QObject*>(&tiles)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
         QCOMPARE(engine.rootObjects().size(), 1);
@@ -851,6 +862,7 @@ class FrontendTest : public QObject {
         auto* window =
             qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
         QVERIFY(window);
+        capabilities.observe(window);
         qInfo() << "Native review graphics API:" << window->rendererInterface()->graphicsApi();
         auto state = metricSnapshot(1);
         state["location_settings"] = selectedSnapshot(1, "")["location_settings"];
@@ -907,6 +919,44 @@ class FrontendTest : public QObject {
             QVERIFY(!image.isNull());
             QVERIFY(image.save(output + "/" + name + ".png"));
         };
+        if (!celestialOutput.isEmpty()) {
+            for (const int width : {1200, 700}) {
+                window->setMaximumSize(QSize(1600, 1200));
+                window->setMinimumSize(QSize(width, 850));
+                window->setMaximumSize(QSize(width, 850));
+                window->resize(width, 850);
+                window->showNormal();
+                QTRY_VERIFY(window->isExposed());
+                QTRY_COMPARE(window->size(), QSize(width, 850));
+                QTRY_VERIFY(capabilities.shaderSupported());
+                qInfo() << "Celestial review renderer:" << capabilities.renderer();
+                for (const double scale : {1.0, 1.5}) {
+                    state["appearance"] = QJsonObject{{"schema_version", 1},
+                                                      {"text_scale", scale},
+                                                      {"high_contrast", false},
+                                                      {"error", QJsonValue::Null}};
+                    current["temperature_c"] = scale == 1.0 ? 13.3 : -40;
+                    for (const bool day : {false, true}) {
+                        current["is_day"] = day;
+                        // Both original trajectories cross the left-hand text.
+                        atmosphere["sun_azimuth"] = day ? 90 : 270;
+                        atmosphere["sun_elevation"] = day ? 45 : -25;
+                        present("clear", 0, 0, true);
+                        QTest::qWait(200);
+                        QVERIFY(sky->property("shaderAvailable").toBool());
+                        QVERIFY(!sky->property("pipelineFailed").toBool());
+                        auto frame = window->contentItem()->grabToImage();
+                        QVERIFY(frame);
+                        QTRY_VERIFY(!frame->image().isNull());
+                        QVERIFY(frame->image().save(output + QString("/%1-%2-%3.png")
+                                                                 .arg(day ? "sun" : "moon")
+                                                                 .arg(width)
+                                                                 .arg(qRound(scale * 100))));
+                    }
+                }
+            }
+            return;
+        }
         for (const int width : {1200, 700}) {
             window->setMaximumSize(QSize(1600, 1200));
             window->setMinimumSize(QSize(width, 850));
