@@ -430,6 +430,7 @@ static gboolean render(GtkGLArea* area, GdkGLContext* context, gpointer data) {
     uniform(state->sky, "sun_elevation", weather->elevation);
     uniform(state->sky, "sun_azimuth", weather->azimuth);
     uniform(state->sky, "cloud_cover", weather->clouds);
+    uniform(state->sky, "weather_dim", weather->storm ? 1 : 0);
     uniform(state->sky, "fog_density", weather->fog);
     uniform(state->sky, "cloud_offset", state->cloud_offset);
     state->last_flash = clearing ? 0 : flash(time, weather);

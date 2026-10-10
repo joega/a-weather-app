@@ -19,7 +19,7 @@ import (
 	"github.com/joega/a-weather-app/internal/safeio"
 )
 
-var uniforms = []string{"scene_time", "sun_elevation", "sun_azimuth", "cloud_cover", "fog_density", "cloud_offset", "lightning", "reduced_motion", "aspect_ratio"}
+var uniforms = []string{"scene_time", "sun_elevation", "sun_azimuth", "cloud_cover", "fog_density", "cloud_offset", "lightning", "reduced_motion", "aspect_ratio", "weather_dim"}
 var declaration = regexp.MustCompile(`(?m)^uniform\s+(float|bool)\s+(\w+)[^;]*;`)
 var qtDeclarations = regexp.MustCompile(`(?m)^shader_type[^;]*;\s*|^render_mode[^;]*;\s*|^uniform[^;]*;\s*`)
 var nativeDeclarations = regexp.MustCompile(`(uniform\s+\w+\s+\w+)\s*(?::\s*hint_range\([^)]*\))?\s*=\s*[^;]+;`)

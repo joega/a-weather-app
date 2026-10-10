@@ -11,6 +11,9 @@ uniform float cloud_offset = 0.0;
 uniform float lightning : hint_range(0.0, 1.0) = 0.0;
 uniform bool reduced_motion = false;
 uniform float aspect_ratio = 1.6;
+// Weather tone is independent of animation and particle visibility. Cloud
+// cover controls density; dry clouds alone must not imply a rain storm.
+uniform float weather_dim : hint_range(0.0, 1.0) = 0.0;
 
 // Value noise uses arithmetic hashes, avoiding trigonometry in the cloud loops.
 // Hash without Sine: Copyright (c) 2014 David Hoskins, MIT license.
@@ -62,11 +65,16 @@ vec4 cloud_layer(vec2 p, vec2 light_direction, float cover, float daylight,
     float detail = noise2(p * 8.0 + vec2(31.7, 5.9)) - 0.5;
     float relief = clamp(0.50 + (body - light_side) * 3.1 + detail * 0.15, 0.0, 1.0);
     float rim = pow(1.0 - density, 2.0) * relief;
-    vec3 shadow = mix(vec3(0.035, 0.050, 0.095), vec3(0.35, 0.43, 0.53), daylight);
-    vec3 lit = mix(vec3(0.15, 0.20, 0.30), vec3(0.88, 0.93, 0.96), daylight);
-    float overcast = smoothstep(0.72, 1.0, cover) * daylight;
-    shadow = mix(shadow, vec3(0.15, 0.20, 0.28), overcast);
-    lit = mix(lit, vec3(0.64, 0.70, 0.77), overcast);
+    float overcast = smoothstep(0.72, 1.0, cover);
+    float weather = clamp(weather_dim, 0.0, 1.0);
+    // Diffuse daylight keeps dry cloud undersides silver, even at full cover.
+    // Reserve the old deep slate shadows for actual wet/storm conditions.
+    vec3 day_shadow = mix(vec3(0.65, 0.74, 0.83), vec3(0.60, 0.69, 0.77), overcast);
+    vec3 day_lit = mix(vec3(0.97, 0.99, 1.0), vec3(0.90, 0.94, 0.97), overcast);
+    day_shadow = mix(day_shadow, mix(vec3(0.35, 0.43, 0.53), vec3(0.15, 0.20, 0.28), overcast), weather);
+    day_lit = mix(day_lit, mix(vec3(0.88, 0.93, 0.96), vec3(0.64, 0.70, 0.77), overcast), weather);
+    vec3 shadow = mix(vec3(0.035, 0.050, 0.095), day_shadow, daylight);
+    vec3 lit = mix(vec3(0.15, 0.20, 0.30), day_lit, daylight);
     lit = mix(lit, vec3(0.99, 0.69, 0.49), dusk * 0.52);
     vec3 color = mix(shadow, lit, relief * 0.62 + rim * 0.28);
     color += vec3(0.58, 0.66, 0.90) * flash * (0.35 + body * 0.65);
@@ -92,11 +100,14 @@ void fragment() {
     float flash = clamp(lightning, 0.0, 1.0);
     float time = scene_time;
 
-    vec3 zenith = mix(vec3(0.014, 0.022, 0.058), vec3(0.16, 0.39, 0.65), daylight);
-    vec3 horizon = mix(vec3(0.065, 0.083, 0.14), vec3(0.66, 0.80, 0.86), daylight);
-    float overcast = smoothstep(0.72, 1.0, cover) * daylight;
-    zenith = mix(zenith, vec3(0.22, 0.28, 0.36), overcast);
-    horizon = mix(horizon, vec3(0.44, 0.50, 0.56), overcast);
+    float overcast = smoothstep(0.72, 1.0, cover);
+    float weather = clamp(weather_dim, 0.0, 1.0);
+    vec3 day_zenith = mix(vec3(0.18, 0.48, 0.78), vec3(0.38, 0.57, 0.75), overcast);
+    vec3 day_horizon = mix(vec3(0.66, 0.82, 0.91), vec3(0.71, 0.81, 0.88), overcast);
+    day_zenith = mix(day_zenith, mix(vec3(0.16, 0.39, 0.65), vec3(0.22, 0.28, 0.36), overcast), weather);
+    day_horizon = mix(day_horizon, mix(vec3(0.66, 0.80, 0.86), vec3(0.44, 0.50, 0.56), overcast), weather);
+    vec3 zenith = mix(vec3(0.014, 0.022, 0.058), day_zenith, daylight);
+    vec3 horizon = mix(vec3(0.065, 0.083, 0.14), day_horizon, daylight);
     zenith = mix(zenith, vec3(0.14, 0.13, 0.29), dusk * 0.48);
     horizon = mix(horizon, vec3(0.83, 0.47, 0.36), dusk * 0.76);
     float vertical = pow(clamp(uv.y, 0.0, 1.0), 1.45);

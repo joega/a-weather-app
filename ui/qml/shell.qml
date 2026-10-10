@@ -732,11 +732,11 @@ QtObject {
                         gradient: Gradient {
                             GradientStop {
                                 position: 0
-                                color: Tokens.highContrast ? "#263f55" : "#800b1c30"
+                                color: Tokens.highContrast ? "#263f55" : forecastAtmosphere.sunElevation > 12 && forecastAtmosphere.weatherDim === 0 && forecastAtmosphere.fogDensity < 0.4 ? "#500b1c30" : "#800b1c30"
                             }
                             GradientStop {
                                 position: 0.66
-                                color: Tokens.highContrast ? "#263f55" : "#800b1c30"
+                                color: Tokens.highContrast ? "#263f55" : forecastAtmosphere.sunElevation > 12 && forecastAtmosphere.weatherDim === 0 && forecastAtmosphere.fogDensity < 0.4 ? "#500b1c30" : "#800b1c30"
                             }
                             GradientStop {
                                 position: 1
@@ -841,6 +841,7 @@ QtObject {
                                 width: Math.min(parent.width, Tokens.fontSize(720))
                                 PlainLabel {
                                     id: locationHeading
+                                    skyText: true
                                     objectName: "locationHeading"
                                     text: root.city
                                     font.pixelSize: Tokens.fontSize(32)
@@ -852,6 +853,7 @@ QtObject {
                                 }
                                 PlainLabel {
                                     id: regionHeading
+                                    skyText: true
                                     width: parent.width
                                     visible: text !== ""
                                     horizontalAlignment: Text.AlignHCenter
@@ -863,6 +865,7 @@ QtObject {
                                 }
                                 PlainLabel {
                                     id: currentTemperature
+                                    skyText: true
                                     objectName: "currentTemperature"
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
@@ -874,6 +877,7 @@ QtObject {
                                 }
                                 PlainLabel {
                                     id: conditionHeading
+                                    skyText: true
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
@@ -885,6 +889,7 @@ QtObject {
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     text: "Feels like " + Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units) + " · High " + Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units) + " · Low " + Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)
+                                    skyText: true
                                     font.pixelSize: Tokens.fontSize(16)
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
@@ -903,6 +908,7 @@ QtObject {
                             PlainLabel {
                                 Layout.fillWidth: true
                                 text: root.freshness
+                                skyText: true
                                 color: "#d4e3ee"
                                 font.pixelSize: Tokens.fontSize(13)
                                 wrapMode: Text.Wrap
@@ -910,6 +916,7 @@ QtObject {
                             }
                             PlainLabel {
                                 objectName: "alertCoverageStatus"
+                                skyText: true
                                 visible: root.alertsStatusText !== ""
                                 text: root.alertsStatusText
                                 color: "#d4e3ee"
@@ -924,6 +931,7 @@ QtObject {
                         }
                         PlainLabel {
                             objectName: "forecastOutlook"
+                            skyText: true
                             visible: root.forecast !== null && bridge.snapshot !== null && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
                             Layout.fillWidth: true
                             text: root.selectedBriefing ? ({
@@ -962,6 +970,7 @@ QtObject {
                 }
                 PlainLabel {
                     objectName: "sourceAttribution"
+                    skyText: true
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignRight
                     text: bridge.snapshot ? bridge.snapshot.source.attribution + (bridge.snapshot.alerts.source ? " · Alerts: " + bridge.snapshot.alerts.source : "") : "Forecast: Open-Meteo"

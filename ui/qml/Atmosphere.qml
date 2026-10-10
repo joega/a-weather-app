@@ -9,6 +9,9 @@ Item {
     property real fogDensity: condition === "fog" ? 0.8 : 0.0
     property real sunElevation: isDay ? 35.0 : -25.0
     property real sunAzimuth: 180.0
+    // Cloud coverage controls density; precipitation controls storm shading.
+    // Keep the palette stable when particles pause or reduced motion is used.
+    readonly property real weatherDim: condition === "thunderstorm" ? 1 : condition === "rain" || condition === "sleet" ? 0.65 : condition === "drizzle" ? 0.35 : condition === "snow" ? 0.25 : 0
     // Reserve space for forecast text without moving clouds or adding a layer.
     property real celestialLeft: 0
     property real celestialTop: 0
@@ -76,11 +79,11 @@ Item {
         gradient: Gradient {
             GradientStop {
                 position: 0
-                color: root.sunElevation < -8 ? "#071020" : root.fogDensity > 0.4 ? "#778895" : root.cloudCover > 0.72 ? "#384859" : "#285d8b"
+                color: root.sunElevation < -8 ? "#071020" : root.fogDensity > 0.4 ? "#819aa5" : root.weatherDim > 0.3 ? "#51687f" : root.cloudCover > 0.72 ? "#5687b3" : "#337bb0"
             }
             GradientStop {
                 position: 1
-                color: root.sunElevation < -8 ? "#19263b" : root.fogDensity > 0.4 ? "#b8c7cc" : root.cloudCover > 0.72 ? "#71818b" : "#a5c5d3"
+                color: root.sunElevation < -8 ? "#19263b" : root.fogDensity > 0.4 ? "#b8c7cc" : root.weatherDim > 0.3 ? "#879aa8" : "#bed4df"
             }
         }
         Repeater {
@@ -92,7 +95,7 @@ Item {
                 width: root.width * 0.58
                 height: root.height * 0.13
                 radius: height / 2
-                color: root.isDay ? "#dce6ec" : "#596a81"
+                color: root.isDay ? "#f0f5f8" : "#596a81"
                 opacity: Math.min(0.18, Math.max(0, root.cloudCover) * 0.22)
             }
         }
@@ -119,6 +122,7 @@ Item {
                 property real lightning: root.animationActive && root.lightningEnabled && root.condition === "thunderstorm" ? Math.max(0, Math.min(0.28, root.lightningIntensity)) : 0
                 property bool reduced_motion: root.reducedMotion
                 property real aspect_ratio: root.width / Math.max(1, root.height)
+                property real weather_dim: root.weatherDim
                 property real rain_amount: root.animationActive ? Math.max(0, Math.min(1, root.rainAmount)) : 0
                 property real snow_amount: root.animationActive ? Math.max(0, Math.min(1, root.snowAmount)) : 0
                 property real wind_x: Math.max(-500, Math.min(500, root.wind))

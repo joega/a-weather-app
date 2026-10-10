@@ -592,15 +592,23 @@ class FrontendTest : public QObject {
             const double offset = sky->property("cloudOffset").toDouble();
             QTRY_VERIFY(sky->property("cloudOffset").toDouble() > offset);
         }
+        sky->setProperty("condition", "rain");
+        QCOMPARE(sky->property("weatherDim").toDouble(), 0.65);
         sky->setProperty("reducedMotion", true);
         QVERIFY(!sky->property("animationActive").toBool());
+        // Pausing effects must retain the weather's lighting and mood.
+        QCOMPARE(sky->property("weatherDim").toDouble(), 0.65);
         const double frozen = sky->property("cloudOffset").toDouble();
         QTest::qWait(120);
         QCOMPARE(sky->property("cloudOffset").toDouble(), frozen);
         sky->setProperty("reducedMotion", false);
         sky->setProperty("presentationActive", false);
         QVERIFY(!sky->property("animationActive").toBool());
+        QCOMPARE(sky->property("weatherDim").toDouble(), 0.65);
         sky->setProperty("presentationActive", true);
+        sky->setProperty("condition", "cloudy");
+        sky->setProperty("cloudCover", 0.95);
+        QCOMPARE(sky->property("weatherDim").toDouble(), 0.0);
         window.showMinimized();
         QTRY_VERIFY(!sky->property("animationActive").toBool());
         window.hide();
@@ -876,12 +884,15 @@ class FrontendTest : public QObject {
         QVERIFY(!timer->property("running").toBool());
     }
     void renderAtmosphereAndWindReview() {
+        const auto daylightOutput = qEnvironmentVariable("WEATHER_QT_DAYLIGHT_SCREENSHOTS");
         const auto celestialOutput = qEnvironmentVariable("WEATHER_QT_CELESTIAL_SCREENSHOTS");
-        const auto output = celestialOutput.isEmpty()
-                                ? qEnvironmentVariable("WEATHER_QT_FLOW_SCREENSHOTS")
-                                : celestialOutput;
+        const auto output = !daylightOutput.isEmpty() ? daylightOutput
+                            : !celestialOutput.isEmpty()
+                                ? celestialOutput
+                                : qEnvironmentVariable("WEATHER_QT_FLOW_SCREENSHOTS");
         if (output.isEmpty())
-            QSKIP("Set WEATHER_QT_FLOW_SCREENSHOTS for native visual review");
+            QSKIP("Set WEATHER_QT_FLOW_SCREENSHOTS or WEATHER_QT_DAYLIGHT_SCREENSHOTS for native "
+                  "visual review");
         QVERIFY(QDir().mkpath(output));
         // Match the production launcher's desktop GL format for shader preflight.
         QSurfaceFormat format;
@@ -965,6 +976,58 @@ class FrontendTest : public QObject {
             QVERIFY(!image.isNull());
             QVERIFY(image.save(output + "/" + name + ".png"));
         };
+        if (!daylightOutput.isEmpty()) {
+            struct Scene {
+                QString name;
+                QString condition;
+                double cloudCover;
+                double elevation;
+                bool reduced;
+                bool fallback;
+            };
+            const Scene scenes[] = {{"partly-day", "partly_cloudy", 0.48, 35, false, false},
+                                    {"cloudy-day", "cloudy", 0.95, 35, false, false},
+                                    {"rain-day", "rain", 1.0, 35, false, false},
+                                    {"partly-night", "partly_cloudy", 0.48, -25, false, false},
+                                    {"cloudy-dawn", "cloudy", 0.95, 2, false, false},
+                                    {"cloudy-reduced", "cloudy", 0.95, 35, true, false},
+                                    {"cloudy-static", "cloudy", 0.95, 35, true, true}};
+            state["appearance"] = QJsonObject{{"schema_version", 1},
+                                              {"text_scale", 1.0},
+                                              {"high_contrast", false},
+                                              {"error", QJsonValue::Null}};
+            for (const int width : {1200, 700}) {
+                window->setMaximumSize(QSize(1600, 1200));
+                window->setMinimumSize(QSize(width, 850));
+                window->setMaximumSize(QSize(width, 850));
+                window->resize(width, 850);
+                window->showNormal();
+                QTRY_VERIFY(window->isExposed());
+                QTRY_COMPARE(window->size(), QSize(width, 850));
+                QTRY_VERIFY(capabilities.shaderSupported());
+                qInfo() << "Daylight review renderer:" << capabilities.renderer();
+                for (const auto& scene : scenes) {
+                    current["is_day"] = scene.elevation >= 0;
+                    atmosphere["sun_elevation"] = scene.elevation;
+                    atmosphere["sun_azimuth"] = 180;
+                    present(scene.condition, scene.cloudCover, 0, scene.reduced);
+                    sky->setProperty("visualQuality", scene.fallback ? "static" : "full");
+                    QTest::qWait(250);
+                    QTRY_COMPARE(sky->property("shaderAvailable").toBool(), !scene.fallback);
+                    QVERIFY(!sky->property("pipelineFailed").toBool());
+                    if (scene.reduced)
+                        QVERIFY(!sky->property("animationActive").toBool());
+                    // Grab the composited native scene, including the shader at the
+                    // window's device pixel ratio and the text layered above it.
+                    auto frame = window->contentItem()->grabToImage();
+                    QVERIFY(frame);
+                    QTRY_VERIFY(!frame->image().isNull());
+                    QVERIFY(frame->image().save(output +
+                                                QString("/%1-%2.png").arg(scene.name).arg(width)));
+                }
+            }
+            return;
+        }
         if (!celestialOutput.isEmpty()) {
             for (const int width : {1200, 700}) {
                 window->setMaximumSize(QSize(1600, 1200));
