@@ -103,7 +103,7 @@ GlassPanel {
     }
     onActionErrorChanged: if (actionError !== "")
         pendingMutation = null
-    onRegistryChanged: Qt.callLater(() => {
+    function syncRegistry() {
         if (aliasId !== "" && !rows.some(row => row.id === aliasId))
             aliasId = "";
         if (page !== "saved")
@@ -120,7 +120,14 @@ GlassPanel {
                 aliasId = "";
             places.forceActiveFocus();
         }
-    })
+    }
+    onRegistryChanged: registrySync.restart()
+    Timer {
+        id: registrySync
+        interval: 0
+        repeat: false
+        onTriggered: root.syncRegistry()
+    }
     onPageChanged: if (formScroll)
         formScroll.contentY = 0
     ColumnLayout {
