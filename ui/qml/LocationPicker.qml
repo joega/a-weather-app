@@ -377,9 +377,10 @@ GlassPanel {
                             color: Tokens.secondary
                         }
                         PlainLabel {
+                            objectName: "savedLocationAlerts_" + placeRow.index
                             Layout.fillWidth: true
                             visible: placeRow.summary !== null && (placeRow.summary.alert_status === "active" || placeRow.summary.alert_status === "cached")
-                            text: placeRow.summary && placeRow.summary.alert_status === "cached" ? "Cached weather alert" : "Weather alert"
+                            text: placeRow.summary && placeRow.summary.alert_count > 1 ? placeRow.summary.alert_count + " weather alerts" : "Weather alert"
                             color: Tokens.gold
                             font.pixelSize: Tokens.fontSize(12)
                         }

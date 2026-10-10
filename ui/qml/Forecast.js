@@ -774,10 +774,16 @@ function savedLocations(v) {
         let summary = null;
         if (row.summary !== null) {
             const data = row.summary;
-            if (!exact(data, ["temperature_c", "condition", "is_day", "fetched_at", "valid_at", "freshness", "alert_status"]) || (data.is_day !== null && typeof data.is_day !== "boolean") || ["fresh", "stale", "expired", "invalid_future"].indexOf(data.freshness) < 0 || ["active", "cached", "none", "unavailable", "not_supported_here"].indexOf(data.alert_status) < 0)
+            const summaryFields = ["temperature_c", "condition", "is_day", "fetched_at", "valid_at", "freshness", "alert_status"];
+            const counted = Object.prototype.hasOwnProperty.call(data, "alert_count");
+            if (!exact(data, counted ? summaryFields.concat(["alert_count"]) : summaryFields) || (data.is_day !== null && typeof data.is_day !== "boolean") || ["fresh", "stale", "expired", "invalid_future"].indexOf(data.freshness) < 0 || ["active", "cached", "none", "unavailable", "not_supported_here"].indexOf(data.alert_status) < 0)
                 throw Error("Invalid saved summary");
             if ((["active", "cached", "none"].indexOf(data.alert_status) >= 0 && country !== "US") || (data.alert_status === "not_supported_here" && (country === null || country === "US")))
                 throw Error("Invalid saved alert coverage");
+            const alertCount = counted && data.alert_count !== null ? integer(data.alert_count, 0, 256) : null;
+            const hasAlerts = data.alert_status === "active" || data.alert_status === "cached";
+            if (hasAlerts && alertCount === 0 || !hasAlerts && alertCount !== null && alertCount !== 0)
+                throw Error("Invalid saved alert count");
             summary = {
                 temperature_c: optional(data.temperature_c, -150, 100),
                 condition: condition(data.condition),
@@ -785,7 +791,8 @@ function savedLocations(v) {
                 fetched_at: time(data.fetched_at),
                 valid_at: time(data.valid_at),
                 freshness: data.freshness,
-                alert_status: data.alert_status
+                alert_status: data.alert_status,
+                alert_count: alertCount
             };
         }
         const zone = string(row.timezone, 100);

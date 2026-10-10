@@ -541,3 +541,94 @@ func BenchmarkSavedLocationsMetadata(b *testing.B) {
 		})
 	}
 }
+
+func savedAlertRows(count int, expires time.Time) []any {
+	rows := make([]any, count)
+	for i := range rows {
+		rows[i] = M{"id": fmt.Sprintf("saved-alert-%d", i), "event": "Weather warning", "headline": "Weather warning", "severity": "Severe", "urgency": "Immediate", "description": "Warning details", "instruction": "Check official guidance", "effective": savedRuntimeNow.Format(time.RFC3339), "expires": expires.Format(time.RFC3339Nano)}
+	}
+	return rows
+}
+
+func TestSavedLocationsAlertExpiriesRetainFullFeedAndLegacyCache(t *testing.T) {
+	files := &savedFaultFiles{Directory: testState(t)}
+	profile := savedFixture(0)
+	alerts := object(object(profile["forecast"])["alerts"])
+	alerts["items"] = savedAlertRows(12, savedRuntimeNow.Add(time.Hour))
+	store, err := createSavedLocations(files, profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := savedEntry(store.doc, "place-100")
+	summary := object(entry["summary"])
+	if len(summary["alert_expiries"].([]any)) != 12 {
+		t.Fatal("full feed truncated to frontend display limit", summary)
+	}
+	deadline := savedRuntimeNow.Add(time.Minute)
+	if row := savedSummaryPresentation(summary, savedRuntimeNow, &deadline); row["alert_count"] != 12 || row["alert_status"] != "active" {
+		t.Fatal("full-feed badge count", row)
+	}
+	// A schema-1 manifest written by the prior app keeps its owned full profile.
+	legacy := store.document()
+	delete(object(savedEntry(legacy, "place-100")["summary"]), "alert_expiries")
+	if err := files.Write(savedLocationsFile, legacy, savedMetadataBytes); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := loadSavedLocations(files)
+	if err != nil {
+		t.Fatal("legacy manifest rejected", err)
+	}
+	loaded, err := reopened.profile("place-100")
+	if err != nil || !reflect.DeepEqual(loaded, profile) {
+		t.Fatal("optional count metadata invalidated legacy full forecast", err)
+	}
+	legacySummary := object(savedEntry(reopened.doc, "place-100")["summary"])
+	if row := savedSummaryPresentation(legacySummary, savedRuntimeNow, &deadline); row["alert_count"] != nil || row["alert_status"] != "active" {
+		t.Fatal("legacy unknown count invented", row)
+	}
+	// Original binding checks remain exact even for a legacy summary.
+	legacySummary["temperature_c"] = 99.0
+	if loaded, err := reopened.profile("place-100"); err == nil || loaded["forecast"] != nil {
+		t.Fatal("legacy comparison weakened original summary ownership")
+	}
+}
+
+func TestSavedLocationsAlertExpiryMetadataValidationAndBound(t *testing.T) {
+	profile := savedFixture(0)
+	alerts := object(object(profile["forecast"])["alerts"])
+	alerts["items"] = savedAlertRows(256, savedRuntimeNow.Add(time.Hour))
+	summary := savedSummary(profile)
+	if err := validateSavedSummary(summary, "US"); err != nil {
+		t.Fatal("validated full-feed limit rejected", err)
+	}
+	for _, mutate := range []func(M){
+		func(s M) { s["alert_expiries"] = "bad" },
+		func(s M) { s["alert_expiries"] = []any{"bad"} },
+		func(s M) {
+			s["alert_expiries"] = []any{savedRuntimeNow.Add(time.Hour).Format("2006-01-02T15:04:05-0700")}
+		},
+		func(s M) { s["alert_expiries"] = []any{} },
+		func(s M) { s["alert_expiries"] = append(s["alert_expiries"].([]any), s["alert_expires"]) },
+		func(s M) { s["alert_expires"] = savedRuntimeNow.Add(2 * time.Hour).Format(time.RFC3339) },
+	} {
+		bad := weather.Clone(summary).(M)
+		mutate(bad)
+		if err := validateSavedSummary(bad, "US"); err == nil {
+			t.Fatal("malformed per-alert metadata accepted", bad)
+		}
+	}
+	// Twenty worst-case summaries fit the bounded metadata file without slots.
+	doc := M{"schema_version": 1.0, "generation": strings.Repeat("a", 32), "primary": "place-100", "viewed": "place-100", "places": []any{}, "cache_order": []any{}}
+	for i := 0; i < savedLocationLimit; i++ {
+		place := savedFixture(i)
+		object(object(place["forecast"])["alerts"])["items"] = savedAlertRows(256, savedRuntimeNow.Add(time.Hour+123456*time.Microsecond))
+		id, _ := savedLocationID(place)
+		doc["places"] = append(doc["places"].([]any), M{"id": id, "label": "", "profile": savedProfileIdentity(place), "cache_slot": nil, "cache_token": nil, "summary": savedSummary(place)})
+	}
+	if err := validateSavedLocations(doc); err != nil {
+		t.Fatal(err)
+	}
+	if err := testState(t).Write(savedLocationsFile, doc, savedMetadataBytes); err != nil {
+		t.Fatal("bounded full-feed summaries exceed metadata allowance", err)
+	}
+}

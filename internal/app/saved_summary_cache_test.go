@@ -160,8 +160,8 @@ func TestSavedCurrentSummaryOverlayUsesBothTimestampsAndIndependentAlerts(t *tes
 		if (combined["temperature_c"] == 30.0) != tc.useCurrent {
 			t.Fatal("timestamp order selected incorrect current conditions", tc, combined)
 		}
-		for _, field := range []string{"alert_expires", "alert_fetched_at", "alert_status"} {
-			if combined[field] != previous[field] {
+		for _, field := range []string{"alert_expires", "alert_fetched_at", "alert_status", "alert_expiries"} {
+			if !reflect.DeepEqual(combined[field], previous[field]) {
 				t.Fatal("current cache changed independent alerts", field, combined)
 			}
 		}
@@ -198,5 +198,72 @@ func TestSavedCurrentSummaryFutureCacheDoesNotMaskValidWeather(t *testing.T) {
 	combined := a.overlaySavedSummary(entry)
 	if combined["temperature_c"] != 30.0 || combined["fetched_at"] != savedTime(savedRuntimeNow.Format(time.RFC3339)) {
 		t.Fatal("valid current conditions could not recover future forecast summary", combined)
+	}
+}
+
+func TestSavedCurrentSummaryOverlayPreservesExactAlertCount(t *testing.T) {
+	a, _ := runtimeLocations(t, Options{Offline: true}, 0)
+	entry := savedEntry(a.saved.doc, "place-100")
+	profile := savedFixture(0)
+	object(object(profile["forecast"])["alerts"])["items"] = savedAlertRows(12, savedRuntimeNow.Add(time.Hour))
+	entry["summary"] = savedSummary(profile)
+	a.savedSummaries["place-100"] = savedCurrentSummary{identity: savedProfileIdentity(object(entry["profile"])), summary: compactSavedFixture(savedRuntimeNow.Add(time.Minute), 30)}
+	combined := a.overlaySavedSummary(entry)
+	if combined["temperature_c"] != 30.0 || !reflect.DeepEqual(combined["alert_expiries"], object(entry["summary"])["alert_expiries"]) {
+		t.Fatal("weather summary warming lost official alert metadata", combined)
+	}
+	deadline := savedRuntimeNow.Add(time.Minute)
+	if row := savedSummaryPresentation(combined, savedRuntimeNow, &deadline); row["alert_status"] != "active" || row["alert_count"] != 12 {
+		t.Fatal("weather summary warming changed exact official alert count", row)
+	}
+}
+
+func TestSavedLegacyAlertCountUsesOnlyAlreadyLoadedOwnedForecast(t *testing.T) {
+	a, _ := runtimeLocations(t, Options{Offline: true}, 0)
+	profile := savedFixture(0)
+	object(object(profile["forecast"])["alerts"])["items"] = savedAlertRows(12, savedRuntimeNow.Add(time.Hour))
+	if err := a.saved.put(profile, false, false); err != nil {
+		t.Fatal(err)
+	}
+	legacy := a.saved.document()
+	delete(object(savedEntry(legacy, "place-100")["summary"]), "alert_expiries")
+	if err := a.saved.commit(legacy); err != nil {
+		t.Fatal(err)
+	}
+	// Normal navigation/load reads the one requested slot before presentation.
+	a.primary = a.loadPoint("place-100")
+	a.forecastPoint = a.primary
+	files := &savedFaultFiles{Directory: a.state}
+	a.saved.files = files
+	entry := savedEntry(a.saved.doc, "place-100")
+	before := weather.Clone(entry)
+	deadline := savedRuntimeNow.Add(time.Minute)
+	if row := savedSummaryPresentation(a.overlaySavedSummary(entry), savedRuntimeNow, &deadline); row["alert_count"] != 12 || row["alert_status"] != "active" {
+		t.Fatal("owned loaded legacy cache did not reveal exact count", row)
+	}
+	if !reflect.DeepEqual(entry, before) || len(files.reads) != 0 || len(files.writes) != 0 {
+		t.Fatal("presentation enrichment changed storage or opened forecast slots")
+	}
+	// Compact summary warming keeps the independently inferred official count.
+	a.savedSummaries["place-100"] = savedCurrentSummary{identity: savedProfileIdentity(object(entry["profile"])), summary: compactSavedFixture(savedRuntimeNow.Add(time.Minute), 30)}
+	if row := savedSummaryPresentation(a.overlaySavedSummary(entry), savedRuntimeNow, &deadline); row["alert_count"] != 12 || row["temperature_c"] != 30.0 {
+		t.Fatal("summary warming lost inferred legacy count", row)
+	}
+	delete(a.savedSummaries, "place-100")
+	// A same-ID point with different geographic identity cannot lend alerts.
+	ownedProfile := a.primary.profile
+	a.primary.profile = weather.Clone(ownedProfile).(M)
+	object(a.primary.profile["location"])["latitude"] = 21.0
+	if row := savedSummaryPresentation(a.overlaySavedSummary(entry), savedRuntimeNow, &deadline); row["alert_count"] != nil {
+		t.Fatal("different point identity invented a legacy count", row)
+	}
+	a.primary.profile = ownedProfile
+	// Exact original weather/alert summary fields guard newer/other caches too.
+	object(a.primary.forecast["current"])["temperature_c"] = 99.0
+	if row := savedSummaryPresentation(a.overlaySavedSummary(entry), savedRuntimeNow, &deadline); row["alert_count"] != nil {
+		t.Fatal("mismatched full forecast invented a legacy count", row)
+	}
+	if len(files.reads) != 0 || len(files.writes) != 0 {
+		t.Fatal("legacy count guard performed extra I/O", files.reads, files.writes)
 	}
 }

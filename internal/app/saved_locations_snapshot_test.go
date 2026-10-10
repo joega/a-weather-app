@@ -66,6 +66,7 @@ func TestSavedListSnapshotUsesMetadataAndReusesPresentation(t *testing.T) {
 
 func TestSavedSummaryPresentationTimeAndWarningBoundaries(t *testing.T) {
 	summary := savedSummary(savedFixture(0))
+	delete(summary, "alert_expiries") // Exercise the prior manifest representation.
 	summary["alert_expires"] = savedRuntimeNow.Add(time.Hour).Format(time.RFC3339)
 	for _, tc := range []struct {
 		age            time.Duration
@@ -131,5 +132,64 @@ func TestSavedListPresentationInvalidatesOnClockChanges(t *testing.T) {
 	}
 	if len(raw) > 24*1024 {
 		t.Fatal("compact list exceeded its byte allowance", len(raw))
+	}
+}
+
+func TestSavedSummaryAlertCountExpiryAndIndependentFreshness(t *testing.T) {
+	profile := savedFixture(0)
+	alerts := object(object(profile["forecast"])["alerts"])
+	alerts["items"] = append(savedAlertRows(2, savedRuntimeNow.Add(2*time.Second)), savedAlertRows(1, savedRuntimeNow.Add(time.Hour))...)
+	alerts["items"] = append(alerts["items"].([]any), savedAlertRows(1, savedRuntimeNow.Add(-time.Second))...)
+	summary := savedSummary(profile)
+	for _, tc := range []struct {
+		age    time.Duration
+		count  int
+		status string
+	}{
+		{0, 3, "active"},
+		{2 * time.Second, 1, "active"},
+		{16 * time.Minute, 1, "cached"},
+		{45 * time.Minute, 1, "cached"},
+		{45*time.Minute + time.Nanosecond, 0, "unavailable"},
+		{-time.Second, 0, "unavailable"},
+	} {
+		now := savedRuntimeNow.Add(tc.age)
+		deadline := now.Add(time.Minute)
+		row := savedSummaryPresentation(summary, now, &deadline)
+		if row["alert_count"] != tc.count || row["alert_status"] != tc.status {
+			t.Fatal("count/expiry/freshness mismatch", tc, row)
+		}
+		if tc.age == 0 && deadline != savedRuntimeNow.Add(2*time.Second) {
+			t.Fatal("individual expiry did not invalidate list presentation", deadline)
+		}
+	}
+	alerts["items"] = []any{}
+	summary = savedSummary(profile)
+	deadline := savedRuntimeNow.Add(time.Minute)
+	if row := savedSummaryPresentation(summary, savedRuntimeNow, &deadline); row["alert_status"] != "none" || row["alert_count"] != 0 {
+		t.Fatal("empty official feed count", row)
+	}
+}
+
+func TestSavedListAlertCountRebuildUsesNoForecastReads(t *testing.T) {
+	now := savedRuntimeNow
+	a, _ := runtimeLocations(t, Options{Offline: true, Now: func() time.Time { return now }}, 0)
+	profile := savedFixture(0)
+	object(object(profile["forecast"])["alerts"])["items"] = append(savedAlertRows(1, now.Add(time.Second)), savedAlertRows(1, now.Add(time.Hour))...)
+	savedEntry(a.saved.doc, "place-100")["summary"] = savedSummary(profile)
+	a.savedList = savedListPresentation{}
+	files := &savedFaultFiles{Directory: a.state}
+	a.saved.files = files
+	list := object(a.savedLocationsSnapshot())
+	if count := object(object(list["items"].([]any)[0])["summary"])["alert_count"]; count != 2 {
+		t.Fatal("initial count", count)
+	}
+	now = now.Add(time.Second)
+	list = object(a.savedLocationsSnapshot())
+	if count := object(object(list["items"].([]any)[0])["summary"])["alert_count"]; count != 1 {
+		t.Fatal("cached presentation missed individual expiry", count)
+	}
+	if len(files.reads) != 0 {
+		t.Fatal("list count opened forecast slots", files.reads)
 	}
 }

@@ -106,8 +106,31 @@ func savedSummaryFromFuture(summary M, now time.Time) bool {
 
 // This only combines small immutable metadata; it never opens a forecast slot
 // or changes the independent age of official-alert information.
-func (a *App) overlaySavedSummary(entry M) M {
+func (a *App) legacyAlertSummary(entry M) M {
 	previous := object(entry["summary"])
+	if previous == nil {
+		return nil
+	}
+	if _, present := previous["alert_expiries"]; present {
+		return previous
+	}
+	// Home and the viewed city already own decoded, validated full forecasts.
+	// Reuse their alerts only when every original summary field and identity
+	// still match the manifest. Other saved cities never open slots here.
+	for _, point := range []*forecastPoint{a.primary, a.forecastPoint} {
+		if point == nil || point.id != entry["id"] || point.forecast == nil || !reflect.DeepEqual(savedProfileIdentity(point.profile), object(entry["profile"])) {
+			continue
+		}
+		summary := savedSummary(M{"forecast": point.forecast, "country_code": point.country})
+		if savedSummaryMatches(summary, previous) {
+			return summary
+		}
+	}
+	return previous
+}
+
+func (a *App) overlaySavedSummary(entry M) M {
+	previous := a.legacyAlertSummary(entry)
 	record, ok := a.savedSummaries[stringOf(entry["id"])]
 	if !ok {
 		return previous
@@ -119,12 +142,12 @@ func (a *App) overlaySavedSummary(entry M) M {
 		return previous
 	}
 	summary := weather.Clone(record.summary).(M)
-	summary["alert_expires"], summary["alert_fetched_at"], summary["alert_status"] = nil, nil, "unavailable"
+	summary["alert_expires"], summary["alert_fetched_at"], summary["alert_status"], summary["alert_expiries"] = nil, nil, "unavailable", nil
 	if country := identity["country_code"]; country != nil && country != "US" {
 		summary["alert_status"] = "not_supported_here"
 	}
 	if previous != nil {
-		for _, field := range []string{"alert_expires", "alert_fetched_at", "alert_status"} {
+		for _, field := range []string{"alert_expires", "alert_fetched_at", "alert_status", "alert_expiries"} {
 			summary[field] = previous[field]
 		}
 	}

@@ -2852,8 +2852,129 @@ class FrontendTest : public QObject {
             changed["items"] = rows;
             QVERIFY2(!accepts(changed), qPrintable(field));
         }
+        const auto withAlertCount = [&](const QString& status, const QJsonValue& count) {
+            auto registry = valid;
+            auto items = registry["items"].toArray();
+            auto row = items[0].toObject();
+            auto summary = row["summary"].toObject();
+            summary["alert_status"] = status;
+            summary["alert_count"] = count;
+            row["summary"] = summary;
+            items[0] = row;
+            registry["items"] = items;
+            return registry;
+        };
+        for (const QString status : {QString("active"), QString("cached")}) {
+            QVERIFY(accepts(withAlertCount(status, 1)));
+            QVERIFY(accepts(withAlertCount(status, 6)));
+            QVERIFY(accepts(withAlertCount(status, 256)));
+            QVERIFY(accepts(withAlertCount(status, QJsonValue::Null)));
+            for (const auto& count :
+                 QList<QJsonValue>{-1, 0, 257, 1.5, QJsonValue("6"), QJsonValue(true)})
+                QVERIFY(!accepts(withAlertCount(status, count)));
+        }
+        QVERIFY(accepts(withAlertCount("none", 0)));
+        QVERIFY(accepts(withAlertCount("unavailable", 0)));
+        QVERIFY(!accepts(withAlertCount("none", 1)));
+        QVERIFY(!accepts(withAlertCount("unavailable", 6)));
+        const auto legacyJson =
+            QString::fromUtf8(QJsonDocument(valid).toJson(QJsonDocument::Compact));
+        QVERIFY(evaluate(engine, scope.data(),
+                         "Forecast.savedLocations(" + legacyJson +
+                             ").items[0].summary.alert_count === null")
+                    .toBool());
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.savedLocations(undefined)").isNull(),
                  true);
+    }
+    void savedLocationAlertCounts_data() {
+        QTest::addColumn<int>("width");
+        QTest::newRow("desktop") << 1200;
+        QTest::newRow("narrow") << 700;
+    }
+    void savedLocationAlertCounts() {
+        QFETCH(int, width);
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window = root->findChild<QQuickWindow*>("weatherWindow");
+        QVERIFY(window);
+        window->resize(width, 900);
+        QTRY_VERIFY(window->isExposed());
+        auto state = savedSnapshot(1, 4);
+        auto registry = state["saved_locations"].toObject();
+        auto rows = registry["items"].toArray();
+        const auto updateAlert = [&](int index, const QString& status, const QJsonValue& count) {
+            auto row = rows[index].toObject();
+            auto summary = row["summary"].toObject();
+            summary["alert_status"] = status;
+            summary["alert_count"] = count;
+            summary["freshness"] = "fresh";
+            row["summary"] = summary;
+            rows[index] = row;
+        };
+        updateAlert(0, "active", 1);
+        updateAlert(1, "active", 6);
+        updateAlert(2, "cached", 6);
+        updateAlert(3, "none", 0);
+        const auto publish = [&] {
+            registry["items"] = rows;
+            state["saved_locations"] = registry;
+            deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        };
+        publish();
+        root->setProperty("effectsOpen", false);
+        evaluate(engine, root, "openLocations()");
+        auto* loader = root->findChild<QQuickItem*>("locationPickerLoader");
+        QVERIFY(loader);
+        QTRY_VERIFY(loader->property("item").value<QObject*>());
+        auto* picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
+        QVERIFY(picker);
+        const auto badge = [&](int index) {
+            return visualItem(picker, QString("savedLocationAlerts_%1").arg(index));
+        };
+        for (int index = 0; index < 4; ++index)
+            QTRY_VERIFY(badge(index));
+        QTRY_VERIFY(badge(0)->isVisible());
+        QCOMPARE(badge(0)->property("text").toString(), QString("Weather alert"));
+        QTRY_VERIFY(badge(1)->isVisible());
+        QCOMPARE(badge(1)->property("text").toString(), QString("6 weather alerts"));
+        QTRY_VERIFY(badge(2)->isVisible());
+        QCOMPARE(badge(2)->property("text").toString(), QString("6 weather alerts"));
+        QVERIFY(!badge(2)->property("text").toString().contains("Cached"));
+        QVERIFY(!badge(3)->isVisible());
+        QVERIFY(!badge(1)->property("truncated").toBool());
+        // Count changes arrive as ordinary snapshots, without reopening Locations.
+        state["snapshot_revision"] = 2;
+        updateAlert(1, "active", 1);
+        updateAlert(3, "unavailable", 0);
+        publish();
+        QTRY_COMPARE(badge(1)->property("text").toString(), QString("Weather alert"));
+        QVERIFY(badge(1)->isVisible());
+        QVERIFY(!badge(3)->isVisible());
+        state["snapshot_revision"] = 3;
+        updateAlert(1, "none", 0);
+        auto unavailable = rows[3].toObject();
+        unavailable["summary"] = QJsonValue::Null;
+        rows[3] = unavailable;
+        publish();
+        QTRY_VERIFY(!badge(1)->isVisible());
+        QVERIFY(!badge(3)->isVisible());
+        // An older service can report an alert without a count; retain a plain
+        // badge rather than inventing a number or leaking a cache-status label.
+        state["snapshot_revision"] = 4;
+        auto legacy = rows[2].toObject();
+        auto legacySummary = legacy["summary"].toObject();
+        legacySummary.remove("alert_count");
+        legacy["summary"] = legacySummary;
+        rows[2] = legacy;
+        publish();
+        QTRY_VERIFY(badge(2)->isVisible());
+        QCOMPARE(badge(2)->property("text").toString(), QString("Weather alert"));
     }
     void savedLocationDisplayNames() {
         QQmlEngine engine;

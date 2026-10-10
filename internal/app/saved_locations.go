@@ -20,7 +20,7 @@ import (
 const (
 	savedLocationsFile = "saved-locations.json"
 	savedLocationLimit = 20
-	savedMetadataBytes = 64 * 1024
+	savedMetadataBytes = 256 * 1024
 	savedForecastLimit = 4
 	savedForecastSlots = savedForecastLimit + 1
 )
@@ -152,7 +152,7 @@ func savedSummary(profile M) M {
 		return nil
 	}
 	current, _ := weather.WeatherRecord(object(forecast["current"]))
-	summary := M{"fetched_at": savedTime(forecast["fetched_at"]), "valid_at": current["time"], "temperature_c": current["temperature_c"], "condition": current["condition"], "is_day": current["is_day"], "alert_expires": nil, "alert_fetched_at": nil, "alert_status": "unavailable"}
+	summary := M{"fetched_at": savedTime(forecast["fetched_at"]), "valid_at": current["time"], "temperature_c": current["temperature_c"], "condition": current["condition"], "is_day": current["is_day"], "alert_expires": nil, "alert_fetched_at": nil, "alert_status": "unavailable", "alert_expiries": nil}
 	if profile["country_code"] != "US" {
 		if profile["country_code"] != nil {
 			summary["alert_status"] = "not_supported_here"
@@ -169,14 +169,16 @@ func savedSummary(profile M) M {
 	if alerts["freshness"] == "stale" {
 		summary["alert_status"] = "stale"
 	}
-	// A badge denotes at least one alert, not a count or an all-clear claim.
-	// Keeping only the last expiry bounds metadata independently of feed size.
+	// Preserve each validated feed expiry so the count falls as individual
+	// alerts expire, independently of weather freshness and without slot reads.
+	summary["alert_expiries"] = []any{}
 	rows, _ := alerts["items"].([]any)
 	for _, row := range rows {
 		expires, err := weather.Instant(object(row)["expires"])
 		if err != nil {
 			continue
 		}
+		summary["alert_expiries"] = append(summary["alert_expiries"].([]any), savedTime(object(row)["expires"]))
 		previous, _ := weather.Instant(summary["alert_expires"])
 		if summary["alert_expires"] == nil || expires.After(previous) {
 			summary["alert_expires"] = savedTime(object(row)["expires"])
@@ -189,7 +191,11 @@ func validateSavedSummary(summary M, country any) error {
 	if summary == nil {
 		return nil
 	}
-	if !savedFields(summary, "fetched_at", "valid_at", "temperature_c", "condition", "is_day", "alert_expires", "alert_fetched_at", "alert_status") {
+	fields := []string{"fetched_at", "valid_at", "temperature_c", "condition", "is_day", "alert_expires", "alert_fetched_at", "alert_status"}
+	if _, present := summary["alert_expiries"]; present {
+		fields = append(fields, "alert_expiries")
+	}
+	if !savedFields(summary, fields...) {
 		return errors.New("invalid saved summary fields")
 	}
 	for _, key := range []string{"fetched_at", "valid_at"} {
@@ -230,7 +236,42 @@ func validateSavedSummary(summary M, country any) error {
 			}
 		}
 	}
+	if raw, present := summary["alert_expiries"]; present && raw != nil {
+		expiries, ok := raw.([]any)
+		if !ok || len(expiries) > 256 || summary["alert_status"] != "current" && summary["alert_status"] != "stale" {
+			return errors.New("invalid saved alert expiries")
+		}
+		var latest time.Time
+		for _, value := range expiries {
+			stamp, err := weather.Instant(value)
+			if err != nil || savedTime(value) != value {
+				return errors.New("invalid saved alert expiry")
+			}
+			if stamp.After(latest) {
+				latest = stamp
+			}
+		}
+		last, err := weather.Instant(summary["alert_expires"])
+		if len(expiries) == 0 && summary["alert_expires"] != nil || len(expiries) > 0 && (err != nil || !latest.Equal(last)) {
+			return errors.New("inconsistent saved alert expiries")
+		}
+	}
 	return nil
+}
+
+// Older manifests lack per-alert expiries. All original summary fields still
+// bind the cache to its owned forecast, and new metadata must match when present.
+func savedSummaryMatches(profileSummary, manifestSummary M) bool {
+	if _, present := manifestSummary["alert_expiries"]; !present && profileSummary != nil {
+		legacy := make(M, len(profileSummary)-1)
+		for key, value := range profileSummary {
+			if key != "alert_expiries" {
+				legacy[key] = value
+			}
+		}
+		return reflect.DeepEqual(legacy, manifestSummary)
+	}
+	return reflect.DeepEqual(profileSummary, manifestSummary)
 }
 
 func savedEntry(doc M, id string) M {
@@ -494,7 +535,7 @@ func (s *savedLocations) profile(id string) (M, error) {
 		return identity, err
 	}
 	profile := object(cache["profile"])
-	if !savedFields(cache, "schema_version", "token", "profile") || cache["schema_version"] != 1.0 || cache["token"] != entry["cache_token"] || ValidateProfile(profile) != nil || !reflect.DeepEqual(savedProfileIdentity(profile), identity) || !reflect.DeepEqual(savedSummary(profile), entry["summary"]) {
+	if !savedFields(cache, "schema_version", "token", "profile") || cache["schema_version"] != 1.0 || cache["token"] != entry["cache_token"] || ValidateProfile(profile) != nil || !reflect.DeepEqual(savedProfileIdentity(profile), identity) || !savedSummaryMatches(savedSummary(profile), object(entry["summary"])) {
 		return identity, errors.New("saved forecast cache mismatch")
 	}
 	return profile, nil

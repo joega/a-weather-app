@@ -83,10 +83,25 @@ func savedSummaryPresentation(summary M, now time.Time, expires *time.Time) M {
 		}
 		boundary(alertExpiry)
 	}
+	var alertCount any = 0
+	if status == "active" || status == "cached" {
+		alertCount = nil // Legacy badges establish presence, but not an exact count.
+		if expiries, known := summary["alert_expiries"].([]any); known {
+			count := 0
+			for _, value := range expiries {
+				stamp, expiryErr := weather.Instant(value)
+				if expiryErr == nil && stamp.After(now) {
+					count++
+					boundary(stamp)
+				}
+			}
+			alertCount = count
+		}
+	}
 	if err == nil {
 		boundary(alertFetched)
 		boundary(alertFetched.Add(weather.RefreshSeconds*time.Second + time.Nanosecond))
 		boundary(alertFetched.Add(weather.StaleSeconds*time.Second + time.Nanosecond))
 	}
-	return M{"temperature_c": summary["temperature_c"], "condition": summary["condition"], "is_day": summary["is_day"], "fetched_at": summary["fetched_at"], "valid_at": summary["valid_at"], "freshness": freshness, "alert_status": status}
+	return M{"temperature_c": summary["temperature_c"], "condition": summary["condition"], "is_day": summary["is_day"], "fetched_at": summary["fetched_at"], "valid_at": summary["valid_at"], "freshness": freshness, "alert_status": status, "alert_count": alertCount}
 }
