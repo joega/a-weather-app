@@ -49,7 +49,7 @@ GlassPanel {
         width: Math.max(0, root.width - 32)
         spacing: 9
         PlainLabel {
-            text: "Weather alerts · " + root.alerts.length
+            text: "Weather alerts"
             font.pixelSize: Tokens.fontSize(17)
             font.weight: Font.DemiBold
         }
