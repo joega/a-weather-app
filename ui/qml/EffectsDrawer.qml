@@ -13,9 +13,11 @@ GlassPanel {
     signal appearanceRequested(var values)
     property bool plannerAvailable: false
     property bool forecastChangesAvailable: false
+    property bool shareAvailable: false
     property bool dashboardAvailable: false
     signal outdoorRequested
     signal forecastChangesRequested
+    signal shareRequested
     signal dashboardRequested
     // A settings surface must obscure the forecast's text, not layer two
     // readable text grids on top of one another.
@@ -133,10 +135,10 @@ GlassPanel {
     signal quitRequested
     property Item activeSection: applicationSection
     function updateActiveSection() {
-        const sections = [applicationSection, locationSection, notificationsSection, effectsSection, previewSection, appearanceSection];
+        const sections = [applicationSection, locationSection, notificationsSection, effectsSection, previewSection, appearanceSection, experimentalSection];
         let current = applicationSection;
         if (settingsScroll.contentY > 0 && settingsScroll.contentY + settingsScroll.height >= settingsScroll.contentHeight - 1)
-            current = appearanceSection;
+            current = experimentalSection;
         else
             for (const section of sections)
                 if (section.y <= settingsScroll.contentY + 24)
@@ -226,6 +228,12 @@ GlassPanel {
                 selected: root.activeSection === appearanceSection
                 onClicked: root.showSection(appearanceSection)
             }
+            ActionButton {
+                objectName: "settingsExperimentalSection"
+                text: "Experimental"
+                selected: root.activeSection === experimentalSection
+                onClicked: root.showSection(experimentalSection)
+            }
         }
     }
     Flickable {
@@ -238,7 +246,9 @@ GlassPanel {
         anchors.margins: 28
         anchors.topMargin: 18
         clip: true
-        contentHeight: body.height
+        // Let the last section align at the top when selected, even when its
+        // contents are shorter than the viewport.
+        contentHeight: Math.max(body.height, experimentalSection.y + height)
         onContentYChanged: root.updateActiveSection()
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
@@ -258,39 +268,6 @@ GlassPanel {
                 enabled: root.serviceAvailable && !root.busy
                 onCheckRequested: root.checkUpdatesRequested()
                 onInstallRequested: root.installUpdateRequested()
-            }
-            PlainLabel {
-                text: "Forecast tools"
-                font.pixelSize: Tokens.fontSize(19)
-                font.weight: Font.DemiBold
-            }
-            ActionButton {
-                objectName: "openOutdoorPlanner"
-                text: "Find a time to go outside"
-                enabled: root.plannerAvailable
-                onClicked: root.outdoorRequested()
-            }
-            PlainLabel {
-                Layout.fillWidth: true
-                text: "Compare outdoor windows using your temperature, rain and wind preferences."
-                wrapMode: Text.Wrap
-                elide: Text.ElideNone
-                font.pixelSize: Tokens.fontSize(14)
-                color: Tokens.secondary
-            }
-            ActionButton {
-                objectName: "openForecastChanges"
-                text: "Forecast changes"
-                enabled: root.forecastChangesAvailable
-                onClicked: root.forecastChangesRequested()
-            }
-            PlainLabel {
-                Layout.fillWidth: true
-                text: "Compare the latest forecast with the one you previously viewed."
-                wrapMode: Text.Wrap
-                elide: Text.ElideNone
-                font.pixelSize: Tokens.fontSize(14)
-                color: Tokens.secondary
             }
             PlainLabel {
                 text: "Application launcher"
@@ -925,6 +902,74 @@ GlassPanel {
                 elide: Text.ElideNone
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(14)
+            }
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: Tokens.border
+            }
+            PlainLabel {
+                id: experimentalSection
+                objectName: "experimentalSection"
+                text: "Experimental"
+                font.pixelSize: Tokens.fontSize(23)
+                font.weight: Font.DemiBold
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Features in development, available here to try as we refine them."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
+            }
+            PlainLabel {
+                text: "Forecast tools"
+                font.pixelSize: Tokens.fontSize(19)
+                font.weight: Font.DemiBold
+            }
+            ActionButton {
+                objectName: "openOutdoorPlanner"
+                text: "Outdoor planner"
+                enabled: root.plannerAvailable
+                onClicked: root.outdoorRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Compare outdoor windows using your temperature, rain and wind preferences."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
+            }
+            ActionButton {
+                objectName: "openForecastChanges"
+                text: "Forecast changes"
+                enabled: root.forecastChangesAvailable
+                onClicked: root.forecastChangesRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Compare the latest forecast with the one you previously viewed."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
+            }
+            ActionButton {
+                objectName: "openForecastShare"
+                text: "Share forecast"
+                iconName: "share"
+                enabled: root.shareAvailable
+                onClicked: root.shareRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Copy a forecast summary or save an image."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
             }
         }
     }

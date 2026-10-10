@@ -1911,27 +1911,15 @@ class FrontendTest : public QObject {
             QVERIFY(tool);
             QVERIFY(!tool->isVisible());
         }
-        auto* share = root->findChild<QQuickItem*>("openForecastShare");
         auto* refresh = root->findChild<QQuickItem*>("refreshForecast");
         auto* location = root->findChild<QQuickItem*>("openLocation");
         auto* heading = root->findChild<QQuickItem*>("locationHeading");
-        QVERIFY(share && refresh && location && heading);
-        QCOMPARE(share->parentItem(), location->parentItem());
-        QCOMPARE(share->parentItem(), refresh->parentItem());
+        QVERIFY(refresh && location && heading);
+        QCOMPARE(location->parentItem(), refresh->parentItem());
+        QVERIFY(!location->parentItem()->findChild<QQuickItem*>("openForecastShare"));
         QCOMPARE(heading->property("text").toString(), QString("Boston, Massachusetts"));
         QCOMPARE(root->property("region").toString(), QString("United States"));
-        QVERIFY(share->property("text").toString().isEmpty());
         QVERIFY(location->property("text").toString().isEmpty());
-        QCOMPARE(QAccessible::queryAccessibleInterface(share)->text(QAccessible::Name),
-                 QString("Share forecast"));
-        const auto requests = transport.requests.size();
-        share->forceActiveFocus();
-        QTest::keyClick(window, Qt::Key_Space);
-        QTRY_VERIFY(root->property("shareOpen").toBool());
-        QTest::keyClick(window, Qt::Key_Escape);
-        QTRY_VERIFY(!root->property("shareOpen").toBool());
-        QTRY_VERIFY(share->hasActiveFocus());
-        QCOMPARE(transport.requests.size(), requests);
         root->findChild<QQuickItem*>("forecastScroll")->forceActiveFocus();
         const auto prefix = qEnvironmentVariable("WEATHER_QT_BRIEFING_SCREENSHOT_PREFIX");
         if (!prefix.isEmpty()) {
@@ -1942,9 +1930,9 @@ class FrontendTest : public QObject {
                 const auto heroCenter = heading->mapToScene(QPointF(heading->width() / 2, 0));
                 QVERIFY(qAbs(heroCenter.x() - window->width() / 2.0) < 1);
                 QVERIFY(heading->mapToScene(QPointF()).y() >=
-                        share->mapToScene(QPointF(0, share->height())).y());
+                        refresh->mapToScene(QPointF(0, refresh->height())).y());
                 QVERIFY(location->mapToScene(QPointF()).x() < refresh->mapToScene(QPointF()).x());
-                QCOMPARE(refresh->mapToScene(QPointF()).y(), share->mapToScene(QPointF()).y());
+                QCOMPARE(refresh->mapToScene(QPointF()).y(), location->mapToScene(QPointF()).y());
                 QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
             }
         }
@@ -1989,6 +1977,121 @@ class FrontendTest : public QObject {
         }
         // Older service snapshots remain accepted.
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.briefings(undefined).length").toInt(), 0);
+    }
+    void experimentalSettingsNavigation_data() {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<double>("textScale");
+        QTest::newRow("compact") << 700 << 1.0;
+        QTest::newRow("compact-enlarged") << 700 << 1.5;
+        QTest::newRow("wide") << 1200 << 1.0;
+        QTest::newRow("wide-enlarged") << 1200 << 1.5;
+    }
+    void experimentalSettingsNavigation() {
+        QFETCH(int, width);
+        QFETCH(double, textScale);
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window = root->findChild<QQuickWindow*>("weatherWindow");
+        QVERIFY(window);
+        QTRY_VERIFY(window->isExposed());
+        auto snapshot = metricSnapshot(1);
+        snapshot["appearance"] = QJsonObject{{"schema_version", 1},
+                                             {"text_scale", textScale},
+                                             {"high_contrast", false},
+                                             {"error", QJsonValue::Null}};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", snapshot}});
+        root->setProperty("effectsOpen", false);
+        window->resize(width, 850);
+        QTest::qWait(120);
+        auto* settings = root->findChild<QQuickItem*>("openEffects");
+        auto* drawer = root->findChild<QQuickItem*>("effectsDrawer");
+        auto* tab = root->findChild<QQuickItem*>("settingsExperimentalSection");
+        auto* section = root->findChild<QQuickItem*>("experimentalSection");
+        auto* scroll = root->findChild<QQuickItem*>("settingsScroll");
+        auto* share = root->findChild<QQuickItem*>("openForecastShare");
+        auto* textSize = root->findChild<QQuickItem*>("textSizePreference");
+        auto* shareLoader = root->findChild<QQuickItem*>("forecastShareLoader");
+        auto* saveLoader = root->findChild<QQuickItem*>("forecastSaveDialogLoader");
+        QVERIFY(settings && drawer && tab && section && scroll && share && textSize &&
+                shareLoader && saveLoader);
+        QVERIFY(!share->isVisible());
+        QCOMPARE(share->property("text").toString(), QString("Share forecast"));
+        QCOMPARE(QAccessible::queryAccessibleInterface(share)->text(QAccessible::Name),
+                 QString("Share forecast"));
+        QVERIFY(!root->findChild<QQuickItem*>("headerActions")
+                     ->findChild<QQuickItem*>("openForecastShare"));
+        QVERIFY(!shareLoader->property("item").value<QObject*>());
+        QVERIFY(!saveLoader->property("item").value<QObject*>());
+        const auto requests = transport.requests.size();
+        settings->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY(root->property("effectsOpen").toBool());
+        QTest::qWait(80); // Render the newly visible drawer before activating its section nav.
+        tab->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Space);
+        QTest::qWait(120);
+        QVERIFY(tab->property("selected").toBool());
+        const auto viewportTop = scroll->mapToScene(QPointF()).y();
+        const auto viewportBottom = viewportTop + scroll->height();
+        QVERIFY2(qAbs(section->mapToScene(QPointF()).y() - viewportTop) < 2,
+                 qPrintable(QString("sectionY=%1 sceneY=%2 viewportTop=%3 viewportHeight=%4 "
+                                    "contentY=%5 contentHeight=%6 drawerHeight=%7")
+                                .arg(section->y())
+                                .arg(section->mapToScene(QPointF()).y())
+                                .arg(viewportTop)
+                                .arg(scroll->height())
+                                .arg(scroll->property("contentY").toReal())
+                                .arg(scroll->property("contentHeight").toReal())
+                                .arg(drawer->height())));
+        // Experimental follows Appearance at the bottom, and its tools share that section.
+        QVERIFY(section->mapToScene(QPointF()).y() >
+                textSize->mapToScene(QPointF(0, textSize->height())).y());
+        for (const char* name :
+             {"openOutdoorPlanner", "openForecastChanges", "openForecastShare"}) {
+            auto* tool = root->findChild<QQuickItem*>(name);
+            QVERIFY(tool && tool->isVisible());
+            QVERIFY(tool->mapToScene(QPointF()).y() > section->mapToScene(QPointF()).y());
+            const auto left = tool->mapToScene(QPointF()).x();
+            QVERIFY(left >= drawer->x());
+            QVERIFY(left + tool->width() <= drawer->x() + drawer->width());
+            if (QLatin1String(name) == QLatin1String("openOutdoorPlanner") ||
+                (width == 1200 && textScale == 1.0)) {
+                const auto top = tool->mapToScene(QPointF()).y();
+                QVERIFY(top >= viewportTop);
+                QVERIFY(top + tool->height() <= viewportBottom);
+            }
+        }
+        QCOMPARE(transport.requests.size(), requests);
+        QVERIFY(!shareLoader->property("item").value<QObject*>());
+        QVERIFY(!saveLoader->property("item").value<QObject*>());
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_EXPERIMENTAL_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
+            QVERIFY(window->grabWindow().save(
+                prefix + QString("-%1-%2.png").arg(width).arg(qRound(textScale * 100))));
+        }
+        share->forceActiveFocus();
+        QTest::qWait(100); // Keyboard focus reveals tools below the section heading.
+        const auto center = share->mapToScene(QPointF(share->width() / 2, share->height() / 2));
+        QVERIFY(center.y() >= 0 && center.y() < window->height());
+        QTest::keyClick(window, Qt::Key_Space);
+        QTRY_VERIFY(root->property("shareOpen").toBool());
+        QTRY_VERIFY(shareLoader->property("item").value<QObject*>());
+        QVERIFY(!saveLoader->property("item").value<QObject*>());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!root->property("shareOpen").toBool());
+        QTRY_VERIFY(root->property("effectsOpen").toBool());
+        QTRY_VERIFY(share->hasActiveFocus());
+        QVERIFY(!shareLoader->property("item").value<QObject*>());
+        QCOMPARE(transport.requests.size(), requests);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!root->property("effectsOpen").toBool());
     }
     void liveTimestampPrecision() {
         QQmlEngine engine;

@@ -1832,6 +1832,11 @@ class ServiceFrontendTest : public QObject {
         };
         auto* entry = qobject_cast<QQuickItem*>(named("openForecastShare"));
         QVERIFY(entry);
+        const auto beforeSettings = eval("backend.nextId").toInt();
+        showSettingsSection("settingsExperimentalSection");
+        QCOMPARE(eval("backend.nextId").toInt(), beforeSettings);
+        QVERIFY(!loader->property("item").value<QObject*>());
+        QVERIFY(!named("forecastSaveDialogLoader")->property("item").value<QObject*>());
         activate("openForecastShare");
         QTRY_VERIFY(loader->property("item").value<QObject*>());
         auto* popup = loader->property("item").value<QObject*>();
@@ -1964,6 +1969,7 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(dialogLoader->property("item").value<QObject*>(), dialog);
         QVERIFY(!dialog->property("visible").toBool());
         QCOMPARE(window->activeFocusItem(), entry);
+        QVERIFY(eval("root.effectsOpen").toBool());
         window->resize(700, 650);
         eval("root.openShare()");
         QTRY_VERIFY(loader->property("item").value<QObject*>());
@@ -2473,7 +2479,7 @@ class ServiceFrontendTest : public QObject {
         };
         auto* loader = named("forecastChangesLoader");
         QVERIFY(!loader->property("item").value<QObject*>());
-        showSettingsSection("settingsApplicationSection");
+        showSettingsSection("settingsExperimentalSection");
         activate("openForecastChanges");
         QTRY_VERIFY(eval("root.changesOpen && changesLoader.item!==null").toBool());
         QVERIFY(!eval("root.mapActive || backend.forecastVisible").toBool());
@@ -2594,7 +2600,7 @@ class ServiceFrontendTest : public QObject {
                               << QJsonDocument(result).toJson(QJsonDocument::Compact);
         };
         phase("before_open");
-        showSettingsSection("settingsApplicationSection");
+        showSettingsSection("settingsExperimentalSection");
         focusClick("openOutdoorPlanner");
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.outdoorState === 'ready'").toBool(), 3000);
         QVERIFY(!eval("root.mapActive").toBool());

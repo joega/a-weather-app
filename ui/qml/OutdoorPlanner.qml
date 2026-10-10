@@ -115,7 +115,7 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Find a time to go outside"
+                    text: "Outdoor planner"
                     font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone

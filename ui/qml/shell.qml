@@ -779,15 +779,6 @@ QtObject {
                                     enabled: !bridge.busy
                                     onClicked: bridge.send("refresh")
                                 }
-                                ActionButton {
-                                    Layout.preferredHeight: headerActions.controlHeight
-                                    objectName: "openForecastShare"
-                                    iconName: "share"
-                                    iconSize: 20
-                                    accessibleLabel: "Share forecast"
-                                    enabled: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
-                                    onClicked: root.openShare()
-                                }
                                 UnitsChoice {
                                     id: headerUnits
                                     objectName: "unitsChoice"
@@ -1090,9 +1081,11 @@ QtObject {
             appearance: root.appearance
             plannerAvailable: bridge.available && !bridge.busy && root.hours.length > 0 && bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
             forecastChangesAvailable: bridge.available && bridge.forecastContext !== "" && (bridge.changesResult !== null || bridge.changesState === "unavailable")
+            shareAvailable: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
             dashboardAvailable: bridge.available && !bridge.dashboardSaving && bridge.snapshot !== null
             onOutdoorRequested: root.openOutdoor()
             onForecastChangesRequested: root.openChanges()
+            onShareRequested: root.openShare()
             onDashboardRequested: root.openDashboard()
             onAppearanceRequested: values => bridge.send("set_appearance", values)
             location: root.location
