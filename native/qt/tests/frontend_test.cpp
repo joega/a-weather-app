@@ -2745,40 +2745,119 @@ class FrontendTest : public QObject {
             return window->grabWindow().save(prefix + suffix + scaleSuffix + ".png");
         };
         QVERIFY(capture("list700"));
-        QTest::keyClick(window, Qt::Key_Right);
-        auto* alias = picker->findChild<QQuickItem*>("savedLocationAlias");
-        auto* remove = picker->findChild<QQuickItem*>("removeSavedLocation");
-        auto* replacement = picker->findChild<QQuickItem*>("replacementPrimary");
-        QVERIFY(alias && remove && replacement);
-        QTRY_VERIFY(alias->hasActiveFocus());
-        QCOMPARE(alias->property("text").toString(), QString("Home"));
-        QVERIFY(!remove->isEnabled());
-        QCOMPARE(replacement->property("currentIndex").toInt(), -1);
-        alias->setProperty("text", "Apartment");
-        QTest::keyClick(window, Qt::Key_Return);
-        QTRY_COMPARE(transport.requests.size(), 1);
-        QCOMPARE(transport.requests.last()["op"].toString(), QString("saved_location"));
-        QCOMPARE(transport.requests.last()["location"].toMap(),
-                 (QVariantMap{{"action", "rename"}, {"id", "place-100"}, {"label", "Apartment"}}));
+        auto activate = [&](const char* name) {
+            auto* item = visualItem(picker, name);
+            QVERIFY(item && item->isVisible() && item->isEnabled());
+            item->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_Space);
+        };
         auto ack = [&] {
             deliver(transport, {{"version", 1},
                                 {"request_id", transport.requests.last()["request_id"].toInt()},
                                 {"ok", true}});
             QCoreApplication::processEvents();
         };
-        ack();
-        replacement->forceActiveFocus();
-        QTest::keyClick(window, Qt::Key_Down);
-        QTRY_VERIFY(remove->isEnabled());
-        QCOMPARE(picker->property("replacementId").toString(), QString("place-101"));
+        qint64 revision = 1;
+        auto publishRegistry = [&] {
+            registry["items"] = locations;
+            state["saved_locations"] = registry;
+            state["snapshot_revision"] = ++revision;
+            deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+            QCoreApplication::processEvents();
+        };
+        auto* toggle = picker->findChild<QQuickItem*>("toggleLocationEditing");
+        QVERIFY(toggle && toggle->isVisible());
+        QVERIFY(!picker->property("editing").toBool());
+        QVERIFY(!visualItem(picker, "removeSaved_0") ||
+                !visualItem(picker, "removeSaved_0")->isVisible());
+        activate("toggleLocationEditing");
+        QTRY_VERIFY(picker->property("editing").toBool());
+        QCOMPARE(transport.requests.size(), 0);
+        QCOMPARE(picker->property("page").toString(), QString("saved"));
+        QVERIFY(!visualItem(picker, "removeSaved_0")->isEnabled());
+        QVERIFY(!visualItem(picker, "moveSavedUp_0")->isEnabled());
         QVERIFY(capture("edit700"));
-        remove->forceActiveFocus();
-        QTest::keyClick(window, Qt::Key_Space);
+        list->setProperty("currentIndex", 19);
+        QTRY_VERIFY(visualItem(picker, "moveSavedDown_19"));
+        QVERIFY(!visualItem(picker, "moveSavedDown_19")->isEnabled());
+        list->setProperty("currentIndex", 0);
+        QTRY_VERIFY(visualItem(picker, "renameSaved_0"));
+        activate("renameSaved_0");
+        QTRY_VERIFY(visualItem(picker, "savedLocationAlias"));
+        auto* alias = visualItem(picker, "savedLocationAlias");
+        QTRY_VERIFY(alias->hasActiveFocus());
+        QCOMPARE(alias->property("text").toString(), QString("Home"));
+        QCOMPARE(transport.requests.size(), 0);
+        alias->setProperty("text", "Apartment");
+        publishRegistry(); // Unrelated snapshots must not erase a rename draft.
+        QTRY_VERIFY(visualItem(picker, "savedLocationAlias"));
+        alias = visualItem(picker, "savedLocationAlias");
+        QCOMPARE(alias->property("text").toString(), QString("Apartment"));
+        alias->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(transport.requests.size(), 1);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("saved_location"));
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "rename"}, {"id", "place-100"}, {"label", "Apartment"}}));
+        deliver(transport, {{"version", 1},
+                            {"request_id", transport.requests.last()["request_id"].toInt()},
+                            {"ok", false},
+                            {"error", "state_io_failed"}});
+        QTRY_VERIFY(visualItem(picker, "savedLocationAlias"));
+        alias = visualItem(picker, "savedLocationAlias");
+        QTRY_VERIFY(alias->isEnabled());
+        QCOMPARE(alias->property("text").toString(), QString("Apartment"));
+        alias->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Return);
         QTRY_COMPARE(transport.requests.size(), 2);
-        QCOMPARE(
-            transport.requests.last()["location"].toMap(),
-            (QVariantMap{{"action", "remove"}, {"id", "place-100"}, {"replacement", "place-101"}}));
         ack();
+        auto apartment = locations[0].toObject();
+        apartment["label"] = "Apartment";
+        locations.replace(0, apartment);
+        publishRegistry();
+        activate("moveSavedUp_1");
+        QTRY_COMPARE(transport.requests.size(), 3);
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "move"}, {"id", "place-101"}, {"index", 0}}));
+        ack();
+        locations.replace(0, boston);
+        locations.replace(1, apartment);
+        publishRegistry();
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
+        QVERIFY(!visualItem(picker, "moveSavedUp_0")->isEnabled());
+        activate("moveSavedDown_0");
+        QTRY_COMPARE(transport.requests.size(), 4);
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "move"}, {"id", "place-101"}, {"index", 1}}));
+        ack();
+        locations.replace(0, apartment);
+        locations.replace(1, boston);
+        publishRegistry();
+        QTRY_COMPARE(list->property("currentIndex").toInt(), 1);
+        activate("primarySaved_1");
+        QTRY_COMPARE(transport.requests.size(), 5);
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "primary"}, {"id", "place-101"}}));
+        QVERIFY(!visualItem(picker, "removeSaved_0")->isEnabled());
+        ack();
+        registry["primary"] = "place-101";
+        publishRegistry();
+        QTRY_VERIFY(visualItem(picker, "removeSaved_0")->isEnabled());
+        QVERIFY(!visualItem(picker, "removeSaved_1")->isEnabled());
+        activate("removeSaved_0");
+        QTRY_COMPARE(transport.requests.size(), 6);
+        QCOMPARE(transport.requests.last()["location"].toMap(),
+                 (QVariantMap{{"action", "remove"}, {"id", "place-100"}, {"replacement", ""}}));
+        ack();
+        locations.removeAt(0);
+        registry["viewed"] = "place-101";
+        publishRegistry();
+        QTRY_COMPARE(list->property("count").toInt(), 19);
+        activate("toggleLocationEditing");
+        QTRY_VERIFY(!picker->property("editing").toBool());
+        QVERIFY(!visualItem(picker, "removeSaved_0") ||
+                !visualItem(picker, "removeSaved_0")->isVisible());
+        QCOMPARE(transport.requests.size(), 6);
         QTest::keyClick(window, Qt::Key_Escape);
         QTRY_VERIFY(loader->property("item").isNull());
         QTRY_VERIFY(location->hasActiveFocus());
@@ -2787,9 +2866,8 @@ class FrontendTest : public QObject {
         picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
         list = picker->findChild<QQuickItem*>("savedLocationList");
         QTRY_VERIFY(list->hasActiveFocus());
-        QTest::keyClick(window, Qt::Key_Down);
         QTest::keyClick(window, Qt::Key_Return);
-        QTRY_COMPARE(transport.requests.size(), 3);
+        QTRY_COMPARE(transport.requests.size(), 7);
         QCOMPARE(transport.requests.last()["location"].toMap(),
                  (QVariantMap{{"action", "view"}, {"id", "place-101"}}));
         QTRY_VERIFY(loader->property("item").isNull());
@@ -2802,8 +2880,8 @@ class FrontendTest : public QObject {
             QTRY_VERIFY(loader->property("item").isNull());
         }
         QTest::qWait(400);
-        QCOMPARE(transport.requests.size(), 3);
-        state = savedSnapshot(2, 3);
+        QCOMPARE(transport.requests.size(), 7);
+        state = savedSnapshot(++revision, 3);
         state["appearance"] = appearance;
         // A selected built-in default must not hide existing saved cities
         // behind the Add page (the original review regression).
@@ -2826,7 +2904,7 @@ class FrontendTest : public QObject {
         zip->setProperty("text", "10001");
         zip->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Return);
-        QTRY_COMPARE(transport.requests.size(), 4);
+        QTRY_COMPARE(transport.requests.size(), 8);
         QCOMPARE(transport.requests.last()["op"].toString(), QString("add_location"));
         QCOMPARE(transport.requests.last()["location"].toMap(),
                  (QVariantMap{{"mode", "zip"}, {"zip_code", "10001"}}));

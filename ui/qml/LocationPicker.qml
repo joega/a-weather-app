@@ -15,13 +15,13 @@ GlassPanel {
     property bool busy: false
     property string actionError: ""
     property string page: "saved"
-    property string editId: ""
-    property string replacementId: ""
+    property bool editing: false
+    property string selectedId: ""
+    property string aliasId: ""
+    property string aliasDraft: ""
+    property var pendingMutation: null
     readonly property var rows: registry ? registry.items : []
-    readonly property var edited: rows.find(row => row.id === editId) || null
-    readonly property int editIndex: rows.findIndex(row => row.id === editId)
-    readonly property var replacements: rows.filter(row => row.id !== editId)
-    readonly property bool canAct: serviceAvailable && !busy
+    readonly property bool canAct: serviceAvailable && !busy && !adding
     readonly property bool adding: locationSettings.busy
     signal closeRequested
     signal viewRequested(string id)
@@ -31,50 +31,96 @@ GlassPanel {
     signal cancelSearchRequested
     color: Tokens.highContrast ? "#2c455a" : "#fc2c455a"
 
+    function selectPlace(id) {
+        selectedId = id;
+        places.currentIndex = rows.findIndex(row => row.id === id);
+    }
     function focusInitial() {
         if (page === "add")
             citySearch.focusQuery();
         else {
-            places.currentIndex = Math.max(0, rows.findIndex(row => row.id === registry.viewed));
+            selectPlace(rows.some(row => row.id === selectedId) ? selectedId : registry.viewed);
             places.forceActiveFocus();
         }
     }
-    function editPlace(row) {
-        editId = row.id;
-        replacementId = "";
-        aliasInput.text = row.label;
-        page = "edit";
-        Qt.callLater(() => {
-            aliasInput.forceActiveFocus();
-            aliasInput.selectAll();
-        });
+    function renamePlace(row) {
+        if (!editing || !canAct || !rows.some(item => item.id === row.id))
+            return;
+        selectPlace(row.id);
+        if (aliasId !== row.id)
+            aliasDraft = row.label;
+        aliasId = row.id;
+        places.positionViewAtIndex(places.currentIndex, ListView.Contain);
+    }
+    function activatePlace(row) {
+        if (!canAct)
+            return;
+        if (editing)
+            renamePlace(row);
+        else
+            viewRequested(row.id);
+    }
+    function mutatePlace(row, action) {
+        if (!editing || !canAct || !rows.some(item => item.id === row.id))
+            return;
+        selectPlace(row.id);
+        pendingMutation = action;
+        if (action.action !== "rename") {
+            aliasId = "";
+            places.forceActiveFocus();
+        }
+        actionRequested(action);
     }
     function showSaved() {
         page = "saved";
         Qt.callLater(focusInitial);
     }
     function showAdd() {
+        editing = false;
         page = "add";
         Qt.callLater(citySearch.focusQuery);
     }
     function revealFocus(item) {
         let ancestor = item;
-        while (ancestor && ancestor !== formBody)
+        while (ancestor && ancestor !== places.contentItem && ancestor !== formBody)
             ancestor = ancestor.parent;
         if (!ancestor)
             return;
-        const point = item.mapToItem(formScroll.contentItem, 0, 0);
-        let next = formScroll.contentY;
+        const scroll = ancestor === places.contentItem ? places : formScroll;
+        const point = item.mapToItem(scroll.contentItem, 0, 0);
+        let next = scroll.contentY;
         if (point.y < next + 12)
             next = point.y - 12;
-        else if (point.y + item.height > next + formScroll.height - 12)
-            next = point.y + item.height - formScroll.height + 12;
-        formScroll.contentY = Math.max(0, Math.min(next, Math.max(0, formScroll.contentHeight - formScroll.height)));
+        else if (point.y + item.height > next + scroll.height - 12)
+            next = point.y + item.height - scroll.height + 12;
+        scroll.contentY = Math.max(0, Math.min(next, Math.max(0, scroll.contentHeight - scroll.height)));
     }
-    onRegistryChanged: {
-        if (page === "edit" && edited === null)
-            showSaved();
+    onEditingChanged: {
+        if (!editing) {
+            aliasId = "";
+            pendingMutation = null;
+        }
     }
+    onActionErrorChanged: if (actionError !== "")
+        pendingMutation = null
+    onRegistryChanged: Qt.callLater(() => {
+        if (aliasId !== "" && !rows.some(row => row.id === aliasId))
+            aliasId = "";
+        if (page !== "saved")
+            return;
+        selectPlace(rows.some(row => row.id === selectedId) ? selectedId : registry.viewed);
+        const action = pendingMutation;
+        if (!action)
+            return;
+        const row = rows.find(item => item.id === action.id);
+        const confirmed = action.action === "rename" ? row && row.label === action.label : action.action === "primary" ? registry.primary === action.id : action.action === "remove" ? !row : action.action === "move" ? rows[action.index] && rows[action.index].id === action.id : false;
+        if (confirmed) {
+            pendingMutation = null;
+            if (action.action === "rename" && aliasId === action.id)
+                aliasId = "";
+            places.forceActiveFocus();
+        }
+    })
     onPageChanged: if (formScroll)
         formScroll.contentY = 0
     ColumnLayout {
@@ -84,9 +130,23 @@ GlassPanel {
         RowLayout {
             Layout.fillWidth: true
             PlainLabel {
-                text: root.page === "edit" ? "Edit location" : "Locations"
+                text: "Locations"
                 font.pixelSize: Tokens.fontSize(24)
                 Layout.fillWidth: true
+            }
+            ActionButton {
+                id: editingToggle
+                objectName: "toggleLocationEditing"
+                visible: root.page === "saved"
+                iconName: "sliders"
+                checkable: true
+                checked: root.editing
+                selected: root.editing
+                accessibleLabel: root.editing ? "Done editing locations" : "Edit locations"
+                onClicked: {
+                    root.editing = !root.editing;
+                    editingToggle.forceActiveFocus();
+                }
             }
             ActionButton {
                 objectName: "closeLocations"
@@ -109,7 +169,7 @@ GlassPanel {
                 text: "Add location"
                 visible: root.page === "saved"
                 Layout.fillWidth: true
-                enabled: root.rows.length < 20 && root.serviceAvailable
+                enabled: root.rows.length < 20 && root.canAct && !root.adding
                 onClicked: root.showAdd()
             }
         }
@@ -121,6 +181,15 @@ GlassPanel {
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             font.pixelSize: Tokens.fontSize(13)
+        }
+        PlainLabel {
+            Layout.fillWidth: true
+            visible: root.page === "saved" && root.editing
+            text: "Select a name to rename. Home opens by default and controls desktop weather."
+            color: Tokens.secondary
+            wrapMode: Text.Wrap
+            elide: Text.ElideNone
+            font.pixelSize: Tokens.fontSize(12)
         }
         PlainLabel {
             objectName: "savedLocationStatus"
@@ -147,20 +216,30 @@ GlassPanel {
             onCurrentIndexChanged: if (currentIndex >= 0)
                 positionViewAtIndex(currentIndex, ListView.Contain)
             Keys.onReturnPressed: event => {
-                if (root.canAct && currentIndex >= 0 && currentIndex < root.rows.length) {
-                    root.viewRequested(root.rows[currentIndex].id);
+                if (currentIndex >= 0 && currentIndex < root.rows.length) {
+                    root.activatePlace(root.rows[currentIndex]);
                     event.accepted = true;
                 }
             }
             Keys.onEnterPressed: event => {
-                if (root.canAct && currentIndex >= 0 && currentIndex < root.rows.length) {
-                    root.viewRequested(root.rows[currentIndex].id);
+                if (currentIndex >= 0 && currentIndex < root.rows.length) {
+                    root.activatePlace(root.rows[currentIndex]);
                     event.accepted = true;
                 }
             }
+            Keys.onDownPressed: event => {
+                if (currentIndex + 1 < root.rows.length)
+                    root.selectPlace(root.rows[currentIndex + 1].id);
+                event.accepted = true;
+            }
+            Keys.onUpPressed: event => {
+                if (currentIndex > 0)
+                    root.selectPlace(root.rows[currentIndex - 1].id);
+                event.accepted = true;
+            }
             Keys.onRightPressed: event => {
-                if (currentIndex >= 0 && currentIndex < root.rows.length) {
-                    root.editPlace(root.rows[currentIndex]);
+                if (root.editing && currentIndex >= 0 && currentIndex < root.rows.length) {
+                    root.renamePlace(root.rows[currentIndex]);
                     event.accepted = true;
                 }
             }
@@ -187,10 +266,10 @@ GlassPanel {
                     bottomPadding: 16
                     hoverEnabled: true
                     enabled: root.canAct
-                    Accessible.name: placeRow.label + (placeRow.home ? ", home location" : "") + (placeRow.viewing ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
-                    onClicked: root.viewRequested(placeRow.modelData.id)
+                    Accessible.name: (root.editing ? "Rename " : "View ") + placeRow.label + (placeRow.home ? ", home location" : "") + (placeRow.viewing ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
+                    onClicked: root.activatePlace(placeRow.modelData)
                     onActiveFocusChanged: if (activeFocus)
-                        places.currentIndex = placeRow.index
+                        root.selectPlace(placeRow.modelData.id)
                     background: Rectangle {
                         radius: 14
                         color: placeRow.viewing ? "#365a76" : viewButton.hovered ? "#334c62" : "#283f54"
@@ -206,12 +285,28 @@ GlassPanel {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 3
-                                PlainLabel {
-                                    objectName: "savedLocationName_" + placeRow.index
+                                Button {
+                                    objectName: "renameSaved_" + placeRow.index
                                     Layout.fillWidth: true
-                                    text: placeRow.label
-                                    font.pixelSize: Tokens.fontSize(18)
-                                    font.weight: Font.DemiBold
+                                    enabled: root.canAct
+                                    activeFocusOnTab: root.editing
+                                    leftPadding: 0
+                                    rightPadding: 0
+                                    topPadding: 0
+                                    bottomPadding: 0
+                                    Accessible.name: (root.editing ? "Rename " : "View ") + placeRow.label
+                                    onClicked: root.activatePlace(placeRow.modelData)
+                                    background: Rectangle {
+                                        radius: 4
+                                        color: "transparent"
+                                        border.color: parent.activeFocus ? Tokens.accent : "transparent"
+                                    }
+                                    contentItem: PlainLabel {
+                                        objectName: "savedLocationName_" + placeRow.index
+                                        text: placeRow.label
+                                        font.pixelSize: Tokens.fontSize(18)
+                                        font.weight: Font.DemiBold
+                                    }
                                 }
                                 PlainLabel {
                                     Layout.fillWidth: true
@@ -235,7 +330,6 @@ GlassPanel {
                         }
                         RowLayout {
                             Layout.fillWidth: true
-                            Layout.rightMargin: 46
                             spacing: 6
                             WeatherIcon {
                                 condition: placeRow.usable ? placeRow.summary.condition : "unknown"
@@ -251,7 +345,6 @@ GlassPanel {
                         }
                         PlainLabel {
                             Layout.fillWidth: true
-                            Layout.rightMargin: 46
                             visible: placeRow.summary !== null
                             text: placeRow.summary === null ? "" : placeRow.summary.freshness === "invalid_future" ? "Weather time unavailable" : (placeRow.summary.freshness === "expired" ? "Expired · " : placeRow.summary.freshness === "stale" ? "Earlier weather · " : "As of ") + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP")
                             font.pixelSize: Tokens.fontSize(11)
@@ -259,23 +352,130 @@ GlassPanel {
                         }
                         PlainLabel {
                             Layout.fillWidth: true
-                            Layout.rightMargin: 46
                             visible: placeRow.summary !== null && (placeRow.summary.alert_status === "active" || placeRow.summary.alert_status === "cached")
                             text: placeRow.summary && placeRow.summary.alert_status === "cached" ? "Cached weather alert" : "Weather alert"
                             color: Tokens.gold
                             font.pixelSize: Tokens.fontSize(12)
                         }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            visible: root.editing
+                            spacing: 8
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 6
+                                ActionButton {
+                                    objectName: "removeSaved_" + placeRow.index
+                                    iconName: "minus"
+                                    accessibleLabel: "Remove " + placeRow.label
+                                    enabled: root.canAct && root.rows.length > 1 && !placeRow.home
+                                    onClicked: if (enabled && root.rows.length > 1 && !placeRow.home)
+                                        root.mutatePlace(placeRow.modelData, {
+                                            action: "remove",
+                                            id: placeRow.modelData.id,
+                                            replacement: ""
+                                        })
+                                }
+                                ActionButton {
+                                    objectName: "moveSavedUp_" + placeRow.index
+                                    iconName: "chevron-up"
+                                    accessibleLabel: "Move " + placeRow.label + " up"
+                                    enabled: root.canAct && placeRow.index > 0
+                                    onClicked: if (enabled)
+                                        root.mutatePlace(placeRow.modelData, {
+                                            action: "move",
+                                            id: placeRow.modelData.id,
+                                            index: placeRow.index - 1
+                                        })
+                                }
+                                ActionButton {
+                                    objectName: "moveSavedDown_" + placeRow.index
+                                    iconName: "chevron-down"
+                                    accessibleLabel: "Move " + placeRow.label + " down"
+                                    enabled: root.canAct && placeRow.index < root.rows.length - 1
+                                    onClicked: if (enabled)
+                                        root.mutatePlace(placeRow.modelData, {
+                                            action: "move",
+                                            id: placeRow.modelData.id,
+                                            index: placeRow.index + 1
+                                        })
+                                }
+                                Item {
+                                    Layout.fillWidth: true
+                                }
+                                ActionButton {
+                                    objectName: "primarySaved_" + placeRow.index
+                                    iconName: "home"
+                                    selected: placeRow.home
+                                    accessibleLabel: placeRow.home ? placeRow.label + " is Home" : "Set " + placeRow.label + " as Home"
+                                    enabled: root.canAct && !placeRow.home
+                                    onClicked: if (enabled && !placeRow.home)
+                                        root.mutatePlace(placeRow.modelData, {
+                                            action: "primary",
+                                            id: placeRow.modelData.id
+                                        })
+                                }
+                            }
+                            PlainLabel {
+                                Layout.fillWidth: true
+                                visible: root.rows.length <= 1 || placeRow.home
+                                text: root.rows.length <= 1 ? "Keep at least one location." : "Set another location as Home before removing this one."
+                                color: Tokens.secondary
+                                wrapMode: Text.Wrap
+                                elide: Text.ElideNone
+                                font.pixelSize: Tokens.fontSize(12)
+                            }
+                        }
+                        Loader {
+                            id: aliasLoader
+                            Layout.fillWidth: true
+                            active: root.editing && root.aliasId === placeRow.modelData.id
+                            visible: active
+                            sourceComponent: ColumnLayout {
+                                Component.onCompleted: Qt.callLater(() => {
+                                    aliasInput.forceActiveFocus();
+                                    aliasInput.selectAll();
+                                    places.positionViewAtIndex(placeRow.index, ListView.Contain);
+                                })
+                                spacing: 8
+                                TextField {
+                                    id: aliasInput
+                                    objectName: "savedLocationAlias"
+                                    Layout.fillWidth: true
+                                    text: root.aliasDraft
+                                    onTextChanged: root.aliasDraft = text
+                                    maximumLength: 160
+                                    placeholderText: "Custom name, or leave blank"
+                                    Accessible.name: "Custom name for " + placeRow.label + ", up to 80 characters"
+                                    color: Tokens.foreground
+                                    placeholderTextColor: Tokens.secondary
+                                    selectByMouse: true
+                                    enabled: root.canAct
+                                    font.pixelSize: Tokens.fontSize(17)
+                                    background: Rectangle {
+                                        implicitHeight: 44
+                                        radius: 10
+                                        color: "#30435e72"
+                                        border.color: aliasInput.activeFocus ? Tokens.accent : Tokens.border
+                                    }
+                                    onAccepted: if (saveName.enabled)
+                                        saveName.clicked()
+                                }
+                                ActionButton {
+                                    id: saveName
+                                    objectName: "saveLocationAlias"
+                                    text: "Save name"
+                                    enabled: root.canAct && Forecast.codepoints(root.aliasDraft.trim()) <= 80 && root.aliasDraft.trim() !== placeRow.modelData.label
+                                    onClicked: if (enabled)
+                                        root.mutatePlace(placeRow.modelData, {
+                                            action: "rename",
+                                            id: placeRow.modelData.id,
+                                            label: root.aliasDraft.trim()
+                                        })
+                                }
+                            }
+                        }
                     }
-                }
-                ActionButton {
-                    objectName: "editSaved_" + placeRow.index
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: 8
-                    iconName: "sliders"
-                    accessibleLabel: "Edit " + placeRow.label
-                    enabled: root.canAct
-                    onClicked: root.editPlace(placeRow.modelData)
                 }
             }
         }
@@ -293,142 +493,6 @@ GlassPanel {
                 id: formBody
                 width: parent.width - 16
                 spacing: 16
-                ColumnLayout {
-                    visible: root.page === "edit" && root.edited !== null
-                    Layout.fillWidth: true
-                    spacing: 14
-                    PlainLabel {
-                        Layout.fillWidth: true
-                        text: root.edited ? Forecast.savedPlaceName(root.edited) : ""
-                        wrapMode: Text.Wrap
-                        elide: Text.ElideNone
-                        font.pixelSize: Tokens.fontSize(20)
-                    }
-                    PlainLabel {
-                        Layout.fillWidth: true
-                        visible: root.registry && root.editId === root.registry.primary
-                        text: "The app opens at Home. Desktop weather and notifications follow it too."
-                        color: Tokens.secondary
-                        wrapMode: Text.Wrap
-                        elide: Text.ElideNone
-                        font.pixelSize: Tokens.fontSize(13)
-                    }
-                    PlainLabel {
-                        text: "Custom name"
-                        color: Tokens.secondary
-                        font.pixelSize: Tokens.fontSize(14)
-                    }
-                    TextField {
-                        id: aliasInput
-                        objectName: "savedLocationAlias"
-                        Layout.fillWidth: true
-                        maximumLength: 160
-                        placeholderText: "Work, cabin, or leave blank"
-                        Accessible.name: "Custom location name, up to 80 characters"
-                        color: Tokens.foreground
-                        placeholderTextColor: Tokens.secondary
-                        selectByMouse: true
-                        enabled: root.canAct
-                        font.pixelSize: Tokens.fontSize(17)
-                        background: Rectangle {
-                            implicitHeight: 44
-                            radius: 10
-                            color: "#30435e72"
-                            border.color: aliasInput.activeFocus ? Tokens.accent : Tokens.border
-                        }
-                        onAccepted: if (saveName.enabled)
-                            saveName.clicked()
-                    }
-                    ActionButton {
-                        id: saveName
-                        objectName: "saveLocationAlias"
-                        text: "Save name"
-                        enabled: root.canAct && root.edited !== null && Forecast.codepoints(aliasInput.text.trim()) <= 80 && aliasInput.text.trim() !== root.edited.label
-                        onClicked: root.actionRequested({
-                            action: "rename",
-                            id: root.editId,
-                            label: aliasInput.text.trim()
-                        })
-                    }
-                    RowLayout {
-                        ActionButton {
-                            objectName: "moveLocationUp"
-                            text: "Move up"
-                            enabled: root.canAct && root.editIndex > 0
-                            onClicked: root.actionRequested({
-                                action: "move",
-                                id: root.editId,
-                                index: root.editIndex - 1
-                            })
-                        }
-                        ActionButton {
-                            objectName: "moveLocationDown"
-                            text: "Move down"
-                            enabled: root.canAct && root.editIndex >= 0 && root.editIndex < root.rows.length - 1
-                            onClicked: root.actionRequested({
-                                action: "move",
-                                id: root.editId,
-                                index: root.editIndex + 1
-                            })
-                        }
-                    }
-                    ActionButton {
-                        objectName: "makeLocationPrimary"
-                        text: root.registry && root.editId === root.registry.primary ? "Home location" : "Set as Home"
-                        enabled: root.canAct && root.registry && root.editId !== root.registry.primary
-                        onClicked: root.actionRequested({
-                            action: "primary",
-                            id: root.editId
-                        })
-                    }
-                    PlainLabel {
-                        Layout.fillWidth: true
-                        text: Forecast.savedAlertText(root.edited)
-                        color: Tokens.secondary
-                        wrapMode: Text.Wrap
-                        elide: Text.ElideNone
-                        font.pixelSize: Tokens.fontSize(14)
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: Tokens.border
-                    }
-                    PlainLabel {
-                        Layout.fillWidth: true
-                        text: root.rows.length <= 1 ? "Keep at least one saved location." : root.registry && root.editId === root.registry.primary ? "Choose a new Home before removing this location." : "Remove this location from your saved list."
-                        color: Tokens.secondary
-                        wrapMode: Text.Wrap
-                        elide: Text.ElideNone
-                        font.pixelSize: Tokens.fontSize(14)
-                    }
-                    SettingsComboBox {
-                        id: replacement
-                        objectName: "replacementPrimary"
-                        Layout.fillWidth: true
-                        visible: root.registry && root.editId === root.registry.primary && root.rows.length > 1
-                        model: root.replacements.map(row => ({
-                                    id: row.id,
-                                    name: Forecast.savedName(row)
-                                }))
-                        textRole: "name"
-                        currentIndex: root.replacements.findIndex(row => row.id === root.replacementId)
-                        displayText: currentIndex >= 0 ? currentText : "Choose replacement…"
-                        onActivated: index => root.replacementId = root.replacements[index].id
-                        Accessible.name: "New Home location"
-                        enabled: root.canAct
-                    }
-                    ActionButton {
-                        objectName: "removeSavedLocation"
-                        text: "Remove location"
-                        enabled: root.canAct && root.rows.length > 1 && (root.registry && root.editId !== root.registry.primary || root.replacements.some(row => row.id === root.replacementId))
-                        onClicked: root.actionRequested({
-                            action: "remove",
-                            id: root.editId,
-                            replacement: root.editId === root.registry.primary ? root.replacementId : ""
-                        })
-                    }
-                }
                 ColumnLayout {
                     Layout.fillWidth: true
                     visible: root.page === "add"

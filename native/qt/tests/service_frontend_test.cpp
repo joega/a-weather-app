@@ -711,38 +711,96 @@ class ServiceFrontendTest : public QObject {
         list = qobject_cast<QQuickItem*>(named("savedLocationList"));
         QTRY_VERIFY(list->hasActiveFocus());
         QCOMPARE(list->property("currentIndex").toInt(), 1);
-        QTest::keyClick(window, Qt::Key_Right);
+        const auto homeCache = fixture.saved("saved-forecast-0.json");
+        const auto cabinCache = fixture.saved("saved-forecast-2.json");
+        auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item && item->isEnabled() && item->isVisible());
+            item->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        auto* picker = named("locationPickerLoader")->property("item").value<QObject*>();
+        QVERIFY(picker);
+        const auto beforeEditing = eval("bridge.nextId").toInt();
+        activate("toggleLocationEditing");
+        QTRY_VERIFY(picker->property("editing").toBool());
+        QTest::qWait(80); // Render inline controls before interacting with the card title.
+        QCOMPARE(eval("bridge.nextId").toInt(), beforeEditing);
+        QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
+        QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
+        activate("renameSaved_1");
         auto* alias = qobject_cast<QQuickItem*>(named("savedLocationAlias"));
         QTRY_VERIFY(alias->hasActiveFocus());
+        QCOMPARE(eval("bridge.nextId").toInt(), beforeEditing);
         alias->setProperty("text", "Office");
         QTest::keyClick(window, Qt::Key_Return);
         QTRY_COMPARE(eval("root.viewedPlace.label").toString(), QString("Office"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
-        auto activate = [&](const char* name) {
-            auto* item = qobject_cast<QQuickItem*>(named(name));
-            item->forceActiveFocus();
-            QTest::keyClick(window, Qt::Key_Space);
-        };
-        activate("moveLocationUp");
+        QCOMPARE(eval("bridge.nextId").toInt(), beforeEditing + 1);
+        QCOMPARE(fixture.saved("saved-locations.json")["places"]
+                     .toArray()[1]
+                     .toObject()["label"]
+                     .toString(),
+                 QString("Office"));
+        QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
+        const auto beforeReorder = eval("bridge.nextId").toInt();
+        activate("moveSavedUp_1");
         QTRY_COMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-101"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
-        activate("makeLocationPrimary");
+        QCOMPARE(eval("bridge.nextId").toInt(), beforeReorder + 1);
+        QCOMPARE(eval("root.current.temperature_c").toInt(), 16);
+        activate("primarySaved_0");
         QTRY_COMPARE(eval("root.primaryName").toString(), QString("Office"));
         QCOMPARE(eval("root.primaryTimezone").toString(), QString("Europe/London"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
-        QVERIFY(!named("removeSavedLocation")->property("enabled").toBool());
-        auto* replacement = qobject_cast<QQuickItem*>(named("replacementPrimary"));
-        replacement->forceActiveFocus();
-        QTest::keyClick(window, Qt::Key_Down);
-        QTRY_VERIFY(named("removeSavedLocation")->property("enabled").toBool());
-        activate("removeSavedLocation");
+        QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
+        QVERIFY(named("removeSaved_1")->property("enabled").toBool());
+        // Choose another Home explicitly in the list before removing the old Home.
+        activate("primarySaved_1");
+        QTRY_COMPARE(eval("root.primaryName").toString(), QString("City 0"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        QVERIFY(named("removeSaved_0")->property("enabled").toBool());
+        QVERIFY(!named("removeSaved_1")->property("enabled").toBool());
+        QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
+        activate("removeSaved_0");
         QTRY_COMPARE(eval("root.savedLocations.items.length").toInt(), 19);
         QTRY_COMPARE(eval("root.location").toString(), QString("City 0"));
         QCOMPARE(eval("root.primaryName").toString(), QString("City 0"));
         QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        // Keep a renamed, reordered place in the registry to verify persistence on restart.
+        list->setProperty("currentIndex", 1);
+        QTest::qWait(80);
+        activate("renameSaved_1");
+        alias = qobject_cast<QQuickItem*>(named("savedLocationAlias"));
+        QTRY_VERIFY(alias->hasActiveFocus());
+        alias->setProperty("text", "Cabin");
+        QTest::keyClick(window, Qt::Key_Return);
+        QTRY_COMPARE(eval("root.savedLocations.items[1].label").toString(), QString("Cabin"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        activate("moveSavedUp_1");
+        QTRY_COMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-102"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-100"));
+        QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
+        const auto beforeDone = eval("bridge.nextId").toInt();
+        activate("toggleLocationEditing");
+        QTRY_VERIFY(!picker->property("editing").toBool());
+        QTest::qWait(80);
+        QCOMPARE(eval("bridge.nextId").toInt(), beforeDone);
+        for (const char* name :
+             {"removeSaved_0", "moveSavedUp_0", "moveSavedDown_0", "primarySaved_0"}) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item && !item->isVisible());
+        }
+        QVERIFY(!named("renameSaved_0")->property("activeFocusOnTab").toBool());
+        QCOMPARE(fixture.saved("saved-forecast-0.json"), homeCache);
+        QCOMPARE(fixture.saved("saved-forecast-2.json"), cabinCache);
         auto saved = fixture.saved("saved-locations.json");
         QCOMPARE(saved["primary"].toString(), QString("place-100"));
         QCOMPARE(saved["viewed"].toString(), QString("place-100"));
+        QCOMPARE(saved["places"].toArray()[0].toObject()["id"].toString(), QString("place-102"));
+        QCOMPARE(saved["places"].toArray()[0].toObject()["label"].toString(), QString("Cabin"));
         // Browsing is temporary; the same saved list opens at Home next launch.
         eval("bridge.send('saved_location', {action:'view', id:'place-102'})");
         QTRY_COMPARE(eval("root.location").toString(), QString("City 2"));

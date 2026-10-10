@@ -114,6 +114,25 @@ Canvas {
             ctx.lineTo(18, 15);
             ctx.stroke();
             break;
+        case "minus":
+            ctx.moveTo(5, 12);
+            ctx.lineTo(19, 12);
+            ctx.stroke();
+            break;
+        case "home":
+            ctx.moveTo(3, 11);
+            ctx.lineTo(12, 3);
+            ctx.lineTo(21, 11);
+            ctx.moveTo(6, 9);
+            ctx.lineTo(6, 21);
+            ctx.lineTo(18, 21);
+            ctx.lineTo(18, 9);
+            ctx.moveTo(10, 21);
+            ctx.lineTo(10, 14);
+            ctx.lineTo(14, 14);
+            ctx.lineTo(14, 21);
+            ctx.stroke();
+            break;
         case "close":
             ctx.moveTo(6, 6);
             ctx.lineTo(18, 18);
