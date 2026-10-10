@@ -872,14 +872,6 @@ QtObject {
                                     color: "#d4e3ee"
                                 }
                                 PlainLabel {
-                                    objectName: "primaryLocationHint"
-                                    visible: root.savedLocations !== null
-                                    width: headerBody.conditionsWidth
-                                    text: root.savedLocations && root.savedLocations.viewed === root.savedLocations.primary ? "Home" : "Home · " + root.primaryName
-                                    font.pixelSize: Tokens.fontSize(13)
-                                    color: Tokens.secondary
-                                }
-                                PlainLabel {
                                     id: currentTemperature
                                     objectName: "currentTemperature"
                                     text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
