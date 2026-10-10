@@ -1057,6 +1057,7 @@ QtObject {
                 locationLatitude: bridge.snapshot && bridge.snapshot.latitude !== null ? bridge.snapshot.latitude : 0
                 locationLongitude: bridge.snapshot && bridge.snapshot.longitude !== null ? bridge.snapshot.longitude : 0
                 onRadarViewRequested: (latitude, longitude, zoom) => bridge.openRadar(latitude, longitude, zoom)
+                onRadarHistoryRequested: enabled => bridge.setRadarHistory(enabled)
                 location: root.city
                 units: root.units
                 windUnits: root.windUnits

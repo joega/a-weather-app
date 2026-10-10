@@ -3851,6 +3851,201 @@ class FrontendTest : public QObject {
         deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(2)}});
         QCOMPARE(evaluate(engine, bridge.data(), "weatherRadar.frames.length").toInt(), 0);
     }
+    void radarHistoryQueueKeepsLatestIntentAcrossCloseAndReopen() {
+        FakeTransport transport;
+        QQmlEngine engine;
+        QQmlComponent component(&engine, QUrl("qrc:/ui/qml/backend/Bridge.qml"));
+        QScopedPointer<QObject> bridge(component.createWithInitialProperties(
+            {{"weatherTransport", QVariant::fromValue(&transport)}}));
+        QVERIFY2(bridge, qPrintable(component.errorString()));
+        QVERIFY(evaluate(engine, bridge.data(), "openRadar(40,-74,7)").toBool());
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(1)}});
+        QCOMPARE(transport.requests.size(), 1);
+        QVERIFY(evaluate(engine, bridge.data(), "setRadarHistory(true)").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "setRadarHistory(false)").toBool());
+        QCOMPARE(transport.requests.size(), 1);
+        int acknowledged = 0;
+        drain(transport, acknowledged);
+        QCOMPARE(transport.requests.size(), 2);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("radar_history"));
+        QCOMPARE(transport.requests.last()["history"].toMap()["enabled"].toBool(), false);
+        QCOMPARE(transport.requests.last()["history"].toMap()["client_token"].toInt(), 1);
+
+        // A Play waiting behind another request belongs to the old viewport.
+        // Closing and reopening must discard it rather than animate the new view.
+        QVERIFY(evaluate(engine, bridge.data(), "send('snapshot')").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "setRadarHistory(true)").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "closeRadar()").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "openRadar(41,-75,8)").toBool());
+        QVERIFY(!evaluate(engine, bridge.data(), "setRadarHistory(true)").toBool());
+        drain(transport, acknowledged);
+        QCOMPARE(transport.requests.size(), 4);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("radar_view"));
+        QCOMPARE(transport.requests.last()["view"].toMap()["client_token"].toInt(), 2);
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(2)}});
+        QTest::qWait(100);
+        QCOMPARE(transport.requests.size(), 4);
+        for (const auto& request : transport.requests)
+            if (request["op"].toString() == "radar_history")
+                QVERIFY(!request["history"].toMap()["enabled"].toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "setRadarHistory(true)").toBool());
+        QCOMPARE(transport.requests.last()["history"].toMap()["client_token"].toInt(), 2);
+        QVERIFY(evaluate(engine, bridge.data(), "setRadarHistory(false)").toBool());
+        QVERIFY(evaluate(engine, bridge.data(), "closeRadar()").toBool());
+        drain(transport, acknowledged);
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("radar_close"));
+        QVERIFY(!evaluate(engine, bridge.data(), "setRadarHistory(true)").toBool());
+        const auto requestsAfterClose = transport.requests.size();
+        QTest::qWait(100);
+        QCOMPARE(transport.requests.size(), requestsAfterClose);
+    }
+    void radarPausedLatestLoadsHistoryOnlyForExplicitInteraction() {
+        FakeTransport transport;
+        FakeMapTiles tiles;
+        RadarImageControl control;
+        QQmlApplicationEngine engine;
+        auto* images = new FakeRadarImages(control.state());
+        engine.addImageProvider("radar", images);
+        engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
+                                     {"mapTiles", QVariant::fromValue(&tiles)},
+                                     {"radarImages", QVariant::fromValue(&control)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        root->setProperty("effectsOpen", true);
+        auto data = selectedSnapshot(1, "New York, NY");
+        auto location = data["location"].toObject();
+        location["latitude"] = 40.7128;
+        location["longitude"] = -74.006;
+        data["location"] = location;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", data}});
+        auto* panel = shellItem(root, "weatherMaps");
+        auto* flick =
+            root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
+        auto* window = qobject_cast<QQuickWindow*>(root->findChild<QObject*>("weatherWindow"));
+        QVERIFY(panel && flick && window);
+        QTRY_VERIFY(window->isExposed());
+        const auto revealRadar = [&] {
+            QTRY_VERIFY(root->property("mapContentTop").toReal() > 100 &&
+                        flick->property("contentHeight").toReal() + 1 >=
+                            root->property("mapContentTop").toReal() + panel->height());
+            panel->findChild<QQuickItem*>("mapLayerTabs")->forceActiveFocus();
+            flick->setProperty("contentY", root->property("mapContentTop").toReal() + 40);
+            QTRY_VERIFY(root->property("mapsNearViewport").toBool());
+        };
+        revealRadar();
+        root->setProperty("effectsOpen", false);
+        QTRY_VERIFY(shellItem(root, "openEffects")->hasActiveFocus());
+        revealRadar();
+        QTRY_VERIFY(shellItem(root, "radarMap"));
+        QTRY_VERIFY(evaluate(engine, root, "backend.radarWanted").toBool());
+        int acknowledged = 0;
+        drain(transport, acknowledged);
+        const auto historyRequests = [&] {
+            QList<QVariantMap> requests;
+            for (const auto& request : transport.requests)
+                if (request["op"].toString() == "radar_history")
+                    requests.append(request["history"].toMap());
+            return requests;
+        };
+        QCOMPARE(historyRequests().size(), 0);
+        QPointer<QObject> radar = shellItem(root, "radarMap");
+        const int token = evaluate(engine, root, "backend.radarToken").toInt();
+        auto pending = radarFixture(token);
+        auto pendingFrames = pending["frames"].toArray();
+        for (int i = 0; i < 2; ++i) {
+            auto frame = pendingFrames[i].toObject();
+            frame["state"] = "pending";
+            frame["id"] = "";
+            pendingFrames[i] = frame;
+        }
+        pending["frames"] = pendingFrames;
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", pending}});
+        QTRY_VERIFY(radar && evaluate(engine, radar, "displayedFrame !== null").toBool());
+        radar->setProperty("visualQuality", "full");
+        QTRY_COMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        QTRY_COMPARE(images->calls.load(), 2);
+        QVERIFY(!radar->property("playing").toBool());
+        QVERIFY(!radar->findChild<QObject*>("radarPlaybackTimer")->property("running").toBool());
+        QTest::qWait(750);
+        QCOMPARE(images->calls.load(), 2);
+        QCOMPARE(historyRequests().size(), 0);
+        QCOMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+
+        // Play is available before old images have downloaded. It explicitly
+        // requests history, preserving the latest still until its next time is ready.
+        auto* play = radar->findChild<QObject*>("radarPlay");
+        QVERIFY(play && play->property("enabled").toBool());
+        QVERIFY(QMetaObject::invokeMethod(play, "clicked"));
+        drain(transport, acknowledged);
+        QCOMPARE(historyRequests().size(), 1);
+        QCOMPARE(historyRequests().last()["enabled"].toBool(), true);
+        QCOMPARE(historyRequests().last()["client_token"].toInt(), token);
+        QVERIFY(radar->property("playing").toBool());
+        QTest::qWait(750);
+        QCOMPARE(images->calls.load(), 2);
+        QCOMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(token)}});
+        QTRY_VERIFY_WITH_TIMEOUT(
+            evaluate(engine, radar, "displayedFrame.id !== '" + QString(64, 'c') + "'").toBool(),
+            2500);
+        QVERIFY(QMetaObject::invokeMethod(play, "clicked"));
+        drain(transport, acknowledged);
+        QCOMPARE(historyRequests().size(), 2);
+        QCOMPARE(historyRequests().last()["enabled"].toBool(), false);
+        QVERIFY(!radar->property("playing").toBool());
+        QVERIFY(!radar->findChild<QObject*>("radarPlaybackTimer")->property("running").toBool());
+
+        evaluate(engine, radar, "latest()");
+        QTRY_COMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", pending}});
+        const auto callsBeforeSelection = images->calls.load();
+        evaluate(engine, radar, "select(1)");
+        drain(transport, acknowledged);
+        QCOMPARE(historyRequests().size(), 3);
+        QCOMPARE(historyRequests().last()["enabled"].toBool(), true);
+        QCOMPARE(evaluate(engine, radar, "desiredTime").toString(),
+                 pendingFrames[1].toObject()["time"].toString());
+        QTest::qWait(750);
+        QCOMPARE(images->calls.load(), callsBeforeSelection);
+        QCOMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        auto partiallyReady = pending;
+        auto partialFrames = pendingFrames;
+        partialFrames[0] = radarFixture(token)["frames"].toArray()[0];
+        partiallyReady["frames"] = partialFrames;
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", partiallyReady}});
+        QTest::qWait(250);
+        QCOMPARE(images->calls.load(), callsBeforeSelection);
+        QCOMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'c'));
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", radarFixture(token)}});
+        QTRY_COMPARE(evaluate(engine, radar, "displayedFrame.id").toString(), QString(64, 'b'));
+        QVERIFY(!radar->property("playing").toBool());
+
+        // Hiding destroys manual history demand. Returning to the map starts
+        // with its newest still rather than resuming playback or an old selection.
+        root->setProperty("effectsOpen", true);
+        drain(transport, acknowledged);
+        QTRY_VERIFY(radar.isNull());
+        const auto historiesBeforeReturn = historyRequests().size();
+        root->setProperty("effectsOpen", false);
+        QTRY_VERIFY(shellItem(root, "openEffects")->hasActiveFocus());
+        revealRadar();
+        QTRY_VERIFY(shellItem(root, "radarMap"));
+        QTRY_VERIFY(evaluate(engine, root, "backend.radarWanted").toBool());
+        drain(transport, acknowledged);
+        radar = shellItem(root, "radarMap");
+        const int returnToken = evaluate(engine, root, "backend.radarToken").toInt();
+        QVERIFY(returnToken > token);
+        pending["client_token"] = returnToken;
+        deliver(transport, {{"version", 1}, {"event", "radar"}, {"radar", pending}});
+        QTRY_COMPARE(evaluate(engine, radar, "displayedFrame ? displayedFrame.id : ''").toString(),
+                     QString(64, 'c'));
+        QTest::qWait(750);
+        QCOMPARE(historyRequests().size(), historiesBeforeReturn);
+        QVERIFY(!radar->property("playing").toBool());
+        QVERIFY(!radar->property("historyWanted").toBool());
+        QVERIFY(radar->property("followLatest").toBool());
+    }
     void radarOnDemandPlaybackAndNavigation() {
         FakeTransport transport;
         FakeMapTiles tiles;
@@ -4025,6 +4220,7 @@ class FrontendTest : public QObject {
         QTRY_COMPARE(evaluate(engine, radar, "displayedFrame ? displayedFrame.id : ''").toString(),
                      QString(64, 'c'));
         QVERIFY(!radar->property("imageError").toBool());
+        drain(transport, acknowledged);
         // Pointer drags preview locally, keep the enclosing dashboard still,
         // and request exactly one new view when released.
         auto* pointerArea = qobject_cast<QQuickItem*>(radar->findChild<QObject*>("radarMapArea"));

@@ -62,7 +62,9 @@ type Controller struct {
 	provider                            Provider
 	notify                              func()
 	results                             chan completion
-	open, active, offline               bool
+	open, active, offline, history      bool
+	activeKind                          string
+	activeAt                            time.Time
 	view                                View
 	generation, revision                uint64
 	cancel                              context.CancelFunc
@@ -96,6 +98,10 @@ func (c *Controller) Open(view View, now time.Time) error {
 	if !view.valid() || now.IsZero() {
 		return fmt.Errorf("invalid radar demand")
 	}
+	c.history = false
+	if c.open && c.view == view {
+		c.cancelHistoryWork()
+	}
 	if !c.open {
 		c.Poll(now)
 	}
@@ -112,16 +118,43 @@ func (c *Controller) Open(view View, now time.Time) error {
 	c.advance(now)
 	return nil
 }
+
+// SetHistory admits older observations only after explicit timeline interaction.
+// Disabling demand preserves ready images and leaves metadata/latest work intact.
+func (c *Controller) SetHistory(enabled bool, now time.Time) error {
+	if !c.open || now.IsZero() {
+		return fmt.Errorf("radar history unavailable")
+	}
+	if c.history == enabled {
+		return nil
+	}
+	c.history = enabled
+	if !enabled {
+		c.cancelHistoryWork()
+	}
+	c.revision++
+	c.advance(now)
+	return nil
+}
+
+func (c *Controller) cancelHistoryWork() {
+	if c.active && c.activeKind == "frame" && len(c.frames) > 0 && !c.activeAt.Equal(c.frames[len(c.frames)-1].Time) {
+		c.cancelWork()
+	}
+}
+
 func (c *Controller) Close(now time.Time) {
 	if c.open {
 		c.closedAt = now
 		c.open = false
+		c.history = false
 		c.cancelWork()
 		c.revision++
 	}
 }
 func (c *Controller) Shutdown() {
 	c.open = false
+	c.history = false
 	c.cancelWork()
 	c.clearFrames()
 	c.legend = nil
@@ -142,6 +175,8 @@ func (c *Controller) Poll(now time.Time) {
 	case r := <-c.results:
 		c.active = false
 		c.cancel = nil
+		c.activeKind = ""
+		c.activeAt = time.Time{}
 		if r.generation == c.generation && c.open {
 			c.accept(r, now)
 			c.revision++
@@ -286,10 +321,10 @@ func (c *Controller) advance(now time.Time) {
 	if len(c.frames) == 0 {
 		c.reconcileFrames()
 	}
-	// Show the newest image first. Fetch the legend next, then older history.
+	// Show the newest image and legend first. Older history needs explicit demand.
 	for i := len(c.frames) - 1; i >= 0; i-- {
 		f := &c.frames[i]
-		if f.State != "pending" {
+		if f.State != "pending" || (i < len(c.frames)-1 && !c.history) {
 			continue
 		}
 		if i < len(c.frames)-1 && c.legendID == "" {
@@ -329,6 +364,8 @@ func (c *Controller) start(kind string, at, now time.Time) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	c.cancel = cancel
 	c.active = true
+	c.activeKind = kind
+	c.activeAt = at
 	c.nextRequest = now.Add(requestSpacing)
 	c.revision++
 	generation, provider, timeline, view := c.generation, c.provider, c.timeline, c.view
@@ -447,8 +484,8 @@ func (c *Controller) NextWake(now time.Time) time.Duration {
 	} // Completion signals the owner.
 	next := c.nextMetadata
 	if c.view.intersects(c.timeline.Coverage()) && c.timeline.Freshness(now) != "unavailable" {
-		for _, f := range c.frames {
-			if f.State == "pending" {
+		for i, f := range c.frames {
+			if f.State == "pending" && (c.history || i == len(c.frames)-1) {
 				next = c.nextRequest
 				break
 			}

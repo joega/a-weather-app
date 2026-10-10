@@ -20,17 +20,24 @@ import (
 )
 
 type appRadarProvider struct {
-	calls atomic.Int32
-	body  []byte
+	calls   atomic.Int32
+	body    []byte
+	history bool
+	images  atomic.Int32
 }
 
 func (p *appRadarProvider) FetchTimeline(_ context.Context, now time.Time) (radar.Timeline, error) {
 	p.calls.Add(1)
-	raw := fmt.Sprintf(`<WMS_Capabilities xmlns="http://www.opengis.net/wms" version="1.3.0"><Capability><Request><GetMap><Format>image/png</Format></GetMap></Request><Layer><CRS>EPSG:3857</CRS><Layer><Name>conus_bref_qcd</Name><EX_GeographicBoundingBox><westBoundLongitude>-130</westBoundLongitude><eastBoundLongitude>-60</eastBoundLongitude><southBoundLatitude>20</southBoundLatitude><northBoundLatitude>55</northBoundLatitude></EX_GeographicBoundingBox><Style><Name>radar_reflectivity</Name></Style><Dimension name="time" units="ISO8601">%s</Dimension></Layer></Layer></Capability></WMS_Capabilities>`, now.UTC().Format(time.RFC3339Nano))
+	times := now.UTC().Format(time.RFC3339Nano)
+	if p.history {
+		times = now.Add(-10*time.Minute).UTC().Format(time.RFC3339Nano) + "," + now.Add(-5*time.Minute).UTC().Format(time.RFC3339Nano) + "," + times
+	}
+	raw := fmt.Sprintf(`<WMS_Capabilities xmlns="http://www.opengis.net/wms" version="1.3.0"><Capability><Request><GetMap><Format>image/png</Format></GetMap></Request><Layer><CRS>EPSG:3857</CRS><Layer><Name>conus_bref_qcd</Name><EX_GeographicBoundingBox><westBoundLongitude>-130</westBoundLongitude><eastBoundLongitude>-60</eastBoundLongitude><southBoundLatitude>20</southBoundLatitude><northBoundLatitude>55</northBoundLatitude></EX_GeographicBoundingBox><Style><Name>radar_reflectivity</Name></Style><Dimension name="time" units="ISO8601">%s</Dimension></Layer></Layer></Capability></WMS_Capabilities>`, times)
 	return radar.ParseTimeline([]byte(raw), now)
 }
 func (p *appRadarProvider) FetchFrame(context.Context, radar.Timeline, time.Time, radar.View, time.Time) ([]byte, error) {
 	p.calls.Add(1)
+	p.images.Add(1)
 	return bytes.Clone(p.body), nil
 }
 func (p *appRadarProvider) FetchLegend(context.Context) ([]byte, error) {
@@ -288,5 +295,68 @@ func TestRadarViewTokenAndLocalTimeLabels(t *testing.T) {
 	_, next = a.radarSince(nil)
 	if next.ClientToken != 18 {
 		t.Fatal("invalid request changed view identity")
+	}
+}
+
+func TestRadarHistoryDemandAdmissionAndToken(t *testing.T) {
+	now := savedRuntimeNow
+	provider := &appRadarProvider{body: []byte("frame"), history: true}
+	a := radarApp(t, provider, func() time.Time { return now })
+	p := &peer{subscribed: true, presentationActive: true}
+	ctx := context.WithValue(context.Background(), presentationPeerKey{}, p)
+	history := M{"enabled": true, "client_token": 17.0}
+	if r, _ := a.Handle(ctx, request("radar_history", M{"history": history})); r["ok"] != false {
+		t.Fatal("unopened controller accepted history demand")
+	}
+	a.setPresented(false)
+	view := M{"latitude": 40.0, "longitude": -74.0, "zoom": 7.0, "client_token": 17.0}
+	if r, _ := a.Handle(ctx, request("radar_view", M{"view": view})); r["ok"] != true {
+		t.Fatal(r)
+	}
+	awaitRadar(t, a, func(p *radar.Presentation) bool { return len(p.Frames) == 3 })
+	now = now.Add(time.Second)
+	awaitRadar(t, a, func(p *radar.Presentation) bool { return p.Frames[2].State == "ready" })
+	now = now.Add(time.Second)
+	awaitRadar(t, a, func(p *radar.Presentation) bool { return p.Legend != "" })
+	for i := 0; i < 10; i++ {
+		now = now.Add(time.Second)
+		a.radarSince(nil)
+	}
+	if provider.images.Load() != 1 {
+		t.Fatal("initial opening downloaded historical imagery", provider.images.Load())
+	}
+	for _, invalid := range []M{nil, {}, {"enabled": true}, {"enabled": "true", "client_token": 17.0}, {"enabled": true, "client_token": 0.0}, {"enabled": true, "client_token": 18.0}, {"enabled": true, "client_token": 17.5}, {"enabled": true, "client_token": "17"}, {"enabled": true, "client_token": 17.0, "extra": true}} {
+		if r, _ := a.Handle(ctx, request("radar_history", M{"history": invalid})); r["ok"] != false {
+			t.Fatal("malformed/stale history request accepted", invalid)
+		}
+	}
+	a.setPresented(true)
+	p.presentationActive = false
+	if r, _ := a.Handle(ctx, request("radar_history", M{"history": history})); r["ok"] != false {
+		t.Fatal("another visible peer authorized hidden history demand")
+	}
+	p.presentationActive = true
+	if r, _ := a.Handle(ctx, request("radar_history", M{"history": history})); r["ok"] != true {
+		t.Fatal("presented peer could not explicitly request history", r)
+	}
+	awaitRadar(t, a, func(p *radar.Presentation) bool { return p.Frames[1].State == "ready" })
+	now = now.Add(time.Second)
+	awaitRadar(t, a, func(p *radar.Presentation) bool { return p.Frames[0].State == "ready" })
+	if provider.images.Load() != 3 {
+		t.Fatal("explicit interaction did not load available history")
+	}
+	history["enabled"] = false
+	if r, _ := a.Handle(ctx, request("radar_history", M{"history": history})); r["ok"] != true {
+		t.Fatal("pause rejected", r)
+	}
+	view["client_token"] = 18.0
+	a.Handle(ctx, request("radar_view", M{"view": view}))
+	if r, _ := a.Handle(ctx, request("radar_history", M{"history": history})); r["ok"] != false {
+		t.Fatal("old client token controlled reopened radar")
+	}
+	a.closeRadar()
+	history["client_token"] = 18.0
+	if r, _ := a.Handle(ctx, request("radar_history", M{"history": history})); r["ok"] != false {
+		t.Fatal("closed controller accepted history demand")
 	}
 }

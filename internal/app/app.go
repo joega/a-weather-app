@@ -565,7 +565,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_appearance": "appearance", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "air_outlook_open": "detail", "air_outlook_close": "detail", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_appearance": "appearance", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "air_outlook_open": "detail", "air_outlook_close": "detail", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_history": "history", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	for k := range request {
 		if k != "version" && k != "request_id" && k != "op" && k != extra {
@@ -711,6 +711,8 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		} else {
 			e = a.openRadar(object(request["view"]), presented)
 		}
+	case "radar_history":
+		e = a.setRadarHistory(object(request["history"]), presented)
 	case "radar_close":
 		a.closeRadar()
 	case "radar_image":

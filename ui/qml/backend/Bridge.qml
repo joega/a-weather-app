@@ -24,6 +24,7 @@ Item {
     property int radarToken: 0
     property int pendingRadarToken: -1
     property var queuedRadar: null
+    property var queuedRadarHistory: null
     property bool mapWanted: false
     property bool presentationActive: true
     property bool subscribed: false
@@ -379,6 +380,10 @@ Item {
                 };
                 return true;
             }
+            if (op === "radar_history") {
+                queuedRadarHistory = JSON.parse(JSON.stringify(patch));
+                return true;
+            }
             if (op === "map_open" || op === "map_close") {
                 queuedMapOp = op === pendingOp ? "" : op;
                 return true;
@@ -471,6 +476,8 @@ Item {
             request.view = patch;
             pendingRadarToken = patch.client_token;
         }
+        if (op === "radar_history")
+            request.history = patch;
         if (op === "set_location" || op === "add_location" || op === "saved_location")
             request.location = patch;
         if (op === "search_places")
@@ -487,6 +494,7 @@ Item {
         return true;
     }
     function openRadar(latitude, longitude, zoom) {
+        queuedRadarHistory = null;
         radarWanted = true;
         radarToken = (radarToken + 1) % 2147483648;
         weatherRadar = Forecast.emptyRadar("loading");
@@ -502,9 +510,18 @@ Item {
         });
     }
     function closeRadar() {
+        queuedRadarHistory = null;
         radarWanted = false;
         weatherRadar = Forecast.emptyRadar();
         return send("radar_close");
+    }
+    function setRadarHistory(enabled) {
+        if (!radarWanted || !presentationActive || weatherRadar.client_token !== radarToken)
+            return false;
+        return send("radar_history", {
+            enabled: enabled,
+            client_token: radarToken
+        });
     }
     function openMap() {
         mapWanted = true;
@@ -556,6 +573,14 @@ Item {
             queuedRadar = null;
             send(next.op, next.patch);
             return;
+        }
+        if (queuedRadarHistory !== null) {
+            const next = queuedRadarHistory;
+            queuedRadarHistory = null;
+            if (radarWanted && presentationActive && next.client_token === radarToken) {
+                send("radar_history", next);
+                return;
+            }
         }
         if (queuedUserOp !== "") {
             let op = queuedUserOp, patch = queuedUserPatch;
@@ -634,6 +659,7 @@ Item {
         queuedUserPatch = null;
         queuedMapOp = "";
         queuedRadar = null;
+        queuedRadarHistory = null;
         queuedSearch = null;
         cancelSearchQueued = false;
         stopQueued = false;

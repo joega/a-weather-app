@@ -216,16 +216,15 @@ class RadarImagesTest : public QObject {
         auto* flick =
             root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
         QVERIFY(panel && flick);
-        panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 3);
+        panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 0);
         flick->setProperty("contentY", root->property("mapContentTop").toReal());
         QTRY_VERIFY(shellItem(root, "radarMap"));
         QPointer<QObject> radar = shellItem(root, "radarMap");
         QTRY_VERIFY_WITH_TIMEOUT(eval(radar, "displayedFrame !== null").toBool(), 25000);
         QTRY_VERIFY_WITH_TIMEOUT(
-            eval(radar,
-                 "radarState.frames.length > 0 && radarState.frames.every(f=>f.state!=='pending')")
-                .toBool(),
-            40000);
+            eval(radar, "readyFrames.length > 0 && radarState.legend !== ''").toBool(), 40000);
+        QVERIFY(!radar->property("playing").toBool());
+        QVERIFY(!radar->property("historyWanted").toBool());
         measure("radar_static");
         QVERIFY(window->grabWindow().save(directory + "/radar-1200.png"));
         window->resize(700, 650);
@@ -237,6 +236,8 @@ class RadarImagesTest : public QObject {
         QTest::qWait(200);
         radar->setProperty("visualQuality", "full");
         eval(radar, "followLatest=false; playing=true");
+        QTRY_VERIFY_WITH_TIMEOUT(
+            eval(radar, "radarState.frames.every(f=>f.state!=='pending')").toBool(), 40000);
         measure("radar_playing");
         window->hide();
         QTRY_VERIFY(radar.isNull());
@@ -293,7 +294,7 @@ class RadarImagesTest : public QObject {
         QTRY_VERIFY(shellItem(root, "weatherMaps"));
         auto* panel = shellItem(root, "weatherMaps");
         QVERIFY(panel);
-        panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 3);
+        panel->findChild<QObject*>("mapLayerTabs")->setProperty("currentIndex", 0);
         auto* flick =
             root->findChild<QObject*>("forecastScroll")->property("contentItem").value<QObject*>();
         QVERIFY(flick);
@@ -303,16 +304,43 @@ class RadarImagesTest : public QObject {
         QPointer<QObject> radar = shellItem(root, "radarMap");
         QTRY_VERIFY_WITH_TIMEOUT(eval(radar, "displayedFrame !== null").toBool(), 5000);
         QTRY_COMPARE_WITH_TIMEOUT(eval(radar, "frames.length").toInt(), 3, 5000);
+        QTRY_VERIFY(eval(radar, "radarState.legend !== ''").toBool());
+        QCOMPARE(eval(radar, "readyFrames.length").toInt(), 1);
+        QVERIFY(!radar->property("playing").toBool());
+        QVERIFY(!radar->property("historyWanted").toBool());
+        QVERIFY(!radar->findChild<QObject*>("radarPlaybackTimer")->property("running").toBool());
+        QCOMPARE(fixture.command().value("calls").toInt(), 3); // metadata, latest frame, legend
         QVERIFY(!eval(root, "backend.disconnected").toBool());
         const auto latest = eval(radar, "displayedFrame.id").toString();
+        QCOMPARE(eval(radar, "displayedFrame.time === frames[frames.length-1].time").toBool(),
+                 true);
+        QTest::qWait(800); // Opening and waiting must neither animate nor download history.
+        QCOMPARE(eval(radar, "displayedFrame.id").toString(), latest);
+        QCOMPARE(fixture.command().value("calls").toInt(), 3);
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window);
+        radar->setProperty("visualQuality", "full");
+        auto* play = shellItem(root, "radarPlay");
+        QVERIFY(play);
+        QTRY_VERIFY(play->isEnabled());
+        const auto clickPlay = [&] {
+            QTest::mouseClick(
+                window, Qt::LeftButton, Qt::NoModifier,
+                play->mapToScene(QPointF(play->width() / 2, play->height() / 2)).toPoint());
+        };
+        clickPlay();
+        QTRY_VERIFY(radar->property("playing").toBool());
+        QTRY_COMPARE_WITH_TIMEOUT(eval(radar, "readyFrames.length").toInt(), 3, 5000);
+        QCOMPARE(fixture.command().value("calls").toInt(), 5); // Explicit Play loads history.
+        QTRY_VERIFY(eval(radar, "displayedFrame.id !== '" + latest + "'").toBool());
+        clickPlay();
+        QTRY_VERIFY(!radar->property("playing").toBool());
         eval(radar, "select(0)");
         QTRY_VERIFY(eval(radar, "displayedFrame.id !== '" + latest + "'").toBool());
         eval(radar, "latest()");
         QTRY_COMPARE(eval(radar, "displayedFrame.id").toString(), latest);
         QCOMPARE(fixture.command().value("calls").toInt(), 5); // metadata, 3 frames, legend
-        auto* window =
-            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
-        QVERIFY(window);
         window->hide();
         QTRY_VERIFY(radar.isNull());
         QTRY_VERIFY(eval(root, "backend.pending < 0 && !backend.radarWanted").toBool());
@@ -327,6 +355,8 @@ class RadarImagesTest : public QObject {
         QTRY_VERIFY(shellItem(root, "radarMap"));
         radar = shellItem(root, "radarMap");
         QTRY_VERIFY(eval(radar, "displayedFrame !== null").toBool());
+        QVERIFY(!radar->property("playing").toBool());
+        QVERIFY(!radar->property("historyWanted").toBool());
         QCOMPARE(fixture.command().value("calls").toInt(), 5); // Reopen reuses encoded cache.
         fixture.command({{"Op", "advance"}, {"Seconds", 1900}});
         QTRY_COMPARE(eval(radar, "radarState.status").toString(), QString("unavailable"));

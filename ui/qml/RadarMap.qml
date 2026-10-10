@@ -25,10 +25,15 @@ GlassPanel {
     property bool expanded: false
     property bool playing: false
     property bool followLatest: true
+    property bool historyWanted: false
     property bool imageError: false
     property bool manualLoadingVisible: false
-    readonly property bool manualFramePending: active && !playing && !followLatest && !imageError && displayedFrame !== null && desiredID !== "" && desiredID !== displayedFrame.id
-    property string desiredID: ""
+    readonly property bool manualFramePending: active && !playing && !followLatest && !imageError && displayedFrame !== null && desiredTime !== "" && desiredTime !== displayedFrame.time
+    property string desiredTime: ""
+    readonly property string desiredID: {
+        const frame = frames.find(f => f.time === desiredTime);
+        return frame && frame.state === "ready" ? frame.id : "";
+    }
     property var displayedFrame: null
     property int frontSlot: 0
     property int reloadToken: 0
@@ -36,7 +41,8 @@ GlassPanel {
     property double clockNow: Date.now()
     readonly property real mapTop: content.y + mapArea.y
     readonly property real mapHeight: mapArea.height
-    readonly property var frames: radarState.frames.filter(f => f.state === "ready")
+    readonly property var frames: radarState.frames.filter(f => f.state === "ready" || f.state === "pending")
+    readonly property var readyFrames: frames.filter(f => f.state === "ready")
     readonly property var bounds: radarState.view
     readonly property real span: bounds ? bounds.east - bounds.west : 1
     readonly property int zoom: bounds ? Math.max(4, Math.min(10, Math.round(Math.log(80150033.37157849 / span) / Math.LN2))) : 7
@@ -54,7 +60,7 @@ GlassPanel {
     }
     readonly property bool canPlay: active && presentationActive && frames.length > 1 && !reducedMotion && visualQuality !== "static"
     readonly property int displayedIndex: displayedFrame ? frames.findIndex(f => f.id === displayedFrame.id) : -1
-    readonly property int desiredIndex: frames.findIndex(f => f.id === desiredID)
+    readonly property int desiredIndex: frames.findIndex(f => f.time === desiredTime)
     readonly property string freshnessText: {
         if (radarState.status === "unsupported")
             return "Observed radar currently covers the contiguous United States.";
@@ -70,7 +76,9 @@ GlassPanel {
         return (radarState.status === "stale" ? "Stale radar · " : "Latest radar · ") + (minutes < 1 ? "less than a minute ago" : minutes + " min ago");
     }
     signal viewRequested(real latitude, real longitude, int zoom)
+    signal historyRequested(bool enabled)
     signal clearBasemap
+    onHistoryWantedChanged: historyRequested(historyWanted)
     function resetLoadingFeedback() {
         manualLoadingVisible = false;
         if (manualFramePending)
@@ -80,7 +88,10 @@ GlassPanel {
     }
     onDesiredIDChanged: resetLoadingFeedback()
     onDisplayedFrameChanged: resetLoadingFeedback()
-    onPlayingChanged: resetLoadingFeedback()
+    onPlayingChanged: {
+        historyWanted = playing;
+        resetLoadingFeedback();
+    }
     onFollowLatestChanged: resetLoadingFeedback()
     onImageErrorChanged: resetLoadingFeedback()
     onManualFramePendingChanged: resetLoadingFeedback()
@@ -89,9 +100,10 @@ GlassPanel {
     }
     function resetImages() {
         playing = false;
+        historyWanted = false;
         imageError = false;
         displayedFrame = null;
-        desiredID = "";
+        desiredTime = "";
         first.source = "";
         second.source = "";
         first.frame = null;
@@ -104,8 +116,8 @@ GlassPanel {
             resetImages();
             return;
         }
-        if (followLatest || !frames.some(f => f.id === desiredID))
-            desiredID = frames[frames.length - 1].id;
+        if (followLatest || !frames.some(f => f.time === desiredTime))
+            desiredTime = frames[frames.length - 1].time;
         loadDesired();
     }
     function loadDesired() {
@@ -148,15 +160,17 @@ GlassPanel {
         old.frame = null;
     }
     function select(index) {
+        if (index < 0 || index >= frames.length)
+            return;
         playing = false;
         followLatest = false;
-        if (index >= 0 && index < frames.length) {
-            desiredID = frames[index].id;
-            loadDesired();
-        }
+        historyWanted = true;
+        desiredTime = frames[index].time;
+        loadDesired();
     }
     function latest() {
         playing = false;
+        historyWanted = false;
         followLatest = true;
         if (imageError) {
             ++reloadToken;
@@ -191,6 +205,10 @@ GlassPanel {
         frameSync.restart()
     onCanPlayChanged: if (!canPlay)
         playing = false
+    onPresentationActiveChanged: if (!presentationActive) {
+        playing = false;
+        historyWanted = false;
+    }
     Component.onCompleted: frameSync.restart()
     Timer {
         id: manualLoadingDelay
@@ -229,8 +247,12 @@ GlassPanel {
         onTriggered: {
             if (!root.displayedFrame || root.displayedFrame.id !== root.desiredID)
                 return;
-            const index = (root.displayedIndex + 1) % root.frames.length;
-            root.desiredID = root.frames[index].id;
+            // Wait for history to arrive; pending observations stay selectable
+            // without making the paused view download them on its own.
+            if (root.readyFrames.length < 2)
+                return;
+            const index = (root.readyFrames.findIndex(f => f.id === root.displayedFrame.id) + 1) % root.readyFrames.length;
+            root.desiredTime = root.readyFrames[index].time;
             root.loadDesired();
         }
     }

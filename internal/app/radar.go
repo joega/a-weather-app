@@ -54,6 +54,18 @@ func (a *App) openRadar(view M, presented bool) error {
 	a.radarClientToken = token
 	return a.radar.Open(bounds, a.options.Now())
 }
+func (a *App) setRadarHistory(history M, presented bool) error {
+	if !presented || !a.dashboardVisible("maps") || a.locationBusy || a.mode == "default" || a.radar == nil || len(history) != 2 {
+		return errors.New("radar history unavailable")
+	}
+	enabled, ok := history["enabled"].(bool)
+	token, tokenOK := history["client_token"].(float64)
+	if !ok || !tokenOK || math.IsNaN(token) || math.IsInf(token, 0) || token <= 0 || token > 2147483647 || token != math.Trunc(token) || int(token) != a.radarClientToken {
+		return errors.New("invalid radar history")
+	}
+	return a.radar.SetHistory(enabled, a.options.Now())
+}
+
 func (a *App) closeRadar() {
 	if a.radar != nil {
 		a.radar.Close(a.options.Now())

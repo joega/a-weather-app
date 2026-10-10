@@ -55,6 +55,9 @@ func settle(t *testing.T, c *Controller, now time.Time) {
 }
 func fillHistory(t *testing.T, c *Controller, now *time.Time) {
 	t.Helper()
+	if err := c.SetHistory(true, *now); err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 40; i++ {
 		*now = now.Add(requestSpacing)
 		c.Poll(*now)
@@ -354,5 +357,138 @@ func TestControllerMissingFrameIsExplicitAndRefreshRetries(t *testing.T) {
 	fillHistory(t, c, &now)
 	if _, state := c.Since(nil, now); state.Status != "current" {
 		t.Fatal("refresh did not recover", state)
+	}
+}
+
+func TestControllerLatestOnlyUntilExplicitHistoryDemand(t *testing.T) {
+	now := testNow
+	p := &fixtureProvider{}
+	c := NewController(p, false, nil)
+	if err := c.SetHistory(true, now); err == nil {
+		t.Fatal("closed controller accepted history demand")
+	}
+	if err := c.Open(testView, now); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 20; i++ {
+		settle(t, c, now)
+		now = now.Add(requestSpacing)
+		c.Poll(now)
+	}
+	_, state := c.Since(nil, now)
+	if p.images.Load() != 1 || p.legends.Load() != 1 || len(state.Frames) != CachedFrames || state.Frames[len(state.Frames)-1].State != "ready" {
+		t.Fatalf("paused initial radar downloaded history: calls=%d/%d state=%+v", p.images.Load(), p.legends.Load(), state)
+	}
+	for _, f := range state.Frames[:len(state.Frames)-1] {
+		if f.State != "pending" {
+			t.Fatal("available history metadata lost", f)
+		}
+	}
+	if c.active || c.NextWake(now) != time.Minute {
+		t.Fatal("paused pending history caused hot polling", c.NextWake(now))
+	}
+	fillHistory(t, c, &now)
+	if p.images.Load() != CachedFrames {
+		t.Fatal("explicit history did not fill available frames", p.images.Load())
+	}
+	if err := c.SetHistory(false, now); err != nil {
+		t.Fatal(err)
+	}
+	c.Close(now)
+	if err := c.Open(testView, now); err != nil {
+		t.Fatal(err)
+	}
+	if c.history || c.active || p.images.Load() != CachedFrames || c.bytes == 0 {
+		t.Fatal("reopen restored history demand or discarded useful cache")
+	}
+	if err := c.SetHistory(true, now); err != nil {
+		t.Fatal(err)
+	}
+	c.Open(radarView(t, 40, -74), now)
+	if c.history {
+		t.Fatal("view change retained history demand")
+	}
+	for i := 0; i < 10; i++ {
+		settle(t, c, now)
+		now = now.Add(requestSpacing)
+		c.Poll(now)
+	}
+	if p.images.Load() != CachedFrames+1 {
+		t.Fatal("new view fetched older history without interaction", p.images.Load())
+	}
+}
+
+func TestControllerDisableHistoryCancelsOnlyOlderFrame(t *testing.T) {
+	now := testNow
+	started := make(chan struct{}, 1)
+	canceled := make(chan struct{}, 1)
+	p := &fixtureProvider{frame: func(ctx context.Context, timeline Timeline, at time.Time, _ View, _ time.Time) ([]byte, error) {
+		if at.Equal(timeline.Latest()) {
+			return []byte("latest"), nil
+		}
+		started <- struct{}{}
+		<-ctx.Done()
+		canceled <- struct{}{}
+		return nil, ctx.Err()
+	}}
+	c := NewController(p, false, nil)
+	c.Open(testView, now)
+	for i := 0; i < 8; i++ {
+		settle(t, c, now)
+		now = now.Add(requestSpacing)
+		c.Poll(now)
+	}
+	c.SetHistory(true, now)
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("history worker did not start")
+	}
+	if err := c.SetHistory(false, now); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-canceled:
+	case <-time.After(time.Second):
+		t.Fatal("disabling history did not cancel older image")
+	}
+	settle(t, c, now)
+	if c.active || c.errorCode != "" || c.frames[len(c.frames)-1].State != "ready" || p.images.Load() != 2 {
+		t.Fatal("canceled history damaged latest radar or initiated more work")
+	}
+	if c.frames[len(c.frames)-2].State != "pending" {
+		t.Fatal("canceled history cannot be requested later")
+	}
+}
+
+func TestControllerDisableHistoryPreservesLatestWork(t *testing.T) {
+	now := testNow
+	started := make(chan struct{})
+	release := make(chan struct{})
+	p := &fixtureProvider{frame: func(ctx context.Context, _ Timeline, _ time.Time, _ View, _ time.Time) ([]byte, error) {
+		close(started)
+		select {
+		case <-release:
+			return []byte("latest"), nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}}
+	c := NewController(p, false, nil)
+	c.Open(testView, now)
+	settle(t, c, now)
+	now = now.Add(requestSpacing)
+	c.Poll(now)
+	<-started
+	c.SetHistory(true, now)
+	generation := c.generation
+	c.SetHistory(false, now)
+	if c.generation != generation || !c.active {
+		t.Fatal("disabling history canceled newest observation")
+	}
+	close(release)
+	settle(t, c, now)
+	if c.frames[len(c.frames)-1].State != "ready" {
+		t.Fatal("latest work failed after disabling history")
 	}
 }

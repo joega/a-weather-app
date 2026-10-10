@@ -389,7 +389,7 @@ func (s *Server) handle(p *peer) {
 			}
 		}
 		ctx, cancel := context.WithTimeout(p.ctx, 45*time.Second)
-		if request["op"] == "air_outlook_open" || request["op"] == "air_outlook_close" || request["op"] == "precipitation_open" || request["op"] == "precipitation_close" || request["op"] == "radar_open" || request["op"] == "radar_view" {
+		if request["op"] == "air_outlook_open" || request["op"] == "air_outlook_close" || request["op"] == "precipitation_open" || request["op"] == "precipitation_close" || request["op"] == "radar_open" || request["op"] == "radar_view" || request["op"] == "radar_history" {
 			ctx = context.WithValue(ctx, presentationPeerKey{}, p)
 		}
 		reply, quit := s.app.handle(ctx, request, true)

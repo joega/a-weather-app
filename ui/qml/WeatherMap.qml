@@ -22,6 +22,7 @@ ColumnLayout {
     property real locationLatitude: 0
     property real locationLongitude: 0
     signal radarViewRequested(real latitude, real longitude, int zoom)
+    signal radarHistoryRequested(bool enabled)
     property string location: ""
     property string units: "F"
     property string windUnits: "auto"
@@ -429,6 +430,7 @@ ColumnLayout {
             locationLongitude: root.locationLongitude
             viewportHeight: root.viewportHeight
             onViewRequested: (latitude, longitude, zoom) => root.radarViewRequested(latitude, longitude, zoom)
+            onHistoryRequested: enabled => root.radarHistoryRequested(enabled)
             onClearBasemap: root.clearTiles()
         }
     }
