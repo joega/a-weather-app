@@ -42,8 +42,9 @@ October 10, 2026. Conditions and alerts reflect that capture, not current weathe
 
 Select an image for full size. Use the **Locations** sidebar button in the toolbar,
 or **Ctrl+L**, to switch places. Home is the startup location and
-also controls desktop weather and notifications. Select an hour, day or weather
-card to explore its details. Maps load as they come into view; only the selected
+supplies the weather bar and notifications; Live desktop follows the viewed city.
+Select an hour, day or weather card to explore its details. Maps load as they
+come into view; only the selected
 layer is displayed. Observed radar covers the contiguous United States.
 
 The toolbar's **sliders icon** opens Settings. Its **monitor icon** toggles
