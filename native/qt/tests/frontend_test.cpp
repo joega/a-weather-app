@@ -2515,6 +2515,119 @@ class FrontendTest : public QObject {
             QCOMPARE(result.toString(), test.second);
         }
     }
+    void mapTimelineHourMarkers() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(R"(
+            import QtQuick
+            import "qrc:/ui/qml"
+            Window {
+                width: 700; height: 280; visible: true; color: "#2c455a"
+                property real testTextScale: 1
+                onTestTextScaleChanged: Tokens.textScale = testTextScale
+                Component.onCompleted: Tokens.textScale = testTextScale
+                WeatherMap {
+                    x: 24; y: 16; width: parent.width - 48
+                    location: "New York"; hasLocation: true; active: false
+                }
+            })",
+                          QUrl());
+        QScopedPointer<QObject> owner(component.create());
+        QVERIFY2(owner, qPrintable(component.errorString()));
+        auto* window = qobject_cast<QQuickWindow*>(owner.data());
+        auto* panel = owner->findChild<QQuickItem*>("weatherMaps");
+        QVERIFY(window && panel);
+        QTRY_VERIFY(window->isExposed());
+
+        // The service supplies local labels. Midnight and the repeated DST hour
+        // must keep their supplied New York dates and offsets on every machine.
+        const auto zone = QTimeZone("America/New_York");
+        const auto start = QDateTime::fromString("2026-11-01T04:00:00Z", Qt::ISODate);
+        QJsonArray hours, labels;
+        for (int i = 0; i < 24; ++i) {
+            const auto time = start.addSecs(i * 3600);
+            hours.append(double(time.toSecsSinceEpoch()));
+            labels.append(time.toTimeZone(zone).toString("ddd MMM d, h:mm AP t"));
+        }
+        auto data = mapFixture();
+        data["hours"] = hours;
+        auto state = mapEvent(data, true)["map"].toObject();
+        state["hour_labels"] = labels;
+        panel->setProperty("mapState", state.toVariantMap());
+        auto* slider = panel->findChild<QQuickItem*>("mapTimeline");
+        auto* selected = panel->findChild<QQuickItem*>("mapSelectedTime");
+        QVERIFY(slider && selected);
+        QVERIFY(slider->property("enabled").toBool());
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_TIMELINE_SCREENSHOT_PREFIX");
+        for (const int width : {700, 1200}) {
+            for (const double scale : {1.0, 1.5}) {
+                owner->setProperty("testTextScale", scale);
+                window->resize(width, 280);
+                QTest::qWait(60);
+                auto* handle = slider->property("handle").value<QQuickItem*>();
+                QVERIFY(handle);
+                const double origin =
+                    slider->property("leftPadding").toDouble() + handle->width() / 2;
+                const double travel =
+                    slider->property("availableWidth").toDouble() - handle->width();
+                QVERIFY(travel > 0);
+                double lastLabelEnd = -1;
+                int visibleLabels = 0;
+                for (int i = 0; i < 24; ++i) {
+                    auto* tick = visualItem(panel, QString("mapHourTick_%1").arg(i));
+                    QVERIFY(tick);
+                    const auto center = tick->mapToItem(slider, QPointF(tick->width() / 2, 0));
+                    QVERIFY2(std::abs(center.x() - (origin + travel * i / 23)) < 2,
+                             qPrintable(QString("Misaligned hour tick %1 at %2px/%3%%")
+                                            .arg(i)
+                                            .arg(width)
+                                            .arg(scale * 100)));
+                    auto* label = visualItem(panel, QString("mapHourLabel_%1").arg(i));
+                    if (!label || !label->isVisible())
+                        continue;
+                    const auto left = label->mapToScene(QPointF()).x();
+                    const auto right = left + label->width();
+                    QVERIFY2(left >= lastLabelEnd - 1, "Timeline hour labels overlap");
+                    QVERIFY(left >= 0 && right <= window->width());
+                    lastLabelEnd = right;
+                    ++visibleLabels;
+                }
+                QVERIFY(visibleLabels >= 2);
+                auto* midnight = visualItem(panel, "mapHourLabel_0");
+                QVERIFY(midnight && midnight->isVisible());
+                QVERIFY(midnight->property("text").toString().contains("12"));
+                QVERIFY(midnight->property("text").toString().contains("AM"));
+
+                // Use real pointer positions on the handle's travel, not a
+                // programmatic value assignment which could conceal tick drift.
+                for (const int index : {0, 12, 23, 1, 2}) {
+                    const auto point = slider
+                                           ->mapToScene(QPointF(origin + travel * index / 23,
+                                                                handle->y() + handle->height() / 2))
+                                           .toPoint();
+                    QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, point);
+                    QTRY_COMPARE(panel->property("hourIndex").toInt(), index);
+                    QVERIFY(
+                        selected->property("text").toString().contains(labels[index].toString()));
+                }
+                QVERIFY(labels[1].toString().contains("1:00 AM EDT"));
+                QVERIFY(labels[2].toString().contains("1:00 AM EST"));
+                slider->forceActiveFocus();
+                QTest::keyClick(window, Qt::Key_Right);
+                QTRY_COMPARE(panel->property("hourIndex").toInt(), 3);
+                QTest::keyClick(window, Qt::Key_Left);
+                QTRY_COMPARE(panel->property("hourIndex").toInt(), 2);
+                QVERIFY(selected->property("text").toString().contains("1:00 AM EST"));
+                QVERIFY(!panel->property("playing").toBool());
+                QVERIFY(!panel->findChild<QObject*>("mapPrecipitationModule"));
+                if (!prefix.isEmpty())
+                    QVERIFY(window->grabWindow().save(
+                        prefix + QString("-%1-%2.png").arg(width).arg(qRound(scale * 100))));
+            }
+        }
+        owner->setProperty("testTextScale", 1.0);
+        window->hide();
+    }
     void mapOnDemandAndTimeline() {
         FakeTransport transport;
         FakeMapTiles tiles;
@@ -2737,7 +2850,9 @@ class FrontendTest : public QObject {
         if (!capture.isEmpty()) {
             window->resize(700, 850);
             QTest::qWait(100);
-            flick->setProperty("contentY", panel->property("y").toReal() - 12);
+            // The map panel is nested in dashboard layouts; its local y is
+            // not a scroll-content coordinate. Use the shell's computed map top.
+            flick->setProperty("contentY", root->property("mapContentTop").toReal() - 12);
             QTest::qWait(100);
         }
         deliver(transport,
@@ -2763,7 +2878,7 @@ class FrontendTest : public QObject {
                 for (int layer = 0; layer < 3; ++layer) {
                     panel->setProperty("layerIndex", layer);
                     QTest::qWait(100);
-                    flick->setProperty("contentY", panel->property("y").toReal() - 12);
+                    flick->setProperty("contentY", root->property("mapContentTop").toReal() - 12);
                     QTest::qWait(100);
                     QVERIFY(quickWindow->grabWindow().save(QString(capture).replace(
                         ".png", QString("-%1-%2.png").arg(width).arg(layer))));

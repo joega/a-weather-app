@@ -50,6 +50,19 @@ ColumnLayout {
     property var tileClient: null
     readonly property var mapData: mapState.data || null
     readonly property bool canPlay: active && !reducedMotion && visualQuality !== "static" && mapData !== null && mapData.hours.length > 1
+    readonly property var hourTickLabels: compactHourLabels()
+    function compactHourLabels() {
+        const labels = mapData ? mapState.hour_labels : [];
+        const parts = labels.map(label => label.match(/^(.*), (\d{1,2}):(\d{2}) (AM|PM) (\S+)$/));
+        const firstDate = parts.length && parts[0] ? parts[0][1] : "";
+        return parts.map((part, index) => {
+            if (!part)
+                return labels[index];
+            const clock = part[2] + (part[3] === "00" ? "" : ":" + part[3]) + " " + part[4];
+            const repeated = parts.some((other, otherIndex) => otherIndex !== index && other && other[1] === part[1] && other[2] === part[2] && other[3] === part[3] && other[4] === part[4]);
+            return (part[1] !== firstDate ? part[1].split(" ")[0] + " " : "") + clock + (repeated ? " " + part[5] : "");
+        });
+    }
     function startPlayback() {
         if (canPlay)
             playing = true;
@@ -165,29 +178,138 @@ ColumnLayout {
         visible: root.selectedLayer !== "radar"
         Layout.fillWidth: true
         ActionButton {
+            Layout.alignment: Qt.AlignTop
             objectName: "mapPreviousHour"
             text: "Previous"
             enabled: root.mapData && root.hourIndex > 0
             onClicked: root.selectHour(root.hourIndex - 1)
         }
-        Slider {
-            id: timeline
-            objectName: "mapTimeline"
+        ColumnLayout {
+            id: hourRail
             Layout.fillWidth: true
-            from: 0
-            to: root.mapData ? root.mapData.hours.length - 1 : 0
-            stepSize: 1
-            value: root.hourIndex
-            enabled: root.mapData && root.mapData.hours.length > 1
-            onMoved: root.selectHour(Math.round(value))
+            Layout.alignment: Qt.AlignTop
+            spacing: 0
+            readonly property int count: root.mapData ? root.mapData.hours.length : 0
+            readonly property real minimumLabelSpacing: {
+                // Reading the font also keeps measurements reactive to text size.
+                const font = hourFont.font;
+                return Math.max(0, ...root.hourTickLabels.map(label => hourFont.advanceWidth(label))) + 12;
+            }
+            readonly property int labelStride: Math.max(1, Math.ceil(minimumLabelSpacing / Math.max(1, timeline.tickTravel / Math.max(1, count - 1))))
+            FontMetrics {
+                id: hourFont
+                font.family: "sans-serif"
+                font.pixelSize: Tokens.fontSize(11)
+            }
+            Slider {
+                id: timeline
+                objectName: "mapTimeline"
+                Layout.fillWidth: true
+                implicitHeight: Math.max(40, Tokens.fontSize(28))
+                padding: 0
+                from: 0
+                to: root.mapData ? root.mapData.hours.length - 1 : 0
+                stepSize: 1
+                snapMode: Slider.SnapAlways
+                value: root.hourIndex
+                enabled: root.mapData && root.mapData.hours.length > 1
+                hoverEnabled: true
+                readonly property real tickStart: leftPadding + handle.width / 2
+                readonly property real tickTravel: Math.max(0, availableWidth - handle.width)
+                readonly property int previewIndex: Math.max(0, Math.min(to, Math.round((hoverProbe.point.position.x - tickStart) / Math.max(1, tickTravel) * to)))
+                Accessible.name: "Forecast map hour"
+                Accessible.description: root.mapData ? root.mapState.hour_labels[root.hourIndex] : "Forecast map not loaded"
+                onMoved: root.selectHour(Math.round(value))
+                background: Item {
+                    Rectangle {
+                        x: timeline.tickStart
+                        y: parent.height / 2 - 2
+                        width: timeline.tickTravel
+                        height: 4
+                        radius: 2
+                        color: "#556c8090"
+                        Rectangle {
+                            width: parent.width * timeline.visualPosition
+                            height: parent.height
+                            radius: parent.radius
+                            color: Tokens.accent
+                        }
+                    }
+                    Repeater {
+                        model: hourRail.count
+                        Rectangle {
+                            required property int index
+                            objectName: "mapHourTick_" + index
+                            x: timeline.tickStart + timeline.tickTravel * index / Math.max(1, hourRail.count - 1) - width / 2
+                            y: parent.height / 2 - height / 2
+                            width: 1
+                            height: 10
+                            color: index === root.hourIndex ? Tokens.foreground : Tokens.secondary
+                            opacity: timeline.enabled ? 0.85 : 0.45
+                            Accessible.ignored: true
+                        }
+                    }
+                }
+                handle: Rectangle {
+                    x: timeline.leftPadding + timeline.visualPosition * timeline.tickTravel
+                    y: timeline.topPadding + (timeline.availableHeight - height) / 2
+                    width: 16
+                    height: 16
+                    radius: 8
+                    color: timeline.pressed ? Tokens.accent : Tokens.foreground
+                    border.color: timeline.activeFocus ? Tokens.accent : "#30435e"
+                    border.width: timeline.activeFocus ? 2 : 1
+                    opacity: timeline.enabled ? 1 : 0.45
+                }
+                HoverHandler {
+                    id: hoverProbe
+                }
+                ToolTip {
+                    id: preview
+                    visible: timeline.enabled && hoverProbe.hovered
+                    text: root.mapData ? root.mapState.hour_labels[timeline.pressed ? root.hourIndex : timeline.previewIndex] : ""
+                    delay: 150
+                    padding: 10
+                    contentItem: PlainLabel {
+                        text: preview.text
+                        color: Tokens.foreground
+                        font.pixelSize: Tokens.fontSize(13)
+                    }
+                    background: Rectangle {
+                        radius: 8
+                        color: "#162b3e"
+                        border.color: Tokens.border
+                    }
+                }
+            }
+            Item {
+                Layout.fillWidth: true
+                implicitHeight: hourFont.height + 4
+                visible: hourRail.count > 0
+                Repeater {
+                    model: hourRail.count
+                    PlainLabel {
+                        required property int index
+                        objectName: "mapHourLabel_" + index
+                        visible: index === 0 || index === hourRail.count - 1 || (index % hourRail.labelStride === 0 && hourRail.count - 1 - index >= hourRail.labelStride && x >= hourFont.advanceWidth(root.hourTickLabels[0] || "") + 6 && x + width <= parent.width - hourFont.advanceWidth(root.hourTickLabels[hourRail.count - 1] || "") - 6)
+                        text: root.hourTickLabels[index] || ""
+                        font.pixelSize: hourFont.font.pixelSize
+                        x: Math.max(0, Math.min(parent.width - width, timeline.tickStart + timeline.tickTravel * index / Math.max(1, hourRail.count - 1) - width / 2))
+                        color: Tokens.secondary
+                        Accessible.ignored: true
+                    }
+                }
+            }
         }
         ActionButton {
+            Layout.alignment: Qt.AlignTop
             objectName: "mapNextHour"
             text: "Next"
             enabled: root.mapData && root.hourIndex < root.mapData.hours.length - 1
             onClicked: root.selectHour(root.hourIndex + 1)
         }
         ActionButton {
+            Layout.alignment: Qt.AlignTop
             objectName: "mapPlayback"
             text: root.playing ? "Stop" : "Play"
             accessibleLabel: root.playing ? "Stop map playback and return to the current hour" : "Play the map forecast timeline"
@@ -197,6 +319,7 @@ ColumnLayout {
         }
     }
     PlainLabel {
+        objectName: "mapSelectedTime"
         visible: root.selectedLayer !== "radar"
         Layout.fillWidth: true
         text: root.mapData ? "Forecast valid " + root.mapState.hour_labels[root.hourIndex] + " · Hour " + (root.hourIndex + 1) + " of " + root.mapData.hours.length : root.hasLocation ? "Local model maps load as you scroll here" : "Choose a location to see local maps"
