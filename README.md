@@ -380,7 +380,7 @@ Watching continues while the window is hidden. Use Stop watching or Quit app to
 end it. Saved opt-in resumes on your next manual launch; no autostart or service
 is installed. Notifications do not require native desktop effects.
 
-Development builds also expose **Official US warnings** in this section. This
+Settings also offers **Official US warnings** in this section. This
 separate opt-in monitors the primary place even while you browse another city
 or hide the window. Choose a severity threshold, local quiet hours, an optional
 urgent override, or a one-hour delivery pause. The pause stops all warning
@@ -402,8 +402,8 @@ confirm that a notice was read. Failed or uncertain attempts are not retried
 automatically, avoiding duplicate delivery after restart. Controlled end-to-end
 warning delivery and isolated Wayland activation tests pass. Notification clicks
 restore minimized windows and forward available desktop activation tokens;
-focus remains subject to compositor policy. Enabled-monitor performance and
-real-desktop compatibility validation remain in progress before release.
+focus remains subject to compositor policy. Controlled tests do not establish
+compatibility with every desktop notification daemon or compositor.
 
 ## Air quality
 
@@ -444,10 +444,11 @@ by Open-Meteo; values are rounded for display.
 
 ## Local weather map
 
-Scroll to **Local weather maps** on the main forecast screen. **Precipitation**
-is selected first; **Temperature** and **Wind** share its forecast timeline,
-centered on the viewed location with a fixed 10-mile radius. **Radar** switches
-to recent observations with its own timeline and movable map. Only the
+Scroll to **Local weather maps** on the main forecast screen. **Radar**
+is selected first and opens paused on the newest available observation.
+**Precipitation**, **Temperature** and **Wind** share a forecast timeline,
+centered on the viewed location with a fixed 10-mile radius. Radar has
+its own observation timeline and movable map. Only the
 selected map is created when the section enters view; leaving it releases the
 map and stops rendering. Tabs reuse the loaded forecast and basemap tiles.
 Temperature shading, restrained wind trails, and modeled hourly precipitation
@@ -473,8 +474,9 @@ radar or a live measurement. Zero precipitation has no shading.
 
 The **Radar** tab shows NOAA/NWS MRMS reflectivity for the contiguous United
 States, on an OpenStreetMap background. It loads only while selected and in
-view. The newest image appears first, followed by up to two hours of history
-(at most 24 observations, sampled about five minutes apart). The displayed local
+view. The newest image appears first. Play or browsing the timeline loads up
+to two hours of history (at most 24 observations, sampled about five minutes
+apart). The displayed local
 observation time changes only after its image is ready. Previous/Next and the
 slider select observations; Play loops the available history, and Latest returns
 to the newest image. Reduced motion and Static quality disable playback.
@@ -490,7 +492,7 @@ Radar fetches stop when the map closes, goes offscreen, or the app is hidden.
 Only the displayed and next image are decoded for playback. Encoded frame history
 is limited to 12 MiB for one viewport and retained for five minutes after closing,
 then reclaimed on the next ordinary service tick. Changing the view discards its
-old imagery. No radar history is written to disk. Initial history is fetched
+old imagery. No radar history is written to disk. Requested history is fetched
 sequentially, with at least 500 ms between request starts; metadata refreshes at
 most once every two minutes while viewed. Failed requests back off for at least
 a minute. The provider receives the selected map bounds and observation times.
