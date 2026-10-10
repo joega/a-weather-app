@@ -888,7 +888,7 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(eval("root.units").toString(), QString("C"));
         QVERIFY(eval("root.automaticUnits").toBool());
         checkBar(celsiusLabel);
-        QCOMPARE(named("unitsChoice")->property("displayText").toString(), QString("Auto (°C)"));
+        QCOMPARE(named("unitsChoice")->property("displayText").toString(), QString("°C"));
         QVERIFY(!QFile::exists(fixture.state + "/controls.json"));
         for (const auto& units : QStringList{"F", "C", "F", "C"}) {
             selectUnits(units);

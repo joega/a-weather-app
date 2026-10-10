@@ -1917,7 +1917,7 @@ class FrontendTest : public QObject {
         auto* heading = root->findChild<QQuickItem*>("locationHeading");
         QVERIFY(share && refresh && location && heading);
         QCOMPARE(share->parentItem(), location->parentItem());
-        QVERIFY(share->parentItem() != refresh->parentItem());
+        QCOMPARE(share->parentItem(), refresh->parentItem());
         QCOMPARE(heading->property("text").toString(), QString("Boston, Massachusetts"));
         QCOMPARE(root->property("region").toString(), QString("United States"));
         QVERIFY(share->property("text").toString().isEmpty());
@@ -1940,7 +1940,7 @@ class FrontendTest : public QObject {
                 window->resize(width, 850);
                 QTest::qWait(120);
                 QVERIFY(share->mapToScene(QPointF()).x() > heading->mapToScene(QPointF()).x());
-                QVERIFY(refresh->mapToScene(QPointF()).y() > share->mapToScene(QPointF()).y());
+                QCOMPARE(refresh->mapToScene(QPointF()).y(), share->mapToScene(QPointF()).y());
                 QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
             }
         }

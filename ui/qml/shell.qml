@@ -697,7 +697,7 @@ QtObject {
             sunElevation: root.atmosphere ? root.atmosphere.sun_elevation : 20
             sunAzimuth: root.atmosphere ? root.atmosphere.sun_azimuth : 180
             celestialLeft: Math.max(width * 0.6, forecastColumn.x + currentTemperature.width + Tokens.fontSize(48) + height * 0.024)
-            celestialTop: forecastColumn.y + Math.max(currentTemperature.y + currentTemperature.height / 2, headerActions.y + headerActions.height + 24 + height * 0.024)
+            celestialTop: forecastColumn.y + Math.max(conditions.y + currentTemperature.y + currentTemperature.height / 2, headerActions.y + headerActions.height + 24 + height * 0.024)
             wind: root.atmosphere ? root.atmosphere.wind_x : 0
             windSpeed: root.current && root.current.wind_speed_m_s !== null ? root.current.wind_speed_m_s : 0
             rainAmount: root.atmosphere ? root.atmosphere.rain_intensity : 0
@@ -751,14 +751,33 @@ QtObject {
                         spacing: 16
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Math.max(conditions.height, headerActions.y + headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0), headerAlerts.visible ? headerAlerts.y + headerAlerts.height : 0)
+                            Layout.preferredHeight: Math.max(conditions.y + conditions.height, headerActions.y + headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0), headerAlerts.visible ? headerAlerts.y + headerAlerts.height : 0)
                             Row {
-                                id: locationTools
-                                objectName: "locationTools"
+                                id: headerActions
+                                objectName: "headerActions"
+                                readonly property real controlHeight: Math.max(40, headerUnits.implicitHeight)
+                                spacing: 5
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                spacing: 5
                                 ActionButton {
+                                    id: locationsButton
+                                    height: headerActions.controlHeight
+                                    objectName: "openLocation"
+                                    iconName: "map-pin"
+                                    iconSize: 22
+                                    accessibleLabel: "Change location (Ctrl+L)"
+                                    onClicked: root.openLocations()
+                                }
+                                ActionButton {
+                                    height: headerActions.controlHeight
+                                    objectName: "refreshForecast"
+                                    iconName: "refresh"
+                                    accessibleLabel: "Refresh forecast"
+                                    enabled: !bridge.busy
+                                    onClicked: bridge.send("refresh")
+                                }
+                                ActionButton {
+                                    height: headerActions.controlHeight
                                     objectName: "openForecastShare"
                                     iconName: "share"
                                     iconSize: 20
@@ -766,40 +785,10 @@ QtObject {
                                     enabled: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
                                     onClicked: root.openShare()
                                 }
-                                ActionButton {
-                                    id: locationsButton
-                                    objectName: "openLocation"
-                                    iconName: "map-pin"
-                                    iconSize: 22
-                                    accessibleLabel: "Change location (Ctrl+L)"
-                                    onClicked: root.openLocations()
-                                }
-                            }
-                            Flow {
-                                id: headerActions
-                                objectName: "headerActions"
-                                spacing: 5
-                                readonly property real preferredWidth: {
-                                    let total = -spacing;
-                                    for (const item of children)
-                                        if (item.visible)
-                                            total += item.implicitWidth + spacing;
-                                    return Math.max(0, total);
-                                }
-                                width: Math.min(parent.width - headerBody.conditionsWidth - 20, preferredWidth)
-                                height: childrenRect.height
-                                anchors.right: parent.right
-                                anchors.top: parent.top
-                                anchors.topMargin: Math.max(locationTitle.height, locationTools.height) + 6
-                                ActionButton {
-                                    objectName: "refreshForecast"
-                                    iconName: "refresh"
-                                    accessibleLabel: "Refresh forecast"
-                                    enabled: !bridge.busy
-                                    onClicked: bridge.send("refresh")
-                                }
                                 UnitsChoice {
+                                    id: headerUnits
                                     objectName: "unitsChoice"
+                                    abbreviated: true
                                     units: root.units
                                     automaticUnits: root.automaticUnits
                                     enabled: bridge.available && !bridge.busy
@@ -807,14 +796,21 @@ QtObject {
                                 }
                                 ActionButton {
                                     id: settingsButton
+                                    height: headerActions.controlHeight
                                     objectName: "openEffects"
                                     iconName: "sliders"
-                                    text: "Settings"
+                                    iconSize: 20
+                                    accessibleLabel: "Settings"
                                     onClicked: root.openSettings(false)
                                 }
                                 ActionButton {
+                                    height: headerActions.controlHeight
                                     objectName: "liveDesktop"
-                                    text: root.liveDesktop ? "Live desktop · On" : "Live desktop"
+                                    iconName: "desktop"
+                                    iconSize: 20
+                                    accessibleLabel: root.liveDesktop ? "Live desktop: On — turn off" : "Live desktop: Off — turn on"
+                                    Accessible.checkable: true
+                                    Accessible.checked: root.liveDesktop
                                     selected: root.liveDesktop
                                     enabled: bridge.available && !bridge.busy
                                     onClicked: {
@@ -844,12 +840,14 @@ QtObject {
                             }
                             Column {
                                 id: conditions
+                                readonly property bool inlineTools: parent.width >= headerActions.width + Tokens.fontSize(340)
+                                y: inlineTools ? 0 : headerActions.height + 8 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
                                 spacing: 3
                                 width: parent.width
                                 Row {
                                     id: locationTitle
                                     spacing: 10
-                                    width: parent.width - locationTools.width - 16
+                                    width: conditions.inlineTools ? parent.width - headerActions.width - 16 : parent.width
                                     PlainLabel {
                                         id: locationHeading
                                         objectName: "locationHeading"
@@ -901,7 +899,7 @@ QtObject {
                                 visible: root.activeAlerts.length > 0 && window.width >= 850
                                 anchors.right: parent.right
                                 anchors.top: headerActions.bottom
-                                anchors.topMargin: 16 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
+                                anchors.topMargin: Math.max(16 + (updatedNotice.visible ? updatedNotice.height + 8 : 0), conditions.y + locationTitle.height - headerActions.height + 8)
                                 width: parent.width * 0.49
                                 height: implicitHeight
                                 alerts: root.activeAlerts

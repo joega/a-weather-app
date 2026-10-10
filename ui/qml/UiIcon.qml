@@ -80,6 +80,14 @@ Canvas {
             ctx.lineTo(17.7, 1.3);
             ctx.stroke();
             break;
+        case "desktop":
+            ctx.rect(3, 4, 18, 13);
+            ctx.moveTo(12, 17);
+            ctx.lineTo(12, 21);
+            ctx.moveTo(8, 21);
+            ctx.lineTo(16, 21);
+            ctx.stroke();
+            break;
         case "info":
             ctx.arc(12, 12, 9, 0, Math.PI * 2);
             ctx.moveTo(12, 10.5);
