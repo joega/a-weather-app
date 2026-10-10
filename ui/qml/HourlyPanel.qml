@@ -13,6 +13,7 @@ GlassPanel {
     property string windUnits: "auto"
     property bool compact: false
     property var values: Dashboard.defaults().hourly
+    readonly property bool hasExtraValues: values.some(key => key !== "temperature_c" && key !== "precipitation_probability")
     function valueText(hour, key) {
         if (key === "temperature_c" || key === "apparent_temperature_c")
             return Forecast.temp(hour[key], units);
@@ -23,7 +24,7 @@ GlassPanel {
         return Forecast.percent(hour[key]);
     }
     signal hourSelected(var hour)
-    implicitHeight: (root.hours.length === 0 ? 124 : (compact ? 150 : 158) + values.length * (compact ? 42 : 46)) * Tokens.textScale
+    implicitHeight: root.hours.length === 0 ? 124 * Tokens.textScale : rail.y + rail.height + 36 * Tokens.textScale
     PlainLabel {
         x: 20
         y: 14
@@ -45,7 +46,7 @@ GlassPanel {
         x: 16
         y: 50 * Tokens.textScale
         width: parent.width - 32
-        height: root.implicitHeight - 82 * Tokens.textScale
+        height: hourRow.height + 10 * Tokens.textScale
         contentWidth: hourRow.width
         contentHeight: height
         clip: true
@@ -60,7 +61,7 @@ GlassPanel {
                     required property var modelData
                     required property int index
                     objectName: "forecastHour_" + index
-                    width: Math.max(132 * Tokens.textScale, rail.width / 10)
+                    width: root.hasExtraValues ? Math.max(132 * Tokens.textScale, rail.width / 10) : Math.max(86 * Tokens.textScale, rail.width / 12)
                     height: implicitContentHeight + topPadding + bottomPadding
                     padding: root.compact ? 4 : 8
                     Accessible.name: modelData.local_hour + ", " + Forecast.title(modelData.condition) + ", " + root.values.map(key => Dashboard.title(key) + " " + root.valueText(modelData, key)).join(", ") + ". Open details"
@@ -95,9 +96,12 @@ GlassPanel {
                                 id: valueRow
                                 required property string modelData
                                 required property int index
+                                readonly property bool probability: modelData === "precipitation_probability"
+                                readonly property bool hasProbability: typeof hourButton.modelData.precipitation_probability === "number"
                                 width: hourButton.width - hourButton.leftPadding - hourButton.rightPadding
                                 spacing: 1
                                 PlainLabel {
+                                    visible: valueRow.modelData !== "temperature_c" && !valueRow.probability
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     text: Dashboard.title(valueRow.modelData)
@@ -106,11 +110,34 @@ GlassPanel {
                                 }
                                 PlainLabel {
                                     objectName: "hourlyValue_" + hourButton.index + "_" + valueRow.modelData
+                                    visible: !valueRow.probability
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     text: root.valueText(hourButton.modelData, valueRow.modelData)
                                     font.pixelSize: Tokens.fontSize(valueRow.index === 0 ? 22 : 16)
-                                    color: valueRow.modelData === "precipitation_probability" ? Tokens.accent : Tokens.foreground
+                                    color: Tokens.foreground
+                                }
+                                Rectangle {
+                                    visible: valueRow.probability && valueRow.hasProbability
+                                    width: 44 * Tokens.textScale
+                                    height: 5 * Tokens.textScale
+                                    radius: 2 * Tokens.textScale
+                                    color: "#36566e"
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    Rectangle {
+                                        width: valueRow.hasProbability ? parent.width * hourButton.modelData.precipitation_probability : 0
+                                        height: parent.height
+                                        radius: parent.radius
+                                        color: Tokens.accent
+                                    }
+                                }
+                                PlainLabel {
+                                    visible: valueRow.probability && !valueRow.hasProbability
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: "—"
+                                    font.pixelSize: Tokens.fontSize(14)
+                                    color: Tokens.secondary
                                 }
                             }
                         }
@@ -124,7 +151,7 @@ GlassPanel {
         visible: root.hours.length > 0
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 12
-        text: "Select an hour for details"
+        text: root.values.includes("precipitation_probability") ? "Precipitation chance · Select an hour for details" : "Select an hour for details"
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }
