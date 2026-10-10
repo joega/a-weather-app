@@ -1,6 +1,6 @@
 GO ?= go
 APP_MODE ?= development
-APP_VERSION ?= 0.70.1
+APP_VERSION ?= 0.70.2
 STATICCHECK_VERSION := v0.8.1
 GOIMPORTS_VERSION := v0.51.0
 LINT_TOOLS := $(CURDIR)/packaging/lint-tools
