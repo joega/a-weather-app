@@ -7,8 +7,8 @@ ComboBox {
     id: root
     property var enabledOptions: []
     property real popupWidth: width
-    font.pixelSize: 17
-    implicitHeight: 42
+    font.pixelSize: Tokens.fontSize(17)
+    implicitHeight: Math.max(42, contentItem.implicitHeight + topPadding + bottomPadding)
     implicitWidth: 240
     leftPadding: 12
     rightPadding: 36
@@ -37,7 +37,7 @@ ComboBox {
         required property int index
         required property var modelData
         width: root.popup.width - root.popup.leftPadding - root.popup.rightPadding
-        height: 40
+        height: Math.max(40, implicitContentHeight + 16)
         enabled: root.enabledOptions.length === 0 || root.enabledOptions[option.index]
         highlighted: root.highlightedIndex === option.index
         contentItem: PlainLabel {

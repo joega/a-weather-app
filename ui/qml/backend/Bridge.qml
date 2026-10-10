@@ -404,6 +404,8 @@ Item {
             request.active = patch.active;
         if (op === "set_dashboard")
             request.dashboard = patch;
+        if (op === "set_appearance")
+            request.appearance = patch;
         if (op === "set_controls")
             request.controls = patch;
         if (op === "set_notifications" || op === "set_warning_notifications")
@@ -825,7 +827,7 @@ Item {
                 if (value.ok)
                     error = "";
                 else
-                    error = value.error === "location_limit" ? "You can save up to 20 places. Remove one before adding another." : value.error === "offline" ? "Adding a place requires an internet connection. Saved places remain available." : value.error === "save_unconfirmed" ? "The change is visible, but saving could not be confirmed." : completedOp === "saved_location" ? "The saved place could not be changed. Try again." : completedOp === "set_location" || completedOp === "add_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications", "set_warning_notifications", "pause_warning_notifications", "resume_warning_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
+                    error = value.error === "location_limit" ? "You can save up to 20 places. Remove one before adding another." : value.error === "offline" ? "Adding a place requires an internet connection. Saved places remain available." : value.error === "save_unconfirmed" ? "The change is visible, but saving could not be confirmed." : completedOp === "set_appearance" ? "Readability preferences could not be saved. Try again." : completedOp === "saved_location" ? "The saved place could not be changed. Try again." : completedOp === "set_location" || completedOp === "add_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications", "set_warning_notifications", "pause_warning_notifications", "resume_warning_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
             }
             drainUserAction();
         } catch (e) {

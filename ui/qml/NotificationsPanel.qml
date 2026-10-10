@@ -43,7 +43,7 @@ ColumnLayout {
     }
     PlainLabel {
         text: "Notifications"
-        font.pixelSize: 23
+        font.pixelSize: Tokens.fontSize(23)
         font.weight: Font.DemiBold
     }
     PlainLabel {
@@ -53,7 +53,7 @@ ColumnLayout {
         text: root.actionError
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.accent
     }
     PlainLabel {
@@ -62,7 +62,7 @@ ColumnLayout {
         text: "Enabled notifications keep this app running when you close its window. Reopen it from the bar to change notification settings or quit. Saved opt-in resumes when you open the app again; nothing starts at login."
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 14
+        font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
     }
     Loader {
@@ -90,7 +90,7 @@ ColumnLayout {
     }
     PlainLabel {
         text: "Hourly precipitation"
-        font.pixelSize: 20
+        font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
     PlainLabel {
@@ -99,7 +99,7 @@ ColumnLayout {
         text: "Quiet precipitation outlooks for the current hour and next three hours. Uses fresh hourly probabilities, not minute-by-minute onset predictions. Desktop effects can stay off."
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 14
+        font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
     }
     ToggleControl {
@@ -120,7 +120,7 @@ ColumnLayout {
         text: root.statusText
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 15
+        font.pixelSize: Tokens.fontSize(15)
         color: Tokens.accent
     }
     PlainLabel {
@@ -130,7 +130,7 @@ ColumnLayout {
         text: "Desktop delivery is unavailable. Install the optional libnotify package, then reopen the app. The forecast remains available."
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
     }
     PlainLabel {
@@ -140,12 +140,12 @@ ColumnLayout {
         text: "The last delivery could not be confirmed. It will not be retried for the same forecast event, to avoid duplicates."
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
     }
     PlainLabel {
         text: "Notify when hourly chance reaches"
-        font.pixelSize: 15
+        font.pixelSize: Tokens.fontSize(15)
     }
     ChoiceControl {
         Layout.fillWidth: true
@@ -186,7 +186,7 @@ ColumnLayout {
             spacing: 6
             PlainLabel {
                 text: "From"
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             ComboBox {
@@ -232,7 +232,7 @@ ColumnLayout {
             spacing: 6
             PlainLabel {
                 text: "Until"
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             ComboBox {
@@ -280,7 +280,7 @@ ColumnLayout {
         text: "Local time · " + root.timezone
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
     }
     RowLayout {
@@ -313,7 +313,7 @@ ColumnLayout {
         text: "Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session."
         wrapMode: Text.Wrap
         elide: Text.ElideNone
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
     }
     ActionButton {

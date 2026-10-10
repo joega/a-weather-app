@@ -70,12 +70,13 @@ Popup {
         Qt.callLater(() => {
             if (ticket.canceled)
                 return;
-            const height = Math.ceil(card.height * 720 / card.width);
+            const width = Math.min(720, Math.floor(1600 * card.width / card.height));
+            const height = Math.ceil(card.height * width / card.width);
             // Qt multiplies the grab target by the window's display scale.
             // Keep the exported physical pixels bounded on HiDPI displays too.
             const windowScale = card.Window.window.devicePixelRatio;
             const scale = typeof windowScale === "number" ? windowScale : card.Screen.devicePixelRatio;
-            const target = Qt.size(Math.floor(720 / scale), Math.floor(height / scale));
+            const target = Qt.size(Math.floor(width / scale), Math.floor(height / scale));
             if (height > 1600 || target.width < 1 || target.height < 1 || !card.grabToImage(result => {
                 if (ticket.canceled)
                     return;
@@ -153,7 +154,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Share forecast"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -197,7 +198,7 @@ Popup {
                 Layout.fillWidth: true
                 visible: root.notice !== ""
                 text: root.notice
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 Accessible.role: Accessible.AlertMessage

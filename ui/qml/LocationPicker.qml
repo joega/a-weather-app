@@ -30,7 +30,7 @@ GlassPanel {
     signal addRequested(var selection)
     signal searchRequested(var search)
     signal cancelSearchRequested
-    color: "#fc2c455a"
+    color: Tokens.highContrast ? "#2c455a" : "#fc2c455a"
 
     function focusInitial() {
         if (page === "add")
@@ -86,7 +86,7 @@ GlassPanel {
             Layout.fillWidth: true
             PlainLabel {
                 text: root.page === "edit" ? "Edit location" : "Locations"
-                font.pixelSize: 30
+                font.pixelSize: Tokens.fontSize(30)
                 Layout.fillWidth: true
             }
             ActionButton {
@@ -102,7 +102,7 @@ GlassPanel {
             color: Tokens.accent
             wrapMode: Text.Wrap
             elide: Text.ElideNone
-            font.pixelSize: 16
+            font.pixelSize: Tokens.fontSize(16)
         }
         PlainLabel {
             Layout.fillWidth: true
@@ -110,7 +110,7 @@ GlassPanel {
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
-            font.pixelSize: 14
+            font.pixelSize: Tokens.fontSize(14)
         }
         RowLayout {
             Layout.fillWidth: true
@@ -139,7 +139,7 @@ GlassPanel {
             color: Tokens.gold
             wrapMode: Text.Wrap
             elide: Text.ElideNone
-            font.pixelSize: 14
+            font.pixelSize: Tokens.fontSize(14)
         }
         ListView {
             id: places
@@ -214,26 +214,26 @@ GlassPanel {
                             PlainLabel {
                                 Layout.fillWidth: true
                                 text: placeRow.label
-                                font.pixelSize: 18
+                                font.pixelSize: Tokens.fontSize(18)
                                 font.weight: Font.DemiBold
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
                                 visible: placeRow.modelData.label !== ""
                                 text: placeRow.modelData.name
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 color: Tokens.secondary
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
                                 text: (placeRow.modelData.id === root.registry.primary ? "Primary · " : "") + (placeRow.modelData.id === root.registry.viewed ? "Viewing · " : "") + (placeRow.modelData.mode === "auto" ? "Current location" : placeRow.modelData.country_code || "Country unavailable")
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 color: Tokens.accent
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
                                 text: placeRow.summary === null ? "Not loaded" : (placeRow.summary.freshness === "invalid_future" ? "Invalid timestamp" : placeRow.summary.freshness === "expired" ? "Expired" : placeRow.summary.freshness === "stale" ? "Stale" : "Saved") + " · " + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP")
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 color: Tokens.secondary
                             }
                             PlainLabel {
@@ -241,12 +241,12 @@ GlassPanel {
                                 visible: placeRow.summary !== null && (placeRow.summary.alert_status === "active" || placeRow.summary.alert_status === "cached")
                                 text: Forecast.savedAlertText(placeRow.modelData)
                                 color: Tokens.gold
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                             }
                         }
                         PlainLabel {
                             text: placeRow.usable && placeRow.summary.temperature_c !== null ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units : "—"
-                            font.pixelSize: 24
+                            font.pixelSize: Tokens.fontSize(24)
                         }
                     }
                 }
@@ -282,12 +282,12 @@ GlassPanel {
                         text: root.edited ? root.edited.name : ""
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
-                        font.pixelSize: 20
+                        font.pixelSize: Tokens.fontSize(20)
                     }
                     PlainLabel {
                         text: "Custom name"
                         color: Tokens.secondary
-                        font.pixelSize: 14
+                        font.pixelSize: Tokens.fontSize(14)
                     }
                     TextField {
                         id: aliasInput
@@ -300,7 +300,7 @@ GlassPanel {
                         placeholderTextColor: Tokens.secondary
                         selectByMouse: true
                         enabled: root.canAct
-                        font.pixelSize: 17
+                        font.pixelSize: Tokens.fontSize(17)
                         background: Rectangle {
                             implicitHeight: 44
                             radius: 10
@@ -358,7 +358,7 @@ GlassPanel {
                         color: Tokens.secondary
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
-                        font.pixelSize: 14
+                        font.pixelSize: Tokens.fontSize(14)
                     }
                     Rectangle {
                         Layout.fillWidth: true
@@ -371,7 +371,7 @@ GlassPanel {
                         color: Tokens.secondary
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
-                        font.pixelSize: 14
+                        font.pixelSize: Tokens.fontSize(14)
                     }
                     SettingsComboBox {
                         id: replacement
@@ -419,7 +419,7 @@ GlassPanel {
                     PlainLabel {
                         text: "Or use a 5-digit US ZIP code"
                         color: Tokens.secondary
-                        font.pixelSize: 14
+                        font.pixelSize: Tokens.fontSize(14)
                     }
                     RowLayout {
                         Layout.fillWidth: true
@@ -437,7 +437,7 @@ GlassPanel {
                             placeholderTextColor: Tokens.secondary
                             enabled: root.canAct && !root.adding && root.rows.length < 20
                             inputMethodHints: Qt.ImhDigitsOnly
-                            font.pixelSize: 17
+                            font.pixelSize: Tokens.fontSize(17)
                             selectByMouse: true
                             background: Rectangle {
                                 implicitHeight: 44
@@ -473,7 +473,7 @@ GlassPanel {
                         color: Tokens.secondary
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
-                        font.pixelSize: 13
+                        font.pixelSize: Tokens.fontSize(13)
                     }
                 }
             }
@@ -485,7 +485,7 @@ GlassPanel {
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
-            font.pixelSize: 12
+            font.pixelSize: Tokens.fontSize(12)
         }
     }
 }

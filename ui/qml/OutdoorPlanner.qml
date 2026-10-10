@@ -116,7 +116,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Find a time to go outside"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -167,7 +167,7 @@ Popup {
                 visible: root.preferences !== null && !root.editing
                 Layout.fillWidth: true
                 text: !root.preferences ? "" : root.label("hours", root.preferences.hours) + " · " + root.label("min_temperature_c", root.preferences.min_temperature_c) + " to " + root.label("max_temperature_c", root.preferences.max_temperature_c) + " · " + (root.preferences.daylight_only ? "Daylight only" : "Day or night") + "\nHourly precipitation: up to " + root.label("max_probability", root.preferences.max_probability) + " and " + root.label("max_hourly_precipitation_mm", root.preferences.max_hourly_precipitation_mm) + "\nWind up to " + root.label("max_wind_m_s", root.preferences.max_wind_m_s) + " · Gusts up to " + root.label("max_gust_m_s", root.preferences.max_gust_m_s)
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -226,7 +226,7 @@ Popup {
                         PlainLabel {
                             Layout.fillWidth: true
                             text: preferenceRow.modelData.title
-                            font.pixelSize: 13
+                            font.pixelSize: Tokens.fontSize(13)
                             color: Tokens.secondary
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
@@ -258,7 +258,7 @@ Popup {
                 visible: root.editing
                 Layout.fillWidth: true
                 text: "Find times saves these preferences for every place. Hourly precipitation is liquid equivalent, including rain and melted snow."
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -294,7 +294,7 @@ Popup {
                         PlainLabel {
                             Layout.fillWidth: true
                             text: resultCard.modelData.range_label
-                            font.pixelSize: 18
+                            font.pixelSize: Tokens.fontSize(18)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
@@ -309,7 +309,7 @@ Popup {
                         PlainLabel {
                             Layout.fillWidth: true
                             text: Outdoor.metrics(resultCard.modelData, root.units, root.windUnits)
-                            font.pixelSize: 13
+                            font.pixelSize: Tokens.fontSize(13)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
@@ -322,7 +322,7 @@ Popup {
                 Layout.fillWidth: true
                 text: root.plan && root.plan.save_status === "unconfirmed" ? "These preferences apply here, but saving could not be confirmed." : "Saved preferences could not be read. Default preferences are shown."
                 color: "#ffd99b"
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -330,7 +330,7 @@ Popup {
                 Layout.fillWidth: true
                 text: "Hourly forecast by Open-Meteo · Times are local to this place. Windows are ranked by your preferences, then earliest first; incomplete data ranks last. UV, air quality, ice and official warnings are not included in the ranking."
                 color: Tokens.secondary
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }

@@ -42,13 +42,13 @@ ColumnLayout {
     }
     PlainLabel {
         text: "Official US warnings"
-        font.pixelSize: 20
+        font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
     PlainLabel {
         Layout.fillWidth: true
         text: "National Weather Service warnings for " + root.primaryName + ". Checks run roughly every 2–3 minutes when available. Delivery may be delayed; this is not a real-time emergency alert service."
-        font.pixelSize: 14
+        font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -69,7 +69,7 @@ ColumnLayout {
         objectName: "warningMonitoringStatus"
         Layout.fillWidth: true
         text: Forecast.warningStatus(root.notifications, root.serviceAvailable)
-        font.pixelSize: 15
+        font.pixelSize: Tokens.fontSize(15)
         color: Tokens.accent
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -80,7 +80,7 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: root.settings.enabled && root.notifications.fetched_at !== null
         text: root.notifications.fetched_at ? "Latest warning data: " + root.notifications.fetched_at.replace("T", " ").replace("Z", " UTC") : ""
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -89,7 +89,7 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: !root.notifications.supported
         text: "Official warning delivery requires the native desktop app and a supported warning feed."
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -100,7 +100,7 @@ ColumnLayout {
         spacing: 12
         PlainLabel {
             text: "New warnings to deliver"
-            font.pixelSize: 15
+            font.pixelSize: Tokens.fontSize(15)
         }
         SettingsComboBox {
             objectName: "warningSeverity"
@@ -134,7 +134,7 @@ ColumnLayout {
         PlainLabel {
             Layout.fillWidth: true
             text: "Material updates and cancellations for previously attempted notices are included, even if their severity falls."
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -173,7 +173,7 @@ ColumnLayout {
             }
             PlainLabel {
                 text: "to"
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             SettingsComboBox {
                 id: quietEnd
@@ -196,7 +196,7 @@ ColumnLayout {
         PlainLabel {
             Layout.fillWidth: true
             text: "Local time · " + root.timezone
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -216,7 +216,7 @@ ColumnLayout {
         PlainLabel {
             Layout.fillWidth: true
             text: "Only imminent Severe or Extreme warnings reported as observed or likely qualify. Your desktop controls how urgent notices appear. A manual pause always stops delivery."
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -245,7 +245,7 @@ ColumnLayout {
             Layout.fillWidth: true
             visible: root.notifications.delivery === "uncertain" || root.notifications.delivery === "failed"
             text: "The last notice was not confirmed as delivered. It will not be retried automatically, to avoid duplicates."
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -254,7 +254,7 @@ ColumnLayout {
             Layout.fillWidth: true
             visible: root.notifications.ready && !root.notifications.actions
             text: "This desktop does not offer notification buttons. Open recent notices below."
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -263,7 +263,7 @@ ColumnLayout {
     PlainLabel {
         visible: root.notifications.recent.length > 0
         text: "Recent notices"
-        font.pixelSize: 17
+        font.pixelSize: Tokens.fontSize(17)
         font.weight: Font.DemiBold
     }
     Repeater {
@@ -288,14 +288,14 @@ ColumnLayout {
                 PlainLabel {
                     width: parent.width
                     text: notice.modelData.title
-                    font.pixelSize: 16
+                    font.pixelSize: Tokens.fontSize(16)
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
                 }
                 PlainLabel {
                     width: parent.width
                     text: notice.modelData.place + " · " + Forecast.warningDeliveryLabel(notice.modelData.delivery)
-                    font.pixelSize: 13
+                    font.pixelSize: Tokens.fontSize(13)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap
                     maximumLineCount: 2
@@ -312,7 +312,7 @@ ColumnLayout {
         visible: root.notifications.recent.length > 0
         Layout.fillWidth: true
         text: "Up to 16 recent notices remain available for 24 hours in this session. Desktop acceptance does not confirm that a notice was read."
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone

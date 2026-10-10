@@ -65,6 +65,15 @@ Item {
     onWindUnitsChanged: plot.requestPaint()
     onChartScaleChanged: plot.requestPaint()
     onValueFormatterChanged: plot.requestPaint()
+    Connections {
+        target: Tokens
+        function onTextScaleChanged() {
+            plot.requestPaint();
+        }
+        function onHighContrastChanged() {
+            plot.requestPaint();
+        }
+    }
     Rectangle {
         anchors.fill: parent
         color: "transparent"
@@ -74,7 +83,7 @@ Item {
     Canvas {
         id: plot
         anchors.fill: parent
-        anchors.bottomMargin: 26
+        anchors.bottomMargin: 26 * Tokens.textScale
         onWidthChanged: requestPaint()
         onHeightChanged: requestPaint()
         onPaint: {
@@ -86,11 +95,11 @@ Item {
             if (!scale)
                 return;
             const low = scale.low, high = scale.high;
-            const left = 64, right = width - 18, top = 22, bottom = height - 18;
+            const left = 64 * Tokens.textScale, right = width - 18, top = 22, bottom = height - 18;
             const x = i => left + (right - left) * (i + 0.5) / values.length;
             const y = v => bottom - (v - low) / (high - low) * (bottom - top);
-            c.font = "12px sans-serif";
-            c.fillStyle = "#b7cbdc";
+            c.font = Tokens.fontSize(12) + "px sans-serif";
+            c.fillStyle = Tokens.secondary;
             c.fillText(root.valueText(high), 0, top + 4);
             c.fillText(root.valueText(low), 0, bottom + 4);
             c.strokeStyle = "#426078";
@@ -162,16 +171,17 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked: mouse => {
                 root.forceActiveFocus();
-                root.selectHour(Math.max(0, Math.min(root.hours.length - 1, Math.floor((mouse.x - 64) / (width - 82) * root.hours.length))));
+                const left = 64 * Tokens.textScale;
+                root.selectHour(Math.max(0, Math.min(root.hours.length - 1, Math.floor((mouse.x - left) / (width - left - 18) * root.hours.length))));
             }
         }
     }
     PlainLabel {
         anchors.left: parent.left
-        anchors.leftMargin: 64
+        anchors.leftMargin: 64 * Tokens.textScale
         anchors.bottom: parent.bottom
         text: root.hours.length ? root.hours[0].local_hour : ""
-        font.pixelSize: 12
+        font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }
     PlainLabel {
@@ -179,7 +189,7 @@ Item {
         anchors.rightMargin: 18
         anchors.bottom: parent.bottom
         text: root.hours.length ? root.hours[root.hours.length - 1].local_hour : ""
-        font.pixelSize: 12
+        font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }
     PlainLabel {

@@ -80,7 +80,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Air quality outlook"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -104,7 +104,7 @@ Popup {
                 Layout.fillWidth: true
                 text: root.error === "air_outlook_in_use" ? "Air quality outlook is open in another window." : root.error === "air_outlook_context_changed" ? "The place changed. Open its outlook again." : root.state === "loading" ? "Loading air quality outlook…" : root.state === "waiting" ? "Waiting before the next update…" : root.result && root.result.fetched_at ? (root.state === "stale" ? "Cached outlook · " : "Updated ") + root.result.fetched_label + (root.result.refreshing ? " · Refreshing…" : root.result.error === "fetch_failed" ? " · Refresh unavailable; retrying while open" : root.result.error === "offline" ? " · Offline" : "") : root.result && root.result.error === "offline" ? "No air quality outlook is saved for this place." : "Air quality outlook is unavailable."
                 color: Tokens.secondary
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -146,7 +146,7 @@ Popup {
                     objectName: "airOutlookValue"
                     Layout.fillWidth: true
                     text: AirOutlook.format(root.hour ? root.hour[root.metric] : null, root.metric)
-                    font.pixelSize: 30
+                    font.pixelSize: Tokens.fontSize(30)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -161,7 +161,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Next 48 hours from the current hour" + (root.info.unit ? " · " + root.info.unit : "")
-                    font.pixelSize: 18
+                    font.pixelSize: Tokens.fontSize(18)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -213,7 +213,7 @@ Popup {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Modeled forecasts, not local station readings. CAMS global uses a roughly 45 km grid and native three-hourly output; Open-Meteo supplies hourly values. Retrieval time is not model issuance."
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -221,7 +221,7 @@ Popup {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "AQI averaging periods differ from these hourly concentrations. PM2.5 alone does not identify wildfire smoke. For health advice and local alerts, consult your air-quality authority."
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -250,7 +250,7 @@ Popup {
                 Layout.fillWidth: true
                 text: "CAMS global model data via Open-Meteo (CC BY 4.0)" + (root.result && root.result.save_failed ? "\nThis outlook could not be saved for offline use." : "")
                 color: Tokens.secondary
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }

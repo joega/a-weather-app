@@ -8,7 +8,7 @@ Button {
     property string iconName: ""
     property string accessibleLabel: ""
     property real iconSize: text === "" ? 16 : 18
-    implicitHeight: 40
+    implicitHeight: Math.max(40, contentItem.implicitHeight + 16)
     implicitWidth: Math.max(44, contentItem.implicitWidth + 28)
     Accessible.name: accessibleLabel !== "" ? accessibleLabel : text
     background: Rectangle {

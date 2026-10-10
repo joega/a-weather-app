@@ -51,7 +51,7 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Air quality · CAMS global model"
-                font.pixelSize: 20
+                font.pixelSize: Tokens.fontSize(20)
                 font.weight: Font.DemiBold
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -69,7 +69,7 @@ GlassPanel {
             Layout.fillWidth: true
             text: root.statusText
             color: Tokens.secondary
-            font.pixelSize: 14
+            font.pixelSize: Tokens.fontSize(14)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }
@@ -108,7 +108,7 @@ GlassPanel {
                         text: pollutantRow.modelData.title
                         horizontalAlignment: Text.AlignHCenter
                         color: Tokens.secondary
-                        font.pixelSize: 13
+                        font.pixelSize: Tokens.fontSize(13)
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
@@ -117,7 +117,7 @@ GlassPanel {
                         Layout.fillWidth: true
                         text: pollutantRow.modelData.value
                         horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: 22
+                        font.pixelSize: Tokens.fontSize(22)
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
@@ -127,7 +127,7 @@ GlassPanel {
                         text: pollutantRow.modelData.category
                         horizontalAlignment: Text.AlignHCenter
                         color: Tokens.secondary
-                        font.pixelSize: 13
+                        font.pixelSize: Tokens.fontSize(13)
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
@@ -138,7 +138,7 @@ GlassPanel {
             Layout.fillWidth: true
             text: "The two indices use different scales. Lower values indicate cleaner air."
             color: Tokens.secondary
-            font.pixelSize: 12
+            font.pixelSize: Tokens.fontSize(12)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }
@@ -147,7 +147,7 @@ GlassPanel {
             Layout.fillWidth: true
             text: root.airQuality.valid_label === null ? "Model forecast time unavailable" : "Model forecast valid " + root.airQuality.valid_label + " · Fetched " + root.airQuality.fetched_label
             color: Tokens.secondary
-            font.pixelSize: 12
+            font.pixelSize: Tokens.fontSize(12)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }
@@ -155,7 +155,7 @@ GlassPanel {
             Layout.fillWidth: true
             text: "Air quality updates separately, at most hourly. Forecast Refresh does not force an air quality update."
             color: Tokens.secondary
-            font.pixelSize: 12
+            font.pixelSize: Tokens.fontSize(12)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }
@@ -164,7 +164,7 @@ GlassPanel {
             Layout.fillWidth: true
             text: root.airQuality.attribution
             color: Tokens.secondary
-            font.pixelSize: 11
+            font.pixelSize: Tokens.fontSize(11)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }

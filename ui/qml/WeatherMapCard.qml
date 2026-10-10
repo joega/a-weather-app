@@ -250,14 +250,14 @@ GlassPanel {
             objectName: "mapModuleTitle"
             Layout.fillWidth: true
             text: root.mapLayer === "temperature" ? "Temperature" : root.mapLayer === "wind" ? "Wind" : "Precipitation"
-            font.pixelSize: 20
+            font.pixelSize: Tokens.fontSize(20)
             font.weight: Font.DemiBold
         }
         PlainLabel {
             Layout.fillWidth: true
             text: !root.mapData ? "" : root.mapLayer === "temperature" ? "At center · " + root.temperature(root.mapData.cells[12].temperature_c[root.hourIndex]) : root.mapLayer === "wind" ? (root.pointSelected ? "Selected point · " : "At center · ") + root.pointReadout : "Modeled total in preceding hour · " + root.rain(root.mapData.cells[12].precipitation_mm[root.hourIndex])
             objectName: "mapPointReadout"
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -379,7 +379,7 @@ GlassPanel {
                     id: missingTiles
                     anchors.centerIn: parent
                     text: "Geographic background unavailable"
-                    font.pixelSize: 12
+                    font.pixelSize: Tokens.fontSize(12)
                     color: "#163448"
                 }
             }
@@ -397,7 +397,7 @@ GlassPanel {
                     objectName: "mapCredit"
                     anchors.centerIn: parent
                     text: Forecast.distance(root.mapData ? root.mapData.radius_miles * 1609.344 : 16093.44, root.units) + " radius · © OpenStreetMap contributors (ODbL)"
-                    font.pixelSize: 11
+                    font.pixelSize: Tokens.fontSize(11)
                     color: "#132f43"
                 }
                 MouseArea {
@@ -414,6 +414,10 @@ GlassPanel {
             }
             PlainLabel {
                 anchors.centerIn: parent
+                width: parent.width - 24
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
                 visible: root.mapData === null
                 text: !root.hasLocation ? "Choose a location to see local maps" : root.mapStatus === "loading" ? "Loading local model forecast…" : root.offline ? "Map unavailable offline for this location" : "Map forecast unavailable"
                 color: "#233e54"
@@ -425,7 +429,7 @@ GlassPanel {
             PlainLabel {
                 objectName: "mapLegend"
                 text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? (!root.animationActive ? "Static trails" : "Trails flow downwind") + " · tap to inspect · " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -434,7 +438,7 @@ GlassPanel {
             PlainLabel {
                 visible: root.mapLayer !== "wind" && !root.dryPrecipitation
                 text: root.mapLayer === "temperature" ? root.temperature(root.fieldMin) : root.legendRain(root.fieldMin)
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
             }
             Rectangle {
                 visible: root.mapLayer !== "wind" && !root.dryPrecipitation
@@ -456,7 +460,7 @@ GlassPanel {
             PlainLabel {
                 visible: root.mapLayer !== "wind" && !root.dryPrecipitation
                 text: root.mapLayer === "temperature" ? root.temperature(root.fieldMax) : root.legendRain(root.fieldMax)
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
             }
         }
     }

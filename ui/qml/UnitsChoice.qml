@@ -8,9 +8,9 @@ SettingsComboBox {
     property bool automaticUnits: true
     property bool compact: true
     signal chosen(var patch)
-    implicitWidth: compact ? 124 : 240
-    implicitHeight: 40
-    font.pixelSize: compact ? 15 : 17
+    implicitWidth: (compact ? 124 : 240) * Tokens.textScale
+    implicitHeight: Math.max(40, contentItem.implicitHeight + topPadding + bottomPadding)
+    font.pixelSize: Tokens.fontSize(compact ? 15 : 17)
     popupWidth: Math.max(width, 220)
     model: [
         {

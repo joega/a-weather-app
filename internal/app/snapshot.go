@@ -216,6 +216,7 @@ func (a *App) snapshot() M {
 	result["update"] = a.updateSnapshot()
 	result["air_quality"] = a.airQualitySnapshot()
 	result["dashboard"] = a.dashboardSnapshot()
+	result["appearance"] = a.appearanceSnapshot()
 	result["briefing"] = []any{}
 	if forecast != nil && (live["freshness"] == "fresh" || live["freshness"] == "stale") {
 		result["briefing"] = a.displayRows.briefing

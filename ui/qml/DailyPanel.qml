@@ -9,7 +9,7 @@ GlassPanel {
     property var days: []
     property string units: "F"
     property bool compact: false
-    readonly property int rowHeight: compact ? 33 : 37
+    readonly property int rowHeight: Math.ceil((compact ? 33 : 37) * Tokens.textScale)
     signal daySelected(var day)
     signal precipitationRequested
     property bool detailsAvailable: false
@@ -27,12 +27,12 @@ GlassPanel {
                 n = Math.max(n, d.high_c);
         return n;
     }
-    implicitHeight: root.days.length === 0 ? 124 : 66 + Math.min(10, days.length) * root.rowHeight
+    implicitHeight: root.days.length === 0 ? 124 * Tokens.textScale : 66 * Tokens.textScale + Math.min(10, days.length) * root.rowHeight
     PlainLabel {
         x: 20
         y: 14
         text: "10-day forecast"
-        font.pixelSize: 20
+        font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
     ActionButton {
@@ -55,7 +55,7 @@ GlassPanel {
     Column {
         visible: root.days.length > 0
         x: 20
-        y: 50
+        y: 50 * Tokens.textScale
         width: parent.width - 40
         Repeater {
             model: root.days.slice(0, 10)
@@ -81,31 +81,31 @@ GlassPanel {
                     PlainLabel {
                         x: 0
                         anchors.verticalCenter: parent.verticalCenter
-                        width: 58
+                        width: 58 * Tokens.textScale
                         text: dayRow.modelData.day_label
-                        font.pixelSize: 15
+                        font.pixelSize: Tokens.fontSize(15)
                     }
                     WeatherIcon {
-                        x: 58
+                        x: 58 * Tokens.textScale
                         anchors.verticalCenter: parent.verticalCenter
                         width: 34
                         height: 31
                         condition: dayRow.modelData.condition
                     }
                     PlainLabel {
-                        x: 102
+                        x: 102 * Tokens.textScale
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(0, parent.width * 0.40 - 102)
-                        visible: parent.width > 400
+                        width: Math.max(0, parent.width * 0.40 - 102 * Tokens.textScale)
+                        visible: parent.width > 400 * Tokens.textScale
                         text: Forecast.title(dayRow.modelData.condition)
-                        font.pixelSize: 13
+                        font.pixelSize: Tokens.fontSize(13)
                         color: Tokens.secondary
                     }
                     PlainLabel {
                         x: parent.width * 0.47 - 30
                         anchors.verticalCenter: parent.verticalCenter
                         text: Forecast.temp(dayRow.modelData.low_c, root.units)
-                        font.pixelSize: 15
+                        font.pixelSize: Tokens.fontSize(15)
                     }
                     Rectangle {
                         x: parent.width * 0.53
@@ -137,7 +137,7 @@ GlassPanel {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
                         text: Forecast.temp(dayRow.modelData.high_c, root.units)
-                        font.pixelSize: 15
+                        font.pixelSize: Tokens.fontSize(15)
                     }
                 }
                 Rectangle {

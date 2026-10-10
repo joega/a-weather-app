@@ -46,6 +46,11 @@ You can omit the place name; the timezone remains visible and coordinates are
 never included. Sharing uses the forecast already loaded, opens on demand and
 adds no weather requests or background polling.
 
+**Settings → Appearance** offers 100%, 125% and 150% text sizes and a
+high-contrast option with solid panels and stronger text and borders. Forecast
+rows and controls adapt to enlarged text. These preferences survive restart,
+apply to forecast image exports, and add no weather requests or polling.
+
 **Rain & snow**, beside the ten-day forecast or inside a day's details, opens
 daily liquid-equivalent precipitation, rain and showers, new snowfall, and hourly
 amounts. Choose a date to see available ground-snow and freezing-level samples.

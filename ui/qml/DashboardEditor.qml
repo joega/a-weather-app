@@ -83,7 +83,7 @@ Popup {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Customize dashboard"
-                font.pixelSize: 25
+                font.pixelSize: Tokens.fontSize(25)
             }
             ActionButton {
                 id: closeButton
@@ -99,7 +99,7 @@ Popup {
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             color: Tokens.secondary
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
         }
         TabBar {
             id: tabs
@@ -115,7 +115,7 @@ Popup {
                     required property int index
                     objectName: "dashboardEditorTab_" + index
                     text: modelData
-                    implicitHeight: 40
+                    implicitHeight: Math.max(40, implicitContentHeight + topPadding + bottomPadding)
                     background: Rectangle {
                         radius: 10
                         color: tab.checked ? "#704fa6d4" : tab.down ? "#80506a80" : "#303d5a70"
@@ -126,6 +126,8 @@ Popup {
                         text: tab.text
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
+                        wrapMode: Text.Wrap
+                        elide: Text.ElideNone
                     }
                 }
             }
@@ -153,7 +155,7 @@ Popup {
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                     color: Tokens.secondary
-                    font.pixelSize: 13
+                    font.pixelSize: Tokens.fontSize(13)
                 }
                 DashboardOrder {
                     Layout.fillWidth: true
@@ -167,7 +169,7 @@ Popup {
                     Layout.fillWidth: true
                     PlainLabel {
                         text: "Spacing"
-                        font.pixelSize: 18
+                        font.pixelSize: Tokens.fontSize(18)
                     }
                     ChoiceControl {
                         Layout.fillWidth: true
@@ -215,7 +217,7 @@ Popup {
             visible: text !== ""
             text: root.conflict ? "The saved layout changed. Reload it before applying edits." : root.message
             color: "#ffd99b"
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }

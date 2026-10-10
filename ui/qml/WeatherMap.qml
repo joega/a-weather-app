@@ -115,20 +115,22 @@ ColumnLayout {
         PlainLabel {
             Layout.fillWidth: true
             text: "Local weather maps · " + root.location
-            font.pixelSize: 21
+            font.pixelSize: Tokens.fontSize(21)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
         PlainLabel {
             text: root.selectedLayer === "radar" ? "Past observations" : root.mapData ? root.mapData.hours.length + " hours" : ""
             color: Tokens.secondary
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
         }
     }
     TabBar {
         id: layerTabs
         objectName: "mapLayerTabs"
         Layout.fillWidth: true
+        // The layout owns the bar width; its tabs divide that available space.
+        implicitWidth: 0
         currentIndex: 0
         spacing: 6
         background: Item {}
@@ -141,7 +143,8 @@ ColumnLayout {
                 objectName: "mapLayerTab" + index
                 text: modelData
                 Accessible.name: modelData === "Radar" ? "Observed radar map" : modelData + " forecast map"
-                implicitHeight: 40
+                width: (layerTabs.availableWidth - layerTabs.spacing * 3) * [0.32, 0.30, 0.18, 0.20][index]
+                implicitHeight: Math.max(40, implicitContentHeight + topPadding + bottomPadding)
                 background: Rectangle {
                     radius: 10
                     color: tab.checked ? "#704fa6d4" : tab.down ? "#80506a80" : "#303d5a70"
@@ -152,7 +155,8 @@ ColumnLayout {
                     text: tab.text
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
+                    wrapMode: Text.Wrap
+                    elide: Text.ElideNone
                 }
             }
         }
@@ -196,7 +200,9 @@ ColumnLayout {
         visible: root.selectedLayer !== "radar"
         Layout.fillWidth: true
         text: root.mapData ? "Forecast valid " + root.mapState.hour_labels[root.hourIndex] + " · Hour " + (root.hourIndex + 1) + " of " + root.mapData.hours.length : root.hasLocation ? "Local model maps load as you scroll here" : "Choose a location to see local maps"
-        font.pixelSize: 14
+        wrapMode: Text.Wrap
+        elide: Text.ElideNone
+        font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
     }
     Loader {
@@ -212,7 +218,7 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: root.selectedLayer !== "radar" && root.mapData !== null
         text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km * 1000, root.units) + " · 5×5 samples requested ~" + Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units) + " apart · smooth visual interpolation, no added forecast detail · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""
-        font.pixelSize: 12
+        font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -221,7 +227,7 @@ ColumnLayout {
         Layout.fillWidth: true
         visible: root.selectedLayer !== "radar" && root.mapData !== null
         text: root.mapData ? root.mapData.attribution + (root.mapData.resolution_km >= 10 ? " · Coarse global pattern; neighborhood detail unavailable." : "") : ""
-        font.pixelSize: 11
+        font.pixelSize: Tokens.fontSize(11)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone

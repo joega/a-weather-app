@@ -840,6 +840,23 @@ function locationErrorText(error) {
             save_unconfirmed: "Location changed, but saving could not be confirmed. Try again."
         })[error] || "";
 }
+function appearance(v) {
+    if (v === undefined)
+        return {
+            schema_version: 1,
+            text_scale: 1,
+            high_contrast: false,
+            error: null
+        };
+    if (!object(v) || Object.keys(v).length !== 4 || v.schema_version !== 1 || [1, 1.25, 1.5].indexOf(v.text_scale) < 0 || typeof v.high_contrast !== "boolean" || [null, "state_unavailable", "save_unconfirmed"].indexOf(v.error) < 0)
+        throw Error("Invalid appearance preferences");
+    return {
+        schema_version: 1,
+        text_scale: v.text_scale,
+        high_contrast: v.high_contrast,
+        error: v.error
+    };
+}
 function snapshot(v) {
     if (!object(v) || v.schema_version !== 1 || !object(v.controls) || !object(v.alerts) || !object(v.source) || !object(v.location))
         throw Error("Invalid snapshot");
@@ -963,6 +980,7 @@ function snapshot(v) {
         throw Error("Invalid launcher status");
     return {
         dashboard: Dashboard.state(v.dashboard),
+        appearance: appearance(v.appearance),
         update: updateStatus(v.update),
         launcher_status: v.launcher_status || "ready",
         forecast: f,

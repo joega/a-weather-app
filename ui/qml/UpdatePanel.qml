@@ -23,14 +23,14 @@ GlassPanel {
             objectName: "installedAppVersion"
             Layout.fillWidth: true
             text: root.status.installed !== "" ? "A Weather App · " + root.status.installed : "App updates"
-            font.pixelSize: 19
+            font.pixelSize: Tokens.fontSize(19)
             font.weight: Font.DemiBold
         }
         PlainLabel {
             Layout.fillWidth: true
             visible: root.status.available !== ""
             text: "Version " + root.status.available + " available"
-            font.pixelSize: 16
+            font.pixelSize: Tokens.fontSize(16)
             color: Tokens.accent
         }
         PlainLabel {
@@ -39,7 +39,7 @@ GlassPanel {
             text: root.status.message || (root.status.state === "current" ? "You’re up to date. Updates are checked daily." : "Updates are checked daily.")
             wrapMode: Text.Wrap
             elide: Text.ElideNone
-            font.pixelSize: 14
+            font.pixelSize: Tokens.fontSize(14)
             color: Tokens.secondary
         }
         RowLayout {

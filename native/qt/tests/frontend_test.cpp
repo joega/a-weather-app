@@ -1903,6 +1903,34 @@ class FrontendTest : public QObject {
         // Older service snapshots remain accepted.
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.briefings(undefined).length").toInt(), 0);
     }
+    void appearanceContract() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY(scope);
+        QCOMPARE(
+            evaluate(engine, scope.data(), "Forecast.appearance(undefined).text_scale").toDouble(),
+            1.0);
+        QVERIFY(!evaluate(engine, scope.data(), "Forecast.appearance(undefined).high_contrast")
+                     .toBool());
+        auto valid = [&](const QString& document) {
+            QQmlExpression expression(qmlContext(scope.data()), scope.data(),
+                                      "Forecast.appearance(" + document + ")");
+            expression.evaluate();
+            return !expression.hasError();
+        };
+        for (const auto& scale : {"1", "1.25", "1.5"})
+            QVERIFY(valid(QString("{schema_version:1,text_scale:%1,high_contrast:true,error:null}")
+                              .arg(scale)));
+        for (const auto& invalid :
+             {"null", "{}", "{schema_version:1,text_scale:2,high_contrast:false,error:null}",
+              "{schema_version:1,text_scale:1,high_contrast:'true',error:null}",
+              "{schema_version:1,text_scale:1,high_contrast:false,error:'unknown'}",
+              "{schema_version:1,text_scale:1,high_contrast:false,error:null,extra:1}"})
+            QVERIFY2(!valid(invalid), invalid);
+    }
     void metricDetailsOnDemandAndKeyboard() {
         FakeTransport transport;
         QQmlApplicationEngine engine;

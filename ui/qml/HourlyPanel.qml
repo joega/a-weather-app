@@ -23,12 +23,12 @@ GlassPanel {
         return Forecast.percent(hour[key]);
     }
     signal hourSelected(var hour)
-    implicitHeight: root.hours.length === 0 ? 124 : (compact ? 150 : 158) + values.length * (compact ? 42 : 46)
+    implicitHeight: (root.hours.length === 0 ? 124 : (compact ? 150 : 158) + values.length * (compact ? 42 : 46)) * Tokens.textScale
     PlainLabel {
         x: 20
         y: 14
         text: "Next 24 hours"
-        font.pixelSize: 20
+        font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
     PlainLabel {
@@ -43,9 +43,9 @@ GlassPanel {
         visible: root.hours.length > 0
         objectName: "hourlyRail"
         x: 16
-        y: 50
+        y: 50 * Tokens.textScale
         width: parent.width - 32
-        height: root.implicitHeight - 82
+        height: root.implicitHeight - 82 * Tokens.textScale
         contentWidth: hourRow.width
         contentHeight: height
         clip: true
@@ -60,7 +60,7 @@ GlassPanel {
                     required property var modelData
                     required property int index
                     objectName: "forecastHour_" + index
-                    width: Math.max(132, rail.width / 10)
+                    width: Math.max(132 * Tokens.textScale, rail.width / 10)
                     height: implicitContentHeight + topPadding + bottomPadding
                     padding: root.compact ? 4 : 8
                     Accessible.name: modelData.local_hour + ", " + Forecast.title(modelData.condition) + ", " + root.values.map(key => Dashboard.title(key) + " " + root.valueText(modelData, key)).join(", ") + ". Open details"
@@ -82,7 +82,7 @@ GlassPanel {
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
                             text: hourButton.modelData.local_hour
-                            font.pixelSize: 14
+                            font.pixelSize: Tokens.fontSize(14)
                         }
                         WeatherIcon {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -101,7 +101,7 @@ GlassPanel {
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     text: Dashboard.title(valueRow.modelData)
-                                    font.pixelSize: 11
+                                    font.pixelSize: Tokens.fontSize(11)
                                     color: Tokens.secondary
                                 }
                                 PlainLabel {
@@ -109,7 +109,7 @@ GlassPanel {
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
                                     text: root.valueText(hourButton.modelData, valueRow.modelData)
-                                    font.pixelSize: valueRow.index === 0 ? 22 : 16
+                                    font.pixelSize: Tokens.fontSize(valueRow.index === 0 ? 22 : 16)
                                     color: valueRow.modelData === "precipitation_probability" ? Tokens.accent : Tokens.foreground
                                 }
                             }
@@ -125,7 +125,7 @@ GlassPanel {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 12
         text: "Select an hour for details"
-        font.pixelSize: 12
+        font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }
 }

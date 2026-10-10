@@ -9,9 +9,11 @@ GlassPanel {
     id: root
     property string effectiveVisualQuality: "static"
     property bool presentationActive: true
+    property var appearance: Forecast.appearance()
+    signal appearanceRequested(var values)
     // A settings surface must obscure the forecast's text, not layer two
     // readable text grids on top of one another.
-    color: "#fa2c455a"
+    color: Tokens.highContrast ? "#2c455a" : "#fa2c455a"
     property var controls: ({
             mode: "live",
             strength: "normal",
@@ -162,12 +164,12 @@ GlassPanel {
                 spacing: 5
                 PlainLabel {
                     text: "Settings"
-                    font.pixelSize: 32
+                    font.pixelSize: Tokens.fontSize(32)
                 }
                 PlainLabel {
                     text: "Location, notifications and desktop effects"
                     color: Tokens.secondary
-                    font.pixelSize: 14
+                    font.pixelSize: Tokens.fontSize(14)
                 }
             }
             ActionButton {
@@ -241,7 +243,7 @@ GlassPanel {
             PlainLabel {
                 id: applicationSection
                 text: "Application"
-                font.pixelSize: 23
+                font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             UpdatePanel {
@@ -253,7 +255,7 @@ GlassPanel {
             }
             PlainLabel {
                 text: "Application launcher"
-                font.pixelSize: 19
+                font.pixelSize: Tokens.fontSize(19)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
@@ -261,7 +263,7 @@ GlassPanel {
                 text: "Add A Weather App and its icon to your application menu. This opens the same app without using the bar widget."
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             ActionButton {
@@ -282,7 +284,7 @@ GlassPanel {
                     })[root.launcherStatus]
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             Rectangle {
@@ -295,7 +297,7 @@ GlassPanel {
                 Layout.fillWidth: true
                 PlainLabel {
                     text: "Location"
-                    font.pixelSize: 23
+                    font.pixelSize: Tokens.fontSize(23)
                     font.weight: Font.DemiBold
                 }
             }
@@ -303,7 +305,7 @@ GlassPanel {
                 objectName: "settingsLocation"
                 Layout.fillWidth: true
                 text: "Viewing · " + root.location
-                font.pixelSize: 18
+                font.pixelSize: Tokens.fontSize(18)
             }
             PlainLabel {
                 Layout.fillWidth: true
@@ -312,7 +314,7 @@ GlassPanel {
                 color: Tokens.accent
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 15
+                font.pixelSize: Tokens.fontSize(15)
             }
             ActionButton {
                 objectName: "manageSavedLocations"
@@ -327,13 +329,13 @@ GlassPanel {
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             PlainLabel {
                 objectName: "locationMode"
                 Layout.fillWidth: true
                 text: root.locationSettings.mode === "zip" ? "ZIP code · " + root.locationSettings.zip_code : root.locationSettings.mode === "place" ? "Selected city · " + (root.locationSettings.country_code || "Country unavailable") : root.locationSettings.mode === "auto" ? "Local location" : root.locationSettings.mode === "custom" ? "Custom location" : "New York is the fallback. Use your current location, search for a city, or enter a ZIP code."
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -351,7 +353,7 @@ GlassPanel {
             }
             PlainLabel {
                 text: "5-digit US ZIP code"
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             RowLayout {
@@ -368,7 +370,7 @@ GlassPanel {
                     enabled: !root.locationLocked
                     inputMethodHints: Qt.ImhDigitsOnly
                     color: Tokens.foreground
-                    font.pixelSize: 16
+                    font.pixelSize: Tokens.fontSize(16)
                     selectByMouse: true
                     background: Rectangle {
                         implicitHeight: 42
@@ -400,7 +402,7 @@ GlassPanel {
                 text: "Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy."
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
             }
             PlainLabel {
@@ -419,7 +421,7 @@ GlassPanel {
                     })[root.locationSettings.error] || ""
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.accent
             }
             Rectangle {
@@ -429,7 +431,7 @@ GlassPanel {
             }
             PlainLabel {
                 text: "Measurement units"
-                font.pixelSize: 18
+                font.pixelSize: Tokens.fontSize(18)
             }
             UnitsChoice {
                 objectName: "settingsUnitsChoice"
@@ -443,14 +445,14 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Auto follows the location. Manual units apply throughout the app and are saved."
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
             PlainLabel {
                 text: "Wind speed units"
-                font.pixelSize: 18
+                font.pixelSize: Tokens.fontSize(18)
             }
             SettingsComboBox {
                 objectName: "windUnitsChoice"
@@ -519,7 +521,7 @@ GlassPanel {
             PlainLabel {
                 id: effectsSection
                 text: "Desktop effects"
-                font.pixelSize: 23
+                font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
@@ -528,7 +530,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             PlainLabel {
                 objectName: "effectsCompatibility"
@@ -537,7 +539,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: root.setup.status === "ready" ? Tokens.accent : Tokens.foreground
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             ActionButton {
                 objectName: "checkEffects"
@@ -551,12 +553,12 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
             }
             PlainLabel {
                 visible: root.setup.outputs.length > 0
                 text: "Monitor"
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
                 id: monitorChoice
@@ -580,7 +582,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -607,7 +609,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             PlainLabel {
                 objectName: "effectsActionError"
@@ -617,7 +619,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.accent
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             Rectangle {
                 Layout.fillWidth: true
@@ -627,12 +629,12 @@ GlassPanel {
             PlainLabel {
                 id: previewSection
                 text: "Preview"
-                font.pixelSize: 23
+                font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
                 text: "Weather source"
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             ChoiceControl {
                 Layout.fillWidth: true
@@ -655,7 +657,7 @@ GlassPanel {
             }
             PlainLabel {
                 text: "Preview condition"
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
                 id: conditionChoice
@@ -677,7 +679,7 @@ GlassPanel {
                 text: "Manual previews do not change the live forecast. Live desktop always follows the primary location’s weather."
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
             }
             Rectangle {
@@ -688,12 +690,50 @@ GlassPanel {
             PlainLabel {
                 id: appearanceSection
                 text: "Appearance"
-                font.pixelSize: 23
+                font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
+                text: "Text size"
+                font.pixelSize: Tokens.fontSize(16)
+            }
+            SettingsComboBox {
+                objectName: "textSizePreference"
+                Layout.fillWidth: true
+                Accessible.name: "Text size"
+                model: ["Standard · 100%", "Large · 125%", "Larger · 150%"]
+                currentIndex: [1, 1.25, 1.5].indexOf(root.appearance.text_scale)
+                enabled: root.serviceAvailable && !root.busy
+                onActivated: index => {
+                    root.appearanceRequested({
+                        text_scale: [1, 1.25, 1.5][index]
+                    });
+                    currentIndex = Qt.binding(() => [1, 1.25, 1.5].indexOf(root.appearance.text_scale));
+                }
+            }
+            ToggleControl {
+                Layout.fillWidth: true
+                testName: "highContrastPreference"
+                title: "High contrast"
+                caption: "Solid panels and stronger text and borders."
+                checked: root.appearance.high_contrast
+                locked: !root.serviceAvailable || root.busy
+                optimistic: false
+                onToggled: value => root.appearanceRequested({
+                        high_contrast: value
+                    })
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                visible: root.appearance.error !== null
+                text: root.appearance.error === "save_unconfirmed" ? "Readability changed, but saving was not confirmed. Choose the setting again to retry." : "Saved readability preferences could not be read. Defaults are shown; choosing a setting saves them again."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                color: Tokens.accent
+            }
+            PlainLabel {
                 text: "Intensity"
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             ChoiceControl {
                 Layout.fillWidth: true
@@ -720,7 +760,7 @@ GlassPanel {
             }
             PlainLabel {
                 text: "Frame rate"
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             ChoiceControl {
                 Layout.fillWidth: true
@@ -781,7 +821,7 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Window visual quality"
-                font.pixelSize: 16
+                font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
                 objectName: "visualQualityChoice"
@@ -798,7 +838,7 @@ GlassPanel {
                 text: "Current mode: " + root.effectiveVisualQuality.charAt(0).toUpperCase() + root.effectiveVisualQuality.slice(1) + ". Auto uses full visuals on supported hardware and a static sky and wind on software graphics. Economical reduces animation cadence and wind trail density. Unsupported graphics always use Static. Reduced motion always takes priority."
                 wrapMode: Text.Wrap
                 color: Tokens.secondary
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
             }
             ToggleControl {
                 Layout.fillWidth: true
@@ -823,7 +863,7 @@ GlassPanel {
                 Layout.fillWidth: true
                 text: "Weather service · " + root.serviceStatus
                 color: Tokens.accent
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
             PlainLabel {
                 Layout.fillWidth: true
@@ -831,7 +871,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
             }
         }
     }

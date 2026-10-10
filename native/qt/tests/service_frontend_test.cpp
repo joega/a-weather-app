@@ -1382,6 +1382,146 @@ class ServiceFrontendTest : public QObject {
                         .toBool());
         phase("hidden");
     }
+    void appearanceSettingsPersistAndLargeLayouts() {
+        ServiceFixture fixture;
+        fixture.save("controls.json", {{"visual_quality", "static"}, {"reduced_motion", true}});
+        fixture.cache(60, true);
+        auto cached = fixture.saved("forecast.json");
+        QJsonArray hours, days;
+        const auto now = QDateTime::currentDateTimeUtc();
+        for (int i = 0; i < 60; ++i) {
+            auto hour = cached["hourly"].toArray().first().toObject();
+            hour["time"] = now.addSecs(i * 3600).toString(Qt::ISODate);
+            hours.append(hour);
+        }
+        for (int i = 0; i < 10; ++i) {
+            auto day = cached["daily"].toArray().first().toObject();
+            day["date"] = now.date().addDays(i).toString(Qt::ISODate);
+            days.append(day);
+        }
+        cached["hourly"] = hours;
+        cached["daily"] = days;
+        fixture.save("forecast.json", cached);
+        fixture.savedNewYorkPlace();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        const auto forecast = fixture.saved("forecast.json");
+        const auto controls = fixture.saved("controls.json");
+        window->resize(700, 650);
+        const auto activate = [&](const char* name) {
+            auto* item = qobject_cast<QQuickItem*>(named(name));
+            QVERIFY(item);
+            item->forceActiveFocus();
+            QTest::qWait(50);
+            QTest::keyClick(window, Qt::Key_Space);
+        };
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_READABILITY_SCREENSHOT_PREFIX");
+        const auto capture = [&](const QString& suffix) {
+            QTest::qWait(120);
+            if (!prefix.isEmpty())
+                QVERIFY(window->grabWindow().save(prefix + suffix + ".png"));
+        };
+        activate("openEffects");
+        activate("settingsAppearanceSection");
+        auto* selector = qobject_cast<QQuickItem*>(named("textSizePreference"));
+        QVERIFY(selector);
+        for (const double scale : {1.25, 1.5}) {
+            selector->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_Down);
+            QTRY_COMPARE(eval("root.appearance.text_scale").toDouble(), scale);
+            QTRY_VERIFY(!eval("backend.busy").toBool());
+            QCOMPARE(fixture.saved("appearance.json")["text_scale"].toDouble(), scale);
+        }
+        activate("highContrastPreference");
+        QTRY_VERIFY(eval("root.appearance.high_contrast").toBool());
+        capture("-settings-150");
+        activate("closeEffects");
+        capture("-forecast-150");
+        auto* temperature = qobject_cast<QQuickItem*>(named("currentTemperature"));
+        QVERIFY(temperature);
+        QCOMPARE(temperature->property("font").value<QFont>().pixelSize(), 144);
+        auto* actions = qobject_cast<QQuickItem*>(named("headerActions"));
+        QVERIFY(actions);
+        for (auto* child : actions->childItems()) {
+            if (!child->isVisible())
+                continue;
+            QVERIFY(child->x() >= 0 && child->x() + child->width() <= actions->width() + 1);
+            QVERIFY(child->y() + child->height() <= actions->height() + 1);
+        }
+        for (const int width : {700, 1200}) {
+            window->resize(width, 650);
+            QTest::qWait(50);
+            for (const char* name :
+                 {"forecastHour_0", "forecastDay_0", "currentMetrics", "weatherMaps"}) {
+                auto* item = qobject_cast<QQuickItem*>(named(name));
+                QVERIFY(item);
+                auto* scroll = named("forecastScroll");
+                auto* flick = scroll->property("contentItem").value<QObject*>();
+                auto* content = flick->property("contentItem").value<QQuickItem*>();
+                QVERIFY(content);
+                const auto y = item->mapToItem(content, QPointF()).y();
+                flick->setProperty("contentY", qMax(0.0, y - 85));
+                capture(QString("-%1-%2-150").arg(name).arg(width));
+            }
+            for (int index = 0; index < 4; ++index) {
+                const auto name = QString("mapLayerTab%1").arg(index).toLatin1();
+                auto* tab = named(name.constData());
+                QVERIFY(tab);
+                auto* label = tab->property("contentItem").value<QQuickItem*>();
+                QVERIFY(label);
+                QVERIFY(!label->property("truncated").toBool());
+                QVERIFY(label->height() >= label->implicitHeight());
+            }
+        }
+        window->resize(700, 650);
+        eval("details.showMetric('pressure_msl_hpa')");
+        QTRY_VERIFY(eval("details.opened").toBool());
+        capture("-details-150");
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!eval("details.visible").toBool());
+        eval("root.openShare()");
+        QTRY_VERIFY(eval("shareLoader.item!==null && shareLoader.item.opened").toBool());
+        capture("-sharing-150");
+        const auto output = fixture.directory.path() + "/large-text.png";
+        QVERIFY(eval("shareLoader.item.saveImage('" + QUrl::fromLocalFile(output).toString() + "')")
+                    .toBool());
+        QTRY_VERIFY(!eval("shareLoader.item.busy").toBool());
+        QCOMPARE(eval("shareLoader.item.notice").toString(), QString("Forecast image saved."));
+        QImageReader reader(output);
+        QVERIFY(reader.size().width() > 0 && reader.size().width() <= 720);
+        QVERIFY(reader.size().height() > 0 && reader.size().height() <= 1600);
+        if (!prefix.isEmpty())
+            QVERIFY(reader.read().save(prefix + "-export-150.png"));
+        eval("root.closeShare()");
+        // Restart both processes, so the first new snapshot must restore the
+        // saved enlarged text and contrast without changing weather controls.
+        QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
+        eval("backend.shutdown()");
+        QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(), QProcess::NotRunning, 5000);
+        cleanup();
+        QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
+        QVERIFY(attach(fixture));
+        QTRY_VERIFY_WITH_TIMEOUT(eval("backend.snapshot!==null && !backend.busy").toBool(), 5000);
+        QCOMPARE(eval("root.appearance.text_scale").toDouble(), 1.5);
+        QVERIFY(eval("root.appearance.high_contrast").toBool());
+        selector = qobject_cast<QQuickItem*>(named("textSizePreference"));
+        temperature = qobject_cast<QQuickItem*>(named("currentTemperature"));
+        QVERIFY(selector && temperature);
+        activate("openEffects");
+        activate("settingsAppearanceSection");
+        selector->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Home);
+        QTRY_COMPARE(eval("root.appearance.text_scale").toDouble(), 1.0);
+        activate("highContrastPreference");
+        QTRY_VERIFY(!eval("root.appearance.high_contrast").toBool());
+        QTRY_COMPARE(temperature->property("font").value<QFont>().pixelSize(), 96);
+        QCOMPARE(fixture.saved("forecast.json"), forecast);
+        QCOMPARE(fixture.saved("controls.json"), controls);
+        QCOMPARE(fixture.saved("appearance.json")["text_scale"].toDouble(), 1.0);
+        QVERIFY(!fixture.saved("appearance.json")["high_contrast"].toBool());
+    }
     void featureSessionResources() {
         if (!qEnvironmentVariableIsSet("WEATHER_QT_FEATURE_SESSION_MEASURE"))
             QSKIP("Set WEATHER_QT_FEATURE_SESSION_MEASURE for sequential feature-session sampling");

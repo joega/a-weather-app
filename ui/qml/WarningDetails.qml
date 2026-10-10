@@ -56,7 +56,7 @@ Popup {
             PlainLabel {
                 Layout.fillWidth: true
                 text: root.warning && root.warning.kind === "canceled" ? "Warning cancellation" : "Official warning"
-                font.pixelSize: 25
+                font.pixelSize: Tokens.fontSize(25)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -73,7 +73,7 @@ Popup {
             Layout.fillWidth: true
             visible: root.state !== "ready"
             text: root.state === "loading" ? "Loading original notice…" : root.error
-            font.pixelSize: 15
+            font.pixelSize: Tokens.fontSize(15)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             color: Tokens.secondary
@@ -99,7 +99,7 @@ Popup {
                     objectName: "warningDetailPlace"
                     Layout.fillWidth: true
                     text: root.warning ? root.warning.place : ""
-                    font.pixelSize: 17
+                    font.pixelSize: Tokens.fontSize(17)
                     color: Tokens.accent
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -108,14 +108,14 @@ Popup {
                     objectName: "warningDetailEvent"
                     Layout.fillWidth: true
                     text: root.warning ? root.warning.event || "Official weather notice" : ""
-                    font.pixelSize: 23
+                    font.pixelSize: Tokens.fontSize(23)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     Layout.fillWidth: true
                     text: root.warning ? (root.warning.issuer || "National Weather Service") + "\nIssued " + root.warning.sent_label + "\n" + root.warning.severity + " severity · " + root.warning.urgency + " · " + root.warning.certainty : ""
-                    font.pixelSize: 14
+                    font.pixelSize: Tokens.fontSize(14)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -124,7 +124,7 @@ Popup {
                     objectName: "warningDetailValidity"
                     Layout.fillWidth: true
                     text: !root.warning ? "" : root.warning.kind === "canceled" ? "This notice cancels an earlier warning." : (root.expired ? "The stated validity period has ended.\n" : "") + "Valid from " + root.warning.effective_label + "\nUntil " + root.warning.expires_label + " · " + root.warning.timezone
-                    font.pixelSize: 14
+                    font.pixelSize: Tokens.fontSize(14)
                     color: Tokens.accent
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -132,7 +132,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Original notice from this session. Its status may have changed; check the current alert feed for later updates."
-                    font.pixelSize: 13
+                    font.pixelSize: Tokens.fontSize(13)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -164,7 +164,7 @@ Popup {
                         spacing: 8
                         PlainLabel {
                             text: section.modelData.name
-                            font.pixelSize: 17
+                            font.pixelSize: Tokens.fontSize(17)
                             font.weight: Font.DemiBold
                         }
                         TextArea {
@@ -176,7 +176,7 @@ Popup {
                             selectByMouse: true
                             wrapMode: TextEdit.Wrap
                             font.family: "sans-serif"
-                            font.pixelSize: 16
+                            font.pixelSize: Tokens.fontSize(16)
                             color: Tokens.foreground
                             selectedTextColor: Tokens.foreground
                             selectionColor: "#506a80"

@@ -94,7 +94,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: root.day ? root.day.day_label + " · " + root.day.date : "Hourly forecast"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -110,14 +110,14 @@ Popup {
                 Layout.fillWidth: true
                 text: root.freshness
                 color: Tokens.secondary
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
             PlainLabel {
                 visible: root.day !== null
                 Layout.fillWidth: true
-                font.pixelSize: 19
+                font.pixelSize: Tokens.fontSize(19)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 text: root.day ? Forecast.title(root.day.condition) + " · High " + Forecast.temp(root.day.high_c, root.units) + " · Low " + Forecast.temp(root.day.low_c, root.units) + "\nPrecipitation chance " + Forecast.percent(root.day.precipitation_probability) : ""
@@ -126,7 +126,7 @@ Popup {
                 visible: root.day !== null
                 Layout.fillWidth: true
                 text: root.day ? "Sunrise " + (root.day.sunrise_label || "—") + " · Sunset " + (root.day.sunset_label || "—") : ""
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -164,7 +164,7 @@ Popup {
                 objectName: "selectedForecastValue"
                 Layout.fillWidth: true
                 text: Forecast.metricInfo(root.metric).label + ": " + Forecast.metricValue(root.hour ? root.hour[root.metric] : null, root.metric, root.units, root.windUnits)
-                font.pixelSize: 22
+                font.pixelSize: Tokens.fontSize(22)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -172,7 +172,7 @@ Popup {
                 objectName: "forecastMetricRange"
                 Layout.fillWidth: true
                 text: Forecast.metricRange(root.hours, root.metric, root.units, root.windUnits)
-                font.pixelSize: 14
+                font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -180,7 +180,7 @@ Popup {
             PlainLabel {
                 Layout.fillWidth: true
                 text: Forecast.metricInfo(root.metric).explanation + " Only remaining forecast hours are shown."
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -198,7 +198,7 @@ Popup {
                     Layout.fillWidth: true
                     text: root.hour ? root.hour.local_label : "Hourly detail unavailable"
                     horizontalAlignment: Text.AlignHCenter
-                    font.pixelSize: 16
+                    font.pixelSize: Tokens.fontSize(16)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -213,7 +213,7 @@ Popup {
                 visible: root.hour !== null
                 Layout.fillWidth: true
                 text: root.hour ? Forecast.title(root.hour.condition) + " · " + Forecast.temp(root.hour.temperature_c, root.units) + " · Feels like " + Forecast.temp(root.hour.apparent_temperature_c, root.units) : ""
-                font.pixelSize: 22
+                font.pixelSize: Tokens.fontSize(22)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -274,7 +274,7 @@ Popup {
                         PlainLabel {
                             Layout.fillWidth: true
                             text: metricRow.modelData.title
-                            font.pixelSize: 13
+                            font.pixelSize: Tokens.fontSize(13)
                             color: Tokens.secondary
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
@@ -283,7 +283,7 @@ Popup {
                             objectName: metricRow.modelData.kind ? "detailMetricValue_" + metricRow.modelData.kind : ""
                             Layout.fillWidth: true
                             text: metricRow.modelData.value
-                            font.pixelSize: 20
+                            font.pixelSize: Tokens.fontSize(20)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
@@ -294,7 +294,7 @@ Popup {
                 visible: root.hour !== null
                 Layout.fillWidth: true
                 text: root.hour ? "Precipitation interval: " + (root.hour.period_label || "the preceding hour") + ". Times are local to the forecast location." : ""
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone

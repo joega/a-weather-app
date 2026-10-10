@@ -64,7 +64,7 @@ GlassPanel {
             spacing: 9
             PlainLabel {
                 text: "Weather alerts · " + root.alerts.length
-                font.pixelSize: 17
+                font.pixelSize: Tokens.fontSize(17)
                 font.weight: Font.DemiBold
             }
             Repeater {
@@ -110,7 +110,7 @@ GlassPanel {
                                 width: parent.width
                                 text: entry.modelData.event + (entry.expanded ? "  −" : "  +")
                                 font.weight: Font.DemiBold
-                                font.pixelSize: 16
+                                font.pixelSize: Tokens.fontSize(16)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -118,7 +118,7 @@ GlassPanel {
                                 width: parent.width
                                 text: entry.modelData.severity + " · Until " + (entry.modelData.expires_label || "time unavailable")
                                 color: root.accent(entry.modelData.severity)
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -129,7 +129,7 @@ GlassPanel {
                         width: parent.width
                         text: entry.modelData.headline || entry.modelData.event
                         font.weight: Font.DemiBold
-                        font.pixelSize: 15
+                        font.pixelSize: Tokens.fontSize(15)
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
@@ -140,7 +140,7 @@ GlassPanel {
                         text: root.source === "National Weather Service" ? "This alert text has been shortened. Read the complete warning and instructions from the National Weather Service." : "This alert text has been shortened. Check the official alert source for complete details."
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
-                        font.pixelSize: 13
+                        font.pixelSize: Tokens.fontSize(13)
                         color: Tokens.gold
                     }
                     PlainLabel {
@@ -149,7 +149,7 @@ GlassPanel {
                         text: entry.modelData.instruction
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
-                        font.pixelSize: 14
+                        font.pixelSize: Tokens.fontSize(14)
                     }
                     PlainLabel {
                         visible: entry.expanded
@@ -158,7 +158,7 @@ GlassPanel {
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                         color: Tokens.secondary
-                        font.pixelSize: 14
+                        font.pixelSize: Tokens.fontSize(14)
                     }
                     ActionButton {
                         id: officialSource

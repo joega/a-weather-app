@@ -246,7 +246,7 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Observed radar"
-                font.pixelSize: 21
+                font.pixelSize: Tokens.fontSize(21)
                 font.weight: Font.DemiBold
             }
             ActionButton {
@@ -310,7 +310,7 @@ GlassPanel {
             Layout.fillWidth: true
             text: root.imageError ? "Could not display the selected frame. Choose Latest to retry." : root.displayedFrame ? "Observed " + root.displayedFrame.label + (root.desiredID !== root.displayedFrame.id ? " · loading selected frame…" : "") : "Waiting for an observed frame…"
             color: Tokens.secondary
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }
@@ -421,7 +421,7 @@ GlassPanel {
                 text: "Geographic background unavailable"
                 visible: root.visibleTiles.length > 0 && root.visibleTiles.every(tile => root.failedTiles[tile.key])
                 color: "white"
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
             }
             Rectangle {
                 anchors.fill: parent
@@ -467,7 +467,7 @@ GlassPanel {
                     anchors.centerIn: parent
                     text: "© OpenStreetMap contributors (ODbL)"
                     color: "#15384a"
-                    font.pixelSize: 11
+                    font.pixelSize: Tokens.fontSize(11)
                 }
             }
         }
@@ -489,7 +489,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             text: root.frames.length + " / " + root.radarState.frames.length + " observations ready" + (root.radarState.frames.some(f => f.state === "failed" || f.state === "limited") ? " · some frames unavailable" : "") + " · NOAA/NWS MRMS · reflectivity (dBZ), ~1 km grid"
-            font.pixelSize: 12
+            font.pixelSize: Tokens.fontSize(12)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -497,7 +497,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             text: "Past radar echoes, not a rain forecast. Blank areas may lack coverage; reflectivity does not identify rain or snow."
-            font.pixelSize: 12
+            font.pixelSize: Tokens.fontSize(12)
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone

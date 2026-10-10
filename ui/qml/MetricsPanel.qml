@@ -31,7 +31,7 @@ GlassPanel {
     readonly property double sunsetMs: day && day.sunset ? Date.parse(day.sunset) : NaN
     readonly property bool solarAvailable: Number.isFinite(sunriseMs) && Number.isFinite(sunsetMs) && sunsetMs > sunriseMs
     readonly property real solarProgress: solarAvailable ? (currentTimeMs - sunriseMs) / (sunsetMs - sunriseMs) : -1
-    implicitHeight: 40 + (compact ? 102 : 115.6) * totalWeight
+    implicitHeight: 40 + (compact ? 102 : 115.6) * totalWeight * Tokens.textScale
     Timer {
         interval: 60000
         repeat: true
@@ -123,7 +123,7 @@ GlassPanel {
                         horizontalAlignment: Text.AlignHCenter
                         text: metric.metricData.title
                         color: Tokens.secondary
-                        font.pixelSize: 15
+                        font.pixelSize: Tokens.fontSize(15)
                     }
                     Row {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -232,7 +232,7 @@ GlassPanel {
                                 objectName: "currentMetricValue_" + metric.metricData.kind
                                 width: parent.width
                                 text: metric.metricData.value
-                                font.pixelSize: metric.metricData.kind === "solar" ? 15 : 22
+                                font.pixelSize: Tokens.fontSize(metric.metricData.kind === "solar" ? 15 : 22)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                                 maximumLineCount: 2
@@ -244,7 +244,7 @@ GlassPanel {
                                 width: parent.width
                                 text: metric.metricData.detail
                                 color: Tokens.secondary
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -312,14 +312,14 @@ GlassPanel {
                             width: parent.width / 2
                             text: root.day ? (root.day.sunrise_label || "—") : "—"
                             color: Tokens.secondary
-                            font.pixelSize: 10
+                            font.pixelSize: Tokens.fontSize(10)
                         }
                         PlainLabel {
                             width: parent.width / 2
                             horizontalAlignment: Text.AlignRight
                             text: root.day ? (root.day.sunset_label || "—") : "—"
                             color: Tokens.secondary
-                            font.pixelSize: 10
+                            font.pixelSize: Tokens.fontSize(10)
                         }
                     }
                 }

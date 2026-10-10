@@ -94,7 +94,7 @@ ColumnLayout {
     }
     PlainLabel {
         text: "Search worldwide cities"
-        font.pixelSize: 14
+        font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
     }
     RowLayout {
@@ -109,7 +109,7 @@ ColumnLayout {
             placeholderText: "City name"
             color: Tokens.foreground
             placeholderTextColor: Tokens.secondary
-            font.pixelSize: 16
+            font.pixelSize: Tokens.fontSize(16)
             selectByMouse: true
             background: Rectangle {
                 implicitHeight: 42
@@ -131,7 +131,7 @@ ColumnLayout {
         TextField {
             id: countryInput
             objectName: root.objectPrefix + "placeCountry"
-            Layout.preferredWidth: 106
+            Layout.preferredWidth: 106 * Tokens.textScale
             maximumLength: 2
             validator: RegularExpressionValidator {
                 regularExpression: /[A-Za-z]{0,2}/
@@ -141,7 +141,7 @@ ColumnLayout {
             placeholderText: "Country"
             color: Tokens.foreground
             placeholderTextColor: Tokens.secondary
-            font.pixelSize: 16
+            font.pixelSize: Tokens.fontSize(16)
             selectByMouse: true
             background: Rectangle {
                 implicitHeight: 42
@@ -155,7 +155,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         text: root.selectionHint
-        font.pixelSize: 13
+        font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -163,7 +163,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         text: "Place data: GeoNames via Open-Meteo (CC BY 4.0)."
-        font.pixelSize: 12
+        font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
         wrapMode: Text.Wrap
         elide: Text.ElideNone
@@ -174,7 +174,7 @@ ColumnLayout {
         visible: text !== ""
         text: !root.serviceAvailable ? "Search unavailable while disconnected." : cityInput.text.trim().length === 1 ? "Enter at least two characters." : countryInput.text.length === 1 ? "Enter a two-letter country code or leave it blank." : !root.showingSearch ? "" : root.search.status === "loading" ? "Searching places…" : root.search.status === "error" ? (root.search.error === "offline" ? "Search unavailable offline." : root.search.error === "timeout" ? "Search timed out. Edit the query to retry." : "Place search failed. Edit the query to retry.") : root.search.status === "ready" && root.search.results.length === 0 ? "No matching places found." : ""
         color: Tokens.secondary
-        font.pixelSize: 14
+        font.pixelSize: Tokens.fontSize(14)
         wrapMode: Text.Wrap
         elide: Text.ElideNone
     }

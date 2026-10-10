@@ -26,6 +26,15 @@ QtObject {
     readonly property string primaryName: primaryPlace ? Forecast.savedName(primaryPlace) : root.location
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
     property var dashboardPreferences: Dashboard.defaults()
+    property var appearance: Forecast.appearance()
+    onAppearanceChanged: {
+        Tokens.textScale = appearance.text_scale;
+        Tokens.highContrast = appearance.high_contrast;
+        Qt.callLater(() => {
+            if (root.effectsOpen && window.activeFocusItem)
+                effects.revealFocus(window.activeFocusItem);
+        });
+    }
     readonly property bool compactDashboard: dashboardPreferences.density === "compact"
     property bool astronomyOpen: false
     property bool shareOpen: false
@@ -518,6 +527,8 @@ QtObject {
             // Ordinary weather updates must not recreate the dashboard scene.
             if (snapshot && JSON.stringify(root.dashboardPreferences) !== JSON.stringify(snapshot.dashboard.preferences))
                 root.dashboardPreferences = snapshot.dashboard.preferences;
+            if (snapshot && (root.appearance.text_scale !== snapshot.appearance.text_scale || root.appearance.high_contrast !== snapshot.appearance.high_contrast || root.appearance.error !== snapshot.appearance.error))
+                root.appearance = snapshot.appearance;
             if (snapshot && !root.initialLocationChecked) {
                 root.initialLocationChecked = true;
                 if (snapshot.location_settings.mode === "default") {
@@ -716,24 +727,24 @@ QtObject {
                         gradient: Gradient {
                             GradientStop {
                                 position: 0
-                                color: "#800b1c30"
+                                color: Tokens.highContrast ? "#263f55" : "#800b1c30"
                             }
                             GradientStop {
                                 position: 0.66
-                                color: "#800b1c30"
+                                color: Tokens.highContrast ? "#263f55" : "#800b1c30"
                             }
                             GradientStop {
                                 position: 1
-                                color: "transparent"
+                                color: Tokens.highContrast ? "#263f55" : "transparent"
                             }
                         }
                     }
                     ColumnLayout {
                         id: headerBody
-                        readonly property bool actionsBelowLocation: window.width < 850 || locationFont.advanceWidth(root.city) + headerActions.implicitWidth + 20 > width
+                        readonly property bool actionsBelowLocation: window.width < 850 || locationFont.advanceWidth(root.city) + headerActions.preferredWidth + 20 > width
                         FontMetrics {
                             id: locationFont
-                            font.pixelSize: 38
+                            font.pixelSize: Tokens.fontSize(38)
                             font.family: "sans-serif"
                         }
                         width: parent.width
@@ -741,9 +752,19 @@ QtObject {
                         Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: Math.max(conditions.height, headerActions.y + headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0), headerAlerts.visible ? headerAlerts.y + headerAlerts.height : 0)
-                            RowLayout {
+                            Flow {
                                 id: headerActions
                                 objectName: "headerActions"
+                                spacing: 5
+                                readonly property real preferredWidth: {
+                                    let total = -spacing;
+                                    for (const item of children)
+                                        if (item.visible)
+                                            total += item.implicitWidth + spacing;
+                                    return Math.max(0, total);
+                                }
+                                width: Math.min(parent.width, preferredWidth)
+                                height: childrenRect.height
                                 anchors.right: parent.right
                                 anchors.top: parent.top
                                 anchors.topMargin: headerBody.actionsBelowLocation ? locationHeading.height + regionHeading.height + 12 : 0
@@ -795,14 +816,14 @@ QtObject {
                                 anchors.top: headerActions.bottom
                                 anchors.topMargin: 8
                                 width: Math.min(headerActions.width, updatedVersionNotice.implicitWidth + 24)
-                                height: 34
+                                height: Math.max(34, updatedVersionNotice.implicitHeight + 16)
                                 visible: root.updateNoticeActive
                                 PlainLabel {
                                     id: updatedVersionNotice
                                     objectName: "updatedVersionNotice"
                                     anchors.centerIn: parent
                                     text: "Updated to " + root.shownUpdateVersion + "."
-                                    font.pixelSize: 13
+                                    font.pixelSize: Tokens.fontSize(13)
                                 }
                             }
                             Column {
@@ -813,7 +834,7 @@ QtObject {
                                     id: locationHeading
                                     objectName: "locationHeading"
                                     text: root.city
-                                    font.pixelSize: 38
+                                    font.pixelSize: Tokens.fontSize(38)
                                     wrapMode: Text.Wrap
                                     maximumLineCount: 3
                                     elide: Text.ElideRight
@@ -821,8 +842,11 @@ QtObject {
                                 }
                                 PlainLabel {
                                     id: regionHeading
+                                    width: parent.width
+                                    wrapMode: Text.Wrap
+                                    elide: Text.ElideNone
                                     text: root.region
-                                    font.pixelSize: 19
+                                    font.pixelSize: Tokens.fontSize(19)
                                     color: "#d4e3ee"
                                 }
                                 Item {
@@ -834,23 +858,23 @@ QtObject {
                                     visible: root.savedLocations !== null
                                     width: parent.width
                                     text: root.savedLocations && root.savedLocations.viewed === root.savedLocations.primary ? "Primary location" : "Desktop weather · " + root.primaryName
-                                    font.pixelSize: 13
+                                    font.pixelSize: Tokens.fontSize(13)
                                     color: Tokens.secondary
                                 }
                                 PlainLabel {
                                     objectName: "currentTemperature"
                                     text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
-                                    font.pixelSize: 96
+                                    font.pixelSize: Tokens.fontSize(96)
                                     font.weight: Font.Light
                                 }
                                 PlainLabel {
                                     text: root.current ? Forecast.title(root.current.condition) : "Forecast unavailable"
-                                    font.pixelSize: 27
+                                    font.pixelSize: Tokens.fontSize(27)
                                 }
                                 PlainLabel {
                                     width: window.width >= 850 && root.activeAlerts.length ? parent.width * 0.48 : parent.width
                                     text: "Feels like " + Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units) + " · High " + Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units) + " · Low " + Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)
-                                    font.pixelSize: 18
+                                    font.pixelSize: Tokens.fontSize(18)
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
                                 }
@@ -879,7 +903,7 @@ QtObject {
                                 Layout.fillWidth: true
                                 text: root.freshness
                                 color: "#d4e3ee"
-                                font.pixelSize: 13
+                                font.pixelSize: Tokens.fontSize(13)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -888,12 +912,12 @@ QtObject {
                                 visible: root.alertsStatusText !== ""
                                 text: root.alertsStatusText
                                 color: "#d4e3ee"
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                             }
                             PlainLabel {
                                 visible: root.controls.mode === "manual" && !root.liveDesktop
                                 text: "Manual effects preview · " + Forecast.title(root.controls.manual.condition)
-                                font.pixelSize: 13
+                                font.pixelSize: Tokens.fontSize(13)
                                 color: Tokens.accent
                             }
                         }
@@ -931,7 +955,7 @@ QtObject {
                                     Layout.fillWidth: true
                                     text: Changes.summary(bridge.changesResult, bridge.changesState, root.units)
                                     color: Tokens.secondary
-                                    font.pixelSize: 12
+                                    font.pixelSize: Tokens.fontSize(12)
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
                                 }
@@ -968,7 +992,7 @@ QtObject {
                                 Layout.fillWidth: true
                                 text: root.selectedBriefing ? (bridge.snapshot.source.freshness === "stale" ? "Cached outlook · " : "") + root.selectedBriefing.range_label : ""
                                 color: Tokens.secondary
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -976,7 +1000,7 @@ QtObject {
                                 objectName: "forecastOutlook"
                                 Layout.fillWidth: true
                                 text: root.selectedBriefing ? Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits) : Forecast.outlook(root.hours, root.units, root.windUnits)
-                                font.pixelSize: 18
+                                font.pixelSize: Tokens.fontSize(18)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -1009,7 +1033,7 @@ QtObject {
                     objectName: "forecastCards"
                     Layout.fillWidth: true
                     preferences: root.dashboardPreferences
-                    paired: window.width >= 1200 && root.days.length > 0
+                    paired: window.width >= 1200 * Tokens.textScale && root.days.length > 0
                     components: ({
                             hourly: hourlyComponent,
                             daily: dailyComponent,
@@ -1024,7 +1048,7 @@ QtObject {
                     horizontalAlignment: Text.AlignRight
                     text: bridge.snapshot ? bridge.snapshot.source.attribution + (bridge.snapshot.alerts.source ? " · Alerts: " + bridge.snapshot.alerts.source : "") : "Forecast: Open-Meteo"
                     color: Tokens.secondary
-                    font.pixelSize: 11
+                    font.pixelSize: Tokens.fontSize(11)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -1138,6 +1162,8 @@ QtObject {
             onVisibleChanged: if (visible)
                 forceActiveFocus()
             controls: root.controls
+            appearance: root.appearance
+            onAppearanceRequested: values => bridge.send("set_appearance", values)
             location: root.location
             primaryLocation: root.primaryName
             hasSavedLocations: root.savedLocations !== null

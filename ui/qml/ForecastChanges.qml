@@ -62,7 +62,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Forecast changes"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -86,7 +86,7 @@ Popup {
                 visible: !root.result || root.result.changes.length === 0
                 Layout.fillWidth: true
                 text: Changes.summary(root.result, root.state, root.units)
-                font.pixelSize: 18
+                font.pixelSize: Tokens.fontSize(18)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -100,7 +100,7 @@ Popup {
                     PlainLabel {
                         Layout.fillWidth: true
                         text: Changes.title(changeRow.modelData, root.units)
-                        font.pixelSize: 19
+                        font.pixelSize: Tokens.fontSize(19)
                         font.bold: true
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
@@ -149,7 +149,7 @@ Popup {
             PlainLabel {
                 Layout.fillWidth: true
                 text: "Highlights show larger revisions in matching forecast hours. Smaller changes may still matter. Precipitation windows describe modeled hours, not exact onset times. Retrieval times are when this app obtained the data. These comparisons do not measure forecast accuracy."
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone

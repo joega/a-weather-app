@@ -77,7 +77,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Rain & snow"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                 }
                 ActionButton {
                     id: closeButton
@@ -118,7 +118,7 @@ Popup {
                 Layout.fillWidth: true
                 text: root.error === "precipitation_in_use" ? "Rain and snow details are open in another window." : root.error === "precipitation_context_changed" ? "The place changed. Open its rain and snow details again." : root.state === "loading" ? "Loading rain and snow…" : root.state === "waiting" ? "Waiting before the next update…" : root.result && root.result.fetched_at ? (root.state === "stale" ? "Cached forecast · " : "Updated ") + root.result.fetched_label + (root.result.refreshing ? " · Refreshing…" : root.result.error === "fetch_failed" ? " · Refresh unavailable; retrying while open" : root.result.error === "offline" ? " · Offline" : "") : root.result && root.result.error === "offline" ? "No rain and snow details are saved for this place." : "Rain and snow details are unavailable."
                 color: Tokens.secondary
-                font.pixelSize: 13
+                font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -135,7 +135,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: root.day ? Precipitation.indicated(root.day.kind) : ""
-                    font.pixelSize: 20
+                    font.pixelSize: Tokens.fontSize(20)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -176,7 +176,7 @@ Popup {
                                 objectName: "precipitationDaily_" + amount.modelData.key
                                 Layout.fillWidth: true
                                 text: Precipitation.accumulation(root.day, amount.modelData.key, root.units)
-                                font.pixelSize: 26
+                                font.pixelSize: Tokens.fontSize(26)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -184,7 +184,7 @@ Popup {
                                 Layout.fillWidth: true
                                 text: Precipitation.coverage(root.day, amount.modelData.key)
                                 color: Tokens.secondary
-                                font.pixelSize: 12
+                                font.pixelSize: Tokens.fontSize(12)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
@@ -195,7 +195,7 @@ Popup {
                     Layout.fillWidth: true
                     text: "Modeled totals for the whole local day, including earlier hours. Liquid equivalent includes snow and other precipitation expressed as water."
                     color: Tokens.secondary
-                    font.pixelSize: 13
+                    font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -208,7 +208,7 @@ Popup {
                 }
                 PlainLabel {
                     text: "Hourly liquid equivalent"
-                    font.pixelSize: 18
+                    font.pixelSize: Tokens.fontSize(18)
                 }
                 ForecastChart {
                     objectName: "precipitationTrend"
@@ -255,7 +255,7 @@ Popup {
                     Layout.fillWidth: true
                     text: root.hour ? "At the interval's end: ground snow " + Precipitation.snow(root.hour.depth_m === null ? null : root.hour.depth_m * 100, root.units) + " · Freezing level " + Precipitation.height(root.hour.freezing_m, root.units) + " above sea level." : ""
                     color: Tokens.secondary
-                    font.pixelSize: 13
+                    font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -270,7 +270,7 @@ Popup {
                     Layout.fillWidth: true
                     text: "Ground snow and freezing level show the range of available samples. Ground snow is not new snowfall. These values do not predict pavement icing or travel safety." + (root.day && root.day.boundary_hours ? " Some hourly intervals cross a local-day boundary and are excluded from totals." : "")
                     color: Tokens.secondary
-                    font.pixelSize: 13
+                    font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -280,7 +280,7 @@ Popup {
                 Layout.fillWidth: true
                 text: "Source: Open-Meteo best match · Modeled forecast" + (root.result && root.result.save_failed ? "\nThese details could not be saved for offline use." : "")
                 color: Tokens.secondary
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }

@@ -23,7 +23,7 @@ Item {
         PlainLabel {
             text: root.title
             width: parent.width
-            font.pixelSize: 18
+            font.pixelSize: Tokens.fontSize(18)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             Accessible.ignored: true
@@ -32,7 +32,7 @@ Item {
             text: root.caption
             visible: text !== ""
             color: Tokens.secondary
-            font.pixelSize: 13
+            font.pixelSize: Tokens.fontSize(13)
             width: parent.width
             wrapMode: Text.Wrap
             elide: Text.ElideNone

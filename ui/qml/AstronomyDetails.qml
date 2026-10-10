@@ -83,7 +83,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Sun & moon"
-                    font.pixelSize: 26
+                    font.pixelSize: Tokens.fontSize(26)
                 }
                 ActionButton {
                     id: closeButton
@@ -118,7 +118,7 @@ Popup {
                     maximumLength: 10
                     selectByMouse: true
                     color: Tokens.foreground
-                    font.pixelSize: 16
+                    font.pixelSize: Tokens.fontSize(16)
                     padding: 10
                     background: Rectangle {
                         color: "#20384b"
@@ -141,7 +141,7 @@ Popup {
             }
             PlainLabel {
                 text: "Browse 30 days before or after today"
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
             }
             Slider {
@@ -163,7 +163,7 @@ Popup {
                 objectName: "astronomyStatus"
                 Layout.fillWidth: true
                 text: root.result ? root.result.date_label : root.state === "loading" ? "Calculating sun and moon…" : "Unavailable. Choose a valid date within a year of today, or select Today to retry."
-                font.pixelSize: 18
+                font.pixelSize: Tokens.fontSize(18)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
@@ -175,7 +175,7 @@ Popup {
                     objectName: "astronomyDaylight"
                     Layout.fillWidth: true
                     text: !root.result ? "" : Astronomy.duration(root.result.daylight_seconds) + " of daylight\n" + (Math.abs(root.result.change_seconds) < 30 ? "About the same as the previous day" : Astronomy.duration(Math.abs(root.result.change_seconds)) + (root.result.change_seconds > 0 ? " longer" : " shorter") + " than the previous day") + (root.now >= Date.parse(root.result.day_start) && root.now < Date.parse(root.result.day_end) ? "\n" + Astronomy.duration(Astronomy.remaining(root.result, root.now)) + " remaining today" : "")
-                    font.pixelSize: 19
+                    font.pixelSize: Tokens.fontSize(19)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -223,7 +223,7 @@ Popup {
                 PlainLabel {
                     Layout.fillWidth: true
                     text: "Twilight & light"
-                    font.pixelSize: 20
+                    font.pixelSize: Tokens.fontSize(20)
                 }
                 PlainLabel {
                     objectName: "astronomyTwilight"
@@ -244,7 +244,7 @@ Popup {
                 Layout.fillWidth: true
                 text: "Calculated locally using SunCalc/Meeus formulas. Times assume a level horizon and standard refraction; terrain, altitude and weather can change what you see. Golden light is a sun-angle window, not a clear-sky forecast. Moon shape is a schematic phase view. All times use this place’s timezone."
                 color: Tokens.secondary
-                font.pixelSize: 12
+                font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }

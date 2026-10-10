@@ -4,6 +4,6 @@ Text {
     textFormat: Text.PlainText
     color: Tokens.foreground
     font.family: "sans-serif"
-    font.pixelSize: 17
+    font.pixelSize: Tokens.fontSize(17)
     elide: Text.ElideRight
 }
