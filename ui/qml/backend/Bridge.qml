@@ -484,6 +484,8 @@ Item {
             request.search = patch;
         if (op === "select_output")
             request.output = patch.output;
+        if (["check_effects", "start_effects", "start_live_effects", "select_output"].indexOf(op) >= 0 && patch && typeof patch.monitor_hint === "string" && patch.monitor_hint !== "")
+            request.monitor_hint = patch.monitor_hint;
         if (op === "start_effects")
             request.duration = 300;
         if (!root.weatherTransport.send(request)) {

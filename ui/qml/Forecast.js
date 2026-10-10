@@ -232,11 +232,19 @@ function effectsSetup(v) {
             status: "unchecked",
             reason: "not_checked",
             outputs: [],
-            selected_output: null
+            selected_output: null,
+            output_selection: "automatic"
         };
+    const selectionFields = ["status", "reason", "outputs", "selected_output"];
+    const hasSelection = object(v) && Object.prototype.hasOwnProperty.call(v, "output_selection");
+    if (hasSelection)
+        selectionFields.push("output_selection");
     const reasons = ["not_checked", "ready", "wayland_required", "session_unavailable", "output_unavailable", "output_selection_required", "unsupported_output", "plugin_conflict", "native_missing", "native_incompatible", "activation_failed"];
-    if (!object(v) || Object.keys(v).length !== 4 || ["unchecked", "ready", "unavailable"].indexOf(v.status) < 0 || reasons.indexOf(v.reason) < 0 || !Array.isArray(v.outputs) || v.outputs.length > 32)
+    if (!object(v) || Object.keys(v).length !== selectionFields.length || !selectionFields.every(key => Object.prototype.hasOwnProperty.call(v, key)) || ["unchecked", "ready", "unavailable"].indexOf(v.status) < 0 || reasons.indexOf(v.reason) < 0 || !Array.isArray(v.outputs) || v.outputs.length > 32)
         throw Error("Invalid effects setup");
+    const selection = hasSelection ? v.output_selection : v.selected_output === null ? "automatic" : "explicit";
+    if (["automatic", "explicit"].indexOf(selection) < 0)
+        throw Error("Invalid monitor selection mode");
     let outputs = [], names = [];
     for (let row of v.outputs) {
         if (!object(row) || Object.keys(row).length !== 5 || typeof row.name !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(row.name) || names.indexOf(row.name) >= 0 || typeof row.enabled !== "boolean")
@@ -261,7 +269,8 @@ function effectsSetup(v) {
         status: v.status,
         reason: v.reason,
         outputs: outputs,
-        selected_output: v.selected_output
+        selected_output: v.selected_output,
+        output_selection: selection
     };
 }
 function notifications(v) {

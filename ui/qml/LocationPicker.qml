@@ -211,7 +211,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.page === "saved" && root.editing
-            text: "Select a name to rename. Home opens by default and controls desktop weather."
+            text: "Select a name to rename. Home opens by default."
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone

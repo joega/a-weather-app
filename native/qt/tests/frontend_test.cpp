@@ -5,6 +5,7 @@
 #include <QQmlExpression>
 #include <QQmlApplicationEngine>
 #include <QWindow>
+#include <QScreen>
 #include <QAccessible>
 #include <QQuickWindow>
 #include <QQuickItem>
@@ -2088,6 +2089,166 @@ class FrontendTest : public QObject {
         }
         // Older service snapshots remain accepted.
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.briefings(undefined).length").toInt(), 0);
+    }
+    void desktopEffectsUseWeatherWindowMonitor() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window =
+            qobject_cast<QQuickWindow*>(root->property("weatherWindow").value<QObject*>());
+        QVERIFY(window && window->screen());
+        QTRY_VERIFY(window->isExposed());
+        QVERIFY(root->property("windowOutputName").isValid());
+        QCOMPARE(root->property("windowOutputName").toString(), window->screen()->name());
+
+        auto state = savedSnapshot(1);
+        const auto weather = metricSnapshot(1);
+        state["current"] = weather["current"];
+        state["hourly"] = weather["hourly"];
+        state["source"] = weather["source"];
+        auto registry = state["saved_locations"].toObject();
+        registry["viewed"] = "place-101";
+        registry["primary_forecast_available"] = false;
+        state["saved_locations"] = registry;
+        QJsonObject setup{{"status", "ready"},
+                          {"reason", "ready"},
+                          {"selected_output", "DP-1"},
+                          {"output_selection", "automatic"},
+                          {"outputs", QJsonArray{QJsonObject{{"name", "DP-1"},
+                                                             {"width", 1920},
+                                                             {"height", 1080},
+                                                             {"scale", 1},
+                                                             {"enabled", true}},
+                                                 QJsonObject{{"name", "eDP-1"},
+                                                             {"width", 1920},
+                                                             {"height", 1200},
+                                                             {"scale", 1.25},
+                                                             {"enabled", true}},
+                                                 QJsonObject{{"name", "HDMI-A-1"},
+                                                             {"width", 0},
+                                                             {"height", 0},
+                                                             {"scale", 1},
+                                                             {"enabled", false}}}}};
+        state["effects_setup"] = setup;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QVERIFY2(evaluate(engine, root, "forecast !== null").toBool(),
+                 qPrintable(evaluate(engine, root, "backend.error").toString()));
+        root->setProperty("effectsOpen", false);
+        QVERIFY(!root->property("primaryForecastAvailable").toBool());
+        auto* drawer = root->findChild<QObject*>("effectsDrawer");
+        QVERIFY(drawer);
+        QVERIFY(drawer->property("forecastAvailable").toBool());
+        QVERIFY(drawer->property("canStart").toBool());
+        auto ack = [&] {
+            deliver(transport, {{"version", 1},
+                                {"request_id", transport.requests.last()["request_id"].toInt()},
+                                {"ok", true}});
+        };
+        auto activate = [&](const char* name) {
+            QPointer<QQuickItem> item = shellItem(root, QString::fromLatin1(name));
+            QVERIFY(item && item->isVisible() && item->isEnabled());
+            const auto requests = transport.requests.size();
+            QSignalSpy focusedFrame(window, &QQuickWindow::frameSwapped);
+            item->forceActiveFocus();
+            window->update();
+            QTRY_VERIFY_WITH_TIMEOUT(!focusedFrame.isEmpty(), 1000);
+            item = shellItem(root, QString::fromLatin1(name));
+            QTRY_VERIFY(item && item->hasActiveFocus());
+            QTest::keyClick(window, Qt::Key_Space);
+            QTRY_COMPARE(transport.requests.size(), requests + 1);
+        };
+        // The offscreen platform has one screen. Substitute its reported name
+        // to exercise a window moving between monitors at each explicit action.
+        root->setProperty("windowOutputName", "DP-1");
+        activate("liveDesktop");
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("start_live_effects"));
+        QCOMPARE(transport.requests.last()["monitor_hint"].toString(), QString("DP-1"));
+        ack();
+        root->setProperty("windowOutputName", "eDP-1");
+        activate("liveDesktop");
+        QCOMPARE(transport.requests.last()["monitor_hint"].toString(), QString("eDP-1"));
+        ack();
+
+        root->setProperty("effectsOpen", true);
+        auto* choice = root->findChild<QObject*>("effectsMonitor");
+        QVERIFY(choice);
+        QCOMPARE(choice->property("count").toInt(), 4);
+        QCOMPARE(choice->property("currentIndex").toInt(), 0);
+        QVERIFY(choice->property("displayText").toString().startsWith("Automatic"));
+        auto enabled = choice->property("enabledOptions").value<QJSValue>().toVariant().toList();
+        QCOMPARE(enabled, QVariantList({true, true, true, false}));
+        QMetaObject::invokeMethod(drawer, "checkRequested");
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("check_effects"));
+        QCOMPARE(transport.requests.last()["monitor_hint"].toString(), QString("eDP-1"));
+        ack();
+        QMetaObject::invokeMethod(drawer, "startRequested");
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("start_effects"));
+        QCOMPARE(transport.requests.last()["duration"].toInt(), 300);
+        QCOMPARE(transport.requests.last()["monitor_hint"].toString(), QString("eDP-1"));
+        ack();
+        QMetaObject::invokeMethod(choice, "activated", Q_ARG(int, 1));
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("select_output"));
+        QCOMPARE(transport.requests.last()["output"].toString(), QString("DP-1"));
+        QCOMPARE(transport.requests.last()["monitor_hint"].toString(), QString("eDP-1"));
+        ack();
+        setup["output_selection"] = "explicit";
+        state["effects_setup"] = setup;
+        state["snapshot_revision"] = 2;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        QCOMPARE(choice->property("currentIndex").toInt(), 1);
+        QMetaObject::invokeMethod(choice, "activated", Q_ARG(int, 0));
+        QCOMPARE(transport.requests.last()["output"].toString(), QString());
+        QCOMPARE(transport.requests.last()["monitor_hint"].toString(), QString("eDP-1"));
+        ack();
+
+        // A missing platform screen name is omitted, rather than becoming a
+        // fabricated monitor. Stopping never needs or changes monitor selection.
+        root->setProperty("effectsOpen", false);
+        // Closing Settings deliberately restores its opener on the next event
+        // turn; wait for that before giving the toolbar a new keyboard action.
+        QTRY_VERIFY(shellItem(root, "openEffects")->hasActiveFocus());
+        QVERIFY(root->setProperty("windowOutputName", QStringLiteral("")));
+        QCOMPARE(root->property("windowOutputName").toString(), QString());
+        activate("liveDesktop");
+        QVERIFY(!transport.requests.last().contains("monitor_hint"));
+        ack();
+        state["effect_status"] =
+            QJsonObject{{"state", "running"}, {"persistent", true}, {"remaining_seconds", 0}};
+        state["snapshot_revision"] = 3;
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        activate("liveDesktop");
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("stop_effects"));
+        QVERIFY(!transport.requests.last().contains("monitor_hint"));
+        QVERIFY(!choice->property("enabled").toBool());
+
+        // Accept historical setup snapshots while keeping new selection modes
+        // and unrelated fields strictly validated at the service boundary.
+        setup.remove("output_selection");
+        const auto legacy = QString::fromUtf8(QJsonDocument(setup).toJson(QJsonDocument::Compact));
+        QCOMPARE(evaluate(engine, root, "Forecast.effectsSetup(" + legacy + ").output_selection")
+                     .toString(),
+                 QString("explicit"));
+        for (const auto& mode : QJsonArray{"manual", 1, QJsonValue::Null, true}) {
+            auto invalid = setup;
+            invalid["output_selection"] = mode;
+            const auto json =
+                QString::fromUtf8(QJsonDocument(invalid).toJson(QJsonDocument::Compact));
+            QVERIFY(evaluate(engine, root,
+                             "(function(){try{Forecast.effectsSetup(" + json +
+                                 ");return false;}catch(error){return true;}})()")
+                        .toBool());
+        }
+        setup["unexpected"] = "automatic";
+        const auto extra = QString::fromUtf8(QJsonDocument(setup).toJson(QJsonDocument::Compact));
+        QVERIFY(evaluate(engine, root,
+                         "(function(){try{Forecast.effectsSetup(" + extra +
+                             ");return false;}catch(error){return true;}})()")
+                    .toBool());
     }
     void experimentalSettingsNavigation_data() {
         QTest::addColumn<int>("width");

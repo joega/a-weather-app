@@ -32,6 +32,7 @@ const WorkerEOFGrace = 35 * time.Second
 type Manager struct {
 	mu                               sync.Mutex
 	root, stateDir, instance, output string
+	outputExplicit                   bool
 	setup, current, ownership        object
 	process                          *supervision.Process
 	input, reply                     *os.File
@@ -45,7 +46,8 @@ type Manager struct {
 // root is the verified asset root; state is private state; instance and output
 // identify the compositor and connector used by subsequent checks.
 func New(root, state, instance, output string) *Manager {
-	m := &Manager{root: root, stateDir: state, instance: instance, output: output, setup: object{"status": "unchecked", "reason": "not_checked", "outputs": []any{}, "selected_output": nil}, current: object{"state": "stopped", "error": nil, "session_generation": nil, "remaining_seconds": 0, "persistent": false}}
+	m := &Manager{root: root, stateDir: state, instance: instance, output: output, outputExplicit: output != "", setup: object{"status": "unchecked", "reason": "not_checked", "outputs": []any{}, "selected_output": nil}, current: object{"state": "stopped", "error": nil, "session_generation": nil, "remaining_seconds": 0, "persistent": false}}
+	m.setup["output_selection"] = m.outputSelection()
 	m.backendFactory = func() *nativeBackend { return newBackend(root) }
 	m.recover = m.fallback
 	return m
@@ -60,6 +62,33 @@ func (m *Manager) SetupSnapshot() object {
 
 // Check verifies compositor/output compatibility without activating effects.
 func (m *Manager) Check(ctx context.Context) object {
+	return m.CheckOutput(ctx, "")
+}
+
+func (m *Manager) outputSelection() string {
+	if m.outputExplicit {
+		return "explicit"
+	}
+	return "automatic"
+}
+
+// preferredOutput resolves only the app's connector hint or a single output.
+// It never guesses from monitor order or an unrelated window's focus.
+func (m *Manager) preferredOutput(enabled []string, hint string) string {
+	if m.outputExplicit {
+		return m.output
+	}
+	if hint != "" {
+		return hint
+	}
+	if len(enabled) == 1 {
+		return enabled[0]
+	}
+	return ""
+}
+
+// CheckOutput uses the app window's monitor unless the user chose an override.
+func (m *Manager) CheckOutput(ctx context.Context, monitorHint string) object {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if ctx.Err() != nil {
@@ -67,7 +96,12 @@ func (m *Manager) Check(ctx context.Context) object {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
-	m.setup = object{"status": "unavailable", "reason": "session_unavailable", "outputs": []any{}, "selected_output": nil}
+	m.setup = object{"status": "unavailable", "reason": "session_unavailable", "outputs": []any{}, "selected_output": nil, "output_selection": m.outputSelection()}
+	if !m.outputExplicit {
+		// A failed automatic check must not leave a previously selected output
+		// available for a subsequent start.
+		m.output = ""
+	}
 	instance, pid, _, e := discover(m.instance)
 	if e != nil {
 		if e.Error() == "wayland_required" {
@@ -98,10 +132,7 @@ func (m *Manager) Check(ctx context.Context) object {
 			enabled = append(enabled, text(obj(row)["name"]))
 		}
 	}
-	selected := m.output
-	if selected == "" && len(enabled) == 1 {
-		selected = enabled[0]
-	}
+	selected := m.preferredOutput(enabled, monitorHint)
 	monitor, selectedError := selectedOutput(v, selected)
 	if selectedError == nil {
 		m.setup["selected_output"] = selected
@@ -144,6 +175,13 @@ func (m *Manager) SelectOutput(ctx context.Context, output string) (object, erro
 	if e := ctx.Err(); e != nil {
 		return nil, e
 	}
+	if output == "" {
+		m.output, m.outputExplicit = "", false
+		m.setup["selected_output"] = nil
+		m.setup["output_selection"] = "automatic"
+		m.setup["status"], m.setup["reason"] = "unchecked", "not_checked"
+		return safeio.Clone(m.setup), nil
+	}
 	if !outputPattern.MatchString(output) {
 		return nil, errors.New("output")
 	}
@@ -151,7 +189,9 @@ func (m *Manager) SelectOutput(ctx context.Context, output string) (object, erro
 	for _, row := range rows {
 		if obj(row)["name"] == output && obj(row)["enabled"] == true {
 			m.output = output
+			m.outputExplicit = true
 			m.setup["selected_output"] = output
+			m.setup["output_selection"] = "explicit"
 			return safeio.Clone(m.setup), nil
 		}
 	}

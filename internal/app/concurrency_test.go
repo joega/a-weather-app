@@ -71,6 +71,7 @@ func (f *coordinatedEffects) Check(ctx context.Context) M {
 	}
 	return M{"status": "ready", "reason": "ready", "outputs": []any{}, "selected_output": "DP-1"}
 }
+func (f *coordinatedEffects) CheckOutput(ctx context.Context, _ string) M { return f.Check(ctx) }
 func (f *coordinatedEffects) SelectOutput(context.Context, string) (M, error) {
 	defer f.enter()()
 	f.mu.Lock()

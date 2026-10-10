@@ -324,14 +324,17 @@ activation, and incompatible compositor builds are refused before loading the
 plugin. After a Hyprland update, effects may remain unavailable until a matching
 A Weather App release is available; forecast viewing continues to work.
 
-In Settings, check compatibility and choose one enabled monitor for desktop
-effects. Other connected monitors remain usable but do not show those effects.
+Desktop effects default to the monitor containing the app window when started.
+In Settings, check compatibility and optionally choose a specific enabled monitor;
+choose **Automatic · app's monitor** to restore the default. Other connected
+monitors remain usable but do not show those effects.
 No build step is required for the supported packaged runtime.
 If the selected monitor disconnects or is disabled, the app stops its owned
 effects; check compatibility and start them again after reconnecting it.
 
-- **Live desktop**, in the main window header, follows actual weather until you
-  stop it. Closing the window keeps it running; reopen through the bar to stop it.
+- **Live desktop**, in the main window header, follows the weather in the city
+  you are viewing until you stop it. Switching cities updates the effects.
+  Closing the window keeps it running; reopen through the bar to stop it.
 - **Start 5-minute preview**, in Settings, temporarily previews chosen weather.
 - **Stop** turns effects off. Live mode does not automatically resume after login.
 - Reduced motion disables precipitation and lightning; lightning is off by default.
@@ -592,8 +595,8 @@ reveals Add location and inline controls to remove, rename or reorder entries,
 or choose **Set as Home**. Select the icon again to finish editing.
 There is one automatically saved list; weather timestamps describe the
 forecast, not saved sets. Each app startup opens Home. Browsing or adding a city
-keeps Home unchanged; the bar, desktop effects and background notifications also
-follow Home. Removing Home requires an explicit replacement. The existing primary
+keeps Home unchanged; the bar and background notifications follow Home, while
+Live desktop follows the viewed city. Removing Home requires an explicit replacement. The existing primary
 location becomes Home without changing saved places or their order.
 The first chosen place becomes primary when starting from the unchosen default.
 The picker is constructed only while open; its list reuses compact summaries with

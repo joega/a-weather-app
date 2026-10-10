@@ -101,8 +101,8 @@ func TestSavedRuntimePrimaryConsumersAndRestart(t *testing.T) {
 	a.fx.mu.RLock()
 	temperature, units := object(a.fx.weather["current"])["temperature_c"], a.fx.controls["units"]
 	a.fx.mu.RUnlock()
-	if temperature != 15.0 || units != "F" {
-		t.Fatal("effects used viewed weather", temperature, units)
+	if temperature != 21.0 || units != "C" {
+		t.Fatal("effects did not use viewed weather", temperature, units)
 	}
 	reply, _ = a.Handle(context.Background(), request("set_notifications", M{"notifications": M{"enabled": true, "quiet_enabled": false}}))
 	if reply["ok"] != true {

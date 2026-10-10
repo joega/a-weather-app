@@ -63,6 +63,7 @@ type effectResult struct {
 type effectAction struct {
 	ctx               context.Context
 	op, output        string
+	monitorHint       string
 	duration          int
 	weather, controls M
 	done              chan effectResult
@@ -233,12 +234,12 @@ func (f *effectsCoordinator) perform(ctx context.Context, a effectAction) effect
 			return effectResult{errors.New("effects active"), "effects_active"}
 		}
 		if a.op == "check_effects" {
-			f.backend.Check(ctx)
+			f.backend.CheckOutput(ctx, a.monitorHint)
 			e = ctx.Err()
 		} else {
 			_, e = f.backend.SelectOutput(ctx, a.output)
 			if e == nil {
-				f.backend.Check(ctx)
+				f.backend.CheckOutput(ctx, a.monitorHint)
 				e = ctx.Err()
 			}
 		}
@@ -251,9 +252,13 @@ func (f *effectsCoordinator) perform(ctx context.Context, a effectAction) effect
 				e = f.backend.Stop(ctx)
 			}
 			if e == nil {
-				f.backend.Check(ctx)
+				f.backend.CheckOutput(ctx, a.monitorHint)
 				e = ctx.Err()
 			}
+		}
+		if !live && status["state"] == "stopped" {
+			f.backend.CheckOutput(ctx, a.monitorHint)
+			e = ctx.Err()
 		}
 		if e == nil && !already {
 			e = f.backend.Start(ctx, a.duration, live, a.controls)

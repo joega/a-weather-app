@@ -428,6 +428,14 @@ QtObject {
         }
     }
     readonly property bool liveDesktop: bridge.snapshot !== null && bridge.snapshot.effect_persistent && bridge.snapshot.effect_status !== "stopped"
+    // Use this weather window's Qt screen, never another focused desktop window.
+    // Read it at each explicit action so a moved window uses its new monitor.
+    property string windowOutputName: window.screen ? window.screen.name : ""
+    function effectsMonitorPatch() {
+        return windowOutputName === "" ? ({}) : ({
+                monitor_hint: windowOutputName
+            });
+    }
     readonly property bool watchingPrecipitation: bridge.snapshot !== null && bridge.snapshot.notifications.settings.enabled
     readonly property bool watchingWarnings: bridge.snapshot !== null && bridge.snapshot.warning_notifications.settings.enabled
     function dismissWindow() {
@@ -811,7 +819,7 @@ QtObject {
                                         if (root.liveDesktop)
                                             bridge.send("stop_effects");
                                         else
-                                            bridge.send("start_live_effects");
+                                            bridge.send("start_live_effects", root.effectsMonitorPatch());
                                     }
                                 }
                             }
@@ -1125,7 +1133,7 @@ QtObject {
             hasSavedLocations: root.savedLocations !== null
             onManageLocationsRequested: root.openLocations()
             busy: bridge.busy
-            forecastAvailable: root.primaryForecastAvailable
+            forecastAvailable: root.forecast !== null
             locationSettings: bridge.snapshot ? bridge.snapshot.location_settings : ({
                     mode: "default",
                     zip_code: null,
@@ -1142,13 +1150,14 @@ QtObject {
                     status: "unchecked",
                     reason: "not_checked",
                     outputs: [],
-                    selected_output: null
+                    selected_output: null,
+                    output_selection: "automatic"
                 })
             notifications: bridge.snapshot ? bridge.snapshot.notifications : Forecast.notifications()
             officialWarnings: bridge.snapshot ? bridge.snapshot.warning_notifications : Forecast.warningNotifications()
             timezone: root.primaryTimezone
             actionError: bridge.error
-            canStart: bridge.available && root.primaryForecastAvailable && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
+            canStart: bridge.available && root.forecast !== null && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
             serviceAvailable: bridge.available
             effectsRunning: bridge.snapshot !== null && bridge.snapshot.effect_status !== "stopped"
             persistent: root.liveDesktop
@@ -1171,12 +1180,14 @@ QtObject {
             onLocationRequested: values => bridge.send(root.savedLocations ? "add_location" : "set_location", values)
             onPlaceSearchRequested: values => bridge.send("search_places", values)
             onPlaceSearchCancelRequested: bridge.send("cancel_place_search")
-            onStartRequested: bridge.send("start_effects")
+            onStartRequested: bridge.send("start_effects", root.effectsMonitorPatch())
             onStopRequested: bridge.send("stop_effects")
-            onCheckRequested: bridge.send("check_effects")
-            onOutputRequested: output => bridge.send("select_output", {
-                    output: output
-                })
+            onCheckRequested: bridge.send("check_effects", root.effectsMonitorPatch())
+            onOutputRequested: output => {
+                const patch = root.effectsMonitorPatch();
+                patch.output = output;
+                bridge.send("select_output", patch);
+            }
             onNotificationsPatch: values => bridge.send("set_notifications", values)
             onNotificationPauseRequested: bridge.send("snooze_notifications")
             onNotificationResumeRequested: bridge.send("resume_notifications")

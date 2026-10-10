@@ -124,7 +124,13 @@ func (a *App) viewPointChanged(oldID string, oldLocation M) {
 }
 
 func (a *App) primaryNeeded() bool {
-	return a.primaryOnly || a.options.Now().Before(a.barRefreshUntil) || a.notifications.Enabled() || a.effectsStatus()["state"] == "running"
+	return a.primaryOnly || a.options.Now().Before(a.barRefreshUntil) || a.notifications.Enabled()
+}
+
+func (a *App) viewedNeeded() bool {
+	// A desktop session continues showing the selected city's weather when
+	// its window is hidden. Home remains the bar/notification destination.
+	return !a.primaryOnly && (a.presented || a.effectsStatus()["state"] == "running")
 }
 
 func (a *App) refreshDuePoints() {
@@ -137,7 +143,7 @@ func (a *App) refreshDuePoints() {
 
 func (a *App) demandedPoints() [2]*forecastPoint {
 	points := [2]*forecastPoint{}
-	if a.presented && !a.primaryOnly {
+	if a.viewedNeeded() {
 		points[0] = a.forecastPoint
 	}
 	if a.primaryNeeded() && points[0] != a.primary {
@@ -191,7 +197,7 @@ func (a *App) setPresented(active bool) {
 			a.closeAirOutlook()
 		}
 		a.cancelAirQuality()
-		if a.forecastPoint != a.primary || !a.primaryNeeded() {
+		if !a.viewedNeeded() && (a.forecastPoint != a.primary || !a.primaryNeeded()) {
 			a.cancelPointFetch(a.forecastPoint)
 		}
 	} else {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joega/a-weather-app/internal/airquality"
+	"github.com/joega/a-weather-app/internal/effects"
 	"github.com/joega/a-weather-app/internal/notifications"
 	"github.com/joega/a-weather-app/internal/precipitation"
 	"github.com/joega/a-weather-app/internal/radar"
@@ -27,6 +28,7 @@ type M = map[string]any
 type Effects interface {
 	SetupSnapshot() M
 	Check(context.Context) M
+	CheckOutput(context.Context, string) M
 	SelectOutput(context.Context, string) (M, error)
 	Status() M
 	Start(context.Context, int, bool, M) error
@@ -510,7 +512,7 @@ func (a *App) updateEffectsLocked() {
 	// there is no native lease to refresh, so do not clone a full forecast on
 	// every notification tick merely to prepare an unused effects packet.
 	if a.fx != nil && a.fx.Status()["state"] == "running" {
-		a.fx.update(a.selectedPoint(a.primary, false), controlsForCountry(a.controls, a.primary.country))
+		a.fx.update(a.selected(false), controlsForCountry(a.controls, a.forecastPoint.country))
 	}
 }
 func (a *App) snapshotPrivateLocked() M {
@@ -567,13 +569,28 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 	op := stringOf(request["op"])
 	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_appearance": "appearance", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "air_outlook_open": "detail", "air_outlook_close": "detail", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_history": "history", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
+	hintAllowed := op == "check_effects" || op == "select_output" || op == "start_effects" || op == "start_live_effects"
 	for k := range request {
-		if k != "version" && k != "request_id" && k != "op" && k != extra {
+		if k != "version" && k != "request_id" && k != "op" && k != extra && !(hintAllowed && k == "monitor_hint") {
 			return reply, false
 		}
 	}
 	if extra != "" {
 		if _, ok = request[extra]; !ok {
+			return reply, false
+		}
+	}
+	monitorHint := ""
+	if value, exists := request["monitor_hint"]; exists {
+		var valid bool
+		monitorHint, valid = value.(string)
+		if !valid || (monitorHint != "" && !effects.ValidOutputName(monitorHint)) {
+			return reply, false
+		}
+	}
+	if op == "select_output" {
+		output, valid := request["output"].(string)
+		if !valid || (output != "" && !effects.ValidOutputName(output)) {
 			return reply, false
 		}
 	}
@@ -609,10 +626,10 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 			reply["error"] = "effects_failed"
 			return reply, false
 		}
-		selected := a.selectedPoint(a.primary, op == "start_live_effects")
-		flags := safeio.Clone(controlsForCountry(a.controls, a.primary.country))
+		selected := a.selected(op == "start_live_effects")
+		flags := safeio.Clone(controlsForCountry(a.controls, a.forecastPoint.country))
 		a.fx.update(selected, flags)
-		action := effectAction{op: op, output: stringOf(request["output"]), duration: duration, weather: effectWeather(selected), controls: flags}
+		action := effectAction{op: op, output: stringOf(request["output"]), monitorHint: monitorHint, duration: duration, weather: effectWeather(selected), controls: flags}
 		locked = false
 		a.mu.Unlock()
 		result := a.fx.submit(ctx, action)

@@ -82,7 +82,8 @@ GlassPanel {
             status: "unchecked",
             reason: "not_checked",
             outputs: [],
-            selected_output: null
+            selected_output: null,
+            output_selection: "automatic"
         })
     property string actionError: ""
     readonly property string compatibilityText: ({
@@ -572,24 +573,24 @@ GlassPanel {
                 font.pixelSize: Tokens.fontSize(13)
             }
             PlainLabel {
-                visible: root.setup.outputs.length > 0
                 text: "Monitor"
                 font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
                 id: monitorChoice
-                enabledOptions: root.setup.outputs.map(row => row.enabled)
+                enabledOptions: [true].concat(root.setup.outputs.map(row => row.enabled))
                 objectName: "effectsMonitor"
                 Layout.fillWidth: true
-                visible: root.setup.outputs.length > 0
                 enabled: !root.busy && !root.effectsRunning && root.serviceAvailable
-                model: root.setup.outputs.map(row => row.name + " · " + Math.round(row.width) + " × " + Math.round(row.height) + (row.enabled ? "" : " · Disabled"))
-                currentIndex: root.setup.outputs.findIndex(row => row.name === root.setup.selected_output)
+                model: ["Automatic · app's monitor"].concat(root.setup.outputs.map(row => row.name + " · " + Math.round(row.width) + " × " + Math.round(row.height) + (row.enabled ? "" : " · Disabled")))
+                currentIndex: root.setup.output_selection === "automatic" ? 0 : root.setup.selected_output === null ? -1 : root.setup.outputs.findIndex(row => row.name === root.setup.selected_output) + 1
                 displayText: currentIndex < 0 ? "Choose a monitor" : currentText
                 Accessible.name: "Desktop effects monitor"
                 onActivated: index => {
-                    if (root.setup.outputs[index].enabled)
-                        root.outputRequested(root.setup.outputs[index].name);
+                    if (index === 0)
+                        root.outputRequested("");
+                    else if (root.setup.outputs[index - 1].enabled)
+                        root.outputRequested(root.setup.outputs[index - 1].name);
                 }
             }
             PlainLabel {
@@ -692,7 +693,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Manual previews do not change the live forecast. Live desktop always follows Home’s weather."
+                text: "Manual previews do not change the live forecast. Live desktop follows the location you are viewing."
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(13)

@@ -320,6 +320,7 @@ func (f *fakeEffects) SetupSnapshot() M {
 	return M{"status": "unchecked", "reason": "not_checked", "outputs": []any{}, "selected_output": nil}
 }
 func (f *fakeEffects) Check(context.Context) M                         { f.checks++; return f.SetupSnapshot() }
+func (f *fakeEffects) CheckOutput(ctx context.Context, _ string) M     { return f.Check(ctx) }
 func (f *fakeEffects) SelectOutput(context.Context, string) (M, error) { return f.SetupSnapshot(), nil }
 func (f *fakeEffects) Status() M {
 	s := f.state

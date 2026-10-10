@@ -14,6 +14,9 @@ type object = map[string]any
 var instancePattern = regexp.MustCompile(`^[a-f0-9]+_[0-9]+_[0-9]+$`)
 var outputPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$`)
 
+// ValidOutputName validates a connector name before admitting an IPC hint.
+func ValidOutputName(name string) bool { return outputPattern.MatchString(name) }
+
 func number(v any) (float64, bool) {
 	var n float64
 	switch x := v.(type) {
