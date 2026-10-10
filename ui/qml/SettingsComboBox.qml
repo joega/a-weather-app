@@ -7,6 +7,7 @@ ComboBox {
     id: root
     property var enabledOptions: []
     property real popupWidth: width
+    property real indicatorRightMargin: 12
     font.pixelSize: Tokens.fontSize(17)
     implicitHeight: Math.max(42, contentItem.implicitHeight + topPadding + bottomPadding)
     implicitWidth: 240
@@ -21,7 +22,7 @@ ComboBox {
         opacity: root.enabled ? 1 : 0.5
     }
     indicator: UiIcon {
-        x: root.width - width - 12
+        x: root.width - width - root.indicatorRightMargin
         y: (root.height - height) / 2
         iconName: "chevron-down"
         opacity: root.enabled ? 1 : 0.5

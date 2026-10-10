@@ -11,7 +11,10 @@ SettingsComboBox {
     property bool abbreviated: false
     hoverEnabled: true
     signal chosen(var patch)
-    implicitWidth: (abbreviated ? 76 : compact ? 124 : 240) * Tokens.textScale
+    implicitWidth: abbreviated ? Math.max(44, contentItem.implicitWidth + leftPadding + rightPadding) : (compact ? 124 : 240) * Tokens.textScale
+    leftPadding: abbreviated ? 10 : 12
+    indicatorRightMargin: abbreviated ? 8 : 12
+    rightPadding: abbreviated ? indicator.width + indicatorRightMargin + 6 : 36
     implicitHeight: Math.max(40, contentItem.implicitHeight + topPadding + bottomPadding)
     font.pixelSize: Tokens.fontSize(compact ? 15 : 17)
     popupWidth: Math.max(width, 220)
