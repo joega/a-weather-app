@@ -3,7 +3,9 @@
 A native Qt Quick weather app for Linux, with an animated sky and optional
 weather effects across your Hyprland desktop. Designed for Omarchy.
 
-![A Weather App with animated sky and live desktop rain](media/demo.gif)
+![Current A Weather App layout with animated sky and desktop rain preview](media/live-desktop.gif)
+
+Rain preview on the current app layout. [Watch the video](media/live-desktop.mp4).
 
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
