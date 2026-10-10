@@ -111,7 +111,12 @@ GlassPanel {
             next = point.y - 12;
         else if (point.y + item.height > next + scroll.height - 12)
             next = point.y + item.height - scroll.height + 12;
-        scroll.contentY = Math.max(0, Math.min(next, Math.max(0, scroll.contentHeight - scroll.height)));
+        // A virtualized ListView can shift its origin after jumping to a
+        // distant city. Clamping to zero would put its last card at the top
+        // and leave the rest of the panel blank.
+        const start = scroll === places ? places.originY : 0;
+        const end = start + Math.max(0, scroll.contentHeight - scroll.height);
+        scroll.contentY = Math.max(start, Math.min(next, end));
     }
     onEditingChanged: {
         if (!editing) {

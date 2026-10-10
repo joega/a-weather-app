@@ -3172,6 +3172,163 @@ class FrontendTest : public QObject {
                          "Home, sweet home"),
                  "Home, sweet home");
     }
+    void savedLocationPickerViewportAfterSwitch_data() {
+        QTest::addColumn<int>("width");
+        QTest::addColumn<double>("textScale");
+        QTest::newRow("compact") << 700 << 1.0;
+        QTest::newRow("compact-enlarged") << 700 << 1.5;
+        QTest::newRow("desktop") << 1200 << 1.0;
+    }
+    void savedLocationPickerViewportAfterSwitch() {
+        QFETCH(int, width);
+        QFETCH(double, textScale);
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto* window = root->findChild<QQuickWindow*>("weatherWindow");
+        QVERIFY(window);
+        window->resize(width, 900);
+        QTRY_VERIFY(window->isExposed());
+        auto state = savedSnapshot(1);
+        state["appearance"] = QJsonObject{{"schema_version", 1},
+                                          {"text_scale", textScale},
+                                          {"high_contrast", false},
+                                          {"error", QJsonValue::Null}};
+        auto registry = state["saved_locations"].toObject();
+        auto rows = registry["items"].toArray();
+        const auto summaryTemplate = rows[0].toObject()["summary"].toObject();
+        for (int index = 0; index < rows.size(); ++index) {
+            auto row = rows[index].toObject();
+            auto summary = summaryTemplate;
+            summary["temperature_c"] = 15 + index;
+            summary["freshness"] = "fresh";
+            summary["alert_status"] = "none";
+            row["summary"] = summary;
+            rows[index] = row;
+        }
+        // Persisted Home is third; its displayed position must remain first.
+        const auto home = rows.takeAt(0);
+        rows.insert(2, home);
+        registry["viewed"] = "place-119";
+        qint64 revision = 0;
+        const auto publish = [&] {
+            registry["items"] = rows;
+            state["saved_locations"] = registry;
+            state["snapshot_revision"] = ++revision;
+            deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        };
+        publish();
+        root->setProperty("effectsOpen", false);
+        auto* opener = root->findChild<QQuickItem*>("openLocation");
+        auto* loader = root->findChild<QQuickItem*>("locationPickerLoader");
+        QVERIFY(opener && loader);
+        QSignalSpy initialFrame(window, &QQuickWindow::frameSwapped);
+        window->update();
+        QTRY_VERIFY_WITH_TIMEOUT(!initialFrame.isEmpty(), 1000);
+        for (const int next : {8, 17, 1, 19}) {
+            opener->forceActiveFocus();
+            QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
+            // Summary refresh can replace the registry before the first layout.
+            publish();
+            QTRY_VERIFY(loader->property("item").value<QObject*>());
+            QPointer<QQuickItem> picker =
+                qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
+            QVERIFY(picker);
+            auto* list = picker->findChild<QQuickItem*>("savedLocationList");
+            QVERIFY(list);
+            QTRY_VERIFY(list->hasActiveFocus());
+            QCOMPARE(list->property("count").toInt(), 20);
+            const int viewed = registry["viewed"].toString().mid(6).toInt() - 100;
+            QTRY_COMPARE(list->property("currentIndex").toInt(), viewed);
+            QSignalSpy frame(window, &QQuickWindow::frameSwapped);
+            window->update();
+            QTRY_VERIFY_WITH_TIMEOUT(!frame.isEmpty(), 1000);
+            const auto visibleCards = [&] {
+                int count = 0;
+                for (int index = 0; index < 20; ++index) {
+                    auto* card = visualItem(picker, QString("viewSaved_%1").arg(index));
+                    if (!card || !card->isVisible())
+                        continue;
+                    const auto point = card->mapToItem(list, QPointF());
+                    if (point.y() < list->height() - 1 && point.y() + card->height() > 1)
+                        ++count;
+                }
+                return count;
+            };
+            const auto geometry = [&] {
+                auto* last = visualItem(picker, "viewSaved_19");
+                const auto lastTop = last ? last->mapToItem(list, QPointF()).y() : -1;
+                const auto lastBottom = last ? lastTop + last->height() : -1;
+                return QString("viewed=%1 count=%2 visible=%3 contentY=%4 contentHeight=%5 "
+                               "viewportHeight=%6 originY=%7 lastTop=%8 lastBottom=%9")
+                    .arg(viewed)
+                    .arg(list->property("count").toInt())
+                    .arg(visibleCards())
+                    .arg(list->property("contentY").toDouble())
+                    .arg(list->property("contentHeight").toDouble())
+                    .arg(list->height())
+                    .arg(list->property("originY").toDouble())
+                    .arg(lastTop)
+                    .arg(lastBottom);
+            };
+            QVERIFY2(list->height() >= 500, qPrintable(geometry()));
+            if (visibleCards() < 2) {
+                // Let ordinary queued layout settle without another snapshot,
+                // user scroll, or reopening the panel to conceal a stale origin.
+                QTest::qWait(200);
+                const auto prefix =
+                    qEnvironmentVariable("WEATHER_QT_SAVED_VIEWPORT_CAPTURE_PREFIX");
+                if (visibleCards() < 2 && !prefix.isEmpty())
+                    QVERIFY(window->grabWindow().save(prefix + QTest::currentDataTag() + ".png"));
+            }
+            QVERIFY2(visibleCards() >= 2, qPrintable(geometry()));
+            auto* current = visualItem(picker, QString("viewSaved_%1").arg(viewed));
+            QVERIFY2(current, qPrintable(geometry()));
+            const auto point = current->mapToItem(list, QPointF());
+            QVERIFY2(point.y() < list->height() && point.y() + current->height() > 0,
+                     qPrintable(geometry()));
+            // A summary-only update must retain the list and fill its viewport.
+            auto row = rows[0].toObject();
+            auto summary = row["summary"].toObject();
+            summary["alert_status"] = "active";
+            summary["alert_count"] = 6;
+            row["summary"] = summary;
+            rows[0] = row;
+            publish();
+            frame.clear();
+            window->update();
+            QTRY_VERIFY_WITH_TIMEOUT(!frame.isEmpty(), 1000);
+            QCOMPARE(list->property("count").toInt(), 20);
+            QVERIFY2(visibleCards() >= 2, qPrintable(geometry()));
+            // Real list navigation reaches both ends without changing the model.
+            list->forceActiveFocus();
+            for (int step = 0; step < 20 && list->property("currentIndex").toInt() != 0; ++step)
+                QTest::keyClick(window, Qt::Key_Up);
+            QCOMPARE(list->property("currentIndex").toInt(), 0);
+            QTRY_VERIFY(visualItem(picker, "viewSaved_0"));
+            for (int step = 0; step < next; ++step)
+                QTest::keyClick(window, Qt::Key_Down);
+            QCOMPARE(list->property("currentIndex").toInt(), next);
+            const auto requests = transport.requests.size();
+            QTest::keyClick(window, Qt::Key_Return);
+            QTRY_COMPARE(transport.requests.size(), requests + 1);
+            QCOMPARE(
+                transport.requests.last()["location"].toMap(),
+                (QVariantMap{{"action", "view"}, {"id", QString("place-%1").arg(100 + next)}}));
+            QTRY_VERIFY(loader->property("item").isNull());
+            deliver(transport, {{"version", 1},
+                                {"request_id", transport.requests.last()["request_id"].toInt()},
+                                {"ok", true}});
+            registry["viewed"] = QString("place-%1").arg(100 + next);
+            publish();
+            QTRY_VERIFY(opener->hasActiveFocus());
+        }
+    }
     void savedLocationPickerNavigationAndActions_data() {
         QTest::addColumn<double>("textScale");
         QTest::newRow("normal") << 1.0;
