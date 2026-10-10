@@ -2,8 +2,9 @@ GO ?= go
 APP_MODE ?= development
 APP_VERSION ?= 0.70.0
 STATICCHECK_VERSION := v0.8.1
-GOIMPORTS_VERSION := v0.44.0
-STATICCHECK := $(CURDIR)/build/tools/staticcheck-$(STATICCHECK_VERSION)/staticcheck
+GOIMPORTS_VERSION := v0.51.0
+LINT_TOOLS := $(CURDIR)/packaging/lint-tools
+STATICCHECK := $(CURDIR)/build/tools/staticcheck-$(STATICCHECK_VERSION)-tools-$(GOIMPORTS_VERSION)/staticcheck
 GOIMPORTS := $(CURDIR)/build/tools/goimports-$(GOIMPORTS_VERSION)/goimports
 .PHONY: all go qt test test-go lint check-go-format native shaders native-tools
 all: go qt
@@ -22,10 +23,10 @@ lint: check-go-format $(STATICCHECK)
 check-go-format: $(GOIMPORTS)
 	@files="$$(find cmd internal -name '*.go' -print0 | xargs -0 $(GOIMPORTS) -l)" || exit $$?; \
 	if [ -n "$$files" ]; then printf 'Run goimports on these files:\n%s\n' "$$files"; exit 1; fi
-$(STATICCHECK):
-	GOBIN="$(dir $(STATICCHECK))" $(GO) install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
-$(GOIMPORTS):
-	GOBIN="$(dir $(GOIMPORTS))" $(GO) install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+$(STATICCHECK): $(LINT_TOOLS)/go.mod $(LINT_TOOLS)/go.sum
+	cd "$(LINT_TOOLS)" && GOBIN="$(dir $(STATICCHECK))" $(GO) install -mod=readonly honnef.co/go/tools/cmd/staticcheck
+$(GOIMPORTS): $(LINT_TOOLS)/go.mod $(LINT_TOOLS)/go.sum
+	cd "$(LINT_TOOLS)" && GOBIN="$(dir $(GOIMPORTS))" $(GO) install -mod=readonly golang.org/x/tools/cmd/goimports
 # Development preparation only; these targets never install host packages.
 native: native-tools
 	$(MAKE) -B -C native/frame-alignment

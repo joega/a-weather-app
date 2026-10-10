@@ -23,6 +23,27 @@ export WEATHER_BUILD_JOBS=${WEATHER_BUILD_JOBS:-2}
 # Configuration below belongs exclusively to this disposable container.
 printf 'Server = https://archive.archlinux.org/repos/2026/09/26/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
 run_phase dependency-setup pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl
+# Keep the reviewed native snapshot while fixing October's Go advisories. Both
+# the archive checksum and Arch signature are required; installation stays in
+# this disposable container, and pacman records the actual compiler version.
+compiler_start=$(date +%s%N)
+compiler_package=$(mktemp /tmp/weather-go-compiler.XXXXXXXX.pkg.tar.zst)
+curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --location \
+  --max-time 120 --max-filesize 67108864 --silent --show-error \
+  https://archive.archlinux.org/repos/2026/10/10/extra/os/x86_64/go-2%3A1.27.2-1-x86_64.pkg.tar.zst \
+  -o "$compiler_package"
+printf '7b9d6eab0e71261e7b1935eaafec326f0845eebb59a80684021f775864da7750  %s\n' \
+  "$compiler_package" | sha256sum --check --strict
+curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --location \
+  --max-time 60 --max-filesize 65536 --silent --show-error \
+  https://archive.archlinux.org/repos/2026/10/10/extra/os/x86_64/go-2%3A1.27.2-1-x86_64.pkg.tar.zst.sig \
+  -o "$compiler_package.sig"
+run_phase compiler-signature pacman-key --verify "$compiler_package.sig" "$compiler_package"
+run_phase compiler-security-update pacman -U --noconfirm "$compiler_package"
+[[ $(pacman -Q go) == 'go 2:1.27.2-1' ]]
+[[ $(go env GOVERSION) == 'go1.27.2-X:nodwarf5' ]]
+rm -f -- "$compiler_package" "$compiler_package.sig"
+printf 'compiler-pin\t%s\t0\n' "$((($(date +%s%N)-compiler_start)/1000000))" >> "$PHASE_TIMINGS"
 # Analyze the widget against real, pinned Omarchy modules without installing
 # the desktop package or inheriting mutable host configuration.
 omarchy_start=$(date +%s%N)

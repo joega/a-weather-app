@@ -30,7 +30,11 @@ Run `make lint` for pinned goimports and Staticcheck checks, or `make test-go`
 for lint, race tests, and vet. `make test` additionally runs display-free Qt
 protocol/frontend tests. The release build runs the same lint gate before its
 existing tests. Tool binaries live under ignored `build/tools/`; the first run
-downloads the pinned tools. Lint tools require Go 1.26+ (Go's automatic toolchain
+downloads the pinned tools from the separate `packaging/lint-tools` module.
+Staticcheck v0.8.1 uses the pinned x/tools v0.51.0 importer so it can read the
+patched Go 1.27 compiler's export format; goimports uses the same tools release.
+These build dependencies are separate from the application module and runtime.
+Lint tools require Go 1.26+ (Go's automatic toolchain
 selection can supply it); application source remains compatible with Go 1.24.
 Staticcheck uses its default checks without blanket suppressions. Update pins
 deliberately and verify them against the release toolchain.
