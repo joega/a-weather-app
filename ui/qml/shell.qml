@@ -1006,7 +1006,6 @@ QtObject {
                 units: root.units
                 compact: root.compactDashboard
                 onDaySelected: day => details.showDay(day)
-                detailsAvailable: bridge.available && bridge.snapshot !== null && bridge.snapshot.location_settings.mode !== "default" && !bridge.snapshot.location_settings.busy
                 onPrecipitationRequested: root.openPrecipitation("")
             }
         }

@@ -76,7 +76,7 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Rain & snow"
+                    text: "Rain & snow totals"
                     font.pixelSize: Tokens.fontSize(26)
                 }
                 ActionButton {
@@ -86,6 +86,14 @@ Popup {
                     accessibleLabel: "Close rain and snow"
                     onClicked: root.close()
                 }
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Forecast rainfall and snowfall amounts for each day."
+                color: Tokens.secondary
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
             }
             PlainLabel {
                 Layout.fillWidth: true
@@ -116,7 +124,7 @@ Popup {
             PlainLabel {
                 objectName: "precipitationStatus"
                 Layout.fillWidth: true
-                text: root.error === "precipitation_in_use" ? "Rain and snow details are open in another window." : root.error === "precipitation_context_changed" ? "The place changed. Open its rain and snow details again." : root.state === "loading" ? "Loading rain and snow…" : root.state === "waiting" ? "Waiting before the next update…" : root.result && root.result.fetched_at ? (root.state === "stale" ? "Cached forecast · " : "Updated ") + root.result.fetched_label + (root.result.refreshing ? " · Refreshing…" : root.result.error === "fetch_failed" ? " · Refresh unavailable; retrying while open" : root.result.error === "offline" ? " · Offline" : "") : root.result && root.result.error === "offline" ? "No rain and snow details are saved for this place." : "Rain and snow details are unavailable."
+                text: root.error === "precipitation_location_required" ? "Choose a location using the pin beside the city name, then open its rain and snow totals." : root.error === "precipitation_service_unavailable" ? "The weather service is disconnected. Reopen the app to reconnect." : root.error === "precipitation_forecast_loading" ? "The forecast is still loading. Try again in a moment." : root.error === "precipitation_location_busy" ? "The location is still loading. Try again when it is ready." : root.error === "precipitation_in_use" ? "Rain and snow details are open in another window." : root.error === "precipitation_context_changed" ? "The place changed. Open its rain and snow details again." : root.state === "loading" ? "Loading rain and snow…" : root.state === "waiting" ? "Waiting before the next update…" : root.result && root.result.fetched_at ? (root.state === "stale" ? "Cached forecast · " : "Updated ") + root.result.fetched_label + (root.result.refreshing ? " · Refreshing…" : root.result.error === "fetch_failed" ? " · Refresh unavailable; retrying while open" : root.result.error === "offline" ? " · Offline" : "") : root.result && root.result.error === "offline" ? "No rain and snow details are saved for this place." : "Rain and snow details are unavailable."
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
@@ -124,7 +132,7 @@ Popup {
             }
             ActionButton {
                 objectName: "retryPrecipitation"
-                visible: root.state === "unavailable"
+                visible: root.state === "unavailable" && root.error !== "precipitation_location_required" && root.error !== "precipitation_service_unavailable"
                 text: "Try again"
                 onClicked: root.requested(root.result ? root.result.date : "")
             }

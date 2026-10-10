@@ -12,7 +12,6 @@ GlassPanel {
     readonly property int rowHeight: Math.ceil((compact ? 33 : 37) * Tokens.textScale)
     signal daySelected(var day)
     signal precipitationRequested
-    property bool detailsAvailable: false
     property real rangeLow: {
         let n = 100;
         for (let d of days)
@@ -40,9 +39,8 @@ GlassPanel {
         anchors.right: parent.right
         anchors.rightMargin: 16
         y: 8
-        text: "Rain & snow"
+        text: "Rain & snow totals"
         accessibleLabel: "Open rain and snow accumulation details"
-        enabled: root.detailsAvailable
         onClicked: root.precipitationRequested()
     }
     PlainLabel {

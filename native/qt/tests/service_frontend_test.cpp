@@ -770,6 +770,27 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(eval("root.freshness").toString().contains("Choose a city"));
         QVERIFY(!QFile::exists(fixture.state + "/notifications.json"));
         QVERIFY(!eval("root.liveDesktop").toBool());
+        // Totals remains a usable entry point even before a city is chosen.
+        // Explain the missing location inside the panel instead of leaving a
+        // disabled button with no reason.
+        eval("root.effectsOpen=false;root.locationsOpen=false");
+        QTest::qWait(100);
+        auto* totals = qobject_cast<QQuickItem*>(named("openPrecipitation"));
+        QVERIFY(totals && totals->isEnabled());
+        totals->forceActiveFocus();
+        QTest::qWait(80);
+        click("openPrecipitation");
+        QTRY_VERIFY(eval("root.precipitationOpen").toBool());
+        QCOMPARE(eval("backend.precipitationState").toString(), QString("unavailable"));
+        QCOMPARE(eval("backend.precipitationError").toString(),
+                 QString("precipitation_location_required"));
+        QVERIFY(named("precipitationStatus")
+                    ->property("text")
+                    .toString()
+                    .contains("Choose a location"));
+        QVERIFY(!QFile::exists(fixture.state + "/precipitation-detail.json"));
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!eval("root.precipitationOpen").toBool());
         QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
         eval("bridge.shutdown()");
         QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
@@ -1234,7 +1255,21 @@ class ServiceFrontendTest : public QObject {
         };
         auto* entry = qobject_cast<QQuickItem*>(named("openPrecipitation"));
         QVERIFY(entry);
-        activate("openPrecipitation");
+        // A partially visible header button must not move out from under the
+        // pointer between press and release when it acquires mouse focus.
+        auto* forecastFlick = named("forecastScroll")->property("contentItem").value<QObject*>();
+        auto* forecastContent = forecastFlick->property("contentItem").value<QQuickItem*>();
+        QVERIFY(forecastContent);
+        forecastFlick->setProperty("contentY",
+                                   entry->mapToItem(forecastContent, QPointF()).y() + 8);
+        QTest::qWait(100);
+        const auto entryCenter =
+            entry->mapToScene(QPointF(entry->width() / 2, entry->height() / 2)).toPoint();
+        QVERIFY(entryCenter.y() > 0 && entryCenter.y() < window->height());
+        QVERIFY(entry->isEnabled());
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, entryCenter);
+        QTest::qWait(80);
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, entryCenter);
         QTRY_COMPARE_WITH_TIMEOUT(eval("backend.precipitationState").toString(), QString("fresh"),
                                   5000);
         QVERIFY(

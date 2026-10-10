@@ -131,10 +131,21 @@ Item {
         precipitationToken = (precipitationToken + 1) % 2147483648;
         precipitationWanted = true;
         precipitationResult = null;
+        precipitationQuery = null;
         precipitationError = "";
         lastPrecipitationRevision = 0;
         precipitationState = "loading";
-        if (!Precipitation.context(snapshot) || !presentationActive) {
+        if (!available)
+            precipitationError = "precipitation_service_unavailable";
+        else if (!snapshot)
+            precipitationError = "precipitation_forecast_loading";
+        else if (snapshot.location_settings.busy)
+            precipitationError = "precipitation_location_busy";
+        else if (!Precipitation.context(snapshot))
+            precipitationError = "precipitation_location_required";
+        else if (!presentationActive)
+            precipitationError = "precipitation_not_presented";
+        if (precipitationError !== "") {
             precipitationState = "unavailable";
             return;
         }
