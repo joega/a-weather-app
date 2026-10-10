@@ -574,9 +574,12 @@ for rollback. The list is limited to 20 places; four full forecasts are retained
 across five atomic cache slots, with at most 10 MiB of slot files. Only the viewed
 and primary cities stay decoded for consumers. Saving a place does not enable
 background fetching for it. Open **Locations** (Ctrl+L) to switch cities, add a
-place, rename or reorder entries, or choose **Make primary**. Browsing or adding
-a city keeps the existing primary location used by the bar, desktop effects and
-background notifications. Removing the primary requires an explicit replacement.
+place, rename or reorder entries, or choose **Set as Home** in a location’s edit
+view. There is one automatically saved list; weather timestamps describe the
+forecast, not saved sets. Each app startup opens Home. Browsing or adding a city
+keeps Home unchanged; the bar, desktop effects and background notifications also
+follow Home. Removing Home requires an explicit replacement. The existing primary
+location becomes Home without changing saved places or their order.
 The first chosen place becomes primary when starting from the unchosen default.
 The picker is constructed only while open; its list uses cached summaries with
 freshness and warning coverage, and does not fetch every saved city. Summary

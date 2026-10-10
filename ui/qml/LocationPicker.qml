@@ -98,7 +98,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Primary · " + Forecast.savedName(root.primary)
+            text: "Home · " + Forecast.savedName(root.primary)
             color: Tokens.accent
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -106,7 +106,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "The bar, desktop effects and background notifications follow your primary location."
+            text: "The app opens at Home. Your bar, desktop effects and notifications follow it too."
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -116,8 +116,8 @@ GlassPanel {
             Layout.fillWidth: true
             ActionButton {
                 objectName: "showSavedLocations"
-                text: "Saved · " + root.rows.length + "/20"
-                selected: root.page === "saved"
+                text: "Back to locations"
+                visible: root.page !== "saved"
                 onClicked: root.showSaved()
             }
             ActionButton {
@@ -189,7 +189,7 @@ GlassPanel {
                     Layout.fillWidth: true
                     implicitHeight: Math.max(108, contentColumn.implicitHeight + 24)
                     enabled: root.canAct
-                    Accessible.name: placeRow.label + (placeRow.modelData.id === root.registry.primary ? ", primary location" : "") + (placeRow.modelData.id === root.registry.viewed ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
+                    Accessible.name: placeRow.label + (placeRow.modelData.id === root.registry.primary ? ", home location" : "") + (placeRow.modelData.id === root.registry.viewed ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
                     onClicked: root.viewRequested(placeRow.modelData.id)
                     onActiveFocusChanged: if (activeFocus)
                         places.currentIndex = placeRow.index
@@ -226,13 +226,13 @@ GlassPanel {
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: (placeRow.modelData.id === root.registry.primary ? "Primary · " : "") + (placeRow.modelData.id === root.registry.viewed ? "Viewing · " : "") + (placeRow.modelData.mode === "auto" ? "Current location" : placeRow.modelData.country_code || "Country unavailable")
+                                text: (placeRow.modelData.id === root.registry.primary ? "Home · " : "") + (placeRow.modelData.id === root.registry.viewed ? "Viewing · " : "") + (placeRow.modelData.mode === "auto" ? "Current location" : placeRow.modelData.country_code || "Country unavailable")
                                 font.pixelSize: Tokens.fontSize(12)
                                 color: Tokens.accent
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: placeRow.summary === null ? "Not loaded" : (placeRow.summary.freshness === "invalid_future" ? "Invalid timestamp" : placeRow.summary.freshness === "expired" ? "Expired" : placeRow.summary.freshness === "stale" ? "Stale" : "Saved") + " · " + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP")
+                                text: placeRow.summary === null ? "Weather not loaded" : (placeRow.summary.freshness === "invalid_future" ? "Weather time unavailable" : "Weather as of " + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP") + (placeRow.summary.freshness === "expired" ? " · Expired" : placeRow.summary.freshness === "stale" ? " · Stale" : ""))
                                 font.pixelSize: Tokens.fontSize(12)
                                 color: Tokens.secondary
                             }
@@ -294,7 +294,7 @@ GlassPanel {
                         objectName: "savedLocationAlias"
                         Layout.fillWidth: true
                         maximumLength: 160
-                        placeholderText: "Home, work, or leave blank"
+                        placeholderText: "Work, cabin, or leave blank"
                         Accessible.name: "Custom location name, up to 80 characters"
                         color: Tokens.foreground
                         placeholderTextColor: Tokens.secondary
@@ -345,7 +345,7 @@ GlassPanel {
                     }
                     ActionButton {
                         objectName: "makeLocationPrimary"
-                        text: root.registry && root.editId === root.registry.primary ? "Primary location" : "Make primary"
+                        text: root.registry && root.editId === root.registry.primary ? "Home location" : "Set as Home"
                         enabled: root.canAct && root.registry && root.editId !== root.registry.primary
                         onClicked: root.actionRequested({
                             action: "primary",
@@ -367,7 +367,7 @@ GlassPanel {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: root.rows.length <= 1 ? "Keep at least one saved location." : root.registry && root.editId === root.registry.primary ? "Choose a replacement primary location before removing this one." : "Remove this location from your saved list."
+                        text: root.rows.length <= 1 ? "Keep at least one saved location." : root.registry && root.editId === root.registry.primary ? "Choose a new Home before removing this location." : "Remove this location from your saved list."
                         color: Tokens.secondary
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
@@ -386,7 +386,7 @@ GlassPanel {
                         currentIndex: root.replacements.findIndex(row => row.id === root.replacementId)
                         displayText: currentIndex >= 0 ? currentText : "Choose replacement…"
                         onActivated: index => root.replacementId = root.replacements[index].id
-                        Accessible.name: "Replacement primary location"
+                        Accessible.name: "New Home location"
                         enabled: root.canAct
                     }
                     ActionButton {
@@ -481,7 +481,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.page === "saved"
-            text: "Summaries are saved data, with times shown in your desktop timezone. Opening a place refreshes it when due."
+            text: "Locations save automatically. Weather times use your desktop timezone; opening a location refreshes its forecast when needed."
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone

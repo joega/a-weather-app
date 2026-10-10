@@ -870,7 +870,7 @@ QtObject {
                                     objectName: "primaryLocationHint"
                                     visible: root.savedLocations !== null
                                     width: parent.width
-                                    text: root.savedLocations && root.savedLocations.viewed === root.savedLocations.primary ? "Primary location" : "Desktop weather · " + root.primaryName
+                                    text: root.savedLocations && root.savedLocations.viewed === root.savedLocations.primary ? "Home" : "Home · " + root.primaryName
                                     font.pixelSize: Tokens.fontSize(13)
                                     color: Tokens.secondary
                                 }
@@ -1192,7 +1192,7 @@ QtObject {
             onLoaded: Qt.callLater(() => {
                 if (!item)
                     return;
-                if (bridge.snapshot && bridge.snapshot.location_settings.mode === "default")
+                if (root.savedLocations && !root.savedLocations.items.some(row => row.mode !== "default"))
                     item.showAdd();
                 else
                     item.focusInitial();

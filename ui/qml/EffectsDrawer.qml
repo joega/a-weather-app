@@ -349,7 +349,7 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 visible: root.hasSavedLocations
-                text: "Primary · " + root.primaryLocation
+                text: "Home · " + root.primaryLocation
                 color: Tokens.accent
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -364,7 +364,7 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 visible: root.hasSavedLocations
-                text: "Search below to add and view a city. Change the primary location in the saved list."
+                text: "Search below to add and view a city. Choose Home in the locations list."
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -383,7 +383,7 @@ GlassPanel {
                 id: citySearch
                 Layout.fillWidth: true
                 search: root.placeSearch
-                selectionHint: root.hasSavedLocations ? "Choose a result to add and view it. The primary location stays the same." : "Optional country code, such as DE or BR. Choose a result to change location."
+                selectionHint: root.hasSavedLocations ? "Choose a result to add and view it. Home stays the same." : "Optional country code, such as DE or BR. Choose a result to change location."
                 serviceAvailable: root.serviceAvailable
                 locationBusy: root.locationLocked
                 onSearchRequested: values => root.placeSearchRequested(values)
@@ -715,7 +715,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Manual previews do not change the live forecast. Live desktop always follows the primary location’s weather."
+                text: "Manual previews do not change the live forecast. Live desktop always follows Home’s weather."
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(13)

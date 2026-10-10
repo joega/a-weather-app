@@ -2239,6 +2239,7 @@ class FrontendTest : public QObject {
         QVERIFY(list);
         QTRY_VERIFY(list->hasActiveFocus());
         QCOMPARE(list->property("count").toInt(), 20);
+        QVERIFY(!picker->findChild<QQuickItem*>("showSavedLocations")->isVisible());
         QVERIFY(!visualItem(picker, "viewSaved_19")); // Offscreen rows are not instantiated.
         const auto prefix = qEnvironmentVariable("WEATHER_QT_SAVED_SCREENSHOT_PREFIX");
         auto capture = [&](const QString& suffix) {
@@ -2309,10 +2310,16 @@ class FrontendTest : public QObject {
         QTest::qWait(400);
         QCOMPARE(transport.requests.size(), 3);
         state = savedSnapshot(2, 3);
+        // A selected built-in default must not hide existing saved cities
+        // behind the Add page (the original review regression).
+        auto locationSettings = state["location_settings"].toObject();
+        locationSettings["mode"] = "default";
+        state["location_settings"] = locationSettings;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
         QTest::keyClick(window, Qt::Key_L, Qt::ControlModifier);
         QTRY_VERIFY(!loader->property("item").isNull());
         picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
+        QCOMPARE(picker->property("page").toString(), QString("saved"));
         auto* add = picker->findChild<QQuickItem*>("addSavedLocation");
         add->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Space);

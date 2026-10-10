@@ -68,10 +68,18 @@ func (a *App) restoreLocations() error {
 			return err
 		}
 	}
+	// Home is the startup destination. Browsing another saved place lasts for
+	// this session; bar-only readers must not change the open window's choice.
+	if !a.primaryOnly && a.saved.doc["viewed"] != a.saved.doc["primary"] {
+		err = a.saved.view(stringOf(a.saved.doc["primary"]))
+		if err != nil && !errors.Is(err, errSavedLocationsUnconfirmed) {
+			return err
+		}
+	}
 	a.primary = a.loadPoint(stringOf(a.saved.doc["primary"]))
 	a.forecastPoint = a.primary
-	if !a.primaryOnly && a.saved.doc["viewed"] != a.saved.doc["primary"] {
-		a.forecastPoint = a.loadPoint(stringOf(a.saved.doc["viewed"]))
+	if err != nil {
+		a.locationError = "save_unconfirmed"
 	}
 	return nil
 }

@@ -741,6 +741,11 @@ class ServiceFrontendTest : public QObject {
         auto saved = fixture.saved("saved-locations.json");
         QCOMPARE(saved["primary"].toString(), QString("place-100"));
         QCOMPARE(saved["viewed"].toString(), QString("place-100"));
+        // Browsing is temporary; the same saved list opens at Home next launch.
+        eval("bridge.send('saved_location', {action:'view', id:'place-102'})");
+        QTRY_COMPARE(eval("root.location").toString(), QString("City 2"));
+        QTRY_VERIFY(!eval("bridge.busy").toBool());
+        QCOMPARE(fixture.saved("saved-locations.json")["viewed"].toString(), QString("place-102"));
         QSignalSpy exit(engine.get(), SIGNAL(exit(int)));
         eval("bridge.shutdown()");
         QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
@@ -753,7 +758,8 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(eval("root.savedLocations.primary").toString(), QString("place-100"));
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-100"));
         QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
-        QCOMPARE(fixture.saved("saved-locations.json"), saved);
+        QCOMPARE(fixture.saved("saved-locations.json")["places"], saved["places"]);
+        QCOMPARE(fixture.saved("saved-locations.json")["viewed"].toString(), QString("place-100"));
     }
     void emptyOfflineWindow() {
         ServiceFixture fixture;

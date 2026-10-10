@@ -43,6 +43,17 @@ func runtimeLocations(t *testing.T, options Options, viewed int) (*App, *safeio.
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { a.Close(context.Background()) })
+	// Tests of browsing start within a session. A new application now starts
+	// at Home; set up the selected point without starting network work.
+	if viewed > 0 {
+		id := stringOf(object(a.saved.doc["places"].([]any)[viewed])["id"])
+		if err := a.saved.view(id); err != nil {
+			t.Fatal(err)
+		}
+		oldID, oldLocation := a.id, a.location
+		a.forecastPoint = a.loadPoint(id)
+		a.viewPointChanged(oldID, oldLocation)
+	}
 	return a, state
 }
 
@@ -77,7 +88,7 @@ func TestSavedRuntimePrimaryConsumersAndRestart(t *testing.T) {
 	messages := make(chan string, 2)
 	a, state := runtimeLocations(t, Options{Offline: true, Effects: &coordinatedEffects{}, Sender: func(_ context.Context, _ string, body string) error { messages <- body; return nil }}, 1)
 	if a.id != "place-101" || a.primary.id != "place-100" || a.controls["units"] != "C" {
-		t.Fatal("view and primary not restored independently")
+		t.Fatal("browsing changed Home or used the wrong units")
 	}
 	bar := Bar(state, savedRuntimeNow)
 	if !strings.HasPrefix(stringOf(bar["label"]), "59°") || !strings.Contains(stringOf(bar["tooltip"]), "City 0") {
@@ -121,12 +132,15 @@ func TestSavedRuntimePrimaryConsumersAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer restored.Close(context.Background())
-	if restored.id != "place-102" || restored.primary.id != "place-101" {
-		t.Fatal("restart lost separate identities")
+	if restored.id != "place-101" || restored.primary.id != "place-101" || restored.saved.doc["viewed"] != "place-101" {
+		t.Fatal("restart did not open the chosen Home")
 	}
-	locationAction(t, restored, M{"action": "view", "id": "place-101"})
 	if restored.forecastPoint != restored.primary {
-		t.Fatal("matching consumers did not share decoded point")
+		t.Fatal("startup decoded Home more than once")
+	}
+	store, err := loadSavedLocations(state)
+	if err != nil || store.doc["primary"] != "place-101" || store.doc["viewed"] != "place-101" || len(store.doc["places"].([]any)) != 3 {
+		t.Fatal("restart lost locations or did not save Home selection", err)
 	}
 }
 
@@ -307,6 +321,10 @@ func TestSavedRuntimeCacheDamageAndMetadataAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer b.Close(context.Background())
+	if b.forecastPoint != b.primary || b.id != "place-100" {
+		t.Fatal("damaged browsing cache prevented startup at Home")
+	}
+	locationAction(t, b, M{"action": "view", "id": "place-101"})
 	if b.id != "place-101" || b.forecast != nil || b.primary.id != "place-100" || b.primary.forecast == nil {
 		t.Fatal("cache damage changed identity or hid primary")
 	}
@@ -413,7 +431,7 @@ func TestSavedRuntimeCurrentLocationResolvesOnlyWithDemand(t *testing.T) {
 		t.Fatal(err)
 	}
 	var resolves atomic.Int32
-	a, err := New(state, Options{Now: func() time.Time { return savedRuntimeNow }, ResolveSelection: func(_ context.Context, s M) (M, error) {
+	a, err := New(state, Options{Offline: true, Now: func() time.Time { return savedRuntimeNow }, ResolveSelection: func(_ context.Context, s M) (M, error) {
 		resolves.Add(1)
 		l := weather.DefaultLocation()
 		l["name"] = "Updated current location"
@@ -427,6 +445,8 @@ func TestSavedRuntimeCurrentLocationResolvesOnlyWithDemand(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close(context.Background())
+	locationAction(t, a, M{"action": "view", "id": "place-101"})
+	a.options.Offline = false
 	if resolves.Load() != 0 || !a.primary.needsResolve {
 		t.Fatal("unused current-location favorite resolved")
 	}
