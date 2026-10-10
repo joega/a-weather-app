@@ -80,6 +80,12 @@ Canvas {
             ctx.lineTo(17.7, 1.3);
             ctx.stroke();
             break;
+        case "sidebar":
+            ctx.rect(3, 4, 18, 16);
+            ctx.moveTo(9, 4);
+            ctx.lineTo(9, 20);
+            ctx.stroke();
+            break;
         case "desktop":
             ctx.rect(3, 4, 18, 13);
             ctx.moveTo(12, 17);

@@ -21,7 +21,6 @@ GlassPanel {
     readonly property var edited: rows.find(row => row.id === editId) || null
     readonly property int editIndex: rows.findIndex(row => row.id === editId)
     readonly property var replacements: rows.filter(row => row.id !== editId)
-    readonly property var primary: registry ? rows.find(row => row.id === registry.primary) : null
     readonly property bool canAct: serviceAvailable && !busy
     readonly property bool adding: locationSettings.busy
     signal closeRequested
@@ -80,13 +79,13 @@ GlassPanel {
         formScroll.contentY = 0
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        spacing: 16
+        anchors.margins: 16
+        spacing: 12
         RowLayout {
             Layout.fillWidth: true
             PlainLabel {
                 text: root.page === "edit" ? "Edit location" : "Locations"
-                font.pixelSize: Tokens.fontSize(30)
+                font.pixelSize: Tokens.fontSize(24)
                 Layout.fillWidth: true
             }
             ActionButton {
@@ -96,40 +95,32 @@ GlassPanel {
                 onClicked: root.closeRequested()
             }
         }
-        PlainLabel {
-            Layout.fillWidth: true
-            text: "Home · " + Forecast.savedName(root.primary)
-            color: Tokens.accent
-            wrapMode: Text.Wrap
-            elide: Text.ElideNone
-            font.pixelSize: Tokens.fontSize(16)
-        }
-        PlainLabel {
-            Layout.fillWidth: true
-            text: "The app opens at Home. Your bar, desktop effects and notifications follow it too."
-            color: Tokens.secondary
-            wrapMode: Text.Wrap
-            elide: Text.ElideNone
-            font.pixelSize: Tokens.fontSize(14)
-        }
         RowLayout {
             Layout.fillWidth: true
             ActionButton {
                 objectName: "showSavedLocations"
                 text: "Back to locations"
                 visible: root.page !== "saved"
+                Layout.fillWidth: true
                 onClicked: root.showSaved()
             }
             ActionButton {
                 objectName: "addSavedLocation"
                 text: "Add location"
-                selected: root.page === "add"
+                visible: root.page === "saved"
+                Layout.fillWidth: true
                 enabled: root.rows.length < 20 && root.serviceAvailable
                 onClicked: root.showAdd()
             }
-            Item {
-                Layout.fillWidth: true
-            }
+        }
+        PlainLabel {
+            Layout.fillWidth: true
+            visible: root.page === "saved" && root.rows.length >= 20
+            text: "You have 20 saved locations. Remove one to add another."
+            color: Tokens.secondary
+            wrapMode: Text.Wrap
+            elide: Text.ElideNone
+            font.pixelSize: Tokens.fontSize(13)
         }
         PlainLabel {
             objectName: "savedLocationStatus"
@@ -173,85 +164,113 @@ GlassPanel {
                     event.accepted = true;
                 }
             }
-            delegate: RowLayout {
+            delegate: Item {
                 id: placeRow
                 required property var modelData
                 required property int index
-                width: places.width - 14
-                spacing: 8
+                width: places.width - 12
+                height: viewButton.implicitHeight
                 readonly property var summary: modelData.summary
                 readonly property bool usable: summary !== null && (summary.freshness === "fresh" || summary.freshness === "stale")
                 readonly property string units: Forecast.savedUnits(modelData, root.controls)
                 readonly property string label: Forecast.savedName(modelData)
+                readonly property bool home: modelData.id === root.registry.primary
+                readonly property bool viewing: modelData.id === root.registry.viewed
                 Button {
                     id: viewButton
                     objectName: "viewSaved_" + placeRow.index
-                    Layout.fillWidth: true
-                    implicitHeight: Math.max(108, contentColumn.implicitHeight + 24)
+                    anchors.fill: parent
+                    implicitHeight: Math.max(112, contentColumn.implicitHeight + 28)
+                    leftPadding: 14
+                    rightPadding: 14
+                    topPadding: 12
+                    bottomPadding: 16
+                    hoverEnabled: true
                     enabled: root.canAct
-                    Accessible.name: placeRow.label + (placeRow.modelData.id === root.registry.primary ? ", home location" : "") + (placeRow.modelData.id === root.registry.viewed ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
+                    Accessible.name: placeRow.label + (placeRow.home ? ", home location" : "") + (placeRow.viewing ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
                     onClicked: root.viewRequested(placeRow.modelData.id)
                     onActiveFocusChanged: if (activeFocus)
                         places.currentIndex = placeRow.index
                     background: Rectangle {
                         radius: 14
-                        color: placeRow.modelData.id === root.registry.viewed ? "#704b667e" : viewButton.hovered ? "#504b667e" : "#24283b50"
+                        color: placeRow.viewing ? "#365a76" : viewButton.hovered ? "#334c62" : "#283f54"
                         border.width: viewButton.activeFocus || (places.activeFocus && places.currentIndex === placeRow.index) ? 2 : 1
-                        border.color: viewButton.activeFocus || (places.activeFocus && places.currentIndex === placeRow.index) ? Tokens.accent : Tokens.border
+                        border.color: viewButton.activeFocus || (places.activeFocus && places.currentIndex === placeRow.index) || placeRow.viewing ? Tokens.accent : Tokens.border
                     }
-                    contentItem: RowLayout {
-                        spacing: 12
-                        WeatherIcon {
-                            condition: placeRow.usable ? placeRow.summary.condition : "unknown"
-                            isDay: placeRow.usable ? placeRow.summary.is_day !== false : true
-                            Layout.preferredWidth: 38
-                            Layout.preferredHeight: 34
-                        }
-                        ColumnLayout {
-                            id: contentColumn
+                    contentItem: ColumnLayout {
+                        id: contentColumn
+                        spacing: 5
+                        RowLayout {
                             Layout.fillWidth: true
-                            spacing: 4
-                            PlainLabel {
+                            spacing: 8
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                text: placeRow.label
-                                font.pixelSize: Tokens.fontSize(18)
-                                font.weight: Font.DemiBold
+                                spacing: 3
+                                PlainLabel {
+                                    Layout.fillWidth: true
+                                    text: placeRow.label
+                                    font.pixelSize: Tokens.fontSize(18)
+                                    font.weight: Font.DemiBold
+                                }
+                                PlainLabel {
+                                    Layout.fillWidth: true
+                                    visible: placeRow.modelData.label !== ""
+                                    text: placeRow.modelData.name
+                                    font.pixelSize: Tokens.fontSize(12)
+                                    color: Tokens.secondary
+                                }
+                                PlainLabel {
+                                    Layout.fillWidth: true
+                                    visible: text !== ""
+                                    text: [placeRow.home ? "Home" : "", placeRow.viewing ? "Viewing" : "", placeRow.modelData.mode === "auto" ? "Current location" : ""].filter(value => value !== "").join(" · ")
+                                    font.pixelSize: Tokens.fontSize(12)
+                                    color: Tokens.accent
+                                }
+                            }
+                            PlainLabel {
+                                text: placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) : "—"
+                                font.pixelSize: Tokens.fontSize(32)
+                            }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Layout.rightMargin: 46
+                            spacing: 6
+                            WeatherIcon {
+                                condition: placeRow.usable ? placeRow.summary.condition : "unknown"
+                                isDay: placeRow.usable ? placeRow.summary.is_day !== false : true
+                                Layout.preferredWidth: 26
+                                Layout.preferredHeight: 24
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                visible: placeRow.modelData.label !== ""
-                                text: placeRow.modelData.name
-                                font.pixelSize: Tokens.fontSize(12)
-                                color: Tokens.secondary
-                            }
-                            PlainLabel {
-                                Layout.fillWidth: true
-                                text: (placeRow.modelData.id === root.registry.primary ? "Home · " : "") + (placeRow.modelData.id === root.registry.viewed ? "Viewing · " : "") + (placeRow.modelData.mode === "auto" ? "Current location" : placeRow.modelData.country_code || "Country unavailable")
-                                font.pixelSize: Tokens.fontSize(12)
-                                color: Tokens.accent
-                            }
-                            PlainLabel {
-                                Layout.fillWidth: true
-                                text: placeRow.summary === null ? "Weather not loaded" : (placeRow.summary.freshness === "invalid_future" ? "Weather time unavailable" : "Weather as of " + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP") + (placeRow.summary.freshness === "expired" ? " · Expired" : placeRow.summary.freshness === "stale" ? " · Stale" : ""))
-                                font.pixelSize: Tokens.fontSize(12)
-                                color: Tokens.secondary
-                            }
-                            PlainLabel {
-                                Layout.fillWidth: true
-                                visible: placeRow.summary !== null && (placeRow.summary.alert_status === "active" || placeRow.summary.alert_status === "cached")
-                                text: Forecast.savedAlertText(placeRow.modelData)
-                                color: Tokens.gold
-                                font.pixelSize: Tokens.fontSize(12)
+                                text: placeRow.usable ? Forecast.title(placeRow.summary.condition) : placeRow.summary === null ? "Weather not loaded" : "Weather unavailable"
+                                font.pixelSize: Tokens.fontSize(13)
                             }
                         }
                         PlainLabel {
-                            text: placeRow.usable && placeRow.summary.temperature_c !== null ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units : "—"
-                            font.pixelSize: Tokens.fontSize(24)
+                            Layout.fillWidth: true
+                            Layout.rightMargin: 46
+                            visible: placeRow.summary !== null
+                            text: placeRow.summary === null ? "" : placeRow.summary.freshness === "invalid_future" ? "Weather time unavailable" : (placeRow.summary.freshness === "expired" ? "Expired · " : placeRow.summary.freshness === "stale" ? "Earlier weather · " : "As of ") + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP")
+                            font.pixelSize: Tokens.fontSize(11)
+                            color: Tokens.secondary
+                        }
+                        PlainLabel {
+                            Layout.fillWidth: true
+                            Layout.rightMargin: 46
+                            visible: placeRow.summary !== null && (placeRow.summary.alert_status === "active" || placeRow.summary.alert_status === "cached")
+                            text: placeRow.summary && placeRow.summary.alert_status === "cached" ? "Cached weather alert" : "Weather alert"
+                            color: Tokens.gold
+                            font.pixelSize: Tokens.fontSize(12)
                         }
                     }
                 }
                 ActionButton {
                     objectName: "editSaved_" + placeRow.index
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: 8
                     iconName: "sliders"
                     accessibleLabel: "Edit " + placeRow.label
                     enabled: root.canAct
@@ -283,6 +302,15 @@ GlassPanel {
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                         font.pixelSize: Tokens.fontSize(20)
+                    }
+                    PlainLabel {
+                        Layout.fillWidth: true
+                        visible: root.registry && root.editId === root.registry.primary
+                        text: "The app opens at Home. Desktop weather and notifications follow it too."
+                        color: Tokens.secondary
+                        wrapMode: Text.Wrap
+                        elide: Text.ElideNone
+                        font.pixelSize: Tokens.fontSize(13)
                     }
                     PlainLabel {
                         text: "Custom name"
@@ -481,7 +509,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.page === "saved"
-            text: "Locations save automatically. Weather times use your desktop timezone; opening a location refreshes its forecast when needed."
+            text: "Weather times use your desktop timezone."
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone

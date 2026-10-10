@@ -696,7 +696,7 @@ QtObject {
             fogDensity: root.atmosphere ? root.atmosphere.fog_density : 0
             sunElevation: root.atmosphere ? root.atmosphere.sun_elevation : 20
             sunAzimuth: root.atmosphere ? root.atmosphere.sun_azimuth : 180
-            celestialLeft: Math.max(width * 0.6, forecastColumn.x + currentTemperature.width + Tokens.fontSize(48) + height * 0.024)
+            celestialLeft: Math.max(width * 0.78, forecastColumn.x + conditions.x + conditions.width / 2 + currentTemperature.implicitWidth / 2 + Tokens.fontSize(48) + height * 0.024)
             celestialTop: forecastColumn.y + Math.max(conditions.y + currentTemperature.y + currentTemperature.height / 2, headerActions.y + headerActions.height + 24 + height * 0.024)
             wind: root.atmosphere ? root.atmosphere.wind_x : 0
             windSpeed: root.current && root.current.wind_speed_m_s !== null ? root.current.wind_speed_m_s : 0
@@ -746,30 +746,33 @@ QtObject {
                     }
                     ColumnLayout {
                         id: headerBody
-                        readonly property real conditionsWidth: Math.max(currentTemperature.implicitWidth, Math.min(width * 0.45, regionHeading.implicitWidth), Math.min(width * 0.45, conditionHeading.implicitWidth))
                         width: parent.width
                         spacing: 16
                         Item {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Math.max(conditions.y + conditions.height, headerActions.y + headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0), headerAlerts.visible ? headerAlerts.y + headerAlerts.height : 0)
-                            Row {
+                            Layout.preferredHeight: conditions.y + conditions.height
+                            RowLayout {
                                 id: headerActions
                                 objectName: "headerActions"
                                 readonly property real controlHeight: Math.max(40, headerUnits.implicitHeight)
                                 spacing: 5
-                                anchors.right: parent.right
+                                width: parent.width
+                                height: controlHeight
                                 anchors.top: parent.top
                                 ActionButton {
                                     id: locationsButton
-                                    height: headerActions.controlHeight
+                                    Layout.preferredHeight: headerActions.controlHeight
                                     objectName: "openLocation"
-                                    iconName: "map-pin"
+                                    iconName: "sidebar"
                                     iconSize: 22
                                     accessibleLabel: "Change location (Ctrl+L)"
                                     onClicked: root.openLocations()
                                 }
+                                Item {
+                                    Layout.fillWidth: true
+                                }
                                 ActionButton {
-                                    height: headerActions.controlHeight
+                                    Layout.preferredHeight: headerActions.controlHeight
                                     objectName: "refreshForecast"
                                     iconName: "refresh"
                                     accessibleLabel: "Refresh forecast"
@@ -777,7 +780,7 @@ QtObject {
                                     onClicked: bridge.send("refresh")
                                 }
                                 ActionButton {
-                                    height: headerActions.controlHeight
+                                    Layout.preferredHeight: headerActions.controlHeight
                                     objectName: "openForecastShare"
                                     iconName: "share"
                                     iconSize: 20
@@ -796,7 +799,7 @@ QtObject {
                                 }
                                 ActionButton {
                                     id: settingsButton
-                                    height: headerActions.controlHeight
+                                    Layout.preferredHeight: headerActions.controlHeight
                                     objectName: "openEffects"
                                     iconName: "sliders"
                                     iconSize: 20
@@ -804,7 +807,7 @@ QtObject {
                                     onClicked: root.openSettings(false)
                                 }
                                 ActionButton {
-                                    height: headerActions.controlHeight
+                                    Layout.preferredHeight: headerActions.controlHeight
                                     objectName: "liveDesktop"
                                     iconName: "desktop"
                                     iconSize: 20
@@ -840,38 +843,38 @@ QtObject {
                             }
                             Column {
                                 id: conditions
-                                readonly property bool inlineTools: parent.width >= headerActions.width + Tokens.fontSize(340)
-                                y: inlineTools ? 0 : headerActions.height + 8 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
+                                objectName: "currentConditions"
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                y: headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0)
                                 spacing: 3
-                                width: parent.width
-                                Row {
-                                    id: locationTitle
-                                    spacing: 10
-                                    width: conditions.inlineTools ? parent.width - headerActions.width - 16 : parent.width
-                                    PlainLabel {
-                                        id: locationHeading
-                                        objectName: "locationHeading"
-                                        text: root.city
-                                        font.pixelSize: Tokens.fontSize(38)
-                                        wrapMode: Text.Wrap
-                                        maximumLineCount: 3
-                                        elide: Text.ElideRight
-                                        width: parent.width
-                                    }
+                                width: Math.min(parent.width, Tokens.fontSize(720))
+                                PlainLabel {
+                                    id: locationHeading
+                                    objectName: "locationHeading"
+                                    text: root.city
+                                    font.pixelSize: Tokens.fontSize(32)
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 3
+                                    elide: Text.ElideRight
+                                    width: parent.width
                                 }
                                 PlainLabel {
                                     id: regionHeading
-                                    width: headerBody.conditionsWidth
+                                    width: parent.width
                                     visible: text !== ""
+                                    horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
                                     text: root.region
-                                    font.pixelSize: Tokens.fontSize(19)
+                                    font.pixelSize: Tokens.fontSize(16)
                                     color: "#d4e3ee"
                                 }
                                 PlainLabel {
                                     id: currentTemperature
                                     objectName: "currentTemperature"
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
                                     text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
                                     font.pixelSize: Tokens.fontSize(96)
                                     font.weight: Font.Light
@@ -880,35 +883,27 @@ QtObject {
                                 }
                                 PlainLabel {
                                     id: conditionHeading
-                                    width: headerBody.conditionsWidth
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
                                     text: root.current ? Forecast.title(root.current.condition) : "Forecast unavailable"
-                                    font.pixelSize: Tokens.fontSize(27)
+                                    font.pixelSize: Tokens.fontSize(22)
                                 }
                                 PlainLabel {
-                                    width: window.width >= 850 && root.activeAlerts.length ? parent.width * 0.48 : parent.width
+                                    width: parent.width
+                                    horizontalAlignment: Text.AlignHCenter
                                     text: "Feels like " + Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units) + " · High " + Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units) + " · Low " + Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)
-                                    font.pixelSize: Tokens.fontSize(18)
+                                    font.pixelSize: Tokens.fontSize(16)
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
                                 }
                             }
-                            AlertsPanel {
-                                id: headerAlerts
-                                visible: root.activeAlerts.length > 0 && window.width >= 850
-                                anchors.right: parent.right
-                                anchors.top: headerActions.bottom
-                                anchors.topMargin: Math.max(16 + (updatedNotice.visible ? updatedNotice.height + 8 : 0), conditions.y + locationTitle.height - headerActions.height + 8)
-                                width: parent.width * 0.49
-                                height: implicitHeight
-                                alerts: root.activeAlerts
-                                source: bridge.snapshot ? bridge.snapshot.alerts.source || "" : ""
-                            }
                         }
                         AlertsPanel {
+                            objectName: "headerAlerts"
                             Layout.fillWidth: true
-                            visible: root.activeAlerts.length > 0 && window.width < 850
+                            visible: root.activeAlerts.length > 0
                             alerts: root.activeAlerts
                             source: bridge.snapshot ? bridge.snapshot.alerts.source || "" : ""
                         }
@@ -1187,15 +1182,11 @@ QtObject {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            anchors.margins: 18
-            width: Math.min(610, window.width - 36)
+            width: Math.min(380 + 200 * (Tokens.textScale - 1), window.width - 32)
             onLoaded: Qt.callLater(() => {
                 if (!item)
                     return;
-                if (root.savedLocations && !root.savedLocations.items.some(row => row.mode !== "default"))
-                    item.showAdd();
-                else
-                    item.focusInitial();
+                item.focusInitial();
             })
             sourceComponent: LocationPicker {
                 objectName: "locationPicker"

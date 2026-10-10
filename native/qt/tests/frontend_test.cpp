@@ -1939,7 +1939,11 @@ class FrontendTest : public QObject {
             for (const int width : {700, 1200}) {
                 window->resize(width, 850);
                 QTest::qWait(120);
-                QVERIFY(share->mapToScene(QPointF()).x() > heading->mapToScene(QPointF()).x());
+                const auto heroCenter = heading->mapToScene(QPointF(heading->width() / 2, 0));
+                QVERIFY(qAbs(heroCenter.x() - window->width() / 2.0) < 1);
+                QVERIFY(heading->mapToScene(QPointF()).y() >=
+                        share->mapToScene(QPointF(0, share->height())).y());
+                QVERIFY(location->mapToScene(QPointF()).x() < refresh->mapToScene(QPointF()).x());
                 QCOMPARE(refresh->mapToScene(QPointF()).y(), share->mapToScene(QPointF()).y());
                 QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
             }
@@ -2286,7 +2290,13 @@ class FrontendTest : public QObject {
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.savedLocations(undefined)").isNull(),
                  true);
     }
+    void savedLocationPickerNavigationAndActions_data() {
+        QTest::addColumn<double>("textScale");
+        QTest::newRow("normal") << 1.0;
+        QTest::newRow("enlarged") << 1.5;
+    }
     void savedLocationPickerNavigationAndActions() {
+        QFETCH(double, textScale);
         FakeTransport transport;
         QQmlApplicationEngine engine;
         engine.setInitialProperties(
@@ -2298,7 +2308,12 @@ class FrontendTest : public QObject {
         auto* window = root->findChild<QQuickWindow*>("weatherWindow");
         QVERIFY(window);
         QTRY_VERIFY(window->isExposed());
+        const QJsonObject appearance{{"schema_version", 1},
+                                     {"text_scale", textScale},
+                                     {"high_contrast", false},
+                                     {"error", QJsonValue::Null}};
         auto state = savedSnapshot(1);
+        state["appearance"] = appearance;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
         root->setProperty("effectsOpen", false);
         window->resize(700, 650);
@@ -2325,7 +2340,8 @@ class FrontendTest : public QObject {
             if (!QFileInfo(prefix).absoluteDir().mkpath("."))
                 return false;
             QTest::qWait(120);
-            return window->grabWindow().save(prefix + suffix + ".png");
+            const auto scaleSuffix = textScale == 1.5 ? QString("-scale150") : QString();
+            return window->grabWindow().save(prefix + suffix + scaleSuffix + ".png");
         };
         QVERIFY(capture("list700"));
         QTest::keyClick(window, Qt::Key_Right);
@@ -2387,6 +2403,7 @@ class FrontendTest : public QObject {
         QTest::qWait(400);
         QCOMPARE(transport.requests.size(), 3);
         state = savedSnapshot(2, 3);
+        state["appearance"] = appearance;
         // A selected built-in default must not hide existing saved cities
         // behind the Add page (the original review regression).
         auto locationSettings = state["location_settings"].toObject();
