@@ -20,6 +20,7 @@ Popup {
     property string units: "F"
     property string windUnits: "auto"
     property string place: ""
+    signal retryRequested
     onOpened: closeButton.forceActiveFocus()
     function revealFocus(item) {
         const flick = scroll.contentItem as Flickable;
@@ -57,6 +58,12 @@ Popup {
             id: body
             width: scroll.availableWidth
             spacing: 16
+            ActionButton {
+                objectName: "retryForecastChanges"
+                visible: root.state === "unavailable"
+                text: "Retry comparison"
+                onClicked: root.retryRequested()
+            }
             RowLayout {
                 Layout.fillWidth: true
                 PlainLabel {

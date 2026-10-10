@@ -27,6 +27,30 @@ Canvas {
         ctx.beginPath();
 
         switch (iconName) {
+        case "share":
+            ctx.moveTo(8, 9);
+            ctx.lineTo(4, 9);
+            ctx.lineTo(4, 21);
+            ctx.lineTo(20, 21);
+            ctx.lineTo(20, 9);
+            ctx.lineTo(16, 9);
+            ctx.moveTo(12, 15);
+            ctx.lineTo(12, 2);
+            ctx.moveTo(7, 7);
+            ctx.lineTo(12, 2);
+            ctx.lineTo(17, 7);
+            ctx.stroke();
+            break;
+        case "map-pin":
+            ctx.moveTo(12, 22);
+            ctx.bezierCurveTo(8, 17, 4, 13, 4, 9);
+            ctx.arc(12, 9, 8, Math.PI, 0);
+            ctx.bezierCurveTo(20, 13, 16, 17, 12, 22);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(12, 9, 2.5, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
         case "sliders":
             ctx.moveTo(4, 6);
             ctx.lineTo(8, 6);

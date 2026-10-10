@@ -32,14 +32,14 @@ current conditions.
 Select an image for full size. **Live desktop** checks compatibility when needed and starts effects directly. It keeps weather effects on until
 you stop them; the separate preview runs for five minutes.
 
-**Find a time to go outside** compares up to three windows in the next 48 hours
+**Settings → Application → Find a time to go outside** compares up to three windows in the next 48 hours
 using the hourly forecast already loaded. Choose a duration, temperature range,
 precipitation and wind limits, and daylight preference. Preferences are saved when
 you press **Find times**. Suggestions explain missing data and exceeded limits;
 UV, air quality, ice and official warnings are not included in the ranking.
 The planner loads on demand and adds no weather requests or background polling.
 
-**Share forecast** copies a concise text summary or saves a PNG of current
+The **Share icon beside Refresh** copies a concise text summary or saves a PNG of current
 conditions and up to three forecast days. Both include units, timezone, valid
 and retrieval times, source attribution, freshness and alert availability.
 You can omit the place name; the timezone remains visible and coordinates are
@@ -50,6 +50,9 @@ adds no weather requests or background polling.
 high-contrast option with solid panels and stronger text and borders. Forecast
 rows and controls adapt to enlarged text. These preferences survive restart,
 apply to forecast image exports, and add no weather requests or polling.
+**Customize dashboard** is in the same Appearance section. Forecast comparisons
+are under **Settings → Application → Forecast changes**. Use the location-pin
+icon beside the city name, or **Ctrl+L**, to change locations.
 
 **Rain & snow**, beside the ten-day forecast or inside a day's details, opens
 daily liquid-equivalent precipitation, rain and showers, new snowfall, and hourly

@@ -4,7 +4,6 @@ import QtQuick.Layouts
 import "backend"
 import "Forecast.js" as Forecast
 import "Dashboard.js" as Dashboard
-import "Changes.js" as Changes
 
 QtObject {
     id: root
@@ -16,9 +15,8 @@ QtObject {
     property string units: bridge.snapshot ? bridge.snapshot.controls.units : "F"
     readonly property string windUnits: bridge.snapshot ? bridge.snapshot.controls.wind_units : "auto"
     readonly property bool automaticUnits: bridge.snapshot ? bridge.snapshot.controls.units_mode === "auto" : true
-    property string briefingPeriod: "today"
     readonly property var briefingRows: bridge.snapshot ? bridge.snapshot.briefing : []
-    readonly property var selectedBriefing: briefingRows.find(row => row.period === briefingPeriod) || briefingRows[0] || null
+    readonly property var selectedBriefing: briefingRows[0] || null
     readonly property var savedLocations: bridge.snapshot ? bridge.snapshot.saved_locations : null
     readonly property var viewedPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.viewed) : null
     readonly property var primaryPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.primary) : null
@@ -676,7 +674,7 @@ QtObject {
         }
         Shortcut {
             sequence: "Escape"
-            enabled: root.effectsOpen || root.locationsOpen
+            enabled: (root.effectsOpen || root.locationsOpen) && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !root.shareOpen && !root.astronomyOpen && !root.precipitationOpen && !root.airOutlookOpen && !root.warningOpen && !details.visible
             onActivated: {
                 root.effectsOpen = false;
                 root.locationsOpen = false;
@@ -741,7 +739,7 @@ QtObject {
                     }
                     ColumnLayout {
                         id: headerBody
-                        readonly property bool actionsBelowLocation: window.width < 850 || locationFont.advanceWidth(root.city) + headerActions.preferredWidth + 20 > width
+                        readonly property bool actionsBelowLocation: window.width < 850 || locationFont.advanceWidth(root.city) + locationsButton.implicitWidth + 10 + headerActions.preferredWidth + 20 > width
                         FontMetrics {
                             id: locationFont
                             font.pixelSize: Tokens.fontSize(38)
@@ -767,7 +765,7 @@ QtObject {
                                 height: childrenRect.height
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.topMargin: headerBody.actionsBelowLocation ? locationHeading.height + regionHeading.height + 12 : 0
+                                anchors.topMargin: headerBody.actionsBelowLocation ? locationTitle.height + regionHeading.height + 12 : 0
                                 ActionButton {
                                     objectName: "refreshForecast"
                                     iconName: "refresh"
@@ -775,19 +773,20 @@ QtObject {
                                     enabled: !bridge.busy
                                     onClicked: bridge.send("refresh")
                                 }
+                                ActionButton {
+                                    objectName: "openForecastShare"
+                                    iconName: "share"
+                                    iconSize: 20
+                                    accessibleLabel: "Share forecast"
+                                    enabled: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
+                                    onClicked: root.openShare()
+                                }
                                 UnitsChoice {
                                     objectName: "unitsChoice"
                                     units: root.units
                                     automaticUnits: root.automaticUnits
                                     enabled: bridge.available && !bridge.busy
                                     onChosen: values => bridge.send("set_controls", values)
-                                }
-                                ActionButton {
-                                    id: locationsButton
-                                    objectName: "openLocation"
-                                    text: "Locations"
-                                    accessibleLabel: "Saved locations (Ctrl+L)"
-                                    onClicked: root.openLocations()
                                 }
                                 ActionButton {
                                     id: settingsButton
@@ -830,15 +829,29 @@ QtObject {
                                 id: conditions
                                 spacing: 3
                                 width: parent.width
-                                PlainLabel {
-                                    id: locationHeading
-                                    objectName: "locationHeading"
-                                    text: root.city
-                                    font.pixelSize: Tokens.fontSize(38)
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 3
-                                    elide: Text.ElideRight
+                                Row {
+                                    id: locationTitle
+                                    spacing: 10
                                     width: headerBody.actionsBelowLocation ? parent.width : parent.width - headerActions.width - 20
+                                    PlainLabel {
+                                        id: locationHeading
+                                        objectName: "locationHeading"
+                                        text: root.city
+                                        font.pixelSize: Tokens.fontSize(38)
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 3
+                                        elide: Text.ElideRight
+                                        width: Math.min(implicitWidth, parent.width - locationsButton.width - parent.spacing)
+                                    }
+                                    ActionButton {
+                                        id: locationsButton
+                                        objectName: "openLocation"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        iconName: "map-pin"
+                                        iconSize: 22
+                                        accessibleLabel: "Change location (Ctrl+L)"
+                                        onClicked: root.openLocations()
+                                    }
                                 }
                                 PlainLabel {
                                     id: regionHeading
@@ -921,89 +934,18 @@ QtObject {
                                 color: Tokens.accent
                             }
                         }
-                        ColumnLayout {
+                        PlainLabel {
+                            objectName: "forecastOutlook"
                             visible: root.forecast !== null && bridge.snapshot !== null && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
                             Layout.fillWidth: true
-                            spacing: 6
-                            RowLayout {
-                                Layout.fillWidth: true
-                                ActionButton {
-                                    objectName: "openOutdoorPlanner"
-                                    visible: root.hours.length > 0
-                                    text: "Find a time to go outside"
-                                    enabled: bridge.available && !bridge.busy && bridge.snapshot !== null && !bridge.snapshot.location_settings.busy
-                                    onClicked: root.openOutdoor()
-                                }
-                                ActionButton {
-                                    objectName: "openForecastShare"
-                                    text: "Share forecast"
-                                    enabled: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy
-                                    onClicked: root.openShare()
-                                }
-                            }
-                            RowLayout {
-                                visible: bridge.forecastContext !== ""
-                                Layout.fillWidth: true
-                                ActionButton {
-                                    objectName: "openForecastChanges"
-                                    text: "Forecast changes"
-                                    enabled: bridge.available && (bridge.changesResult !== null || bridge.changesState === "unavailable")
-                                    onClicked: root.openChanges()
-                                }
-                                PlainLabel {
-                                    objectName: "forecastChangesSummary"
-                                    Layout.fillWidth: true
-                                    text: Changes.summary(bridge.changesResult, bridge.changesState, root.units)
-                                    color: Tokens.secondary
-                                    font.pixelSize: Tokens.fontSize(12)
-                                    wrapMode: Text.Wrap
-                                    elide: Text.ElideNone
-                                }
-                                ActionButton {
-                                    objectName: "retryForecastChanges"
-                                    visible: bridge.changesState === "unavailable"
-                                    text: "Retry"
-                                    enabled: bridge.available
-                                    onClicked: {
-                                        bridge.retryChanges();
-                                        window.update();
-                                    }
-                                }
-                            }
-                            ChoiceControl {
-                                visible: root.briefingRows.length > 0
-                                Layout.maximumWidth: 420
-                                Layout.fillWidth: true
-                                testName: "briefingPeriod"
-                                value: root.selectedBriefing ? root.selectedBriefing.period : ""
-                                choices: root.briefingRows.map(row => ({
-                                            label: ({
-                                                    today: "Today",
-                                                    tonight: "Tonight",
-                                                    tomorrow: "Tomorrow"
-                                                })[row.period],
-                                            value: row.period
-                                        }))
-                                onChosen: value => root.briefingPeriod = value
-                            }
-                            PlainLabel {
-                                objectName: "forecastBriefingRange"
-                                visible: root.selectedBriefing !== null
-                                Layout.fillWidth: true
-                                text: root.selectedBriefing ? (bridge.snapshot.source.freshness === "stale" ? "Cached outlook · " : "") + root.selectedBriefing.range_label : ""
-                                color: Tokens.secondary
-                                font.pixelSize: Tokens.fontSize(12)
-                                wrapMode: Text.Wrap
-                                elide: Text.ElideNone
-                            }
-                            PlainLabel {
-                                objectName: "forecastOutlook"
-                                Layout.fillWidth: true
-                                text: root.selectedBriefing ? Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits) : Forecast.outlook(root.hours, root.units, root.windUnits)
-                                font.pixelSize: Tokens.fontSize(18)
-                                wrapMode: Text.Wrap
-                                elide: Text.ElideNone
-                            }
+                            text: root.selectedBriefing ? ({
+                                    today: "Today",
+                                    tonight: "Tonight",
+                                    tomorrow: "Tomorrow"
+                                })[root.selectedBriefing.period] + " · " + Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits) : Forecast.outlook(root.hours, root.units, root.windUnits)
+                            font.pixelSize: Tokens.fontSize(18)
+                            wrapMode: Text.Wrap
+                            elide: Text.ElideNone
                         }
                     }
                 }
@@ -1015,18 +957,6 @@ QtObject {
                     enabled: bridge.available && !bridge.busy
                     onCheckRequested: bridge.send("check_updates")
                     onInstallRequested: bridge.send("install_update")
-                }
-                RowLayout {
-                    Layout.fillWidth: true
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                    ActionButton {
-                        objectName: "openDashboardEditor"
-                        text: "Customize dashboard"
-                        enabled: bridge.available && !bridge.dashboardSaving && bridge.snapshot !== null
-                        onClicked: root.openDashboard()
-                    }
                 }
                 DashboardLayout {
                     id: dashboardLayout
@@ -1163,6 +1093,12 @@ QtObject {
                 forceActiveFocus()
             controls: root.controls
             appearance: root.appearance
+            plannerAvailable: bridge.available && !bridge.busy && root.hours.length > 0 && bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
+            forecastChangesAvailable: bridge.available && bridge.forecastContext !== "" && (bridge.changesResult !== null || bridge.changesState === "unavailable")
+            dashboardAvailable: bridge.available && !bridge.dashboardSaving && bridge.snapshot !== null
+            onOutdoorRequested: root.openOutdoor()
+            onForecastChangesRequested: root.openChanges()
+            onDashboardRequested: root.openDashboard()
             onAppearanceRequested: values => bridge.send("set_appearance", values)
             location: root.location
             primaryLocation: root.primaryName
@@ -1400,6 +1336,7 @@ QtObject {
             active: root.changesOpen
             onLoaded: item.open()
             sourceComponent: ForecastChanges {
+                onRetryRequested: bridge.retryChanges()
                 result: bridge.changesResult
                 state: bridge.changesState
                 units: root.units

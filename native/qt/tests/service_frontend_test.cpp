@@ -433,6 +433,22 @@ class ServiceFrontendTest : public QObject {
         auto point = item->mapToScene(QPointF(item->width() / 2, item->height() / 2)).toPoint();
         QTest::mouseClick(window, Qt::LeftButton, Qt::NoModifier, point);
     }
+    void showSettingsSection(const char* section) {
+        QTest::qWait(100); // Settle any queued initial location-picker focus return.
+        if (!eval("root.effectsOpen").toBool()) {
+            auto* item = qobject_cast<QQuickItem*>(named("openEffects"));
+            QVERIFY(item && item->isEnabled());
+            item->forceActiveFocus();
+            QTest::qWait(60);
+            QTest::keyClick(window, Qt::Key_Space);
+        }
+        QTRY_VERIFY(eval("root.effectsOpen").toBool());
+        auto* tab = qobject_cast<QQuickItem*>(named(section));
+        QVERIFY(tab && tab->isEnabled());
+        tab->forceActiveFocus();
+        QTest::qWait(60);
+        QTest::keyClick(window, Qt::Key_Space);
+    }
     void selectUnits(const QString& units, const char* name = "unitsChoice") {
         QTRY_VERIFY_WITH_TIMEOUT(!eval("bridge.busy").toBool(), 3000);
         auto* choice = qobject_cast<QQuickItem*>(named(name));
@@ -1044,6 +1060,8 @@ class ServiceFrontendTest : public QObject {
             return root->findChild<QObject*>(name) || visualNamed(window->contentItem(), name);
         };
         const auto activate = [&](const char* name) {
+            if (QString::fromLatin1(name) == "openDashboardEditor")
+                showSettingsSection("settingsAppearanceSection");
             auto* item = qobject_cast<QQuickItem*>(named(name));
             QVERIFY2(item, name);
             item->forceActiveFocus();
@@ -1105,6 +1123,8 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(named("currentMetric_wind"), metric);
         auto* lastMetric = qobject_cast<QQuickItem*>(named("currentMetric_uv"));
         QVERIFY(lastMetric);
+        activate("closeEffects");
+        QTRY_VERIFY(!eval("root.effectsOpen").toBool());
         QCOMPARE(lastMetric->nextItemInFocusChain(true)->objectName(), QString("forecastDay_0"));
         if (!prefix.isEmpty()) {
             for (int width : {1200, 700}) {
@@ -2383,6 +2403,7 @@ class ServiceFrontendTest : public QObject {
         };
         auto* loader = named("forecastChangesLoader");
         QVERIFY(!loader->property("item").value<QObject*>());
+        showSettingsSection("settingsApplicationSection");
         activate("openForecastChanges");
         QTRY_VERIFY(eval("root.changesOpen && changesLoader.item!==null").toBool());
         QVERIFY(!eval("root.mapActive || backend.forecastVisible").toBool());
@@ -2417,6 +2438,7 @@ class ServiceFrontendTest : public QObject {
         QTRY_VERIFY(detail.isNull());
         QTRY_VERIFY(eval("backend.changesState==='ready'").toBool());
         QCOMPARE(window->activeFocusItem()->objectName(), QString("openForecastChanges"));
+        QVERIFY(eval("root.effectsOpen").toBool());
         for (int i = 0; i < (probe ? 40 : 5); ++i) {
             eval("root.openChanges()");
             QTRY_VERIFY(loader->property("item").value<QObject*>());
@@ -2502,6 +2524,7 @@ class ServiceFrontendTest : public QObject {
                               << QJsonDocument(result).toJson(QJsonDocument::Compact);
         };
         phase("before_open");
+        showSettingsSection("settingsApplicationSection");
         focusClick("openOutdoorPlanner");
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.outdoorState === 'ready'").toBool(), 3000);
         QVERIFY(!eval("root.mapActive").toBool());

@@ -1840,19 +1840,37 @@ class FrontendTest : public QObject {
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
         root->setProperty("effectsOpen", false);
         auto* outlook = root->findChild<QQuickItem*>("forecastOutlook");
-        auto* range = root->findChild<QObject*>("forecastBriefingRange");
-        QVERIFY(outlook && range);
+        QVERIFY(outlook);
+        QVERIFY(outlook->property("text").toString().startsWith("Today · "));
         QVERIFY(outlook->property("text").toString().contains("Low precipitation chances."));
-        QVERIFY(range->property("text").toString().startsWith("Cached outlook"));
-        auto* button = visualItem(window->contentItem(), "briefingPeriod_tomorrow");
-        QVERIFY(button);
+        QVERIFY(!root->findChild<QObject*>("forecastBriefingRange"));
+        QVERIFY(!visualItem(window->contentItem(), "briefingPeriod_tomorrow"));
+        for (const char* name :
+             {"openOutdoorPlanner", "openForecastChanges", "openDashboardEditor"}) {
+            auto* tool = root->findChild<QQuickItem*>(name);
+            QVERIFY(tool);
+            QVERIFY(!tool->isVisible());
+        }
+        auto* share = root->findChild<QQuickItem*>("openForecastShare");
+        auto* refresh = root->findChild<QQuickItem*>("refreshForecast");
+        auto* location = root->findChild<QQuickItem*>("openLocation");
+        auto* heading = root->findChild<QQuickItem*>("locationHeading");
+        QVERIFY(share && refresh && location && heading);
+        QCOMPARE(share->parentItem(), refresh->parentItem());
+        QCOMPARE(location->parentItem(), heading->parentItem());
+        QVERIFY(share->property("text").toString().isEmpty());
+        QVERIFY(location->property("text").toString().isEmpty());
+        QCOMPARE(QAccessible::queryAccessibleInterface(share)->text(QAccessible::Name),
+                 QString("Share forecast"));
         const auto requests = transport.requests.size();
-        button->forceActiveFocus();
+        share->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Space);
-        QCOMPARE(root->property("briefingPeriod").toString(), QString("tomorrow"));
-        QVERIFY(outlook->property("text").toString().contains("Partial hourly forecast."));
-        QVERIFY(!outlook->property("text").toString().contains("Low precipitation chances."));
+        QTRY_VERIFY(root->property("shareOpen").toBool());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!root->property("shareOpen").toBool());
+        QTRY_VERIFY(share->hasActiveFocus());
         QCOMPARE(transport.requests.size(), requests);
+        root->findChild<QQuickItem*>("forecastScroll")->forceActiveFocus();
         const auto prefix = qEnvironmentVariable("WEATHER_QT_BRIEFING_SCREENSHOT_PREFIX");
         if (!prefix.isEmpty()) {
             QVERIFY(QFileInfo(prefix).absoluteDir().mkpath("."));
@@ -1862,11 +1880,12 @@ class FrontendTest : public QObject {
                 QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
             }
         }
-        // Removing the selected period falls back without retaining the old city's summary.
+        // Follow the current available period automatically, with no header tabs.
         value["snapshot_revision"] = 2;
-        value["briefing"] = QJsonArray{today};
+        value["briefing"] = QJsonArray{tomorrow};
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", value}});
-        QVERIFY(outlook->property("text").toString().contains("Low precipitation chances."));
+        QVERIFY(outlook->property("text").toString().startsWith("Tomorrow · "));
+        QVERIFY(outlook->property("text").toString().contains("Partial hourly forecast."));
         auto source = value["source"].toObject();
         source["freshness"] = "expired";
         value["source"] = source;

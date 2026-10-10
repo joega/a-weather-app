@@ -11,6 +11,9 @@ Button {
     implicitHeight: Math.max(40, contentItem.implicitHeight + 16)
     implicitWidth: Math.max(44, contentItem.implicitWidth + 28)
     Accessible.name: accessibleLabel !== "" ? accessibleLabel : text
+    ToolTip.visible: text === "" && accessibleLabel !== "" && (hovered || activeFocus)
+    ToolTip.text: accessibleLabel
+    ToolTip.delay: 600
     background: Rectangle {
         radius: 12
         color: root.primary ? "#176da0" : root.selected ? "#704fa6d4" : root.down ? "#80506a80" : "#303d5a70"

@@ -11,6 +11,12 @@ GlassPanel {
     property bool presentationActive: true
     property var appearance: Forecast.appearance()
     signal appearanceRequested(var values)
+    property bool plannerAvailable: false
+    property bool forecastChangesAvailable: false
+    property bool dashboardAvailable: false
+    signal outdoorRequested
+    signal forecastChangesRequested
+    signal dashboardRequested
     // A settings surface must obscure the forecast's text, not layer two
     // readable text grids on top of one another.
     color: Tokens.highContrast ? "#2c455a" : "#fa2c455a"
@@ -252,6 +258,39 @@ GlassPanel {
                 enabled: root.serviceAvailable && !root.busy
                 onCheckRequested: root.checkUpdatesRequested()
                 onInstallRequested: root.installUpdateRequested()
+            }
+            PlainLabel {
+                text: "Forecast tools"
+                font.pixelSize: Tokens.fontSize(19)
+                font.weight: Font.DemiBold
+            }
+            ActionButton {
+                objectName: "openOutdoorPlanner"
+                text: "Find a time to go outside"
+                enabled: root.plannerAvailable
+                onClicked: root.outdoorRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Compare outdoor windows using your temperature, rain and wind preferences."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
+            }
+            ActionButton {
+                objectName: "openForecastChanges"
+                text: "Forecast changes"
+                enabled: root.forecastChangesAvailable
+                onClicked: root.forecastChangesRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Compare the latest forecast with the one you previously viewed."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
             }
             PlainLabel {
                 text: "Application launcher"
@@ -692,6 +731,20 @@ GlassPanel {
                 text: "Appearance"
                 font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
+            }
+            ActionButton {
+                objectName: "openDashboardEditor"
+                text: "Customize dashboard"
+                enabled: root.dashboardAvailable
+                onClicked: root.dashboardRequested()
+            }
+            PlainLabel {
+                Layout.fillWidth: true
+                text: "Choose sections, their order, and the values shown in your forecast."
+                wrapMode: Text.Wrap
+                elide: Text.ElideNone
+                font.pixelSize: Tokens.fontSize(14)
+                color: Tokens.secondary
             }
             PlainLabel {
                 text: "Text size"
