@@ -3,7 +3,7 @@
 A native Qt Quick weather app for Linux, with an animated sky and optional
 weather effects across your Hyprland desktop. Designed for Omarchy.
 
-[![San Diego forecast with animated sky and weather alerts](preview.png)](preview.png)
+![A Weather App with animated sky and live desktop rain](media/demo.gif)
 
 - Current conditions, hourly and ten-day forecasts, and selectable forecast details.
 - Temperature, feels-like, precipitation and wind information in your chosen units.
@@ -21,6 +21,10 @@ weather effects across your Hyprland desktop. Designed for Omarchy.
 
 These screenshots show the development build with live weather data captured on
 October 10, 2026. Conditions and alerts reflect that capture, not current weather.
+
+**San Diego · weather alerts**
+
+[![San Diego forecast with weather alerts](preview.png)](preview.png)
 
 | Boston · forecast | London · saved locations |
 | --- | --- |
