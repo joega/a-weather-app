@@ -1868,6 +1868,16 @@ class FrontendTest : public QObject {
         QTRY_VERIFY(window->isExposed());
         auto value = metricSnapshot(1);
         value["location_settings"] = selectedSnapshot(1, "Fixture")["location_settings"];
+        value["location"] = QJsonObject{{"name", "Boston, Massachusetts, Suffolk, United States"},
+                                        {"timezone", "America/New_York"}};
+        auto saved = savedSnapshot(1, 1)["saved_locations"].toObject();
+        auto places = saved["items"].toArray();
+        auto home = places[0].toObject();
+        home["label"] = "";
+        home["name"] = "Boston, Massachusetts, Suffolk, United States";
+        places[0] = home;
+        saved["items"] = places;
+        value["saved_locations"] = saved;
         QJsonObject today{{"period", "today"},
                           {"start", "2026-09-28T12:00:00Z"},
                           {"end", "2026-09-28T18:00:00Z"},
@@ -1906,8 +1916,10 @@ class FrontendTest : public QObject {
         auto* location = root->findChild<QQuickItem*>("openLocation");
         auto* heading = root->findChild<QQuickItem*>("locationHeading");
         QVERIFY(share && refresh && location && heading);
-        QCOMPARE(share->parentItem(), refresh->parentItem());
-        QCOMPARE(location->parentItem(), heading->parentItem());
+        QCOMPARE(share->parentItem(), location->parentItem());
+        QVERIFY(share->parentItem() != refresh->parentItem());
+        QCOMPARE(heading->property("text").toString(), QString("Boston, Massachusetts"));
+        QCOMPARE(root->property("region").toString(), QString("United States"));
         QVERIFY(share->property("text").toString().isEmpty());
         QVERIFY(location->property("text").toString().isEmpty());
         QCOMPARE(QAccessible::queryAccessibleInterface(share)->text(QAccessible::Name),
@@ -1927,6 +1939,8 @@ class FrontendTest : public QObject {
             for (const int width : {700, 1200}) {
                 window->resize(width, 850);
                 QTest::qWait(120);
+                QVERIFY(share->mapToScene(QPointF()).x() > heading->mapToScene(QPointF()).x());
+                QVERIFY(refresh->mapToScene(QPointF()).y() > share->mapToScene(QPointF()).y());
                 QVERIFY(window->grabWindow().save(prefix + QString::number(width) + ".png"));
             }
         }

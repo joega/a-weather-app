@@ -459,11 +459,16 @@ QtObject {
     property var atmosphere: bridge.snapshot ? bridge.snapshot.atmosphere : null
     property string timezone: bridge.snapshot ? bridge.snapshot.timezone : "UTC"
     property string location: bridge.snapshot ? bridge.snapshot.location : "Loading location…"
-    readonly property string city: viewedPlace && viewedPlace.label !== "" ? viewedPlace.label : location.indexOf(", ") < 0 ? location : location.substring(0, location.lastIndexOf(", "))
+    // Keep detailed administrative names in location search, not the headline.
+    readonly property string compactLocation: {
+        const parts = location.split(", ");
+        return parts.length > 3 ? [parts[0], parts[1], parts[parts.length - 1]].join(", ") : location;
+    }
+    readonly property string city: viewedPlace && viewedPlace.label !== "" ? viewedPlace.label : compactLocation.indexOf(", ") < 0 ? compactLocation : compactLocation.substring(0, compactLocation.lastIndexOf(", "))
     readonly property string region: {
         if (viewedPlace && viewedPlace.label !== "")
-            return location;
-        let suffix = location.indexOf(", ") < 0 ? "" : location.substring(location.lastIndexOf(", ") + 2);
+            return compactLocation;
+        let suffix = compactLocation.indexOf(", ") < 0 ? "" : compactLocation.substring(compactLocation.lastIndexOf(", ") + 2);
         return suffix === "MA" ? "Massachusetts" : suffix;
     }
     property var days: forecast ? forecast.daily : []
@@ -692,7 +697,7 @@ QtObject {
             sunElevation: root.atmosphere ? root.atmosphere.sun_elevation : 20
             sunAzimuth: root.atmosphere ? root.atmosphere.sun_azimuth : 180
             celestialLeft: Math.max(width * 0.6, forecastColumn.x + currentTemperature.width + Tokens.fontSize(48) + height * 0.024)
-            celestialTop: forecastColumn.y + currentTemperature.y + currentTemperature.height / 2
+            celestialTop: forecastColumn.y + Math.max(currentTemperature.y + currentTemperature.height / 2, headerActions.y + headerActions.height + 24 + height * 0.024)
             wind: root.atmosphere ? root.atmosphere.wind_x : 0
             windSpeed: root.current && root.current.wind_speed_m_s !== null ? root.current.wind_speed_m_s : 0
             rainAmount: root.atmosphere ? root.atmosphere.rain_intensity : 0
@@ -741,17 +746,35 @@ QtObject {
                     }
                     ColumnLayout {
                         id: headerBody
-                        readonly property bool actionsBelowLocation: window.width < 850 || locationFont.advanceWidth(root.city) + locationsButton.implicitWidth + 10 + headerActions.preferredWidth + 20 > width
-                        FontMetrics {
-                            id: locationFont
-                            font.pixelSize: Tokens.fontSize(38)
-                            font.family: "sans-serif"
-                        }
+                        readonly property real conditionsWidth: Math.max(currentTemperature.implicitWidth, Math.min(width * 0.45, regionHeading.implicitWidth), Math.min(width * 0.45, conditionHeading.implicitWidth))
                         width: parent.width
                         spacing: 16
                         Item {
                             Layout.fillWidth: true
                             Layout.preferredHeight: Math.max(conditions.height, headerActions.y + headerActions.height + (updatedNotice.visible ? updatedNotice.height + 8 : 0), headerAlerts.visible ? headerAlerts.y + headerAlerts.height : 0)
+                            Row {
+                                id: locationTools
+                                objectName: "locationTools"
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                spacing: 5
+                                ActionButton {
+                                    objectName: "openForecastShare"
+                                    iconName: "share"
+                                    iconSize: 20
+                                    accessibleLabel: "Share forecast"
+                                    enabled: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
+                                    onClicked: root.openShare()
+                                }
+                                ActionButton {
+                                    id: locationsButton
+                                    objectName: "openLocation"
+                                    iconName: "map-pin"
+                                    iconSize: 22
+                                    accessibleLabel: "Change location (Ctrl+L)"
+                                    onClicked: root.openLocations()
+                                }
+                            }
                             Flow {
                                 id: headerActions
                                 objectName: "headerActions"
@@ -763,25 +786,17 @@ QtObject {
                                             total += item.implicitWidth + spacing;
                                     return Math.max(0, total);
                                 }
-                                width: Math.min(parent.width, preferredWidth)
+                                width: Math.min(parent.width - headerBody.conditionsWidth - 20, preferredWidth)
                                 height: childrenRect.height
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.topMargin: headerBody.actionsBelowLocation ? locationTitle.height + regionHeading.height + 12 : 0
+                                anchors.topMargin: Math.max(locationTitle.height, locationTools.height) + 6
                                 ActionButton {
                                     objectName: "refreshForecast"
                                     iconName: "refresh"
                                     accessibleLabel: "Refresh forecast"
                                     enabled: !bridge.busy
                                     onClicked: bridge.send("refresh")
-                                }
-                                ActionButton {
-                                    objectName: "openForecastShare"
-                                    iconName: "share"
-                                    iconSize: 20
-                                    accessibleLabel: "Share forecast"
-                                    enabled: bridge.snapshot !== null && !bridge.snapshot.location_settings.busy && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
-                                    onClicked: root.openShare()
                                 }
                                 UnitsChoice {
                                     objectName: "unitsChoice"
@@ -834,7 +849,7 @@ QtObject {
                                 Row {
                                     id: locationTitle
                                     spacing: 10
-                                    width: headerBody.actionsBelowLocation ? parent.width : parent.width - headerActions.width - 20
+                                    width: parent.width - locationTools.width - 16
                                     PlainLabel {
                                         id: locationHeading
                                         objectName: "locationHeading"
@@ -843,35 +858,23 @@ QtObject {
                                         wrapMode: Text.Wrap
                                         maximumLineCount: 3
                                         elide: Text.ElideRight
-                                        width: Math.min(implicitWidth, parent.width - locationsButton.width - parent.spacing)
-                                    }
-                                    ActionButton {
-                                        id: locationsButton
-                                        objectName: "openLocation"
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        iconName: "map-pin"
-                                        iconSize: 22
-                                        accessibleLabel: "Change location (Ctrl+L)"
-                                        onClicked: root.openLocations()
+                                        width: parent.width
                                     }
                                 }
                                 PlainLabel {
                                     id: regionHeading
-                                    width: parent.width
+                                    width: headerBody.conditionsWidth
+                                    visible: text !== ""
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
                                     text: root.region
                                     font.pixelSize: Tokens.fontSize(19)
                                     color: "#d4e3ee"
                                 }
-                                Item {
-                                    width: 1
-                                    height: headerBody.actionsBelowLocation ? headerActions.height + 12 + (updatedNotice.visible ? updatedNotice.height + 8 : 0) : 0
-                                }
                                 PlainLabel {
                                     objectName: "primaryLocationHint"
                                     visible: root.savedLocations !== null
-                                    width: parent.width
+                                    width: headerBody.conditionsWidth
                                     text: root.savedLocations && root.savedLocations.viewed === root.savedLocations.primary ? "Home" : "Home · " + root.primaryName
                                     font.pixelSize: Tokens.fontSize(13)
                                     color: Tokens.secondary
@@ -882,8 +885,14 @@ QtObject {
                                     text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
                                     font.pixelSize: Tokens.fontSize(96)
                                     font.weight: Font.Light
+                                    // Trim the large numerals' extra space above the glyphs.
+                                    topPadding: -Tokens.fontSize(10)
                                 }
                                 PlainLabel {
+                                    id: conditionHeading
+                                    width: headerBody.conditionsWidth
+                                    wrapMode: Text.Wrap
+                                    elide: Text.ElideNone
                                     text: root.current ? Forecast.title(root.current.condition) : "Forecast unavailable"
                                     font.pixelSize: Tokens.fontSize(27)
                                 }
