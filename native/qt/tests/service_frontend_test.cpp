@@ -11,6 +11,7 @@
 #include <QQmlExpression>
 #include <QQuickWindow>
 #include <QQuickItem>
+#include <QPointer>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QFile>
@@ -687,7 +688,13 @@ class ServiceFrontendTest : public QObject {
         QTRY_COMPARE_WITH_TIMEOUT(exit.size(), 1, 5000);
         QTRY_COMPARE_WITH_TIMEOUT(fixture.service.state(), QProcess::NotRunning, 5000);
     }
+    void savedLocationsOfflineLifecycle_data() {
+        QTest::addColumn<QSize>("windowSize");
+        QTest::newRow("desktop") << QSize(1200, 850);
+        QTest::newRow("compact") << QSize(700, 650);
+    }
     void savedLocationsOfflineLifecycle() {
+        QFETCH(QSize, windowSize);
         ServiceFixture fixture;
         fixture.savedCities();
         auto initialRegistry = fixture.saved("saved-locations.json");
@@ -698,6 +705,7 @@ class ServiceFrontendTest : public QObject {
         fixture.save("saved-locations.json", initialRegistry);
         QVERIFY2(fixture.start(), qPrintable(fixture.service.readAll()));
         QVERIFY(attach(fixture));
+        window->resize(windowSize);
         QTRY_VERIFY_WITH_TIMEOUT(eval("bridge.snapshot!==null").toBool(), 5000);
         QTRY_VERIFY(window->isExposed());
         QCOMPARE(eval("root.savedLocations.items.length").toInt(), 20);
@@ -724,24 +732,83 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(list->property("currentIndex").toInt(), 1);
         const auto homeCache = fixture.saved("saved-forecast-0.json");
         const auto cabinCache = fixture.saved("saved-forecast-2.json");
-        auto activate = [&](const char* name) {
-            auto* item = qobject_cast<QQuickItem*>(named(name));
-            QVERIFY(item && item->isEnabled() && item->isVisible());
-            item->forceActiveFocus();
-            QTest::keyClick(window, Qt::Key_Space);
-        };
         auto* picker = named("locationPickerLoader")->property("item").value<QObject*>();
         QVERIFY(picker);
+        // Editing expands the cards; offscreen delegates may be destroyed.
+        // Reveal each inspected control and wait for real viewport geometry
+        // rather than assuming a fixed delay keeps every row instantiated.
+        auto findItem = [&](const char* name) {
+            auto* object = root->findChild<QObject*>(name);
+            if (!object)
+                object = visualNamed(window->contentItem(), name);
+            return qobject_cast<QQuickItem*>(object);
+        };
+        auto revealRow = [&](int index) {
+            QQmlExpression position(QQmlEngine::contextForObject(list), list,
+                                    QString("positionViewAtIndex(%1,ListView.Contain)").arg(index));
+            position.evaluate();
+            QVERIFY2(!position.hasError(), qPrintable(position.error().toString()));
+        };
+        auto controlVisible = [&](const char* name) {
+            const auto suffix = QString::fromLatin1(name).section('_', -1);
+            bool indexed = false;
+            const int index = suffix.toInt(&indexed);
+            if (indexed)
+                revealRow(index);
+            auto* item = findItem(name);
+            if (!item || !item->isVisible() || item->width() <= 0 || item->height() <= 0)
+                return false;
+            if (!indexed)
+                return true;
+            const auto top = item->mapToItem(list, QPointF(0, 0)).y();
+            return top >= 0 && top + item->height() <= list->height();
+        };
+        auto activate = [&](const char* name) {
+            // The registry acknowledgement precedes its queued focus restore.
+            // Wait until that restore completes before focusing the next action.
+            QTRY_VERIFY(picker->property("pendingMutation").isNull() ||
+                        picker->property("pendingMutation").value<QJSValue>().isNull());
+            bool indexed = false;
+            const int index = QString::fromLatin1(name).section('_', -1).toInt(&indexed);
+            if (indexed) {
+                // Use the same navigation as a user so selectedId and the
+                // current row stay aligned across later registry snapshots.
+                list->forceActiveFocus();
+                QTRY_VERIFY(list->hasActiveFocus());
+                const int navigationLimit = eval("root.savedLocations.items.length").toInt();
+                for (int step = 0;
+                     step < navigationLimit && list->property("currentIndex").toInt() != index;
+                     ++step) {
+                    const int before = list->property("currentIndex").toInt();
+                    QTest::keyClick(window, before < index ? Qt::Key_Down : Qt::Key_Up);
+                    QVERIFY(list->property("currentIndex").toInt() != before);
+                }
+                QCOMPARE(list->property("currentIndex").toInt(), index);
+            }
+            QTRY_VERIFY(controlVisible(name));
+            QPointer<QQuickItem> item = findItem(name);
+            QVERIFY(item && item->isEnabled());
+            QSignalSpy focusedFrame(window, &QQuickWindow::frameSwapped);
+            item->forceActiveFocus();
+            // Focus queues a scroll reveal. Let its layout render before the
+            // key press/release, then reacquire any recreated delegate.
+            window->update();
+            QTRY_VERIFY_WITH_TIMEOUT(!focusedFrame.isEmpty(), 1000);
+            item = findItem(name);
+            QTRY_VERIFY(item && item->hasActiveFocus());
+            QTest::keyClick(window, Qt::Key_Space);
+        };
         const auto beforeEditing = eval("bridge.nextId").toInt();
         activate("toggleLocationEditing");
         QTRY_VERIFY(picker->property("editing").toBool());
-        QTest::qWait(80); // Render inline controls before interacting with the card title.
         QCOMPARE(eval("bridge.nextId").toInt(), beforeEditing);
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
+        QTRY_VERIFY(controlVisible("removeSaved_0"));
         QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
         activate("renameSaved_1");
-        auto* alias = qobject_cast<QQuickItem*>(named("savedLocationAlias"));
-        QTRY_VERIFY(alias->hasActiveFocus());
+        QTRY_VERIFY(findItem("savedLocationAlias"));
+        QPointer<QQuickItem> alias = findItem("savedLocationAlias");
+        QTRY_VERIFY(alias && alias->hasActiveFocus());
         QCOMPARE(eval("bridge.nextId").toInt(), beforeEditing);
         alias->setProperty("text", "Office");
         QTest::keyClick(window, Qt::Key_Return);
@@ -755,7 +822,9 @@ class ServiceFrontendTest : public QObject {
                  QString("Office"));
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
         const auto beforeReorder = eval("bridge.nextId").toInt();
+        QTRY_VERIFY(controlVisible("moveSavedUp_1"));
         QVERIFY(!named("moveSavedUp_1")->property("enabled").toBool());
+        QTRY_VERIFY(controlVisible("moveSavedDown_0"));
         QVERIFY(!named("moveSavedDown_0")->property("enabled").toBool());
         activate("moveSavedDown_1");
         QTRY_COMPARE(eval("root.savedLocations.items[1].id").toString(), QString("place-101"));
@@ -767,8 +836,10 @@ class ServiceFrontendTest : public QObject {
         QTRY_COMPARE(eval("root.primaryName").toString(), QString("Office"));
         QCOMPARE(eval("root.primaryTimezone").toString(), QString("Europe/London"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
-        QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
         QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
+        QTRY_VERIFY(controlVisible("removeSaved_0"));
+        QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
+        QTRY_VERIFY(controlVisible("removeSaved_2"));
         QVERIFY(named("removeSaved_2")->property("enabled").toBool());
         QCOMPARE(eval("root.savedLocations.items[0].id").toString(), QString("place-102"));
         QCOMPARE(eval("root.savedLocations.items[1].id").toString(), QString("place-101"));
@@ -778,7 +849,9 @@ class ServiceFrontendTest : public QObject {
         QTRY_COMPARE(eval("root.primaryName").toString(), QString("City 0"));
         QTRY_VERIFY(!eval("bridge.busy").toBool());
         QTRY_COMPARE(list->property("currentIndex").toInt(), 0);
+        QTRY_VERIFY(controlVisible("removeSaved_2"));
         QVERIFY(named("removeSaved_2")->property("enabled").toBool());
+        QTRY_VERIFY(controlVisible("removeSaved_0"));
         QVERIFY(!named("removeSaved_0")->property("enabled").toBool());
         QCOMPARE(eval("root.savedLocations.viewed").toString(), QString("place-101"));
         activate("removeSaved_2");
@@ -788,11 +861,10 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(eval("root.current.temperature_c").toInt(), 15);
         QTRY_VERIFY(!eval("bridge.busy").toBool());
         // Keep a renamed, reordered place in the registry to verify persistence on restart.
-        list->setProperty("currentIndex", 1);
-        QTest::qWait(80);
         activate("renameSaved_1");
-        alias = qobject_cast<QQuickItem*>(named("savedLocationAlias"));
-        QTRY_VERIFY(alias->hasActiveFocus());
+        QTRY_VERIFY(findItem("savedLocationAlias"));
+        alias = findItem("savedLocationAlias");
+        QTRY_VERIFY(alias && alias->hasActiveFocus());
         alias->setProperty("text", "Cabin");
         QTest::keyClick(window, Qt::Key_Return);
         QTRY_COMPARE(eval("root.savedLocations.items[0].label").toString(), QString("Cabin"));
@@ -806,7 +878,8 @@ class ServiceFrontendTest : public QObject {
         const auto beforeDone = eval("bridge.nextId").toInt();
         activate("toggleLocationEditing");
         QTRY_VERIFY(!picker->property("editing").toBool());
-        QTest::qWait(80);
+        revealRow(0);
+        QTRY_VERIFY(findItem("renameSaved_0"));
         QCOMPARE(eval("bridge.nextId").toInt(), beforeDone);
         for (const char* name :
              {"removeSaved_0", "moveSavedUp_0", "moveSavedDown_0", "primarySaved_0"}) {
