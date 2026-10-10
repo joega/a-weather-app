@@ -2646,6 +2646,41 @@ class FrontendTest : public QObject {
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.savedLocations(undefined)").isNull(),
                  true);
     }
+    void savedLocationDisplayNames() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY2(scope, qPrintable(component.errorString()));
+        auto display = [&](QString name, QString country, QString mode = "place",
+                           QString label = "") {
+            const QJsonObject row{
+                {"name", name}, {"country_code", country}, {"mode", mode}, {"label", label}};
+            return evaluate(
+                       engine, scope.data(),
+                       "Forecast.savedName(" +
+                           QString::fromUtf8(QJsonDocument(row).toJson(QJsonDocument::Compact)) +
+                           ")")
+                .toString();
+        };
+        QCOMPARE(display("Boston, Massachusetts, Suffolk, United States", "US"), "Boston, MA");
+        QCOMPARE(display("Cold Bay, Alaska, Aleutians East, United States", "US"), "Cold Bay, AK");
+        QCOMPARE(display("Memphis, Tennessee, Shelby, United States", "US"), "Memphis, TN");
+        QCOMPARE(display("Thunder Bay, Ontario, Thunder Bay District, Canada", "CA"),
+                 "Thunder Bay, ON");
+        QCOMPARE(display("North Attleboro, MA", "US", "zip"), "North Attleboro, MA");
+        QCOMPARE(display("Sydney, New South Wales, Australia", "AU"), "Sydney, NSW");
+        QCOMPARE(display("Paris, Île-de-France, Seine, France", "FR"),
+                 "Paris, Île-de-France, France");
+        QCOMPARE(display("London, England, United Kingdom", "GB"),
+                 "London, England, United Kingdom");
+        QCOMPARE(display("Boston, Suffolk, United States", "US"), "Boston, Suffolk, United States");
+        QCOMPARE(display("Cabin, woods, north", "US", "custom"), "Cabin, woods, north");
+        QCOMPARE(display("Boston, Massachusetts, Suffolk, United States", "US", "place",
+                         "Home, sweet home"),
+                 "Home, sweet home");
+    }
     void savedLocationPickerNavigationAndActions_data() {
         QTest::addColumn<double>("textScale");
         QTest::newRow("normal") << 1.0;
@@ -2670,6 +2705,13 @@ class FrontendTest : public QObject {
                                      {"error", QJsonValue::Null}};
         auto state = savedSnapshot(1);
         state["appearance"] = appearance;
+        auto registry = state["saved_locations"].toObject();
+        auto locations = registry["items"].toArray();
+        auto boston = locations[1].toObject();
+        boston["name"] = "Boston, Massachusetts, Suffolk, United States";
+        locations.replace(1, boston);
+        registry["items"] = locations;
+        state["saved_locations"] = registry;
         deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
         root->setProperty("effectsOpen", false);
         window->resize(700, 650);
@@ -2687,6 +2729,9 @@ class FrontendTest : public QObject {
         QVERIFY(list);
         QTRY_VERIFY(list->hasActiveFocus());
         QCOMPARE(list->property("count").toInt(), 20);
+        QTRY_VERIFY(visualItem(picker, "savedLocationName_1"));
+        QCOMPARE(visualItem(picker, "savedLocationName_1")->property("text").toString(),
+                 QString("Boston, MA"));
         QVERIFY(!picker->findChild<QQuickItem*>("showSavedLocations")->isVisible());
         QVERIFY(!visualItem(picker, "viewSaved_19")); // Offscreen rows are not instantiated.
         const auto prefix = qEnvironmentVariable("WEATHER_QT_SAVED_SCREENSHOT_PREFIX");

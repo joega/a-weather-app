@@ -813,8 +813,38 @@ function savedLocations(v) {
         primary_forecast_available: v.primary_forecast_available
     };
 }
+// Provider names include counties for search disambiguation. Keep those names
+// in storage, but use familiar regional codes in the saved-location UI.
+var savedRegionCodes = {
+    US: "Alabama:AL|Alaska:AK|Arizona:AZ|Arkansas:AR|California:CA|Colorado:CO|Connecticut:CT|Delaware:DE|District of Columbia:DC|Florida:FL|Georgia:GA|Hawaii:HI|Idaho:ID|Illinois:IL|Indiana:IN|Iowa:IA|Kansas:KS|Kentucky:KY|Louisiana:LA|Maine:ME|Maryland:MD|Massachusetts:MA|Michigan:MI|Minnesota:MN|Mississippi:MS|Missouri:MO|Montana:MT|Nebraska:NE|Nevada:NV|New Hampshire:NH|New Jersey:NJ|New Mexico:NM|New York:NY|North Carolina:NC|North Dakota:ND|Ohio:OH|Oklahoma:OK|Oregon:OR|Pennsylvania:PA|Rhode Island:RI|South Carolina:SC|South Dakota:SD|Tennessee:TN|Texas:TX|Utah:UT|Vermont:VT|Virginia:VA|Washington:WA|West Virginia:WV|Wisconsin:WI|Wyoming:WY|Puerto Rico:PR|Guam:GU|American Samoa:AS|Northern Mariana Islands:MP|U.S. Virgin Islands:VI",
+    CA: "Alberta:AB|British Columbia:BC|Manitoba:MB|New Brunswick:NB|Newfoundland and Labrador:NL|Nova Scotia:NS|Ontario:ON|Prince Edward Island:PE|Quebec:QC|Québec:QC|Saskatchewan:SK|Northwest Territories:NT|Nunavut:NU|Yukon:YT",
+    AU: "Australian Capital Territory:ACT|New South Wales:NSW|Northern Territory:NT|Queensland:QLD|South Australia:SA|Tasmania:TAS|Victoria:VIC|Western Australia:WA"
+};
+function savedPlaceName(row) {
+    if (!row)
+        return "Location unavailable";
+    const name = row.name;
+    if (row.mode === "custom")
+        return name;
+    const parts = name.split(", ");
+    if (parts.length < 2)
+        return name;
+    const regions = savedRegionCodes[row.country_code];
+    if (typeof regions === "string") {
+        const region = parts[1].trim();
+        for (const entry of regions.split("|")) {
+            const pair = entry.split(":");
+            if (region.toLowerCase() === pair[0].toLowerCase() || region.toUpperCase() === pair[1])
+                return parts[0] + ", " + pair[1];
+        }
+        // Without a recognized state/province, this may be a county or a
+        // place name containing a comma. Do not guess which part to remove.
+        return name;
+    }
+    return row.mode === "place" && parts.length > 3 ? [parts[0], parts[1], parts[parts.length - 1]].join(", ") : name;
+}
 function savedName(row) {
-    return row ? row.label || row.name : "Location unavailable";
+    return row ? row.label || savedPlaceName(row) : "Location unavailable";
 }
 function savedUnits(row, controls) {
     return controls.units_mode === "auto" ? (row.country_code === null || row.country_code === "US" ? "F" : "C") : controls.units;

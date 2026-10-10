@@ -207,6 +207,7 @@ GlassPanel {
                                 Layout.fillWidth: true
                                 spacing: 3
                                 PlainLabel {
+                                    objectName: "savedLocationName_" + placeRow.index
                                     Layout.fillWidth: true
                                     text: placeRow.label
                                     font.pixelSize: Tokens.fontSize(18)
@@ -215,7 +216,7 @@ GlassPanel {
                                 PlainLabel {
                                     Layout.fillWidth: true
                                     visible: placeRow.modelData.label !== ""
-                                    text: placeRow.modelData.name
+                                    text: Forecast.savedPlaceName(placeRow.modelData)
                                     font.pixelSize: Tokens.fontSize(12)
                                     color: Tokens.secondary
                                 }
@@ -298,7 +299,7 @@ GlassPanel {
                     spacing: 14
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: root.edited ? root.edited.name : ""
+                        text: root.edited ? Forecast.savedPlaceName(root.edited) : ""
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                         font.pixelSize: Tokens.fontSize(20)
