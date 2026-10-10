@@ -2073,6 +2073,19 @@ class FrontendTest : public QObject {
         QTRY_VERIFY(oldChart.isNull());
         QVERIFY(!qvariant_cast<QObject*>(loader->property("item")));
         QCOMPARE(transport.requests.size(), requests);
+        // Older running services omit saved locations and cannot calculate
+        // astronomy. Show that reason instead of a blank date and inert Today.
+        evaluate(engine, root, "openAstronomy()");
+        QTRY_VERIFY(root->property("astronomyOpen").toBool());
+        QCOMPARE(evaluate(engine, root, "backend.astronomyError").toString(),
+                 QString("service_unsupported"));
+        QVERIFY(shellItem(root, "astronomyStatus")
+                    ->property("text")
+                    .toString()
+                    .contains("does not support Sun & moon"));
+        QCOMPARE(transport.requests.size(), requests);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!root->property("astronomyOpen").toBool());
         // Negative dew points and a narrow pressure range must not use a zero baseline.
         QQmlComponent component(&engine);
         component.setData(

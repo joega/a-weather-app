@@ -2285,16 +2285,22 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(!loader->property("item").value<QObject*>());
         QCOMPARE(eval("backend.astronomyState").toString(), QString("closed"));
         const auto original = fixture.saved("forecast.json");
-        // Exercise the real solar card through keyboard activation.
+        // Open the real solar card with the mouse; today must load on its own.
         auto* card = qobject_cast<QQuickItem*>(named("currentMetric_solar"));
         QVERIFY(card);
         card->forceActiveFocus();
         QTest::qWait(100);
-        QTest::keyClick(window, Qt::Key_Space);
+        click("currentMetric_solar");
         QTRY_VERIFY_WITH_TIMEOUT(eval("backend.astronomyState==='ready'").toBool(), 5000);
         QVERIFY(eval("root.astronomyOpen && !root.mapActive && !backend.forecastVisible").toBool());
         QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
         const auto today = eval("backend.astronomyResult.date").toString();
+        QCOMPARE(today, eval("backend.astronomyResult.today").toString());
+        QVERIFY(named("astronomySelectedDate")->property("text").toString().startsWith("Today · "));
+        auto* input = qobject_cast<QQuickItem*>(named("astronomyDate"));
+        QVERIFY(input);
+        QCOMPARE(input->property("text").toString(), today);
+        QVERIFY(!input->isVisible());
         QVERIFY(
             named("astronomyDaylight")->property("text").toString().contains("remaining today"));
         QVERIFY(named("astronomyMoonPhase")->property("text").toString().contains("illuminated"));
@@ -2305,6 +2311,8 @@ class ServiceFrontendTest : public QObject {
             QTest::qWait(50);
             QTest::keyClick(window, Qt::Key_Space);
         };
+        activate("changeAstronomyDate");
+        QTRY_VERIFY(input->isVisible() && input->hasActiveFocus());
         activate("astronomyNext");
         QTRY_VERIFY(eval("backend.astronomyState==='ready'").toBool());
         QVERIFY(eval("backend.astronomyResult.date").toString() > today);
@@ -2313,14 +2321,19 @@ class ServiceFrontendTest : public QObject {
         activate("astronomyPrevious");
         QTRY_COMPARE(eval("backend.astronomyResult ? backend.astronomyResult.date : ''").toString(),
                      today);
-        auto* input = qobject_cast<QQuickItem*>(named("astronomyDate"));
         input->setProperty("text", "bad-date");
         input->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Return);
         QTRY_COMPARE(eval("backend.astronomyState").toString(), QString("unavailable"));
         QVERIFY(eval("backend.available").toBool());
-        activate("astronomyToday");
+        qobject_cast<QQuickItem*>(named("astronomyToday"))->forceActiveFocus();
+        QTest::qWait(80);
+        click("astronomyToday");
         QTRY_VERIFY(eval("backend.astronomyState==='ready'").toBool());
+        QCOMPARE(input->property("text").toString(), today);
+        QVERIFY(named("astronomySelectedDate")->property("text").toString().startsWith("Today · "));
+        activate("changeAstronomyDate");
+        QVERIFY(!input->isVisible());
         phase("details_open");
         const auto prefix = qEnvironmentVariable("WEATHER_QT_ASTRONOMY_SCREENSHOT_PREFIX");
         if (!prefix.isEmpty()) {

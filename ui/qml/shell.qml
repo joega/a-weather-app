@@ -541,7 +541,7 @@ QtObject {
     property QtObject weatherWindow: ApplicationWindow {
         id: window
         objectName: "weatherWindow"
-        title: "A Weather App"
+        title: bridge.diagnostic ? "A Weather App — Diagnostics" : "A Weather App"
         width: 1200
         height: 850
         minimumWidth: 700
@@ -1323,6 +1323,7 @@ QtObject {
             sourceComponent: AstronomyDetails {
                 result: bridge.astronomyResult
                 state: bridge.astronomyState
+                error: bridge.astronomyError
                 place: root.location
                 onRequested: date => bridge.loadAstronomy(date)
                 onClosed: if (root.astronomyOpen)

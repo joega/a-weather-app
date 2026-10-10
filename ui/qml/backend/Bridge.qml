@@ -179,6 +179,7 @@ Item {
         precipitationError = "";
     }
     property string astronomyState: "closed"
+    property string astronomyError: ""
     property int astronomyGeneration: 0
     property int pendingAstronomyGeneration: -1
     property var pendingAstronomyQuery: null
@@ -186,14 +187,26 @@ Item {
     function loadAstronomy(date) {
         astronomyGeneration++;
         astronomyResult = null;
+        astronomyError = "";
         astronomyState = "loading";
-        if (!Astronomy.context(snapshot) || !send("astronomy_day", Astronomy.query(snapshot, date)))
+        if (!available)
+            astronomyError = "service_unavailable";
+        else if (!snapshot)
+            astronomyError = "forecast_loading";
+        else if (!snapshot.saved_locations)
+            astronomyError = "service_unsupported";
+        else if (snapshot.location_settings.busy)
+            astronomyError = "location_busy";
+        else if (!Astronomy.context(snapshot))
+            astronomyError = "location_required";
+        if (astronomyError !== "" || !send("astronomy_day", Astronomy.query(snapshot, date)))
             astronomyState = "unavailable";
     }
     function closeAstronomy() {
         astronomyGeneration++;
         queuedAstronomy = null;
         astronomyResult = null;
+        astronomyError = "";
         astronomyState = "closed";
     }
     property var outdoorResult: null
@@ -814,6 +827,7 @@ Item {
                 if (!closing && astronomyState !== "closed" && pendingAstronomyGeneration === astronomyGeneration) {
                     astronomyResult = result;
                     astronomyState = result ? "ready" : "unavailable";
+                    astronomyError = result ? "" : value.error || "unavailable";
                 }
                 pendingAstronomyQuery = null;
                 pendingAstronomyGeneration = -1;

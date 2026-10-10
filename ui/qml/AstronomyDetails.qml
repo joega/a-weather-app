@@ -17,7 +17,9 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property var result: null
     property string state: "loading"
+    property string error: ""
     property string place: ""
+    property bool changingDate: false
     property double now: Date.now()
     signal requested(string date)
     function revealFocus(item) {
@@ -102,6 +104,31 @@ Popup {
             }
             RowLayout {
                 Layout.fillWidth: true
+                PlainLabel {
+                    objectName: "astronomySelectedDate"
+                    Layout.fillWidth: true
+                    text: root.result ? (root.result.date === root.result.today ? "Today · " : "") + root.result.date_label : root.state === "loading" ? "Today" : "Sun & moon unavailable"
+                    font.pixelSize: Tokens.fontSize(18)
+                    wrapMode: Text.Wrap
+                    elide: Text.ElideNone
+                }
+                ActionButton {
+                    objectName: "changeAstronomyDate"
+                    text: root.changingDate ? "Done" : "Change date"
+                    enabled: root.result !== null || root.changingDate
+                    onClicked: {
+                        root.changingDate = !root.changingDate;
+                        if (root.changingDate)
+                            Qt.callLater(() => {
+                                dateInput.forceActiveFocus();
+                                dateInput.selectAll();
+                            });
+                    }
+                }
+            }
+            RowLayout {
+                visible: root.changingDate
+                Layout.fillWidth: true
                 ActionButton {
                     objectName: "astronomyPrevious"
                     text: "Previous"
@@ -140,11 +167,13 @@ Popup {
                 }
             }
             PlainLabel {
+                visible: root.changingDate
                 text: "Browse 30 days before or after today"
                 font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
             }
             Slider {
+                visible: root.changingDate
                 objectName: "astronomyDateScrubber"
                 Layout.fillWidth: true
                 from: -30
@@ -161,11 +190,18 @@ Popup {
             }
             PlainLabel {
                 objectName: "astronomyStatus"
+                visible: root.result === null
                 Layout.fillWidth: true
-                text: root.result ? root.result.date_label : root.state === "loading" ? "Calculating sun and moon…" : "Unavailable. Choose a valid date within a year of today, or select Today to retry."
+                text: root.state === "loading" ? "Calculating sun and moon…" : root.error === "service_unsupported" || root.error === "invalid_request" ? "This running weather service does not support Sun & moon. Quit and reopen the updated app." : root.error === "service_unavailable" ? "The weather service is disconnected. Reopen the app to reconnect." : root.error === "forecast_loading" ? "The location is still loading. Try today again in a moment." : root.error === "location_busy" ? "The location is changing. Try today when it is ready." : root.error === "location_required" ? "Choose a location using the pin beside the city name, then open Sun & moon." : root.error === "astronomy_context_changed" ? "The location changed. Reopen Sun & moon for the current location." : "Choose a valid date within a year of today, or select Today to retry."
                 font.pixelSize: Tokens.fontSize(18)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
+            }
+            ActionButton {
+                objectName: "retryAstronomy"
+                visible: !root.changingDate && root.state === "unavailable" && ["service_unsupported", "invalid_request", "service_unavailable", "location_required"].indexOf(root.error) < 0
+                text: "Try today"
+                onClicked: root.requested("")
             }
             ColumnLayout {
                 visible: root.result !== null
