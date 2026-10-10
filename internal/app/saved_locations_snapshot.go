@@ -33,7 +33,7 @@ func (a *App) savedLocationsSnapshot() any {
 			profile := object(entry["profile"])
 			location := object(profile["location"])
 			row := M{"id": entry["id"], "name": location["name"], "label": entry["label"], "mode": profile["mode"], "country_code": profile["country_code"], "timezone": location["timezone"], "summary": nil}
-			if summary := object(entry["summary"]); summary != nil {
+			if summary := a.overlaySavedSummary(entry); summary != nil {
 				row["summary"] = savedSummaryPresentation(summary, now, &cache.expires)
 			}
 			cache.items = append(cache.items, row)

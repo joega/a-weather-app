@@ -122,6 +122,8 @@ func (a *App) beginPointFetch(p *forecastPoint, selection M, primary bool) {
 	if selection == nil && (p.fetchBusy || p.locationBusy) {
 		return
 	}
+	// Optional card warming yields immediately to foreground weather work.
+	a.cancelSavedSummary()
 	a.cancelPointFetch(p)
 	if selection == nil && p.needsResolve {
 		selection = M{"mode": "auto", "zip_code": nil}
@@ -263,6 +265,7 @@ func (a *App) sendForecastCompletion(ctx context.Context, c completion) {
 }
 
 func (a *App) poll() {
+	defer a.pollSavedSummaries()
 	defer a.tickAlertWork()
 	a.pollUpdates()
 	defer a.pollAirQuality()

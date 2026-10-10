@@ -179,6 +179,7 @@ func (a *App) setPresented(active bool) {
 	}
 	a.presented = active
 	if !active {
+		a.cancelSavedSummary()
 		a.closeMap()
 		a.closeRadar()
 		// Socket-owned detail demand is closed by that exact peer's hide or
@@ -285,6 +286,7 @@ func (a *App) savedLocationAction(action M) error {
 	}
 	a.viewPointChanged(oldID, oldLocation)
 	a.refreshDuePoints()
+	a.reconcileSavedSummary()
 	if err != nil {
 		a.locationError = "save_unconfirmed"
 	}

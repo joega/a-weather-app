@@ -52,6 +52,9 @@ type Options struct {
 	Resolve           func(context.Context, M) (M, error)
 	ResolveSelection  func(context.Context, M) (M, error)
 	FetchCountry      func(context.Context, M, time.Time, string) (M, error)
+	// FetchCurrentSummary warms saved cards independently of full forecasts.
+	// Nil leaves cards cache-only for custom providers.
+	FetchCurrentSummary func(context.Context, M, time.Time) (M, error)
 	// FetchAlerts is independent when supplied; nil preserves custom combined fetches.
 	FetchAlerts func(context.Context, M, time.Time) (M, error)
 	// FetchAlertMessages uses shared, spaced current/history requests. It is
@@ -90,6 +93,11 @@ type App struct {
 	primary               *forecastPoint
 	saved                 *savedLocations
 	savedList             savedListPresentation
+	savedSummaries        map[string]savedCurrentSummary
+	summaryWork           *savedSummaryWork
+	summaryDone           chan *savedSummaryWork
+	summaryNext           time.Time
+	summaryRetry          map[string]time.Time
 	primaryOnly           bool
 	barRefreshUntil       time.Time
 	presented             bool
@@ -317,6 +325,9 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	}
 	if o.Fetch == nil && o.FetchCountry == nil {
 		o.FetchCountry = weather.FetchForecastForCountry
+		if o.FetchCurrentSummary == nil {
+			o.FetchCurrentSummary = weather.FetchCurrentSummary
+		}
 		if o.FetchAlerts == nil && o.FetchAlertMessages == nil {
 			o.FetchAlertMessages = weather.FetchAlertMessages
 		}
@@ -331,6 +342,7 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	if e := a.restoreLocations(); e != nil {
 		return nil, e
 	}
+	a.initSavedSummaries()
 	var e error
 	a.search.init()
 	if !primaryOnly {
@@ -427,6 +439,7 @@ func (a *App) Tick(ctx context.Context) {
 	a.poll()
 	a.beginUpdateCheck(false)
 	a.refreshDuePoints()
+	a.tickSavedSummaries()
 	a.tickNotifications()
 	a.tickAlertWork()
 	a.updateEffectsLocked()
@@ -481,6 +494,9 @@ func (a *App) interval(presented bool) time.Duration {
 		if alertDelay := a.alerts.interval(now); alertDelay < d {
 			d = alertDelay
 		}
+	}
+	if summaryDelay := a.savedSummaryInterval(now); summaryDelay < d {
+		d = summaryDelay
 	}
 	if a.warnings != nil {
 		if warningDelay := a.warnings.Interval(now); warningDelay < d {
@@ -835,6 +851,7 @@ func (a *App) Close(ctx context.Context) error {
 	}
 	a.closeDone = make(chan struct{})
 	a.cancelAirQuality()
+	a.cancelSavedSummary()
 	a.closeMap()
 	for work := range a.forecastJobs {
 		work.cancel()
