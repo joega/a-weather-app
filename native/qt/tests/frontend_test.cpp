@@ -2768,10 +2768,12 @@ class FrontendTest : public QObject {
         auto* toggle = picker->findChild<QQuickItem*>("toggleLocationEditing");
         QVERIFY(toggle && toggle->isVisible());
         QVERIFY(!picker->property("editing").toBool());
+        QVERIFY(!picker->findChild<QQuickItem*>("addSavedLocation")->isVisible());
         QVERIFY(!visualItem(picker, "removeSaved_0") ||
                 !visualItem(picker, "removeSaved_0")->isVisible());
         activate("toggleLocationEditing");
         QTRY_VERIFY(picker->property("editing").toBool());
+        QVERIFY(picker->findChild<QQuickItem*>("addSavedLocation")->isVisible());
         QCOMPARE(transport.requests.size(), 0);
         QCOMPARE(picker->property("page").toString(), QString("saved"));
         QVERIFY(!visualItem(picker, "removeSaved_0")->isEnabled());
@@ -2855,6 +2857,7 @@ class FrontendTest : public QObject {
         QTRY_COMPARE(list->property("count").toInt(), 19);
         activate("toggleLocationEditing");
         QTRY_VERIFY(!picker->property("editing").toBool());
+        QVERIFY(!picker->findChild<QQuickItem*>("addSavedLocation")->isVisible());
         QVERIFY(!visualItem(picker, "removeSaved_0") ||
                 !visualItem(picker, "removeSaved_0")->isVisible());
         QCOMPARE(transport.requests.size(), 6);
@@ -2894,6 +2897,9 @@ class FrontendTest : public QObject {
         picker = qobject_cast<QQuickItem*>(loader->property("item").value<QObject*>());
         QCOMPARE(picker->property("page").toString(), QString("saved"));
         auto* add = picker->findChild<QQuickItem*>("addSavedLocation");
+        QVERIFY(!add->isVisible());
+        activate("toggleLocationEditing");
+        QTRY_VERIFY(add->isVisible());
         add->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Space);
         auto* query = picker->findChild<QQuickItem*>("savedplaceQuery");

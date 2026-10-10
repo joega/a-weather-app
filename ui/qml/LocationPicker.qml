@@ -157,6 +157,7 @@ GlassPanel {
         }
         RowLayout {
             Layout.fillWidth: true
+            visible: root.page !== "saved" || root.editing
             ActionButton {
                 objectName: "showSavedLocations"
                 text: "Back to locations"
@@ -167,7 +168,7 @@ GlassPanel {
             ActionButton {
                 objectName: "addSavedLocation"
                 text: "Add location"
-                visible: root.page === "saved"
+                visible: root.page === "saved" && root.editing
                 Layout.fillWidth: true
                 enabled: root.rows.length < 20 && root.canAct && !root.adding
                 onClicked: root.showAdd()
@@ -175,7 +176,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            visible: root.page === "saved" && root.rows.length >= 20
+            visible: root.page === "saved" && root.editing && root.rows.length >= 20
             text: "You have 20 saved locations. Remove one to add another."
             color: Tokens.secondary
             wrapMode: Text.Wrap
