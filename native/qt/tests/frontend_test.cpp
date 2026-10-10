@@ -1903,6 +1903,29 @@ class FrontendTest : public QObject {
         // Older service snapshots remain accepted.
         QCOMPARE(evaluate(engine, scope.data(), "Forecast.briefings(undefined).length").toInt(), 0);
     }
+    void liveTimestampPrecision() {
+        QQmlEngine engine;
+        QQmlComponent component(&engine);
+        component.setData(
+            "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
+        QScopedPointer<QObject> scope(component.create());
+        QVERIFY(scope);
+        const auto valid = [&](const QString& value) {
+            QQmlExpression expression(qmlContext(scope.data()), scope.data(),
+                                      "Forecast.time('" + value + "')");
+            expression.evaluate();
+            return !expression.hasError();
+        };
+        // Live Go/NWS retrieval times use RFC3339Nano; whole-second fixtures
+        // must not conceal a startup rejection of real cached observations.
+        for (const auto& value :
+             {"2026-10-10T00:10:22Z", "2026-10-10T00:10:22.1Z", "2026-10-10T00:10:22.144973Z",
+              "2026-10-10T00:10:22.144973867Z", "2026-10-09T20:10:22.144973867-04:00"})
+            QVERIFY2(valid(value), value);
+        for (const auto& value : {"2026-10-10T00:10:22.1449738671Z", "2026-10-10T00:10:22.Z",
+                                  "2026-10-10T00:10:22.123", "2026-13-10T00:10:22.123456789Z"})
+            QVERIFY2(!valid(value), value);
+    }
     void appearanceContract() {
         QQmlEngine engine;
         QQmlComponent component(&engine);
