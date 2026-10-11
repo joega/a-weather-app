@@ -110,7 +110,9 @@ func (a *App) beginSearch(query M) {
 		s.status, s.errorCode = "error", "offline"
 		return
 	}
-	s.status, s.pending = "loading", safeio.Clone(query)
+	query = safeio.Clone(query)
+	query["language"] = a.effectiveLanguage()
+	s.status, s.pending = "loading", query
 	a.startSearch()
 }
 

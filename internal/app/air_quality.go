@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"reflect"
 	"time"
 
 	"github.com/joega/a-weather-app/internal/airquality"
@@ -47,7 +46,7 @@ func (a *App) initAirQuality() {
 		a.aq.errorCode = "cache_invalid"
 		return
 	}
-	if !reflect.DeepEqual(v["location"], a.location) {
+	if !samePlaceCoordinates(object(v["location"]), a.location) {
 		return
 	}
 	a.aq.record = v
@@ -110,10 +109,10 @@ func (a *App) pollAirQuality() {
 	case c := <-a.aq.results:
 		a.aq.active, a.aq.cancel = false, nil
 		if !a.closed && c.generation == a.aq.generation {
-			if c.err == nil && !reflect.DeepEqual(c.record["location"], a.location) {
+			if c.err == nil && !samePlaceCoordinates(object(c.record["location"]), a.location) {
 				c.err = errors.New("air quality location changed")
 			}
-			if c.err == nil && a.aq.record != nil && reflect.DeepEqual(a.aq.record["location"], a.location) {
+			if c.err == nil && a.aq.record != nil && samePlaceCoordinates(object(a.aq.record["location"]), a.location) {
 				oldTime, _ := weather.Instant(a.aq.record["valid_at"])
 				oldFetched, _ := weather.Instant(a.aq.record["fetched_at"])
 				newTime, _ := weather.Instant(c.record["valid_at"])
@@ -127,7 +126,7 @@ func (a *App) pollAirQuality() {
 				if errors.Is(c.err, context.DeadlineExceeded) {
 					a.aq.errorCode = "timeout"
 				}
-			} else if err := a.state.Write("air-quality.json", c.record, airquality.MaxBytes); err != nil {
+			} else if err := a.saveAirQualityRecord(c.record); err != nil {
 				a.aq.errorCode = "save_failed"
 			} else {
 				a.aq.record, a.aq.errorCode = c.record, nil
@@ -144,7 +143,7 @@ func (a *App) airQualitySnapshot() M {
 		"domain": "cams_global", "source": "CAMS global model data", "attribution": airQualityAttribution,
 		"valid_at": nil, "fetched_at": nil, "valid_label": nil, "fetched_label": nil, "age_seconds": nil, "us_aqi": nil, "european_aqi": nil, "pm2_5_ug_m3": nil}
 	v := a.aq.record
-	if v == nil || !reflect.DeepEqual(v["location"], a.location) {
+	if v == nil || !samePlaceCoordinates(object(v["location"]), a.location) {
 		return s
 	}
 	fetched, err := weather.Instant(v["fetched_at"])
@@ -183,4 +182,9 @@ func (a *App) airQualitySnapshot() M {
 		s[key] = v[key]
 	}
 	return s
+}
+
+func (a *App) saveAirQualityRecord(record M) error {
+	record["location"] = safeio.Clone(a.location)
+	return a.state.Write("air-quality.json", record, airquality.MaxBytes)
 }

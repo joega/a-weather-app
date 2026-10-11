@@ -1,0 +1,27 @@
+{
+  "%n minute(s) ago": [
+    "%n menit lalu"
+  ],
+  "10-day forecast": "Prakiraan 10 hari",
+  "Air quality": "Kualitas udara",
+  "Clear": "Cerah",
+  "Desktop effects": "Efek desktop",
+  "Drizzle": "Gerimis",
+  "Feels like %1 · High %2 · Low %3": "Terasa seperti %1 · Tertinggi %2 · Terendah %3",
+  "Fog": "Kabut",
+  "Hourly forecast": "Prakiraan per jam",
+  "Humidity": "Kelembapan",
+  "Language": "Bahasa",
+  "Next 24 hours": "24 jam ke depan",
+  "Partly cloudy": "Berawan sebagian",
+  "Rain": "Hujan",
+  "Refresh forecast": "Perbarui prakiraan",
+  "Select an hour for details": "Pilih jam untuk melihat detail",
+  "Snow": "Salju",
+  "Thunderstorm": "Badai petir",
+  "Today": "Hari ini",
+  "Unavailable": "Tidak tersedia",
+  "Weather unavailable": "Cuaca tidak tersedia",
+  "Wind": "Angin",
+  "just now": "baru saja"
+}

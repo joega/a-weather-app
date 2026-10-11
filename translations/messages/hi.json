@@ -1,0 +1,29 @@
+{
+  "%n minute(s) ago": [
+    "%n मिनट पहले",
+    "%n मिनट पहले"
+  ],
+  "10-day forecast": "10-दिन का पूर्वानुमान",
+  "Air quality": "वायु गुणवत्ता",
+  "Clear": "साफ़",
+  "Desktop effects": "डेस्कटॉप प्रभाव",
+  "Drizzle": "बूंदाबांदी",
+  "Feels like %1 · High %2 · Low %3": "महसूस %1 · अधिकतम %2 · न्यूनतम %3",
+  "Fog": "कोहरा",
+  "Hourly forecast": "घंटेवार पूर्वानुमान",
+  "Humidity": "आर्द्रता",
+  "Language": "भाषा",
+  "Next 24 hours": "अगले 24 घंटे",
+  "Partly cloudy": "आंशिक बादल",
+  "Rain": "बारिश",
+  "Refresh forecast": "पूर्वानुमान रीफ़्रेश करें",
+  "Select an hour for details": "विवरण के लिए एक घंटा चुनें",
+  "Snow": "बर्फ़",
+  "Sunrise ": "सूर्योदय ",
+  "Thunderstorm": "गरज-चमक वाला तूफ़ान",
+  "Today": "आज",
+  "Unavailable": "उपलब्ध नहीं",
+  "Weather unavailable": "मौसम उपलब्ध नहीं",
+  "Wind": "हवा",
+  "just now": "अभी-अभी"
+}

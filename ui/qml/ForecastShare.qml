@@ -17,8 +17,8 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property var snapshot: null
     property bool includePlace: true
-    readonly property var preview: Share.summary(snapshot, includePlace)
-    readonly property string plainText: Share.text(preview)
+    readonly property var preview: (I18n.revision, Share.summary(snapshot, includePlace))
+    readonly property string plainText: (I18n.revision, Share.text(preview))
     property var frozenPreview: null
     property var pendingCapture: null
     property string notice: ""
@@ -42,7 +42,7 @@ Popup {
         clipboardText.copy();
         clipboardText.deselect();
         clipboardText.text = "";
-        notify("Forecast copied.");
+        notify(I18n.source("Forecast copied."));
     }
     function chooseImageFile() {
         if (!visible || !preview || busy)
@@ -58,7 +58,7 @@ Popup {
             return false;
         const url = destination.toString();
         if (!url.startsWith("file:///") || !/\.png$/i.test(url)) {
-            notify("Choose a local file with a .png extension.");
+            notify(I18n.source("Choose a local file with a .png extension."));
             return false;
         }
         const ticket = {
@@ -83,11 +83,11 @@ Popup {
                 const saved = result.saveToFile(Qt.resolvedUrl(url));
                 pendingCapture = null;
                 frozenPreview = null;
-                notify(saved ? "Forecast image saved." : "Could not save the image. Choose another location and try again.");
+                notify(saved ? I18n.source("Forecast image saved.") : I18n.source("Could not save the image. Choose another location and try again."));
             }, target)) {
                 pendingCapture = null;
                 frozenPreview = null;
-                notify("Could not create the image. Try again.");
+                notify(I18n.source("Could not create the image. Try again."));
             }
         });
         return true;
@@ -153,7 +153,7 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Share forecast"
+                    text: I18n.t("Share forecast")
                     font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -162,14 +162,14 @@ Popup {
                     id: closeButton
                     objectName: "closeForecastShare"
                     iconName: "close"
-                    accessibleLabel: "Close forecast sharing"
+                    accessibleLabel: I18n.t("Close forecast sharing")
                     onClicked: root.close()
                 }
             }
             ToggleControl {
                 Layout.fillWidth: true
-                title: "Include place name"
-                caption: "The timezone stays visible. Coordinates are never included."
+                title: I18n.t("Include place name")
+                caption: I18n.t("The timezone stays visible. Coordinates are never included.")
                 testName: "shareIncludePlace"
                 checked: root.includePlace
                 locked: root.busy
@@ -179,14 +179,14 @@ Popup {
                 Layout.fillWidth: true
                 ActionButton {
                     objectName: "copyForecastText"
-                    text: "Copy text"
+                    text: I18n.t("Copy text")
                     enabled: root.preview !== null && !root.busy
                     onClicked: root.copyText()
                 }
                 ActionButton {
                     id: saveImageButton
                     objectName: "saveForecastImage"
-                    text: root.busy ? "Saving…" : "Save image…"
+                    text: root.busy ? I18n.t("Saving…") : I18n.t("Save image…")
                     enabled: root.preview !== null && !root.busy
                     // Finish the triggering key/pointer event before a native
                     // dialog takes the window's input focus.
@@ -197,7 +197,7 @@ Popup {
                 objectName: "forecastShareNotice"
                 Layout.fillWidth: true
                 visible: root.notice !== ""
-                text: root.notice
+                text: I18n.t(root.notice)
                 font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone

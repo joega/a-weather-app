@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/locale"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
 )
@@ -16,7 +17,14 @@ func plainText(v any, n int) string { p, _ := weather.Plain(v, n, false); return
 
 // Bar reads saved observations only and never initializes the app or any worker.
 func Bar(state *safeio.Directory, now time.Time) M {
-	r := M{"schema_version": 1.0, "label": "--° · Unavailable", "tooltip": "Weather and alerts unavailable", "freshness": "unavailable"}
+	language := locale.System()
+	if state != nil {
+		if controls, err := readControls(state, nil); err == nil && controls["language"] != "auto" {
+			language = stringOf(controls["language"])
+		}
+	}
+	tr := func(source string) string { return locale.T(language, source) }
+	r := M{"schema_version": 1.0, "language": language, "label": "--° · " + tr("Unavailable"), "tooltip": tr("Weather and alerts unavailable"), "freshness": "unavailable"}
 	if state == nil {
 		return r
 	}
@@ -26,9 +34,9 @@ func Bar(state *safeio.Directory, now time.Time) M {
 	location, forecast, profile, mode, _, e := readSaved(state)
 	country, _ := profileIdentity(profile, mode)
 	if location != nil {
-		r["tooltip"] = plainText(plainText(location["name"], 244)+" · Weather and alerts unavailable", 256)
+		r["tooltip"] = plainText(plainText(location["name"], 244)+" · "+tr("Weather and alerts unavailable"), 256)
 		if country != nil && country != "US" {
-			r["tooltip"] = plainText(plainText(location["name"], 244)+" · Weather unavailable · Alerts not supported here", 256)
+			r["tooltip"] = plainText(plainText(location["name"], 244)+" · "+tr("Weather unavailable")+" · "+tr("Alerts not supported here"), 256)
 		}
 	}
 	if e != nil || forecast == nil {
@@ -56,30 +64,26 @@ func Bar(state *safeio.Directory, now time.Time) M {
 		// Match Forecast.temp's JavaScript Math.round, including negative ties.
 		degrees = fmt.Sprintf("%.0f", math.Floor(t+0.5))
 	}
-	condition := friendlyConditions[stringOf(current["condition"])]
+	condition := tr(friendlyConditions[stringOf(current["condition"])])
 	label := degrees + "° · " + condition
 	if fresh == "stale" {
-		label += " · Stale"
+		label += " · " + tr("Stale")
 	}
 	alerts := object(object(selected["forecast"])["alerts"])
 	items, _ := alerts["items"].([]any)
-	alertText := "Alerts unavailable"
+	alertText := tr("Alerts unavailable")
 	if country != nil && country != "US" {
-		alertText = "Alerts not supported here"
+		alertText = tr("Alerts not supported here")
 	}
 	if country == "US" && alerts["status"] == "available" {
 		if len(items) > 0 {
-			plural := ""
-			if len(items) != 1 {
-				plural = "s"
-			}
-			label += fmt.Sprintf(" · %d alert%s", len(items), plural)
+			label += " · " + locale.N(language, "%n alert(s)", len(items))
 		}
 		events := []string{}
 		for _, v := range items {
 			event := plainText(object(v)["event"], 80)
 			if event == "" {
-				event = "Weather alert"
+				event = tr("Weather alert")
 			}
 			events = append(events, event)
 			if len(events) == 2 {
@@ -88,13 +92,13 @@ func Bar(state *safeio.Directory, now time.Time) M {
 		}
 		alertText = strings.Join(events, "; ")
 		if alertText == "" {
-			alertText = "No active alerts in cached feed"
+			alertText = tr("No active alerts in cached feed")
 		}
 	}
 	if country == "US" && alerts["freshness"] == "pending" {
-		alertText = "Checking official alerts"
+		alertText = tr("Checking official alerts")
 	} else if country == "US" && alerts["freshness"] == "stale" {
-		alertText = "Cached alert feed; current status unavailable"
+		alertText = tr("Cached alert feed; current status unavailable")
 	}
 	r["label"] = plainText(label, 96)
 	r["tooltip"] = plainText(plainText(location["name"], 244)+" · "+condition+" · "+alertText, 256)

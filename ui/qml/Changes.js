@@ -79,40 +79,42 @@ function result(v, q) {
 }
 function title(r, units) {
     const higher = r.after > r.before;
-    if (r.kind === "temperature")
-        return Math.round(Math.abs(r.after - r.before) * (units === "F" ? 1.8 : 1)) + "°" + units + (higher ? " warmer" : " cooler");
+    if (r.kind === "temperature") {
+        const difference = Math.round(Math.abs(r.after - r.before) * (units === "F" ? 1.8 : 1));
+        return (higher ? qsTranslate("App", "%1°%2 warmer") : qsTranslate("App", "%1°%2 cooler")).arg(difference).arg(units);
+    }
     if (r.kind === "probability")
-        return "Precipitation chance " + Math.round(Math.abs(r.after - r.before) * 100) + " points " + (higher ? "higher" : "lower");
+        return (higher ? qsTranslate("App", "Precipitation chance %1 points higher") : qsTranslate("App", "Precipitation chance %1 points lower")).arg(Math.round(Math.abs(r.after - r.before) * 100));
     if (r.kind === "precipitation")
-        return higher ? "More precipitation expected" : "Less precipitation expected";
+        return higher ? qsTranslate("App", "More precipitation expected") : qsTranslate("App", "Less precipitation expected");
     if (r.kind === "gusts")
-        return higher ? "Stronger gusts expected" : "Lighter gusts expected";
-    return "High precipitation-chance hours shifted " + (Date.parse(r.start) > Date.parse(r.previous_start) ? "later" : "earlier");
+        return higher ? qsTranslate("App", "Stronger gusts expected") : qsTranslate("App", "Lighter gusts expected");
+    return Date.parse(r.start) > Date.parse(r.previous_start) ? qsTranslate("App", "High precipitation-chance hours shifted later") : qsTranslate("App", "High precipitation-chance hours shifted earlier");
 }
 function values(r, units, windUnits) {
     if (r.kind === "wet_hours")
-        return "Previously: " + r.previous_range_label + "\nNow: " + r.range_label + "\nModeled hours with at least 50% precipitation chance.";
-    const format = n => r.kind === "temperature" ? Forecast.temp(n, units) + units : r.kind === "probability" ? Forecast.percent(n) : r.kind === "gusts" ? Forecast.wind(n, units, windUnits) : units === "F" ? (n / 25.4).toFixed(3) + " in/hour" : n.toFixed(1) + " mm/hour";
+        return qsTranslate("App", "Previously: %1\nNow: %2\nModeled hours with at least 50% precipitation chance.").arg(r.previous_range_label).arg(r.range_label);
+    const format = n => r.kind === "temperature" ? Forecast.temp(n, units) + units : r.kind === "probability" ? Forecast.percent(n) : r.kind === "gusts" ? Forecast.wind(n, units, windUnits) : units === "F" ? qsTranslate("App", "%1 in/hour").arg(Forecast.displayNumber(n / 25.4, 3)) : qsTranslate("App", "%1 mm/hour").arg(Forecast.displayNumber(n, 1));
     const label = {
-        temperature: "Temperature",
-        probability: "Precipitation chance",
-        precipitation: "Liquid-equivalent precipitation",
-        gusts: "Hourly maximum gust"
+        temperature: qsTranslate("App", "Temperature"),
+        probability: qsTranslate("App", "Precipitation chance"),
+        precipitation: qsTranslate("App", "Liquid-equivalent precipitation"),
+        gusts: qsTranslate("App", "Hourly maximum gust")
     }[r.kind];
-    return label + " averages " + format(r.before) + " → " + format(r.after) + " across " + r.samples + (r.samples === 1 ? " hour." : " hours.");
+    return qsTranslate("App", "%1 averages %2 → %3 across %n hour(s).", "", r.samples).arg(label).arg(format(r.before)).arg(format(r.after));
 }
 function summary(v, state, units) {
     if (!v)
-        return state === "unavailable" ? "Comparison unavailable for this forecast." : state === "waiting" ? "A comparison will appear when the latest forecast is shown." : "Checking forecast changes…";
+        return state === "unavailable" ? qsTranslate("App", "Comparison unavailable for this forecast.") : state === "waiting" ? qsTranslate("App", "A comparison will appear when the latest forecast is shown.") : qsTranslate("App", "Checking forecast changes…");
     if (v.changes.length)
-        return title(v.changes[0], units) + (v.changes.length > 1 ? " · " + (v.changes.length - 1) + " more" : "");
+        return title(v.changes[0], units) + (v.changes.length > 1 ? " · " + qsTranslate("App", "%n more", "", v.changes.length - 1) : "");
     if (v.status === "ready")
-        return "No major changes in the compared hours.";
+        return qsTranslate("App", "No major changes in the compared hours.");
     return ({
-            no_previous: "A comparison will be available after a newer forecast is shown.",
-            baseline_too_old: "Your previous forecast is too old to compare.",
-            no_overlap: "These forecasts have no matching future hours.",
-            insufficient_data: "Too little shared hourly data to compare.",
-            not_newer: "Waiting for a newer forecast to compare."
-        })[v.status] || "Comparison unavailable for this forecast.";
+            no_previous: qsTranslate("App", "A comparison will be available after a newer forecast is shown."),
+            baseline_too_old: qsTranslate("App", "Your previous forecast is too old to compare."),
+            no_overlap: qsTranslate("App", "These forecasts have no matching future hours."),
+            insufficient_data: qsTranslate("App", "Too little shared hourly data to compare."),
+            not_newer: qsTranslate("App", "Waiting for a newer forecast to compare.")
+        })[v.status] || qsTranslate("App", "Comparison unavailable for this forecast.");
 }

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/locale"
 )
 
 func providerFixture(t *testing.T, handler http.HandlerFunc) jsonProvider {
@@ -176,7 +178,7 @@ func TestResolveGlobalPlaces(t *testing.T) {
 		byID[fmt.Sprint(city.id)] = Object{"id": city.id, "name": city.name, "admin1": city.admin, "country": city.country, "country_code": city.code, "timezone": city.zone, "latitude": city.lat, "longitude": city.lon}
 	}
 	provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Host != "geocoding-api.open-meteo.com" || r.URL.Path != "/v1/get" || len(r.URL.Query()) != 1 {
+		if r.Host != "geocoding-api.open-meteo.com" || r.URL.Path != "/v1/get" || len(r.URL.Query()) != 2 || r.URL.Query().Get("language") != "en" {
 			t.Errorf("unexpected get URL: %s", r.URL)
 		}
 		_ = json.NewEncoder(w).Encode(byID[r.URL.Query().Get("id")])
@@ -291,5 +293,36 @@ func TestCountryAlertCoverage(t *testing.T) {
 	}
 	if _, e := provider.fetchForCountry(context.Background(), DefaultLocation(), now, "us"); e == nil {
 		t.Fatal("invalid country accepted")
+	}
+}
+
+func TestLocalizedSearchAndSelectedMetadata(t *testing.T) {
+	for _, code := range []string{"hi", "zh-Hant", "uk"} {
+		t.Run(code, func(t *testing.T) {
+			provider := providerFixture(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Query().Get("language") != locale.ProviderLanguage(code) {
+					t.Errorf("lost language: %s", r.URL)
+				}
+				row := `{"id":42,"name":"स्थानीय शहर","country":"India","country_code":"IN","timezone":"Asia/Kolkata","latitude":19.0,"longitude":72.0}`
+				if r.URL.Path == "/v1/search" {
+					fmt.Fprint(w, `{"results":[`+row+`]}`)
+				} else {
+					fmt.Fprint(w, row)
+				}
+			})
+			rows, err := provider.searchPlaces(context.Background(), Object{"query": "Mumbai", "country_code": "IN", "language": code})
+			if err != nil || len(rows) != 1 {
+				t.Fatal(rows, err)
+			}
+			selected, err := provider.resolveSelection(locale.WithLanguage(context.Background(), code), Object{"mode": "place", "place_id": 42, "search_generation": 0})
+			if err != nil || selected["country_code"] != "IN" || obj(selected["location"])["timezone"] != "Asia/Kolkata" || obj(selected["location"])["latitude"] != 19.0 {
+				t.Fatal(selected, err)
+			}
+		})
+	}
+	for _, code := range []any{"zh", "ru", "en&countryCode=US", true, "../../en"} {
+		if _, err := ValidatePlaceSearch(Object{"query": "Mumbai", "country_code": "", "language": code}); err == nil {
+			t.Fatal("accepted unsafe/unsupported language", code)
+		}
 	}
 }

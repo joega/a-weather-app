@@ -10,33 +10,33 @@ GlassPanel {
     objectName: "airQualityPanel"
     property bool outlookEnabled: false
     signal outlookRequested
-    property var airQuality: Forecast.airQuality()
+    property var airQuality: (I18n.revision, Forecast.airQuality())
     implicitHeight: Math.max(224, body.implicitHeight + 40)
     function index(value) {
         return value === null ? "—" : Math.round(value).toString();
     }
     function particulate(value) {
-        return value === null ? "—" : value.toFixed(1) + " µg/m³";
+        return value === null ? "—" : value.toFixed(1) + I18n.t(" µg/m³");
     }
     readonly property string statusText: {
         let a = airQuality;
         let label = ({
-                fresh: "Fresh air quality model data",
-                stale: "Stale air quality model data",
-                expired: "Air quality data expired · values hidden",
-                invalid_future: "Invalid air quality timestamp · values hidden",
-                unavailable: "Air quality unavailable"
+                fresh: I18n.t("Fresh air quality model data"),
+                stale: I18n.t("Stale air quality model data"),
+                expired: I18n.t("Air quality data expired · values hidden"),
+                invalid_future: I18n.t("Invalid air quality timestamp · values hidden"),
+                unavailable: I18n.t("Air quality unavailable")
             })[a.freshness];
         if (a.offline)
-            label += " · Offline";
+            label += I18n.t(" · Offline");
         if (a.refreshing)
-            label += " · Updating";
+            label += I18n.t(" · Updating");
         if (a.error !== null)
             label += " · " + ({
-                    fetch_failed: "Update failed",
-                    timeout: "Update timed out",
-                    cache_invalid: "Cached data invalid",
-                    save_failed: "Could not save update"
+                    fetch_failed: I18n.t("Update failed"),
+                    timeout: I18n.t("Update timed out"),
+                    cache_invalid: I18n.t("Cached data invalid"),
+                    save_failed: I18n.t("Could not save update")
                 })[a.error];
         return label;
     }
@@ -50,7 +50,7 @@ GlassPanel {
             Layout.fillWidth: true
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Air quality · CAMS global model"
+                text: I18n.t("Air quality · CAMS global model")
                 font.pixelSize: Tokens.fontSize(20)
                 font.weight: Font.DemiBold
                 wrapMode: Text.Wrap
@@ -58,8 +58,8 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "openAirOutlook"
-                text: "Outlook"
-                accessibleLabel: "Open 48-hour air quality outlook"
+                text: I18n.t("Outlook")
+                accessibleLabel: I18n.t("Open 48-hour air quality outlook")
                 enabled: root.outlookEnabled
                 onClicked: root.outlookRequested()
             }
@@ -80,21 +80,21 @@ GlassPanel {
                 model: [
                     {
                         kind: "us",
-                        title: "US AQI scale",
+                        title: I18n.t("US AQI scale"),
                         value: root.index(root.airQuality.us_aqi),
-                        category: AirQuality.category(root.airQuality.us_aqi, "us")
+                        category: (I18n.revision, AirQuality.category(root.airQuality.us_aqi, "us"))
                     },
                     {
                         kind: "eu",
-                        title: "European AQI scale",
+                        title: I18n.t("European AQI scale"),
                         value: root.index(root.airQuality.european_aqi),
-                        category: AirQuality.category(root.airQuality.european_aqi, "eu")
+                        category: (I18n.revision, AirQuality.category(root.airQuality.european_aqi, "eu"))
                     },
                     {
                         kind: "pm",
-                        title: "PM2.5 · µg/m³",
+                        title: I18n.t("PM2.5 · µg/m³"),
                         value: root.particulate(root.airQuality.pm2_5_ug_m3),
-                        category: "Fine particles"
+                        category: I18n.t("Fine particles")
                     }
                 ]
                 delegate: ColumnLayout {
@@ -136,7 +136,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "The two indices use different scales. Lower values indicate cleaner air."
+            text: I18n.t("The two indices use different scales. Lower values indicate cleaner air.")
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(12)
             wrapMode: Text.Wrap
@@ -145,7 +145,7 @@ GlassPanel {
         PlainLabel {
             objectName: "airQualityTimes"
             Layout.fillWidth: true
-            text: root.airQuality.valid_label === null ? "Model forecast time unavailable" : "Model forecast valid " + root.airQuality.valid_label + " · Fetched " + root.airQuality.fetched_label
+            text: root.airQuality.valid_label === null ? I18n.t("Model forecast time unavailable") : I18n.t("Model forecast valid %1 · Fetched %2").arg(root.airQuality.valid_label).arg(root.airQuality.fetched_label)
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(12)
             wrapMode: Text.Wrap
@@ -153,7 +153,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Air quality updates separately, at most hourly. Forecast Refresh does not force an air quality update."
+            text: I18n.t("Air quality updates separately, at most hourly. Forecast Refresh does not force an air quality update.")
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(12)
             wrapMode: Text.Wrap

@@ -9,7 +9,7 @@ GlassPanel {
     signal metricSelected(string metric)
     property bool compact: false
     property bool presentationActive: true
-    property var selection: Dashboard.defaults().metrics
+    property var selection: (I18n.revision, Dashboard.defaults()).metrics
     readonly property var selectedMetrics: selection.filter(row => row.enabled).map(row => ({
                 kind: row.id
             }))
@@ -44,39 +44,39 @@ GlassPanel {
     readonly property var availableMetrics: [
         {
             kind: "wind",
-            title: "Wind",
-            value: root.current ? Forecast.direction(root.current.wind_direction_deg) + " " + Forecast.wind(root.current.wind_speed_m_s, root.units, root.windUnits) : "—",
-            detail: root.current ? "Gusts " + Forecast.wind(root.current.wind_gust_m_s, root.units, root.windUnits) : "Unavailable"
+            title: I18n.t("Wind"),
+            value: root.current ? (I18n.revision, Forecast.direction(root.current.wind_direction_deg)) + " " + (I18n.revision, Forecast.wind(root.current.wind_speed_m_s, root.units, root.windUnits)) : "—",
+            detail: root.current ? I18n.t("Gusts %1").arg((I18n.revision, Forecast.wind(root.current.wind_gust_m_s, root.units, root.windUnits))) : I18n.t("Unavailable")
         },
         {
             kind: "humidity",
-            title: "Humidity",
-            value: root.current ? Forecast.percent(root.current.humidity) : "—",
-            detail: "Dew point " + Forecast.temp(root.current ? root.current.dew_point_c : null, root.units)
+            title: I18n.t("Humidity"),
+            value: root.current ? (I18n.revision, Forecast.percent(root.current.humidity)) : "—",
+            detail: I18n.t("Dew point %1").arg((I18n.revision, Forecast.temp(root.current ? root.current.dew_point_c : null, root.units)))
         },
         {
             kind: "visibility",
-            title: "Visibility",
-            value: Forecast.distance(root.current ? root.current.visibility_m : null, root.units),
+            title: I18n.t("Visibility"),
+            value: (I18n.revision, Forecast.distance(root.current ? root.current.visibility_m : null, root.units)),
             detail: ""
         },
         {
             kind: "solar",
-            title: "Sun & moon",
-            value: root.solarAvailable ? (root.day.sunrise_label || "—") + " — " + (root.day.sunset_label || "—") : "Unavailable",
-            detail: root.solarAvailable ? "" : "Solar times unavailable"
+            title: I18n.t("Sun & moon"),
+            value: root.solarAvailable ? ((I18n.date(root.day.sunrise, root.timezone, "time") || root.day.sunrise_label) || "—") + " — " + ((I18n.date(root.day.sunset, root.timezone, "time") || root.day.sunset_label) || "—") : I18n.t("Unavailable"),
+            detail: root.solarAvailable ? "" : I18n.t("Solar times unavailable")
         },
         {
             kind: "uv",
-            title: "UV index",
-            value: Forecast.uv(root.current ? root.current.uv_index : null),
-            detail: "Current model value"
+            title: I18n.t("UV index"),
+            value: (I18n.revision, Forecast.uv(root.current ? root.current.uv_index : null)),
+            detail: I18n.t("Current model value")
         },
         {
             kind: "pressure",
-            title: "Pressure",
-            value: Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null, root.units),
-            detail: "Mean sea level"
+            title: I18n.t("Pressure"),
+            value: (I18n.revision, Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null, root.units)),
+            detail: I18n.t("Mean sea level")
         }
     ]
     Grid {
@@ -95,7 +95,7 @@ GlassPanel {
                 readonly property var metricData: root.availableMetrics.find(row => row.kind === modelData.kind)
                 objectName: "currentMetric_" + modelData.kind
                 Accessible.name: metricData.title + ": " + metricData.value + ". " + metricData.detail
-                Accessible.description: modelData.kind === "solar" ? "Open sun and moon planning" : "Open forecast details"
+                Accessible.description: modelData.kind === "solar" ? I18n.t("Open sun and moon planning") : I18n.t("Open forecast details")
                 focusPolicy: Qt.StrongFocus
                 onClicked: root.metricSelected(({
                         wind: "wind_speed_m_s",
@@ -310,14 +310,14 @@ GlassPanel {
                         width: parent.width
                         PlainLabel {
                             width: parent.width / 2
-                            text: root.day ? (root.day.sunrise_label || "—") : "—"
+                            text: root.day ? ((I18n.date(root.day.sunrise, root.timezone, "time") || root.day.sunrise_label) || "—") : "—"
                             color: Tokens.secondary
                             font.pixelSize: Tokens.fontSize(10)
                         }
                         PlainLabel {
                             width: parent.width / 2
                             horizontalAlignment: Text.AlignRight
-                            text: root.day ? (root.day.sunset_label || "—") : "—"
+                            text: root.day ? ((I18n.date(root.day.sunset, root.timezone, "time") || root.day.sunset_label) || "—") : "—"
                             color: Tokens.secondary
                             font.pixelSize: Tokens.fontSize(10)
                         }

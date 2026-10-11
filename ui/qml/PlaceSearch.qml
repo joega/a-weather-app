@@ -15,7 +15,7 @@ ColumnLayout {
             error: null
         })
     property string objectPrefix: ""
-    property string selectionHint: "Optional country code, such as DE or BR. Choose a result to change location."
+    property string selectionHint: I18n.t("Optional country code, such as DE or BR. Choose a result to change location.")
     property bool serviceAvailable: true
     property bool locationBusy: false
     property bool armed: false
@@ -29,6 +29,12 @@ ColumnLayout {
     signal cancelRequested
     signal locationRequested(var values)
 
+    Connections {
+        target: I18n
+        function onPreferenceRequested(code) {
+            root.scheduleSearch();
+        }
+    }
     function focusQuery() {
         cityInput.forceActiveFocus();
         cityInput.selectAll();
@@ -93,7 +99,7 @@ ColumnLayout {
         }
     }
     PlainLabel {
-        text: "Search worldwide cities"
+        text: I18n.t("Search worldwide cities")
         font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
     }
@@ -105,8 +111,8 @@ ColumnLayout {
             Layout.fillWidth: true
             maximumLength: 120
             enabled: root.serviceAvailable && !root.locationBusy
-            Accessible.name: "City name"
-            placeholderText: "City name"
+            Accessible.name: I18n.t("City name")
+            placeholderText: I18n.t("City name")
             color: Tokens.foreground
             placeholderTextColor: Tokens.secondary
             font.pixelSize: Tokens.fontSize(16)
@@ -137,8 +143,8 @@ ColumnLayout {
                 regularExpression: /[A-Za-z]{0,2}/
             }
             enabled: root.serviceAvailable && !root.locationBusy
-            Accessible.name: "Optional two-letter country code"
-            placeholderText: "Country"
+            Accessible.name: I18n.t("Optional two-letter country code")
+            placeholderText: I18n.t("Country")
             color: Tokens.foreground
             placeholderTextColor: Tokens.secondary
             font.pixelSize: Tokens.fontSize(16)
@@ -162,7 +168,7 @@ ColumnLayout {
     }
     PlainLabel {
         Layout.fillWidth: true
-        text: "Place data: GeoNames via Open-Meteo (CC BY 4.0)."
+        text: I18n.t("Place data: GeoNames via Open-Meteo (CC BY 4.0).")
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
         wrapMode: Text.Wrap
@@ -172,7 +178,7 @@ ColumnLayout {
         objectName: root.objectPrefix + "placeSearchStatus"
         Layout.fillWidth: true
         visible: text !== ""
-        text: !root.serviceAvailable ? "Search unavailable while disconnected." : cityInput.text.trim().length === 1 ? "Enter at least two characters." : countryInput.text.length === 1 ? "Enter a two-letter country code or leave it blank." : !root.showingSearch ? "" : root.search.status === "loading" ? "Searching places…" : root.search.status === "error" ? (root.search.error === "offline" ? "Search unavailable offline." : root.search.error === "timeout" ? "Search timed out. Edit the query to retry." : "Place search failed. Edit the query to retry.") : root.search.status === "ready" && root.search.results.length === 0 ? "No matching places found." : ""
+        text: !root.serviceAvailable ? I18n.t("Search unavailable while disconnected.") : cityInput.text.trim().length === 1 ? I18n.t("Enter at least two characters.") : countryInput.text.length === 1 ? I18n.t("Enter a two-letter country code or leave it blank.") : !root.showingSearch ? "" : root.search.status === "loading" ? I18n.t("Searching places…") : root.search.status === "error" ? (root.search.error === "offline" ? I18n.t("Search unavailable offline.") : root.search.error === "timeout" ? I18n.t("Search timed out. Edit the query to retry.") : I18n.t("Place search failed. Edit the query to retry.")) : root.search.status === "ready" && root.search.results.length === 0 ? I18n.t("No matching places found.") : ""
         color: Tokens.secondary
         font.pixelSize: Tokens.fontSize(14)
         wrapMode: Text.Wrap

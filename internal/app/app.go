@@ -11,6 +11,7 @@ import (
 
 	"github.com/joega/a-weather-app/internal/airquality"
 	"github.com/joega/a-weather-app/internal/effects"
+	"github.com/joega/a-weather-app/internal/locale"
 	"github.com/joega/a-weather-app/internal/notifications"
 	"github.com/joega/a-weather-app/internal/precipitation"
 	"github.com/joega/a-weather-app/internal/radar"
@@ -83,6 +84,7 @@ type completion struct {
 	place                         M
 	alerts                        M
 	alertsPending                 bool
+	language                      string
 }
 
 // App serializes state mutations and exposes independent cached snapshots.
@@ -122,10 +124,12 @@ type App struct {
 	state                 *safeio.Directory
 	options               Options
 	controls              M
+	languageEffective     string
 	dashboard             *dashboardState
 	appearance            *appearanceState
 	forecastHistory       *forecastHistory
 	search                placeSearch
+	metadata              placeMetadata
 	aq                    airQualityState
 	wmap                  mapState
 	radar                 *radar.Controller
@@ -146,7 +150,7 @@ type App struct {
 
 // DefaultControls returns a fresh controls object in the persisted JSON format.
 func DefaultControls() M {
-	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "visual_quality": "auto", "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto", "wind_units": "auto"}
+	return M{"mode": "live", "strength": "subtle", "manual": M{"condition": "rain"}, "reduced_motion": false, "visual_quality": "auto", "lightning_enabled": false, "fps": float64(30), "window_physics": true, "accumulation": true, "pause_fullscreen": true, "units": "F", "units_mode": "auto", "wind_units": "auto", "language": "auto"}
 }
 func stringOf(v any) string { s, _ := v.(string); return s }
 func object(v any) M        { m, _ := v.(map[string]any); return m }
@@ -170,6 +174,11 @@ func PatchControls(old, patch M) (M, error) {
 		if _, mode := patch["units_mode"]; !mode {
 			v["units_mode"] = "manual"
 		}
+	}
+	if choice, valid := locale.Choice(stringOf(v["language"])); valid {
+		v["language"] = choice
+	} else {
+		return nil, errors.New("language")
 	}
 	if v["mode"] != "live" && v["mode"] != "manual" {
 		return nil, errors.New("mode")
@@ -358,6 +367,7 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 		return nil, e
 	}
 	a.notifications = notifications.New(state, o.Sender)
+	a.syncNotificationLanguage()
 	if o.FetchAlertMessages != nil {
 		a.alerts = newAlertScheduler(o.FetchAlertMessages, a.signal)
 		a.alerts.finishedNow = o.Now
@@ -366,6 +376,7 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 		a.warningDesktop = &warningDesktop{signal: a.signal}
 		a.warnings = notifications.NewWarningWatcher(state, a.warningDesktop.Send, a.signal)
 		a.warnings.SetDeliveryReady(false)
+		a.syncNotificationLanguage()
 		a.warningObserver = a.warnings
 	}
 	if a.mode == "auto" && !o.Offline {
@@ -567,7 +578,7 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 		return reply, false
 	}
 	op := stringOf(request["op"])
-	allowed := map[string]string{"acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_appearance": "appearance", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "air_outlook_open": "detail", "air_outlook_close": "detail", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_history": "history", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
+	allowed := map[string]string{"set_language": "language", "acknowledge_update": "installed", "set_controls": "controls", "set_dashboard": "dashboard", "set_appearance": "appearance", "set_notifications": "notifications", "set_warning_notifications": "notifications", "warning_detail": "warning", "outdoor_plan": "plan", "astronomy_day": "day", "forecast_presented": "forecast", "air_outlook_open": "detail", "air_outlook_close": "detail", "precipitation_open": "detail", "precipitation_close": "detail", "radar_view": "view", "radar_history": "history", "radar_image": "image", "set_location": "location", "add_location": "location", "saved_location": "location", "search_places": "search", "select_output": "output", "start_effects": "duration"}
 	extra := allowed[op]
 	hintAllowed := op == "check_effects" || op == "select_output" || op == "start_effects" || op == "start_live_effects"
 	for k := range request {
@@ -669,6 +680,8 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 			a.barRefreshUntil = a.options.Now().Add(lease)
 			a.beginPointFetch(a.primary, nil, false)
 		}
+	case "set_language":
+		e = a.setLanguage(object(request["language"]))
 	case "set_controls":
 		var v M
 		v, e = PatchControls(a.controls, object(request["controls"]))
@@ -677,7 +690,16 @@ func (a *App) handle(ctx context.Context, request M, deferSubscribe bool) (M, bo
 			code = "state_io_failed"
 			e = a.state.Write("controls.json", v, 8192)
 			if e == nil {
+				oldLanguage := a.effectiveLanguage()
 				a.controls = v
+				if _, changed := object(request["controls"])["language"]; changed {
+					a.languageEffective = ""
+				}
+				if a.effectiveLanguage() != oldLanguage {
+					a.refreshMetadata()
+					a.cancelSearch()
+				}
+				a.syncNotificationLanguage()
 			}
 		}
 	case "set_dashboard":
@@ -880,6 +902,7 @@ func (a *App) Close(ctx context.Context) error {
 		a.cancelPointFetch(a.primary)
 	}
 	a.cancelSearch()
+	a.cancelMetadata()
 	if a.alerts != nil {
 		a.alerts.close()
 	}

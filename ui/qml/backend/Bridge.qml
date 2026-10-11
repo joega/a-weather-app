@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 import "../Forecast.js" as Forecast
 import "../Outdoor.js" as Outdoor
 import "../Dashboard.js" as Dashboard
@@ -19,7 +20,7 @@ Item {
             error: "",
             data: null
         })
-    property var weatherRadar: Forecast.emptyRadar()
+    property var weatherRadar: (Forecast.emptyRadar())
     property bool radarWanted: false
     property int radarToken: 0
     property int pendingRadarToken: -1
@@ -57,6 +58,9 @@ Item {
     property string queuedUserOp: ""
     property var queuedUserPatch: null
     property string queuedMapOp: ""
+    property var queuedLanguage: null
+    property var pendingLanguage: null
+    readonly property bool languageChanging: queuedLanguage !== null || pendingLanguage !== null
     property var queuedSearch: null
     property bool cancelSearchQueued: false
     property var warningTarget: null
@@ -85,11 +89,11 @@ Item {
         airOutlookError = "";
         lastAirOutlookRevision = 0;
         airOutlookState = "loading";
-        if (!AirOutlook.context(snapshot) || !presentationActive) {
+        if (!(AirOutlook.context(snapshot)) || !presentationActive) {
             airOutlookState = "unavailable";
             return;
         }
-        airOutlookQuery = AirOutlook.query(snapshot, airOutlookToken);
+        airOutlookQuery = (AirOutlook.query(snapshot, airOutlookToken));
         if (!send("air_outlook_open", airOutlookQuery))
             airOutlookState = "unavailable";
     }
@@ -113,7 +117,7 @@ Item {
             return;
         if (value.revision <= lastAirOutlookRevision)
             return;
-        airOutlookResult = AirOutlook.result(value, airOutlookQuery);
+        airOutlookResult = (AirOutlook.result(value, airOutlookQuery));
         lastAirOutlookRevision = airOutlookResult.revision;
         airOutlookState = airOutlookResult.status;
         airOutlookError = "";
@@ -142,7 +146,7 @@ Item {
             precipitationError = "precipitation_forecast_loading";
         else if (snapshot.location_settings.busy)
             precipitationError = "precipitation_location_busy";
-        else if (!Precipitation.context(snapshot))
+        else if (!(Precipitation.context(snapshot)))
             precipitationError = "precipitation_location_required";
         else if (!presentationActive)
             precipitationError = "precipitation_not_presented";
@@ -150,7 +154,7 @@ Item {
             precipitationState = "unavailable";
             return;
         }
-        precipitationQuery = Precipitation.query(snapshot, date, precipitationToken);
+        precipitationQuery = (Precipitation.query(snapshot, date, precipitationToken));
         if (!send("precipitation_open", precipitationQuery))
             precipitationState = "unavailable";
     }
@@ -174,7 +178,7 @@ Item {
             return;
         if (value.revision <= lastPrecipitationRevision)
             return;
-        precipitationResult = Precipitation.result(value, precipitationQuery);
+        precipitationResult = (Precipitation.result(value, precipitationQuery));
         lastPrecipitationRevision = precipitationResult.revision;
         precipitationState = precipitationResult.status;
         precipitationError = "";
@@ -198,9 +202,9 @@ Item {
             astronomyError = "service_unsupported";
         else if (snapshot.location_settings.busy)
             astronomyError = "location_busy";
-        else if (!Astronomy.context(snapshot))
+        else if (!(Astronomy.context(snapshot)))
             astronomyError = "location_required";
-        if (astronomyError !== "" || !send("astronomy_day", Astronomy.query(snapshot, date)))
+        if (astronomyError !== "" || !send("astronomy_day", (Astronomy.query(snapshot, date))))
             astronomyState = "unavailable";
     }
     function closeAstronomy() {
@@ -217,9 +221,9 @@ Item {
     property int pendingOutdoorGeneration: -1
     property var pendingOutdoorQuery: null
     property var queuedOutdoor: null
-    property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_presentation", "forecast_presented"].indexOf(pendingOp) < 0)
+    property bool busy: closing || disconnected || stopQueued || queuedUserOp !== "" || (pending >= 0 && ["snapshot", "subscribe", "search_places", "cancel_place_search", "set_language", "set_presentation", "forecast_presented"].indexOf(pendingOp) < 0)
     property bool forecastVisible: false
-    readonly property string forecastContext: Changes.context(snapshot)
+    readonly property string forecastContext: (Changes.context(snapshot))
     property string changesAttemptedKey: ""
     property var changesResult: null
     property string changesState: "waiting"
@@ -247,7 +251,7 @@ Item {
             return;
         changesAttemptedKey = key;
         changesState = "loading";
-        send("forecast_presented", Changes.query(snapshot));
+        send("forecast_presented", (Changes.query(snapshot)));
     }
     function retryChanges() {
         changesAttemptedKey = "";
@@ -260,7 +264,7 @@ Item {
             return false;
         const query = {
             revision: revision,
-            preferences: Dashboard.preferences(preferences)
+            preferences: (Dashboard.preferences(preferences))
         };
         dashboardSaving = true;
         if (!send("set_dashboard", query)) {
@@ -284,9 +288,9 @@ Item {
         outdoorResult = null;
         outdoorError = "";
         outdoorState = "loading";
-        if (!snapshot || !snapshot.forecast || !send("outdoor_plan", Outdoor.query(snapshot, preferences === undefined ? null : preferences))) {
+        if (!snapshot || !snapshot.forecast || !send("outdoor_plan", (Outdoor.query(snapshot, preferences === undefined ? null : preferences)))) {
             outdoorState = "unavailable";
-            outdoorError = "Connect and load a forecast to find outdoor times.";
+            outdoorError = I18n.source("Connect and load a forecast to find outdoor times.");
         }
     }
     function closeOutdoor() {
@@ -307,13 +311,13 @@ Item {
     }
     function loadWarning(reference) {
         warningGeneration++;
-        warningTarget = Forecast.warningReference(reference);
+        warningTarget = (Forecast.warningReference(reference));
         warningDetail = null;
         warningError = "";
         warningState = "loading";
         if (!send("warning_detail", warningTarget)) {
             warningState = "unavailable";
-            warningError = "Warning details are unavailable while the weather service is disconnected.";
+            warningError = I18n.source("Warning details are unavailable while the weather service is disconnected.");
         }
     }
     function closeWarning() {
@@ -329,10 +333,16 @@ Item {
             return false;
         if (!root.weatherTransport.connected || disconnected) {
             if (op !== "snapshot")
-                error = "Weather service is unavailable for this action";
+                error = I18n.source("Weather service is unavailable for this action");
             return false;
         }
         if (pending >= 0) {
+            if (op === "set_language") {
+                queuedLanguage = JSON.parse(JSON.stringify(patch));
+                queuedSearch = null;
+                cancelSearchQueued = true;
+                return true;
+            }
             if (op === "air_outlook_open" || op === "air_outlook_close") {
                 queuedAirOutlook = {
                     op: op,
@@ -364,7 +374,7 @@ Item {
                 return true;
             }
             if (op === "warning_detail") {
-                queuedWarning = Forecast.warningReference(patch);
+                queuedWarning = (Forecast.warningReference(patch));
                 return true;
             }
             if (op === "snapshot")
@@ -406,12 +416,12 @@ Item {
                 if (queuedUserOp === "start_effects" || queuedUserOp === "start_live_effects") {
                     queuedUserOp = "";
                     queuedUserPatch = null;
-                    error = "Pending effects start cancelled by Stop";
+                    error = I18n.source("Pending effects start cancelled by Stop");
                 }
                 return true;
             }
             if (queuedUserOp !== "") {
-                error = "A control action is already pending. Try again.";
+                error = I18n.source("A control action is already pending. Try again.");
                 return false;
             }
             queuedUserOp = op;
@@ -429,6 +439,10 @@ Item {
         };
         if (op === "acknowledge_update")
             request.installed = patch.installed;
+        if (op === "set_language") {
+            request.language = patch.language;
+            pendingLanguage = patch.language;
+        }
         if (op === "set_presentation")
             request.active = patch.active;
         if (op === "set_dashboard")
@@ -440,7 +454,7 @@ Item {
         if (op === "set_notifications" || op === "set_warning_notifications")
             request.notifications = patch;
         if (op === "warning_detail") {
-            request.warning = Forecast.warningReference(patch);
+            request.warning = (Forecast.warningReference(patch));
             pendingWarningTarget = request.warning;
             pendingWarningGeneration = warningGeneration;
         }
@@ -489,7 +503,7 @@ Item {
         if (op === "start_effects")
             request.duration = 300;
         if (!root.weatherTransport.send(request)) {
-            fail("Weather service could not accept the action");
+            fail(I18n.source("Weather service could not accept the action"));
             return false;
         }
         deadline.restart();
@@ -499,9 +513,9 @@ Item {
         queuedRadarHistory = null;
         radarWanted = true;
         radarToken = (radarToken + 1) % 2147483648;
-        weatherRadar = Forecast.emptyRadar("loading");
+        weatherRadar = (Forecast.emptyRadar("loading"));
         if (latitude === null || longitude === null || Math.abs(latitude) > 85) {
-            weatherRadar = Forecast.emptyRadar("unsupported");
+            weatherRadar = (Forecast.emptyRadar("unsupported"));
             return false;
         }
         return send("radar_view", {
@@ -514,7 +528,7 @@ Item {
     function closeRadar() {
         queuedRadarHistory = null;
         radarWanted = false;
-        weatherRadar = Forecast.emptyRadar();
+        weatherRadar = (Forecast.emptyRadar());
         return send("radar_close");
     }
     function setRadarHistory(enabled) {
@@ -583,6 +597,12 @@ Item {
                 send("radar_history", next);
                 return;
             }
+        }
+        if (queuedLanguage !== null) {
+            const next = queuedLanguage;
+            queuedLanguage = null;
+            send("set_language", next);
+            return;
         }
         if (queuedUserOp !== "") {
             let op = queuedUserOp, patch = queuedUserPatch;
@@ -663,6 +683,8 @@ Item {
         queuedRadar = null;
         queuedRadarHistory = null;
         queuedSearch = null;
+        queuedLanguage = null;
+        pendingLanguage = null;
         cancelSearchQueued = false;
         stopQueued = false;
         queuedWarning = null;
@@ -686,11 +708,11 @@ Item {
         error = message;
         pending = -1;
         pendingOp = "";
-        invalidateOutdoor("Weather service disconnected. Reopen the app to find outdoor times.");
+        invalidateOutdoor(I18n.source("Weather service disconnected. Reopen the app to find outdoor times."));
         if (warningState !== "closed") {
             warningDetail = null;
             warningState = "unavailable";
-            warningError = "Warning details are unavailable while the weather service is disconnected.";
+            warningError = I18n.source("Warning details are unavailable while the weather service is disconnected.");
         }
         clearQueuedActions();
         deadline.stop();
@@ -704,29 +726,29 @@ Item {
             throw Error("Invalid snapshot revision");
         if (revision <= lastSnapshotRevision)
             return;
-        let next = Forecast.snapshot(raw);
-        if (airOutlookWanted && AirOutlook.context(snapshot) !== AirOutlook.context(next)) {
+        let next = (Forecast.snapshot(raw));
+        if (airOutlookWanted && (AirOutlook.context(snapshot)) !== (AirOutlook.context(next))) {
             closeAirOutlook();
             airOutlookState = "unavailable";
             airOutlookError = "air_outlook_context_changed";
         }
-        if (precipitationWanted && Precipitation.context(snapshot) !== Precipitation.context(next)) {
+        if (precipitationWanted && (Precipitation.context(snapshot)) !== (Precipitation.context(next))) {
             closePrecipitation();
             precipitationState = "unavailable";
             precipitationError = "precipitation_context_changed";
         }
-        if (astronomyState !== "closed" && Astronomy.context(snapshot) !== Astronomy.context(next)) {
+        if (astronomyState !== "closed" && (Astronomy.context(snapshot)) !== (Astronomy.context(next))) {
             closeAstronomy();
             astronomyState = "unavailable";
         }
-        if (outdoorState !== "closed" && Outdoor.context(snapshot) !== Outdoor.context(next))
-            invalidateOutdoor("The place or forecast changed. Find times again using the latest forecast.");
+        if (outdoorState !== "closed" && (Outdoor.context(snapshot)) !== (Outdoor.context(next)))
+            invalidateOutdoor(I18n.source("The place or forecast changed. Find times again using the latest forecast."));
         if (snapshot && snapshot.warning_notifications.settings.enabled && !next.warning_notifications.settings.enabled && warningTarget !== null) {
             warningGeneration++;
             queuedWarning = null;
             warningDetail = null;
             warningState = "unavailable";
-            warningError = "Warning monitoring was turned off. Recent notices have been cleared.";
+            warningError = I18n.source("Warning monitoring was turned off. Recent notices have been cleared.");
         }
         lastSnapshotRevision = revision;
         snapshot = next;
@@ -737,24 +759,24 @@ Item {
         if (disconnected || closeReported)
             return;
         try {
-            Forecast.boundedTree(value);
+            (Forecast.boundedTree(value));
             if (value.event !== undefined) {
                 if (value.event === "toggle_window")
                     toggleWindow();
                 else if (value.event === "warning_open") {
-                    const reference = Forecast.warningReference(value.warning);
+                    const reference = (Forecast.warningReference(value.warning));
                     if (!closing)
                         warningRequested(reference, typeof value.activation_token === "string" ? value.activation_token : "");
                 } else if (value.event === "map") {
                     if (mapWanted)
-                        weatherMap = Forecast.weatherMap(value.map);
+                        weatherMap = (Forecast.weatherMap(value.map));
                 } else if (value.event === "air_outlook") {
                     applyAirOutlook(value.air_outlook);
                 } else if (value.event === "precipitation") {
                     applyPrecipitation(value.precipitation);
                 } else if (value.event === "radar") {
                     if (radarWanted) {
-                        const next = Forecast.radarState(value.radar);
+                        const next = (Forecast.radarState(value.radar));
                         if (next.client_token === radarToken)
                             weatherRadar = next;
                     }
@@ -781,8 +803,17 @@ Item {
             }
             if (value.snapshot)
                 applySnapshot(value.snapshot);
+            if (completedOp === "set_language") {
+                pendingLanguage = null;
+                if (queuedLanguage === null && snapshot && snapshot.language)
+                    I18n.sync(snapshot.language.choice, snapshot.language.effective);
+                if (!value.ok)
+                    error = I18n.source("Language preference could not be saved. Try again.");
+                drainUserAction();
+                return;
+            }
             if (completedOp === "radar_view" && !value.ok && radarWanted && pendingRadarToken === radarToken)
-                weatherRadar = Forecast.emptyRadar("unavailable");
+                weatherRadar = (Forecast.emptyRadar("unavailable"));
             if (completedOp === "quit") {
                 quitAcknowledged = value.ok;
                 shutdownFailed = !value.ok;
@@ -791,13 +822,13 @@ Item {
                 return;
             }
             if (completedOp === "warning_detail") {
-                let detail = value.ok ? Forecast.warningDetail(value.warning) : null;
+                let detail = value.ok ? (Forecast.warningDetail(value.warning)) : null;
                 if (detail && (detail.location !== pendingWarningTarget.location || detail.key !== pendingWarningTarget.key))
                     throw Error("Warning reply does not match its request");
                 if (!closing && warningTarget !== null && pendingWarningGeneration === warningGeneration) {
                     warningDetail = detail;
                     warningState = detail ? "ready" : "unavailable";
-                    warningError = detail ? "" : value.error === "warning_detail_too_large" ? "This original notice exceeds the detail size limit. Its instructions have not been shortened." : "This notice is no longer available in this session. It may have expired from the recent list, or monitoring was turned off. Check the current alert feed.";
+                    warningError = detail ? "" : value.error === "warning_detail_too_large" ? I18n.source("This original notice exceeds the detail size limit. Its instructions have not been shortened.") : I18n.source("This notice is no longer available in this session. It may have expired from the recent list, or monitoring was turned off. Check the current alert feed.");
                 }
                 pendingWarningTarget = null;
                 pendingWarningGeneration = -1;
@@ -811,7 +842,7 @@ Item {
                 return;
             }
             if (completedOp === "forecast_presented") {
-                const result = value.ok ? Changes.result(value.forecast_changes, pendingChangesQuery) : null;
+                const result = value.ok ? (Changes.result(value.forecast_changes, pendingChangesQuery)) : null;
                 if (!closing && forecastVisible && pendingChangesKey === forecastContext && pendingChangesGeneration === changesGeneration) {
                     changesResult = result;
                     changesState = result ? "ready" : "unavailable";
@@ -851,7 +882,7 @@ Item {
                 return;
             }
             if (completedOp === "astronomy_day") {
-                const result = value.ok ? Astronomy.result(value.astronomy, pendingAstronomyQuery) : null;
+                const result = value.ok ? (Astronomy.result(value.astronomy, pendingAstronomyQuery)) : null;
                 if (!closing && astronomyState !== "closed" && pendingAstronomyGeneration === astronomyGeneration) {
                     astronomyResult = result;
                     astronomyState = result ? "ready" : "unavailable";
@@ -863,13 +894,13 @@ Item {
                 return;
             }
             if (completedOp === "outdoor_plan") {
-                const plan = value.ok ? Outdoor.result(value.outdoor) : null;
+                const plan = value.ok ? (Outdoor.result(value.outdoor)) : null;
                 if (plan && (plan.forecast_at !== pendingOutdoorQuery.forecast_at || plan.timezone !== pendingOutdoorQuery.timezone))
                     throw Error("Outdoor reply does not match its request");
                 if (!closing && outdoorState !== "closed" && pendingOutdoorGeneration === outdoorGeneration) {
                     outdoorResult = plan;
                     outdoorState = plan ? "ready" : "unavailable";
-                    outdoorError = plan ? "" : value.error === "outdoor_context_changed" ? "The place or forecast changed. Find times again using the latest forecast." : "Outdoor times are unavailable for this forecast.";
+                    outdoorError = plan ? "" : value.error === "outdoor_context_changed" ? I18n.source("The place or forecast changed. Find times again using the latest forecast.") : I18n.source("Outdoor times are unavailable for this forecast.");
                 }
                 pendingOutdoorQuery = null;
                 pendingOutdoorGeneration = -1;
@@ -880,13 +911,13 @@ Item {
                 if (value.ok)
                     error = "";
                 else
-                    error = value.error === "location_limit" ? "You can save up to 20 places. Remove one before adding another." : value.error === "offline" ? "Adding a place requires an internet connection. Saved places remain available." : value.error === "save_unconfirmed" ? "The change is visible, but saving could not be confirmed." : completedOp === "set_appearance" ? "Readability preferences could not be saved. Try again." : completedOp === "saved_location" ? "The saved place could not be changed. Try again." : completedOp === "set_location" || completedOp === "add_location" ? "Location change could not start. Try again." : completedOp === "start_effects" || completedOp === "start_live_effects" ? "Desktop effects could not start. Check compatibility in Settings." : completedOp === "stop_effects" ? "Desktop effects could not stop" : completedOp === "check_effects" || completedOp === "select_output" ? "Stop desktop effects before changing setup." : ["set_notifications", "snooze_notifications", "resume_notifications", "set_warning_notifications", "pause_warning_notifications", "resume_warning_notifications"].indexOf(completedOp) >= 0 ? "Notification settings could not be saved. Reopen the app and try again." : "Weather service rejected the request";
+                    error = value.error === "location_limit" ? I18n.source("You can save up to 20 places. Remove one before adding another.") : value.error === "offline" ? I18n.source("Adding a place requires an internet connection. Saved places remain available.") : value.error === "save_unconfirmed" ? I18n.source("The change is visible, but saving could not be confirmed.") : completedOp === "set_appearance" ? I18n.source("Readability preferences could not be saved. Try again.") : completedOp === "saved_location" ? I18n.source("The saved place could not be changed. Try again.") : completedOp === "set_location" || completedOp === "add_location" ? I18n.source("Location change could not start. Try again.") : completedOp === "start_effects" || completedOp === "start_live_effects" ? I18n.source("Desktop effects could not start. Check compatibility in Settings.") : completedOp === "stop_effects" ? I18n.source("Desktop effects could not stop") : completedOp === "check_effects" || completedOp === "select_output" ? I18n.source("Stop desktop effects before changing setup.") : ["set_notifications", "snooze_notifications", "resume_notifications", "set_warning_notifications", "pause_warning_notifications", "resume_warning_notifications"].indexOf(completedOp) >= 0 ? I18n.source("Notification settings could not be saved. Reopen the app and try again.") : I18n.source("Weather service rejected the request");
             }
             drainUserAction();
         } catch (e) {
             if (diagnostic)
                 console.log("Weather service snapshot validation:", String(e).substring(0, 160));
-            fail("Weather service returned invalid data");
+            fail(I18n.source("Weather service returned invalid data"));
         }
     }
     function shutdown() {
@@ -894,7 +925,7 @@ Item {
             return;
         closing = true;
         closeOutdoor();
-        error = "Closing weather app…";
+        error = I18n.source("Closing weather app…");
         clearQueuedActions();
         if (!root.weatherTransport.connected || disconnected) {
             finishClose(shutdownFailed || disconnected ? 1 : 0);
@@ -922,7 +953,7 @@ Item {
             root.disconnected = true;
             root.pending = -1;
             root.pendingOp = "";
-            root.invalidateOutdoor("Weather service disconnected. Reopen the app to find outdoor times.");
+            root.invalidateOutdoor(I18n.source("Weather service disconnected. Reopen the app to find outdoor times."));
             root.clearQueuedActions();
             deadline.stop();
             if (root.closing) {
@@ -935,13 +966,13 @@ Item {
         id: deadline
         objectName: "bridgeRequestDeadline"
         interval: root.operationGraceMs
-        onTriggered: root.fail("Weather request timed out")
+        onTriggered: root.fail(I18n.source("Weather request timed out"))
     }
     Timer {
         id: closeTimer
         objectName: "bridgeCloseDeadline"
         interval: root.shutdownGraceMs
-        onTriggered: root.fail("Weather service shutdown timed out")
+        onTriggered: root.fail(I18n.source("Weather service shutdown timed out"))
     }
     Component.onCompleted: root.weatherTransport.start()
 }

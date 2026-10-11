@@ -1,0 +1,29 @@
+{
+  "%n minute(s) ago": [
+    "%n хвилину тому",
+    "%n хвилини тому",
+    "%n хвилин тому"
+  ],
+  "10-day forecast": "Прогноз на 10 днів",
+  "Air quality": "Якість повітря",
+  "Clear": "Ясно",
+  "Desktop effects": "Ефекти робочого столу",
+  "Drizzle": "Мряка",
+  "Feels like %1 · High %2 · Low %3": "Відчувається як %1 · Макс. %2 · Мін. %3",
+  "Fog": "Туман",
+  "Hourly forecast": "Погодинний прогноз",
+  "Humidity": "Вологість",
+  "Language": "Мова",
+  "Next 24 hours": "Наступні 24 години",
+  "Partly cloudy": "Мінлива хмарність",
+  "Rain": "Дощ",
+  "Refresh forecast": "Оновити прогноз",
+  "Select an hour for details": "Виберіть годину, щоб переглянути подробиці",
+  "Snow": "Сніг",
+  "Thunderstorm": "Гроза",
+  "Today": "Сьогодні",
+  "Unavailable": "Недоступно",
+  "Weather unavailable": "Погода недоступна",
+  "Wind": "Вітер",
+  "just now": "щойно"
+}

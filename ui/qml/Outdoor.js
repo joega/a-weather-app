@@ -74,25 +74,25 @@ function result(v) {
 }
 function reasonNames(keys) {
     const names = {
-        temperature: "temperature",
-        rain_chance: "precipitation chance",
-        rain_amount: "precipitation amount",
-        wind: "wind",
-        gusts: "gusts",
-        daylight: "daylight"
+        temperature: qsTranslate("App", "temperature"),
+        rain_chance: qsTranslate("App", "precipitation chance"),
+        rain_amount: qsTranslate("App", "precipitation amount"),
+        wind: qsTranslate("App", "wind"),
+        gusts: qsTranslate("App", "gusts"),
+        daylight: qsTranslate("App", "daylight")
     };
     return keys.map(k => names[k]).join(", ");
 }
 function explanation(w) {
     if (w.fits)
-        return "Matches all your preferences";
+        return qsTranslate("App", "Matches all your preferences");
     const parts = [];
     if (w.exceeds.length)
-        parts.push("Outside your preferences: " + reasonNames(w.exceeds));
+        parts.push(qsTranslate("App", "Outside your preferences: %1").arg(reasonNames(w.exceeds)));
     if (w.missing.length)
-        parts.push("Incomplete data: " + reasonNames(w.missing));
+        parts.push(qsTranslate("App", "Incomplete data: %1").arg(reasonNames(w.missing)));
     return parts.join(". ");
 }
 function metrics(w, units, windUnits) {
-    return Forecast.temp(w.low_c, units) + " to " + Forecast.temp(w.high_c, units) + " · Peak hourly precipitation chance " + Forecast.percent(w.peak_probability) + "\n" + Forecast.amount(w.total_mm, units) + " total precipitation · Wind up to " + Forecast.wind(w.wind_m_s, units, windUnits) + " · Gusts " + Forecast.wind(w.gust_m_s, units, windUnits);
+    return qsTranslate("App", "%1 to %2 · Peak hourly precipitation chance %3\n%4 total precipitation · Wind up to %5 · Gusts %6").arg(Forecast.temp(w.low_c, units)).arg(Forecast.temp(w.high_c, units)).arg(Forecast.percent(w.peak_probability)).arg(Forecast.amount(w.total_mm, units)).arg(Forecast.wind(w.wind_m_s, units, windUnits)).arg(Forecast.wind(w.gust_m_s, units, windUnits));
 }

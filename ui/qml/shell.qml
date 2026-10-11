@@ -21,10 +21,10 @@ QtObject {
     readonly property var viewedPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.viewed) : null
     readonly property var primaryPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.primary) : null
     readonly property bool primaryForecastAvailable: savedLocations ? savedLocations.primary_forecast_available : root.forecast !== null
-    readonly property string primaryName: primaryPlace ? Forecast.savedName(primaryPlace) : root.location
+    readonly property string primaryName: primaryPlace ? (I18n.revision, Forecast.savedName(primaryPlace)) : root.location
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
-    property var dashboardPreferences: Dashboard.defaults()
-    property var appearance: Forecast.appearance()
+    property var dashboardPreferences: (I18n.revision, Dashboard.defaults())
+    property var appearance: (I18n.revision, Forecast.appearance())
     onAppearanceChanged: {
         Tokens.textScale = appearance.text_scale;
         Tokens.highContrast = appearance.high_contrast;
@@ -365,7 +365,7 @@ QtObject {
             });
     }
     property bool initialLocationChecked: false
-    readonly property var updateStatus: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
+    readonly property var updateStatus: bridge.snapshot ? bridge.snapshot.update : (I18n.revision, Forecast.updateStatus(null))
     property string shownUpdateVersion: ""
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
@@ -417,6 +417,8 @@ QtObject {
     }
     readonly property string mapLocationKey: bridge.snapshot ? [bridge.snapshot.latitude, bridge.snapshot.longitude, root.viewedPlace ? root.viewedPlace.id : ""].join("/") : ""
     onMapLocationKeyChanged: {
+        if (details)
+            details.close();
         if (forecastMapActive && bridge.mapWanted) {
             bridge.closeMap();
             bridge.openMap();
@@ -450,23 +452,23 @@ QtObject {
     readonly property var activeAlerts: bridge.snapshot && bridge.snapshot.alerts ? bridge.snapshot.alerts.items : []
     readonly property string alertsStatusText: {
         if (!bridge.snapshot || !bridge.snapshot.alerts)
-            return "Alert status unavailable";
+            return I18n.t("Alert status unavailable");
         let a = bridge.snapshot.alerts;
         if (a.status === "not_supported_here")
-            return "Official alerts are not supported here";
+            return I18n.t("Official alerts are not supported here");
         if (a.freshness === "pending")
-            return "Checking official alerts…";
+            return I18n.t("Checking official alerts…");
         if (a.freshness === "stale")
-            return a.refreshing ? "Cached alert feed · checking for updates…" : "Cached alert feed · current alert status unavailable";
+            return a.refreshing ? I18n.t("Cached alert feed · checking for updates…") : I18n.t("Cached alert feed · current alert status unavailable");
         if (a.status === "unavailable")
-            return "Alert status unavailable";
-        return a.items.length === 0 ? (a.source === "National Weather Service" ? "No active NWS alerts reported" : "Alert status unavailable") : "";
+            return I18n.t("Alert status unavailable");
+        return a.items.length === 0 ? (a.source === "National Weather Service" ? I18n.t("No active NWS alerts reported") : I18n.t("Alert status unavailable")) : "";
     }
     property var forecast: bridge.snapshot ? bridge.snapshot.forecast : null
     property var current: forecast ? forecast.current : null
     property var atmosphere: bridge.snapshot ? bridge.snapshot.atmosphere : null
     property string timezone: bridge.snapshot ? bridge.snapshot.timezone : "UTC"
-    property string location: bridge.snapshot ? bridge.snapshot.location : "Loading location…"
+    property string location: bridge.snapshot ? bridge.snapshot.location : I18n.t("Loading location…")
     // Keep detailed administrative names in location search, not the headline.
     readonly property string compactLocation: {
         const parts = location.split(", ");
@@ -481,10 +483,6 @@ QtObject {
     }
     property var days: forecast ? forecast.daily : []
     property var hours: forecast ? forecast.hourly.slice(0, 24) : []
-    onLocationChanged: {
-        if (details)
-            details.close();
-    }
     property var controls: bridge.snapshot ? bridge.snapshot.controls : ({
             units: "F",
             units_mode: "auto",
@@ -502,20 +500,31 @@ QtObject {
         })
     property string freshness: {
         if (bridge.error)
-            return bridge.error;
+            return I18n.t(bridge.error);
         if (bridge.snapshot && bridge.snapshot.location_settings.busy)
-            return "Finding location and loading forecast…";
+            return I18n.t("Finding location and loading forecast…");
         if (bridge.snapshot && bridge.snapshot.location_settings.error)
-            return Forecast.locationErrorText(bridge.snapshot.location_settings.error);
+            return (I18n.revision, Forecast.locationErrorText(bridge.snapshot.location_settings.error));
         if (bridge.snapshot && bridge.snapshot.source.refreshing)
-            return "Refreshing live forecast…";
+            return I18n.t("Refreshing live forecast…");
         if (bridge.snapshot && bridge.snapshot.location_settings.mode === "default" && !forecast)
-            return "Choose a city, your current location, or a ZIP code in Locations";
+            return I18n.t("Choose a city, your current location, or a ZIP code in Locations");
         if (!bridge.snapshot || !forecast)
-            return "Live forecast unavailable · Refresh to try again";
+            return I18n.t("Live forecast unavailable · Refresh to try again");
         let s = bridge.snapshot.source;
-        let age = s.age_seconds === null ? "" : (s.age_seconds < 60 ? "just now" : Math.floor(s.age_seconds / 60) + " min ago");
-        return (s.freshness === "fresh" ? "Weather data from " : s.freshness === "invalid_future" ? "Invalid forecast timestamp · " : s.freshness.charAt(0).toUpperCase() + s.freshness.slice(1) + " forecast · ") + age + (s.error ? " · Refresh failed" : "");
+        let age = s.age_seconds === null ? "" : (s.age_seconds < 60 ? I18n.t("just now") : I18n.t("%n minute(s) ago", Math.floor(s.age_seconds / 60)));
+        return (s.freshness === "fresh" ? I18n.t("Weather data from ") : s.freshness === "invalid_future" ? I18n.t("Invalid forecast timestamp · ") : (s.freshness === "stale" ? I18n.t("Stale forecast · ") : I18n.t("Expired forecast · "))) + age + (s.error ? I18n.t(" · Refresh failed") : "");
+    }
+    property var languageConnection: Connections {
+        target: I18n
+        function onPreferenceRequested(code) {
+            bridge.send("set_language", {
+                language: {
+                    choice: code,
+                    effective: I18n.language
+                }
+            });
+        }
     }
     property QtObject backend: Bridge {
         id: bridge
@@ -535,6 +544,8 @@ QtObject {
         }
         onWarningRequested: (reference, activationToken) => root.openWarning(reference, true, activationToken)
         onSnapshotChanged: {
+            if (snapshot && snapshot.language && !bridge.languageChanging)
+                I18n.sync(snapshot.language.choice, snapshot.language.effective);
             // Ordinary weather updates must not recreate the dashboard scene.
             if (snapshot && JSON.stringify(root.dashboardPreferences) !== JSON.stringify(snapshot.dashboard.preferences))
                 root.dashboardPreferences = snapshot.dashboard.preferences;
@@ -554,7 +565,7 @@ QtObject {
     property QtObject weatherWindow: ApplicationWindow {
         id: window
         objectName: "weatherWindow"
-        title: bridge.diagnostic ? "A Weather App — Diagnostics" : "A Weather App"
+        title: bridge.diagnostic ? "A Weather App — " + I18n.t("Diagnostics") : "A Weather App"
         width: 1200
         height: 850
         minimumWidth: 700
@@ -773,7 +784,7 @@ QtObject {
                                     objectName: "openLocation"
                                     iconName: "sidebar"
                                     iconSize: 22
-                                    accessibleLabel: "Change location (Ctrl+L)"
+                                    accessibleLabel: I18n.t("Change location (Ctrl+L)")
                                     onClicked: root.openLocations()
                                 }
                                 Item {
@@ -783,7 +794,7 @@ QtObject {
                                     Layout.preferredHeight: headerActions.controlHeight
                                     objectName: "refreshForecast"
                                     iconName: "refresh"
-                                    accessibleLabel: "Refresh forecast"
+                                    accessibleLabel: I18n.t("Refresh forecast")
                                     enabled: !bridge.busy
                                     onClicked: bridge.send("refresh")
                                 }
@@ -802,7 +813,7 @@ QtObject {
                                     objectName: "openEffects"
                                     iconName: "sliders"
                                     iconSize: 20
-                                    accessibleLabel: "Settings"
+                                    accessibleLabel: I18n.t("Settings")
                                     onClicked: root.openSettings(false)
                                 }
                                 ActionButton {
@@ -810,7 +821,7 @@ QtObject {
                                     objectName: "liveDesktop"
                                     iconName: "desktop"
                                     iconSize: 20
-                                    accessibleLabel: root.liveDesktop ? "Live desktop: On — turn off" : "Live desktop: Off — turn on"
+                                    accessibleLabel: root.liveDesktop ? I18n.t("Live desktop: On — turn off") : I18n.t("Live desktop: Off — turn on")
                                     Accessible.checkable: true
                                     Accessible.checked: root.liveDesktop
                                     selected: root.liveDesktop
@@ -836,7 +847,7 @@ QtObject {
                                     id: updatedVersionNotice
                                     objectName: "updatedVersionNotice"
                                     anchors.centerIn: parent
-                                    text: "Updated to " + root.shownUpdateVersion + "."
+                                    text: I18n.t("Updated to %1.").arg(root.shownUpdateVersion)
                                     font.pixelSize: Tokens.fontSize(13)
                                 }
                             }
@@ -877,7 +888,7 @@ QtObject {
                                     objectName: "currentTemperature"
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: root.current ? Forecast.temp(root.current.temperature_c, root.units) : "—°"
+                                    text: root.current ? (I18n.revision, Forecast.temp(root.current.temperature_c, root.units)) : "—°"
                                     font.pixelSize: Tokens.fontSize(96)
                                     font.weight: Font.Light
                                     // Trim the large numerals' extra space above the glyphs.
@@ -890,13 +901,13 @@ QtObject {
                                     horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
-                                    text: root.current ? Forecast.title(root.current.condition) : "Forecast unavailable"
+                                    text: root.current ? (I18n.revision, Forecast.title(root.current.condition)) : I18n.t("Forecast unavailable")
                                     font.pixelSize: Tokens.fontSize(22)
                                 }
                                 PlainLabel {
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: "Feels like " + Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units) + " · High " + Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units) + " · Low " + Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)
+                                    text: I18n.t("Feels like %1 · High %2 · Low %3").arg((I18n.revision, Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units))).arg((I18n.revision, Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units))).arg((I18n.revision, Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)))
                                     skyText: true
                                     font.pixelSize: Tokens.fontSize(16)
                                     wrapMode: Text.Wrap
@@ -932,7 +943,7 @@ QtObject {
                             }
                             PlainLabel {
                                 visible: root.controls.mode === "manual" && !root.liveDesktop
-                                text: "Manual effects preview · " + Forecast.title(root.controls.manual.condition)
+                                text: I18n.t("Manual effects preview · %1").arg((I18n.revision, Forecast.title(root.controls.manual.condition)))
                                 font.pixelSize: Tokens.fontSize(13)
                                 color: Tokens.accent
                             }
@@ -943,10 +954,10 @@ QtObject {
                             visible: root.forecast !== null && bridge.snapshot !== null && ["fresh", "stale"].indexOf(bridge.snapshot.source.freshness) >= 0
                             Layout.fillWidth: true
                             text: root.selectedBriefing ? ({
-                                    today: "Today",
-                                    tonight: "Tonight",
-                                    tomorrow: "Tomorrow"
-                                })[root.selectedBriefing.period] + " · " + Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits) : Forecast.outlook(root.hours, root.units, root.windUnits)
+                                    today: I18n.t("Today"),
+                                    tonight: I18n.t("Tonight"),
+                                    tomorrow: I18n.t("Tomorrow")
+                                })[root.selectedBriefing.period] + " · " + (I18n.revision, Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits)) : (I18n.revision, Forecast.outlook(root.hours, root.units, root.windUnits))
                             font.pixelSize: Tokens.fontSize(18)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
@@ -956,7 +967,7 @@ QtObject {
                 UpdatePanel {
                     objectName: "updateNotice"
                     Layout.fillWidth: true
-                    status: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
+                    status: bridge.snapshot ? bridge.snapshot.update : (I18n.revision, Forecast.updateStatus(null))
                     visible: ["available", "publishing", "failed", "downloading", "verifying", "restarting", "rolled_back"].indexOf(status.state) >= 0
                     enabled: bridge.available && !bridge.busy
                     onCheckRequested: bridge.send("check_updates")
@@ -981,7 +992,7 @@ QtObject {
                     skyText: true
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignRight
-                    text: bridge.snapshot ? bridge.snapshot.source.attribution + (bridge.snapshot.alerts.source ? " · Alerts: " + bridge.snapshot.alerts.source : "") : "Forecast: Open-Meteo"
+                    text: bridge.snapshot ? bridge.snapshot.source.attribution + (bridge.snapshot.alerts.source ? I18n.t(" · Alerts: ") + bridge.snapshot.alerts.source : "") : I18n.t("Forecast: Open-Meteo")
                     color: Tokens.secondary
                     font.pixelSize: Tokens.fontSize(11)
                     wrapMode: Text.Wrap
@@ -1000,7 +1011,7 @@ QtObject {
             anchors.rightMargin: 28
             anchors.bottomMargin: 18
             iconName: "chevron-up"
-            accessibleLabel: "Back to top"
+            accessibleLabel: I18n.t("Back to top")
             visible: bridge.presentationActive && !root.effectsOpen && !root.locationsOpen && !root.warningOpen && !root.outdoorOpen && !root.dashboardOpen && !root.changesOpen && !root.astronomyOpen && !root.precipitationOpen && !root.airOutlookOpen && !root.shareOpen && !details.visible && forecastScroll.flickable.contentY > Math.max(240, forecastScroll.height * 0.65)
             background: Rectangle {
                 radius: 12
@@ -1029,6 +1040,7 @@ QtObject {
         Component {
             id: dailyComponent
             DailyPanel {
+                timezone: root.timezone
                 days: root.days
                 units: root.units
                 compact: root.compactDashboard
@@ -1058,6 +1070,7 @@ QtObject {
         Component {
             id: mapsComponent
             WeatherMap {
+                locationIdentity: root.mapLocationKey
                 tileClient: root.mapTiles
                 mapState: bridge.weatherMap
                 radarState: bridge.weatherRadar
@@ -1081,7 +1094,7 @@ QtObject {
             id: airQualityComponent
             AirQualityPanel {
                 objectName: "airQualityPanel"
-                airQuality: bridge.snapshot ? bridge.snapshot.air_quality : Forecast.airQuality()
+                airQuality: bridge.snapshot ? bridge.snapshot.air_quality : (I18n.revision, Forecast.airQuality())
                 outlookEnabled: bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy
                 onOutlookRequested: root.openAirOutlook()
             }
@@ -1153,27 +1166,27 @@ QtObject {
                     selected_output: null,
                     output_selection: "automatic"
                 })
-            notifications: bridge.snapshot ? bridge.snapshot.notifications : Forecast.notifications()
-            officialWarnings: bridge.snapshot ? bridge.snapshot.warning_notifications : Forecast.warningNotifications()
+            notifications: bridge.snapshot ? bridge.snapshot.notifications : (I18n.revision, Forecast.notifications())
+            officialWarnings: bridge.snapshot ? bridge.snapshot.warning_notifications : (I18n.revision, Forecast.warningNotifications())
             timezone: root.primaryTimezone
             actionError: bridge.error
             canStart: bridge.available && root.forecast !== null && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
             serviceAvailable: bridge.available
             effectsRunning: bridge.snapshot !== null && bridge.snapshot.effect_status !== "stopped"
             persistent: root.liveDesktop
-            serviceStatus: bridge.disconnected ? (root.forecast ? "Disconnected · cached forecast" : "Disconnected · forecast unavailable") : root.forecast ? (bridge.snapshot.source.freshness === "fresh" ? "Ready" : "Forecast " + bridge.snapshot.source.freshness) : "Unavailable"
+            serviceStatus: bridge.disconnected ? (root.forecast ? I18n.t("Disconnected · cached forecast") : I18n.t("Disconnected · forecast unavailable")) : root.forecast ? (bridge.snapshot.source.freshness === "fresh" ? I18n.t("Ready") : (bridge.snapshot.source.freshness === "stale" ? I18n.t("Stale forecast") : I18n.t("Expired forecast"))) : I18n.t("Unavailable")
             rendererStatus: {
                 if (bridge.disconnected)
-                    return bridge.snapshot && bridge.snapshot.effect_status !== "stopped" ? "Status unknown · cleanup pending" : "Unavailable · close and reopen";
+                    return bridge.snapshot && bridge.snapshot.effect_status !== "stopped" ? I18n.t("Status unknown · cleanup pending") : I18n.t("Unavailable · close and reopen");
                 if (!bridge.snapshot || bridge.snapshot.effect_status === "stopped")
-                    return "Stopped";
+                    return I18n.t("Stopped");
                 if (bridge.snapshot.effect_status === "running") {
                     if (root.liveDesktop)
-                        return "Live desktop · On";
+                        return I18n.t("Live desktop · On");
                     let seconds = Math.ceil(bridge.snapshot.effect_remaining_seconds);
-                    return "Running · " + Math.floor(seconds / 60) + ":" + (seconds % 60 < 10 ? "0" : "") + (seconds % 60) + " remaining";
+                    return I18n.t("Running · ") + Math.floor(seconds / 60) + ":" + (seconds % 60 < 10 ? "0" : "") + (seconds % 60) + I18n.t(" remaining");
                 }
-                return bridge.snapshot.effect_status === "cleanup_failed" ? "Cleanup needs attention" : "Starting…";
+                return bridge.snapshot.effect_status === "cleanup_failed" ? I18n.t("Cleanup needs attention") : I18n.t("Starting…");
             }
             onCloseRequested: root.effectsOpen = false
             onPatch: values => bridge.send("set_controls", values)
@@ -1196,7 +1209,7 @@ QtObject {
             onWarningResumeRequested: bridge.send("resume_warning_notifications")
             onWarningDetailRequested: reference => root.openWarning(reference, false)
             launcherStatus: bridge.snapshot ? bridge.snapshot.launcher_status : "ready"
-            updateStatus: bridge.snapshot ? bridge.snapshot.update : Forecast.updateStatus(null)
+            updateStatus: bridge.snapshot ? bridge.snapshot.update : (I18n.revision, Forecast.updateStatus(null))
             onCheckUpdatesRequested: bridge.send("check_updates")
             onInstallUpdateRequested: bridge.send("install_update")
             onInstallLauncherRequested: bridge.send("install_launcher")
@@ -1228,7 +1241,7 @@ QtObject {
                 objectName: "locationPicker"
                 registry: root.savedLocations
                 controls: root.controls
-                search: bridge.snapshot ? bridge.snapshot.place_search : Forecast.placeSearch(undefined)
+                search: bridge.snapshot ? bridge.snapshot.place_search : (I18n.revision, Forecast.placeSearch(undefined))
                 locationSettings: bridge.snapshot ? bridge.snapshot.location_settings : ({
                         busy: false,
                         error: null
@@ -1299,7 +1312,7 @@ QtObject {
                 item.open();
             }
             onStatusChanged: if (status === Loader.Error && shareLoader.item)
-                shareLoader.item.notify("The file picker is unavailable. You can still copy the forecast text.")
+                shareLoader.item.notify(I18n.t("The file picker is unavailable. You can still copy the forecast text."))
         }
         Connections {
             target: forecastSaveDialog.item

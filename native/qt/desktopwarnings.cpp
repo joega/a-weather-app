@@ -1,3 +1,4 @@
+#include <QCoreApplication>
 #include "desktopwarnings.h"
 
 #include <QDBusPendingCallWatcher>
@@ -269,7 +270,8 @@ bool DesktopWarnings::accept(const QJsonObject& command) {
     const bool critical = command.value("urgency") == "critical";
     QStringList buttons;
     if (actions)
-        buttons = {"default", "Open warning", "details", "View details"};
+        buttons = {"default", QCoreApplication::translate("App", "Open warning"), "details",
+                   QCoreApplication::translate("App", "View details")};
     QVariantMap hints{{"urgency", QVariant::fromValue(static_cast<uchar>(critical ? 2 : 1))},
                       {"desktop-entry", "a-weather-app"},
                       {"suppress-sound", true}};

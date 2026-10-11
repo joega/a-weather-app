@@ -5,23 +5,23 @@ const metrics = ["wind", "humidity", "visibility", "solar", "uv", "pressure"];
 const hourly = ["temperature_c", "apparent_temperature_c", "precipitation_probability", "wind_speed_m_s", "wind_gust_m_s", "humidity", "uv_index"];
 function title(id) {
     return ({
-            hourly: "Hourly forecast",
-            daily: "10-day forecast",
-            metrics: "Current metrics",
-            maps: "Weather maps",
-            air_quality: "Air quality",
-            wind: "Wind",
-            humidity: "Humidity",
-            visibility: "Visibility",
-            solar: "Sunrise & sunset",
-            uv: "UV index",
-            pressure: "Pressure",
-            temperature_c: "Temperature",
-            apparent_temperature_c: "Feels like",
-            precipitation_probability: "Precipitation chance",
-            wind_speed_m_s: "Wind",
-            wind_gust_m_s: "Gusts",
-            uv_index: "UV index"
+            hourly: qsTranslate("App", "Hourly forecast"),
+            daily: qsTranslate("App", "10-day forecast"),
+            metrics: qsTranslate("App", "Current metrics"),
+            maps: qsTranslate("App", "Weather maps"),
+            air_quality: qsTranslate("App", "Air quality"),
+            wind: qsTranslate("App", "Wind"),
+            humidity: qsTranslate("App", "Humidity"),
+            visibility: qsTranslate("App", "Visibility"),
+            solar: qsTranslate("App", "Sunrise & sunset"),
+            uv: qsTranslate("App", "UV index"),
+            pressure: qsTranslate("App", "Pressure"),
+            temperature_c: qsTranslate("App", "Temperature"),
+            apparent_temperature_c: qsTranslate("App", "Feels like"),
+            precipitation_probability: qsTranslate("App", "Precipitation chance"),
+            wind_speed_m_s: qsTranslate("App", "Wind"),
+            wind_gust_m_s: qsTranslate("App", "Gusts"),
+            uv_index: qsTranslate("App", "UV index")
         })[id] || "";
 }
 function defaults() {

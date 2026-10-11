@@ -23,7 +23,7 @@ Popup {
     property string units: "F"
     property int selectedIndex: 0
     readonly property var day: result ? result.days.find(d => d.date === result.date) || null : null
-    readonly property var chartHours: result ? Precipitation.chartHours(result.hours) : []
+    readonly property var chartHours: result ? (I18n.revision, Precipitation.chartHours(result.hours)) : []
     readonly property var hour: result && selectedIndex < chartHours.length ? result.hours.find(h => Date.parse(h.start) === Date.parse(chartHours[selectedIndex].time)) || null : null
     signal requested(string date)
     function revealFocus(item) {
@@ -76,20 +76,20 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Rain & snow totals"
+                    text: I18n.t("Rain & snow totals")
                     font.pixelSize: Tokens.fontSize(26)
                 }
                 ActionButton {
                     id: closeButton
                     objectName: "closePrecipitation"
                     iconName: "close"
-                    accessibleLabel: "Close rain and snow"
+                    accessibleLabel: I18n.t("Close rain and snow")
                     onClicked: root.close()
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Forecast rainfall and snowfall amounts for each day."
+                text: I18n.t("Forecast rainfall and snowfall amounts for each day.")
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -107,7 +107,7 @@ Popup {
                 SettingsComboBox {
                     objectName: "precipitationDate"
                     Layout.fillWidth: true
-                    Accessible.name: "Rain and snow forecast date"
+                    Accessible.name: I18n.t("Rain and snow forecast date")
                     model: root.result ? root.result.days : []
                     textRole: "label"
                     valueRole: "date"
@@ -117,14 +117,14 @@ Popup {
                 }
                 ActionButton {
                     objectName: "precipitationToday"
-                    text: "Today"
+                    text: I18n.t("Today")
                     onClicked: root.requested("")
                 }
             }
             PlainLabel {
                 objectName: "precipitationStatus"
                 Layout.fillWidth: true
-                text: root.error === "precipitation_location_required" ? "Choose a location using the pin beside the city name, then open its rain and snow totals." : root.error === "precipitation_service_unavailable" ? "The weather service is disconnected. Reopen the app to reconnect." : root.error === "precipitation_forecast_loading" ? "The forecast is still loading. Try again in a moment." : root.error === "precipitation_location_busy" ? "The location is still loading. Try again when it is ready." : root.error === "precipitation_in_use" ? "Rain and snow details are open in another window." : root.error === "precipitation_context_changed" ? "The place changed. Open its rain and snow details again." : root.state === "loading" ? "Loading rain and snow…" : root.state === "waiting" ? "Waiting before the next update…" : root.result && root.result.fetched_at ? (root.state === "stale" ? "Cached forecast · " : "Updated ") + root.result.fetched_label + (root.result.refreshing ? " · Refreshing…" : root.result.error === "fetch_failed" ? " · Refresh unavailable; retrying while open" : root.result.error === "offline" ? " · Offline" : "") : root.result && root.result.error === "offline" ? "No rain and snow details are saved for this place." : "Rain and snow details are unavailable."
+                text: root.error === "precipitation_location_required" ? I18n.t("Choose a location using the pin beside the city name, then open its rain and snow totals.") : root.error === "precipitation_service_unavailable" ? I18n.t("The weather service is disconnected. Reopen the app to reconnect.") : root.error === "precipitation_forecast_loading" ? I18n.t("The forecast is still loading. Try again in a moment.") : root.error === "precipitation_location_busy" ? I18n.t("The location is still loading. Try again when it is ready.") : root.error === "precipitation_in_use" ? I18n.t("Rain and snow details are open in another window.") : root.error === "precipitation_context_changed" ? I18n.t("The place changed. Open its rain and snow details again.") : root.state === "loading" ? I18n.t("Loading rain and snow…") : root.state === "waiting" ? I18n.t("Waiting before the next update…") : root.result && root.result.fetched_at ? (root.state === "stale" ? I18n.t("Cached forecast · ") : I18n.t("Updated ")) + (I18n.date(root.result.fetched_at, root.result.timezone, "long") || root.result.fetched_label) + (root.result.refreshing ? I18n.t(" · Refreshing…") : root.result.error === "fetch_failed" ? I18n.t(" · Refresh unavailable; retrying while open") : root.result.error === "offline" ? I18n.t(" · Offline") : "") : root.result && root.result.error === "offline" ? I18n.t("No rain and snow details are saved for this place.") : I18n.t("Rain and snow details are unavailable.")
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
@@ -133,7 +133,7 @@ Popup {
             ActionButton {
                 objectName: "retryPrecipitation"
                 visible: root.state === "unavailable" && root.error !== "precipitation_location_required" && root.error !== "precipitation_service_unavailable"
-                text: "Try again"
+                text: I18n.t("Try again")
                 onClicked: root.requested(root.result ? root.result.date : "")
             }
             ColumnLayout {
@@ -142,7 +142,7 @@ Popup {
                 spacing: 16
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: root.day ? Precipitation.indicated(root.day.kind) : ""
+                    text: root.day ? (I18n.revision, Precipitation.indicated(root.day.kind)) : ""
                     font.pixelSize: Tokens.fontSize(20)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -156,15 +156,15 @@ Popup {
                         model: [
                             {
                                 key: "total_mm",
-                                title: "Liquid equivalent"
+                                title: I18n.t("Liquid equivalent")
                             },
                             {
                                 key: "rain_mm",
-                                title: "Rain & showers"
+                                title: I18n.t("Rain & showers")
                             },
                             {
                                 key: "snow_cm",
-                                title: "New snowfall"
+                                title: I18n.t("New snowfall")
                             }
                         ]
                         delegate: ColumnLayout {
@@ -183,14 +183,14 @@ Popup {
                             PlainLabel {
                                 objectName: "precipitationDaily_" + amount.modelData.key
                                 Layout.fillWidth: true
-                                text: Precipitation.accumulation(root.day, amount.modelData.key, root.units)
+                                text: (I18n.revision, Precipitation.accumulation(root.day, amount.modelData.key, root.units))
                                 font.pixelSize: Tokens.fontSize(26)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: Precipitation.coverage(root.day, amount.modelData.key)
+                                text: (I18n.revision, Precipitation.coverage(root.day, amount.modelData.key))
                                 color: Tokens.secondary
                                 font.pixelSize: Tokens.fontSize(12)
                                 wrapMode: Text.Wrap
@@ -201,7 +201,7 @@ Popup {
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Modeled totals for the whole local day, including earlier hours. Liquid equivalent includes snow and other precipitation expressed as water."
+                    text: I18n.t("Modeled totals for the whole local day, including earlier hours. Liquid equivalent includes snow and other precipitation expressed as water.")
                     color: Tokens.secondary
                     font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
@@ -210,22 +210,23 @@ Popup {
                 PlainLabel {
                     objectName: "precipitationWetHours"
                     Layout.fillWidth: true
-                    text: !root.day ? "" : "Highest available hourly chance: " + Forecast.percent(root.day.chance_max) + "\n" + (root.day.wet_hours_subtotal === null ? "Modeled wet hours unavailable" : root.day.wet_hours_subtotal + " modeled hours with at least 0.1 mm" + (root.units === "F" ? " (0.004 in)" : "") + (root.day.wet_hours === null ? " · Partial coverage" : "")) + ". This is not continuous rain or snow duration."
+                    text: !root.day ? "" : I18n.t("Highest available hourly chance: %1\n%2. This is not continuous rain or snow duration.").arg((I18n.revision, Forecast.percent(root.day.chance_max))).arg((root.day.wet_hours_subtotal === null ? I18n.t("Modeled wet hours unavailable") : I18n.t("%n modeled hour(s) with at least 0.1 mm", root.day.wet_hours_subtotal) + (root.units === "F" ? I18n.t(" (0.004 in)") : "") + (root.day.wet_hours === null ? I18n.t(" · Partial coverage") : "")))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
-                    text: "Hourly liquid equivalent"
+                    text: I18n.t("Hourly liquid equivalent")
                     font.pixelSize: Tokens.fontSize(18)
                 }
                 ForecastChart {
+                    timezone: root.result ? root.result.timezone : "UTC"
                     objectName: "precipitationTrend"
                     Layout.fillWidth: true
                     Layout.preferredHeight: 180
                     hours: root.chartHours
                     units: root.units
                     metric: "precipitation_rate_mm_hr"
-                    metricLabel: "Hourly liquid-equivalent precipitation"
+                    metricLabel: I18n.t("Hourly liquid-equivalent precipitation")
                     selectedIndex: root.selectedIndex
                     onSelected: index => root.selectedIndex = index
                 }
@@ -233,21 +234,21 @@ Popup {
                     Layout.fillWidth: true
                     ActionButton {
                         objectName: "precipitationPreviousHour"
-                        text: "Previous"
+                        text: I18n.t("Previous")
                         enabled: root.selectedIndex > 0
                         onClicked: root.selectedIndex--
                     }
                     PlainLabel {
                         objectName: "precipitationInterval"
                         Layout.fillWidth: true
-                        text: root.hour ? root.hour.label : "Hourly data unavailable"
+                        text: root.hour ? (I18n.date(root.hour.end, root.result.timezone, "long") || root.hour.label) : I18n.t("Hourly data unavailable")
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
                     ActionButton {
                         objectName: "precipitationNextHour"
-                        text: "Next"
+                        text: I18n.t("Next")
                         enabled: root.selectedIndex < root.chartHours.length - 1
                         onClicked: root.selectedIndex++
                     }
@@ -255,13 +256,13 @@ Popup {
                 PlainLabel {
                     objectName: "precipitationHourAmounts"
                     Layout.fillWidth: true
-                    text: root.hour ? "Liquid " + Precipitation.liquid(root.hour.total_mm, root.units) + " · Rain " + Precipitation.liquid(root.hour.rain_mm, root.units) + " · New snow " + Precipitation.snow(root.hour.snow_cm, root.units) + "\nChance " + Forecast.percent(root.hour.chance) + " · " + Precipitation.indicated(root.hour.kind) : "No amount is available for this interval."
+                    text: root.hour ? I18n.t("Liquid %1 · Rain %2 · New snow %3\nChance %4 · %5").arg((I18n.revision, Precipitation.liquid(root.hour.total_mm, root.units))).arg((I18n.revision, Precipitation.liquid(root.hour.rain_mm, root.units))).arg((I18n.revision, Precipitation.snow(root.hour.snow_cm, root.units))).arg((I18n.revision, Forecast.percent(root.hour.chance))).arg((I18n.revision, Precipitation.indicated(root.hour.kind))) : I18n.t("No amount is available for this interval.")
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: root.hour ? "At the interval's end: ground snow " + Precipitation.snow(root.hour.depth_m === null ? null : root.hour.depth_m * 100, root.units) + " · Freezing level " + Precipitation.height(root.hour.freezing_m, root.units) + " above sea level." : ""
+                    text: root.hour ? I18n.t("At the interval's end: ground snow %1 · Freezing level %2 above sea level.").arg((I18n.revision, Precipitation.snow(root.hour.depth_m === null ? null : root.hour.depth_m * 100, root.units))).arg((I18n.revision, Precipitation.height(root.hour.freezing_m, root.units))) : ""
                     color: Tokens.secondary
                     font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
@@ -270,13 +271,13 @@ Popup {
                 PlainLabel {
                     objectName: "precipitationSnowDepth"
                     Layout.fillWidth: true
-                    text: "Snow on the ground: " + Precipitation.range(root.day, "depth", root.units) + "\nFreezing level: " + Precipitation.range(root.day, "freezing", root.units) + " above sea level"
+                    text: I18n.t("Snow on the ground: %1\nFreezing level: %2 above sea level").arg((I18n.revision, Precipitation.range(root.day, "depth", root.units))).arg((I18n.revision, Precipitation.range(root.day, "freezing", root.units)))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Ground snow and freezing level show the range of available samples. Ground snow is not new snowfall. These values do not predict pavement icing or travel safety." + (root.day && root.day.boundary_hours ? " Some hourly intervals cross a local-day boundary and are excluded from totals." : "")
+                    text: I18n.t("Ground snow and freezing level show the range of available samples. Ground snow is not new snowfall. These values do not predict pavement icing or travel safety.%1").arg((root.day && root.day.boundary_hours ? I18n.t(" Some hourly intervals cross a local-day boundary and are excluded from totals.") : ""))
                     color: Tokens.secondary
                     font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
@@ -286,7 +287,7 @@ Popup {
             PlainLabel {
                 objectName: "precipitationSource"
                 Layout.fillWidth: true
-                text: "Source: Open-Meteo best match · Modeled forecast" + (root.result && root.result.save_failed ? "\nThese details could not be saved for offline use." : "")
+                text: I18n.t("Source: Open-Meteo best match · Modeled forecast%1").arg((root.result && root.result.save_failed ? I18n.t("\nThese details could not be saved for offline use.") : ""))
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap

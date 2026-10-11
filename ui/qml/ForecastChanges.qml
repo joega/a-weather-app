@@ -61,14 +61,14 @@ Popup {
             ActionButton {
                 objectName: "retryForecastChanges"
                 visible: root.state === "unavailable"
-                text: "Retry comparison"
+                text: I18n.t("Retry comparison")
                 onClicked: root.retryRequested()
             }
             RowLayout {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Forecast changes"
+                    text: I18n.t("Forecast changes")
                     font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -77,13 +77,13 @@ Popup {
                     id: closeButton
                     objectName: "closeForecastChanges"
                     iconName: "close"
-                    accessibleLabel: "Close forecast changes"
+                    accessibleLabel: I18n.t("Close forecast changes")
                     onClicked: root.close()
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: root.place + " · Next 48 hours"
+                text: I18n.t("%1 · Next 48 hours").arg(root.place)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -92,7 +92,7 @@ Popup {
                 objectName: "forecastChangesStatus"
                 visible: !root.result || root.result.changes.length === 0
                 Layout.fillWidth: true
-                text: Changes.summary(root.result, root.state, root.units)
+                text: (I18n.revision, Changes.summary(root.result, root.state, root.units))
                 font.pixelSize: Tokens.fontSize(18)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -106,7 +106,7 @@ Popup {
                     spacing: 6
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: Changes.title(changeRow.modelData, root.units)
+                        text: (I18n.revision, Changes.title(changeRow.modelData, root.units))
                         font.pixelSize: Tokens.fontSize(19)
                         font.bold: true
                         wrapMode: Text.Wrap
@@ -121,7 +121,7 @@ Popup {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: Changes.values(changeRow.modelData, root.units, root.windUnits)
+                        text: (I18n.revision, Changes.values(changeRow.modelData, root.units, root.windUnits))
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
@@ -131,7 +131,7 @@ Popup {
                 objectName: "forecastChangesCoverage"
                 visible: root.result !== null && root.result.coverage.expected_points > 0
                 Layout.fillWidth: true
-                text: !root.result ? "" : "Hours compared\nTemperature: " + root.result.coverage.temperature + "/" + root.result.coverage.expected_points + "\nPrecipitation chance: " + root.result.coverage.probability + "/" + root.result.coverage.expected_intervals + " · Amount: " + root.result.coverage.precipitation + "/" + root.result.coverage.expected_intervals + " · Gusts: " + root.result.coverage.gusts + "/" + root.result.coverage.expected_intervals + "\nMissing hours are excluded; partly elapsed precipitation and gust intervals are excluded."
+                text: !root.result ? "" : I18n.t("Hours compared\nTemperature: %1/%2\nPrecipitation chance: %3/%4 · Amount: %5/%6 · Gusts: %7/%8\nMissing hours are excluded; partly elapsed precipitation and gust intervals are excluded.").arg(root.result.coverage.temperature).arg(root.result.coverage.expected_points).arg(root.result.coverage.probability).arg(root.result.coverage.expected_intervals).arg(root.result.coverage.precipitation).arg(root.result.coverage.expected_intervals).arg(root.result.coverage.gusts).arg(root.result.coverage.expected_intervals)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -140,7 +140,7 @@ Popup {
                 objectName: "forecastChangesProvenance"
                 visible: root.result !== null
                 Layout.fillWidth: true
-                text: !root.result ? "" : "Open-Meteo · Forecasts retrieved\nCurrent: " + root.result.current_retrieved_label + (root.result.previous_retrieved_label ? "\nPrevious viewed: " + root.result.previous_retrieved_label : "\nNo previous viewed forecast is available.") + "\n" + root.result.timezone
+                text: !root.result ? "" : I18n.t("Open-Meteo · Forecasts retrieved\nCurrent: %1%2\n%3").arg(root.result.current_retrieved_label).arg((root.result.previous_retrieved_label ? I18n.t("\nPrevious viewed: ") + root.result.previous_retrieved_label : I18n.t("\nNo previous viewed forecast is available."))).arg(root.result.timezone)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -148,14 +148,14 @@ Popup {
             PlainLabel {
                 visible: root.result !== null && (root.result.save_status === "unconfirmed" || root.result.history_recovered)
                 Layout.fillWidth: true
-                text: root.result && root.result.save_status === "unconfirmed" ? "History could not be saved. This comparison is available for this session; it may be lost after restarting." : "Earlier saved history was unavailable. A new comparison history has started."
+                text: root.result && root.result.save_status === "unconfirmed" ? I18n.t("History could not be saved. This comparison is available for this session; it may be lost after restarting.") : I18n.t("Earlier saved history was unavailable. A new comparison history has started.")
                 color: "#ffd99b"
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Highlights show larger revisions in matching forecast hours. Smaller changes may still matter. Precipitation windows describe modeled hours, not exact onset times. Retrieval times are when this app obtained the data. These comparisons do not measure forecast accuracy."
+                text: I18n.t("Highlights show larger revisions in matching forecast hours. Smaller changes may still matter. Precipitation windows describe modeled hours, not exact onset times. Retrieval times are when this app obtained the data. These comparisons do not measure forecast accuracy.")
                 font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap

@@ -34,6 +34,11 @@ func TestQuickshellWidgetUpdateActions(t *testing.T) {
 		t.Fatal(e)
 	}
 	writeRuntimeFixture(t, filepath.Join(dir, "WeatherWidget.qml"), raw, 0600)
+	translations, err := os.ReadFile("../../quickshell/a-weather-app.weather/Translations.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeRuntimeFixture(t, filepath.Join(dir, "Translations.js"), translations, 0600)
 	helper := `#!/usr/bin/bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$HOME/actions"

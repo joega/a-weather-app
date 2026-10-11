@@ -2,6 +2,9 @@
 Type=Application
 Name=A Weather App
 Comment=Live animated weather for Hyprland, with forecasts and interactive desktop weather effects
+Comment[es]=Tiempo animado en directo para Hyprland, con pronósticos y efectos meteorológicos interactivos de escritorio
+Comment[fr]=Météo animée en direct pour Hyprland, avec prévisions et effets météo interactifs sur le bureau
+Comment[de]=Live animiertes Wetter für Hyprland mit Vorhersagen und interaktiven Desktop-Wettereffekten
 Exec=a-weather-app
 TryExec=a-weather-app
 Icon=a-weather-app

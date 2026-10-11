@@ -7,6 +7,7 @@ printf 'Temporary Qt sanitizer checks: %s\n' "$qt_root"
 mkdir -p "$qt_root/native"
 cp -a "$source_root/native/qt" "$qt_root/native/"
 cp -a "$source_root/ui" "$qt_root/"
+cp -a "$source_root/translations" "$qt_root/"
 cd "$qt_root/native/qt"
 rm -rf .test-build .frontend-test-build
 flags='-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer'

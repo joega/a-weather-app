@@ -84,14 +84,14 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Sun & moon"
+                    text: I18n.t("Sun & moon")
                     font.pixelSize: Tokens.fontSize(26)
                 }
                 ActionButton {
                     id: closeButton
                     objectName: "closeAstronomy"
                     iconName: "close"
-                    accessibleLabel: "Close sun and moon"
+                    accessibleLabel: I18n.t("Close sun and moon")
                     onClicked: root.close()
                 }
             }
@@ -107,14 +107,14 @@ Popup {
                 PlainLabel {
                     objectName: "astronomySelectedDate"
                     Layout.fillWidth: true
-                    text: root.result ? (root.result.date === root.result.today ? "Today · " : "") + root.result.date_label : root.state === "loading" ? "Today" : "Sun & moon unavailable"
+                    text: root.result ? (root.result.date === root.result.today ? I18n.t("Today · ") : "") + (I18n.date(root.result.date, root.result.timezone, "date") || root.result.date_label) : root.state === "loading" ? I18n.t("Today") : I18n.t("Sun & moon unavailable")
                     font.pixelSize: Tokens.fontSize(18)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 ActionButton {
                     objectName: "changeAstronomyDate"
-                    text: root.changingDate ? "Done" : "Change date"
+                    text: root.changingDate ? I18n.t("Done") : I18n.t("Change date")
                     enabled: root.result !== null || root.changingDate
                     onClicked: {
                         root.changingDate = !root.changingDate;
@@ -131,7 +131,7 @@ Popup {
                 Layout.fillWidth: true
                 ActionButton {
                     objectName: "astronomyPrevious"
-                    text: "Previous"
+                    text: I18n.t("Previous")
                     enabled: root.result !== null && root.result.previous_date >= root.result.min_date
                     onClicked: root.requested(root.result.previous_date)
                 }
@@ -140,7 +140,7 @@ Popup {
                     objectName: "astronomyDate"
                     Layout.fillWidth: true
                     Layout.minimumWidth: 135
-                    Accessible.name: "Astronomy date in year-month-day format"
+                    Accessible.name: I18n.t("Astronomy date in year-month-day format")
                     placeholderText: "YYYY-MM-DD"
                     maximumLength: 10
                     selectByMouse: true
@@ -156,19 +156,19 @@ Popup {
                 }
                 ActionButton {
                     objectName: "astronomyNext"
-                    text: "Next"
+                    text: I18n.t("Next")
                     enabled: root.result !== null && root.result.next_date <= root.result.max_date
                     onClicked: root.requested(root.result.next_date)
                 }
                 ActionButton {
                     objectName: "astronomyToday"
-                    text: "Today"
+                    text: I18n.t("Today")
                     onClicked: root.requested("")
                 }
             }
             PlainLabel {
                 visible: root.changingDate
-                text: "Browse 30 days before or after today"
+                text: I18n.t("Browse 30 days before or after today")
                 font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
             }
@@ -181,18 +181,18 @@ Popup {
                 stepSize: 1
                 snapMode: Slider.SnapAlways
                 enabled: root.result !== null
-                Accessible.name: "Date, up to 30 days before or after today"
+                Accessible.name: I18n.t("Date, up to 30 days before or after today")
                 value: root.result ? Math.max(-30, Math.min(30, (Date.parse(root.result.date) - Date.parse(root.result.today)) / 86400000)) : 0
                 onMoved: if (!pressed && root.result)
-                    root.requested(Astronomy.shiftedDate(root.result.today, value))
+                    root.requested((I18n.revision, Astronomy.shiftedDate(root.result.today, value)))
                 onPressedChanged: if (!pressed && root.result)
-                    root.requested(Astronomy.shiftedDate(root.result.today, value))
+                    root.requested((I18n.revision, Astronomy.shiftedDate(root.result.today, value)))
             }
             PlainLabel {
                 objectName: "astronomyStatus"
                 visible: root.result === null
                 Layout.fillWidth: true
-                text: root.state === "loading" ? "Calculating sun and moon…" : root.error === "service_unsupported" || root.error === "invalid_request" ? "This running weather service does not support Sun & moon. Quit and reopen the updated app." : root.error === "service_unavailable" ? "The weather service is disconnected. Reopen the app to reconnect." : root.error === "forecast_loading" ? "The location is still loading. Try today again in a moment." : root.error === "location_busy" ? "The location is changing. Try today when it is ready." : root.error === "location_required" ? "Choose a location using the pin beside the city name, then open Sun & moon." : root.error === "astronomy_context_changed" ? "The location changed. Reopen Sun & moon for the current location." : "Choose a valid date within a year of today, or select Today to retry."
+                text: root.state === "loading" ? I18n.t("Calculating sun and moon…") : root.error === "service_unsupported" || root.error === "invalid_request" ? I18n.t("This running weather service does not support Sun & moon. Quit and reopen the updated app.") : root.error === "service_unavailable" ? I18n.t("The weather service is disconnected. Reopen the app to reconnect.") : root.error === "forecast_loading" ? I18n.t("The location is still loading. Try today again in a moment.") : root.error === "location_busy" ? I18n.t("The location is changing. Try today when it is ready.") : root.error === "location_required" ? I18n.t("Choose a location using the pin beside the city name, then open Sun & moon.") : root.error === "astronomy_context_changed" ? I18n.t("The location changed. Reopen Sun & moon for the current location.") : I18n.t("Choose a valid date within a year of today, or select Today to retry.")
                 font.pixelSize: Tokens.fontSize(18)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -200,7 +200,7 @@ Popup {
             ActionButton {
                 objectName: "retryAstronomy"
                 visible: !root.changingDate && root.state === "unavailable" && ["service_unsupported", "invalid_request", "service_unavailable", "location_required"].indexOf(root.error) < 0
-                text: "Try today"
+                text: I18n.t("Try today")
                 onClicked: root.requested("")
             }
             ColumnLayout {
@@ -210,7 +210,7 @@ Popup {
                 PlainLabel {
                     objectName: "astronomyDaylight"
                     Layout.fillWidth: true
-                    text: !root.result ? "" : Astronomy.duration(root.result.daylight_seconds) + " of daylight\n" + (Math.abs(root.result.change_seconds) < 30 ? "About the same as the previous day" : Astronomy.duration(Math.abs(root.result.change_seconds)) + (root.result.change_seconds > 0 ? " longer" : " shorter") + " than the previous day") + (root.now >= Date.parse(root.result.day_start) && root.now < Date.parse(root.result.day_end) ? "\n" + Astronomy.duration(Astronomy.remaining(root.result, root.now)) + " remaining today" : "")
+                    text: !root.result ? "" : I18n.t("%1 of daylight\n%2%3").arg((I18n.revision, Astronomy.duration(root.result.daylight_seconds))).arg((Math.abs(root.result.change_seconds) < 30 ? I18n.t("About the same as the previous day") : (root.result.change_seconds > 0 ? I18n.t("%1 longer than the previous day") : I18n.t("%1 shorter than the previous day")).arg((I18n.revision, Astronomy.duration(Math.abs(root.result.change_seconds)))))).arg((root.now >= Date.parse(root.result.day_start) && root.now < Date.parse(root.result.day_end) ? "\n" + I18n.t("%1 remaining today").arg((I18n.revision, Astronomy.duration((I18n.revision, Astronomy.remaining(root.result, root.now))))) : ""))
                     font.pixelSize: Tokens.fontSize(19)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -218,7 +218,7 @@ Popup {
                 PlainLabel {
                     objectName: "astronomySunTimes"
                     Layout.fillWidth: true
-                    text: root.result ? Astronomy.horizon(root.result, "sun") : ""
+                    text: root.result ? (I18n.revision, Astronomy.horizon(root.result, "sun")) : ""
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -251,34 +251,34 @@ Popup {
                     PlainLabel {
                         objectName: "astronomyMoonPhase"
                         Layout.fillWidth: true
-                        text: !root.result ? "" : Astronomy.phaseName(root.result.phase) + " · " + Math.round(root.result.illumination * 100) + "% illuminated\nAt " + root.result.phase_label + " on this date\n" + Astronomy.horizon(root.result, "moon")
+                        text: !root.result ? "" : I18n.t("%1 · %2% illuminated\nAt %3 on this date\n%4").arg((I18n.revision, Astronomy.phaseName(root.result.phase))).arg(I18n.number(Math.round(root.result.illumination * 100))).arg((I18n.date(root.result.phase_at, root.result.timezone, "time") || root.result.phase_label)).arg((I18n.revision, Astronomy.horizon(root.result, "moon")))
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Twilight & light"
+                    text: I18n.t("Twilight & light")
                     font.pixelSize: Tokens.fontSize(20)
                 }
                 PlainLabel {
                     objectName: "astronomyTwilight"
                     Layout.fillWidth: true
-                    text: !root.result ? "" : "Civil (−6°): " + Astronomy.events(root.result.civil_events, "Dawn", "Dusk") + "\nNautical (−12°): " + Astronomy.events(root.result.nautical_events, "Dawn", "Dusk") + "\nAstronomical (−18°): " + Astronomy.events(root.result.astronomical_events, "Dawn", "Dusk")
+                    text: !root.result ? "" : I18n.t("Civil (−6°): %1\nNautical (−12°): %2\nAstronomical (−18°): %3").arg((I18n.revision, Astronomy.events(root.result.civil_events, I18n.t("Dawn"), I18n.t("Dusk")))).arg((I18n.revision, Astronomy.events(root.result.nautical_events, I18n.t("Dawn"), I18n.t("Dusk")))).arg((I18n.revision, Astronomy.events(root.result.astronomical_events, I18n.t("Dawn"), I18n.t("Dusk"))))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     objectName: "astronomyGolden"
                     Layout.fillWidth: true
-                    text: !root.result ? "" : "Golden light (−4° to +6°)\n" + (root.result.golden.length ? root.result.golden.map(s => s.label).join("\n") : "No window on this date")
+                    text: !root.result ? "" : I18n.t("Golden light (−4° to +6°)\n%1").arg((root.result.golden.length ? root.result.golden.map(s => s.label).join("\n") : I18n.t("No window on this date")))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Calculated locally using SunCalc/Meeus formulas. Times assume a level horizon and standard refraction; terrain, altitude and weather can change what you see. Golden light is a sun-angle window, not a clear-sky forecast. Moon shape is a schematic phase view. All times use this place’s timezone."
+                text: I18n.t("Calculated locally using SunCalc/Meeus formulas. Times assume a level horizon and standard refraction; terrain, altitude and weather can change what you see. Golden light is a sun-angle window, not a clear-sky forecast. Moon shape is a schematic phase view. All times use this place’s timezone.")
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap

@@ -8,7 +8,7 @@ Popup {
     id: root
     objectName: "dashboardEditor"
     required property var bridge
-    property var draft: Dashboard.defaults()
+    property var draft: (I18n.revision, Dashboard.defaults())
     property double revision: 0
     property bool submitted: false
     property string message: ""
@@ -25,14 +25,14 @@ Popup {
     function reload() {
         if (!saved)
             return;
-        draft = Dashboard.preferences(saved.preferences);
+        draft = (I18n.revision, Dashboard.preferences(saved.preferences));
         revision = saved.revision;
-        message = saved.error === "state_unavailable" ? "Saved layout could not be read. Defaults are shown; Apply saves a new layout." : saved.error === "save_unconfirmed" ? "The layout is visible, but saving was not confirmed. Apply to try again." : "";
+        message = saved.error === "state_unavailable" ? I18n.source("Saved layout could not be read. Defaults are shown; Apply saves a new layout.") : saved.error === "save_unconfirmed" ? I18n.source("The layout is visible, but saving was not confirmed. Apply to try again.") : "";
     }
     function update(key, value) {
-        let next = Dashboard.preferences(draft);
+        let next = (I18n.revision, Dashboard.preferences(draft));
         next[key] = value;
-        draft = Dashboard.preferences(next);
+        draft = (I18n.revision, Dashboard.preferences(next));
     }
     function revealFocus(item) {
         const flick = scroll.contentItem as Flickable;
@@ -65,7 +65,7 @@ Popup {
             }
             if (code === "save_unconfirmed" && root.saved && JSON.stringify(root.saved.preferences) === JSON.stringify(root.draft))
                 root.revision = root.saved.revision;
-            root.message = code === "save_unconfirmed" ? "The layout is visible, but saving could not be confirmed. Apply to retry." : code === "dashboard_changed" ? "The saved layout changed. Reload it before applying edits." : "The layout could not be saved. Your edits are still here. Try Apply again when connected.";
+            root.message = code === "save_unconfirmed" ? I18n.source("The layout is visible, but saving could not be confirmed. Apply to retry.") : code === "dashboard_changed" ? I18n.source("The saved layout changed. Reload it before applying edits.") : I18n.source("The layout could not be saved. Your edits are still here. Try Apply again when connected.");
         }
     }
     background: Rectangle {
@@ -82,20 +82,20 @@ Popup {
             Layout.fillWidth: true
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Customize dashboard"
+                text: I18n.t("Customize dashboard")
                 font.pixelSize: Tokens.fontSize(25)
             }
             ActionButton {
                 id: closeButton
                 objectName: "closeDashboardEditor"
                 iconName: "close"
-                accessibleLabel: "Close dashboard editor"
+                accessibleLabel: I18n.t("Close dashboard editor")
                 onClicked: root.close()
             }
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Choose what you see and its order. Current conditions, official alerts and source information always stay visible."
+            text: I18n.t("Choose what you see and its order. Current conditions, official alerts and source information always stay visible.")
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             color: Tokens.secondary
@@ -108,7 +108,7 @@ Popup {
             spacing: 6
             background: Item {}
             Repeater {
-                model: ["Sections", "Metrics", "Hourly values"]
+                model: [I18n.t("Sections"), I18n.t("Metrics"), I18n.t("Hourly values")]
                 delegate: TabButton {
                     id: tab
                     required property string modelData
@@ -151,7 +151,7 @@ Popup {
                 enabled: !root.bridge.dashboardSaving
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: tabs.currentIndex === 0 ? "Hide sections you don't need. Hidden maps and air quality stop requesting new data." : tabs.currentIndex === 1 ? "Keep at least one metric selected. These appear inside Current metrics." : "Pin 1–3 values per hour. Use the arrows to choose their order. Open any hour for all details."
+                    text: tabs.currentIndex === 0 ? I18n.t("Hide sections you don't need. Hidden maps and air quality stop requesting new data.") : tabs.currentIndex === 1 ? I18n.t("Keep at least one metric selected. These appear inside Current metrics.") : I18n.t("Pin 1–3 values per hour. Use the arrows to choose their order. Open any hour for all details.")
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                     color: Tokens.secondary
@@ -168,7 +168,7 @@ Popup {
                     visible: tabs.currentIndex === 0
                     Layout.fillWidth: true
                     PlainLabel {
-                        text: "Spacing"
+                        text: I18n.t("Spacing")
                         font.pixelSize: Tokens.fontSize(18)
                     }
                     ChoiceControl {
@@ -177,11 +177,11 @@ Popup {
                         choices: [
                             {
                                 value: "spacious",
-                                label: "Spacious"
+                                label: I18n.t("Spacious")
                             },
                             {
                                 value: "compact",
-                                label: "Compact"
+                                label: I18n.t("Compact")
                             }
                         ]
                         value: root.draft.density
@@ -215,7 +215,7 @@ Popup {
             objectName: "dashboardSaveStatus"
             Layout.fillWidth: true
             visible: text !== ""
-            text: root.conflict ? "The saved layout changed. Reload it before applying edits." : root.message
+            text: root.conflict ? I18n.t("The saved layout changed. Reload it before applying edits.") : I18n.t(root.message)
             color: "#ffd99b"
             font.pixelSize: Tokens.fontSize(13)
             wrapMode: Text.Wrap
@@ -225,11 +225,11 @@ Popup {
             Layout.fillWidth: true
             ActionButton {
                 objectName: "dashboardDefaults"
-                text: "Restore defaults"
+                text: I18n.t("Restore defaults")
                 enabled: !root.bridge.dashboardSaving
                 onClicked: {
-                    root.draft = Dashboard.defaults();
-                    root.message = "Defaults selected. Apply to save them.";
+                    root.draft = (I18n.revision, Dashboard.defaults());
+                    root.message = I18n.source("Defaults selected. Apply to save them.");
                 }
             }
             Item {
@@ -238,12 +238,12 @@ Popup {
             ActionButton {
                 objectName: "dashboardReload"
                 visible: root.conflict
-                text: "Reload saved"
+                text: I18n.t("Reload saved")
                 onClicked: root.reload()
             }
             ActionButton {
                 objectName: "dashboardApply"
-                text: root.bridge.dashboardSaving ? "Saving…" : "Apply"
+                text: root.bridge.dashboardSaving ? I18n.t("Saving…") : I18n.t("Apply")
                 primary: true
                 enabled: root.bridge.available && !root.bridge.dashboardSaving && !root.conflict && root.saved !== null
                 onClicked: {

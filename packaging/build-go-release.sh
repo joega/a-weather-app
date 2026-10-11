@@ -116,7 +116,7 @@ for artifact in "${artifacts[@]}"; do
   case "$artifact" in a-weather-app) relative=build/a-weather-app;mode=755;; native/qt/a-weather-app-qt|native/atmosphere/a-weather-app-atmosphere) mode=755;; esac
   install -D -m "$mode" "$build_root/first/$relative" "$runtime_root/$artifact"
 done
-for asset in LICENSE THIRD_PARTY_NOTICES.md manifest.json packaging/a-weather-app.desktop packaging/icons/a-weather-app.svg quickshell/a-weather-app.weather/WeatherWidget.qml packaging/go-README.md; do
+for asset in LICENSE THIRD_PARTY_NOTICES.md manifest.json packaging/a-weather-app.desktop packaging/icons/a-weather-app.svg quickshell/a-weather-app.weather/WeatherWidget.qml quickshell/a-weather-app.weather/Translations.js packaging/go-README.md; do
   install -D -m 644 "$build_root/first/$asset" "$runtime_root/$asset"
 done
 sed -i "s/\"version\": \"$source_version\"/\"version\": \"$release_version\"/" "$runtime_root/manifest.json"

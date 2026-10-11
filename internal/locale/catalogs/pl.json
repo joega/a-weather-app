@@ -1,0 +1,29 @@
+{
+  "%n minute(s) ago": [
+    "%n minutę temu",
+    "%n minuty temu",
+    "%n minut temu"
+  ],
+  "10-day forecast": "Prognoza na 10 dni",
+  "Air quality": "Jakość powietrza",
+  "Clear": "Bezchmurnie",
+  "Desktop effects": "Efekty na pulpicie",
+  "Drizzle": "Mżawka",
+  "Feels like %1 · High %2 · Low %3": "Odczuwalna %1 · Maks. %2 · Min. %3",
+  "Fog": "Mgła",
+  "Hourly forecast": "Prognoza godzinowa",
+  "Humidity": "Wilgotność",
+  "Language": "Język",
+  "Next 24 hours": "Najbliższe 24 godziny",
+  "Partly cloudy": "Częściowe zachmurzenie",
+  "Rain": "Deszcz",
+  "Refresh forecast": "Odśwież prognozę",
+  "Select an hour for details": "Wybierz godzinę, aby zobaczyć szczegóły",
+  "Snow": "Śnieg",
+  "Thunderstorm": "Burza",
+  "Today": "Dzisiaj",
+  "Unavailable": "Niedostępne",
+  "Weather unavailable": "Pogoda niedostępna",
+  "Wind": "Wiatr",
+  "just now": "przed chwilą"
+}

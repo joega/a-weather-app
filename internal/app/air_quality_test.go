@@ -152,6 +152,7 @@ func TestAirQualityDamagedOrDifferentLocationCacheDoesNotBlockWeather(t *testing
 				record["us_aqi"] = -1.0
 			case "different":
 				object(record["location"])["name"] = "Another location"
+				object(record["location"])["latitude"] = 1.0
 			case "oversize":
 				record["extra"] = strings.Repeat("x", airquality.MaxBytes)
 			case "symlink":

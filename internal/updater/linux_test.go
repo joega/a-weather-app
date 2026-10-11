@@ -20,7 +20,7 @@ import (
 )
 
 var fixtureArtifacts = []string{"a-weather-app", "native/qt/a-weather-app-qt", "ui/shaders/atmosphere.frag.qsb", "native/frame-alignment/a-weather-app-frame-alignment.so", "native/atmosphere/a-weather-app-atmosphere"}
-var fixtureAssets = []string{"LICENSE", "THIRD_PARTY_NOTICES.md", "manifest.json", "README.md", "packaging/a-weather-app.desktop", "packaging/icons/a-weather-app.svg", "packaging/go-README.md", "quickshell/a-weather-app.weather/WeatherWidget.qml", "licenses/hyprland-dependencies.txt", "licenses/go.txt"}
+var fixtureAssets = []string{"LICENSE", "THIRD_PARTY_NOTICES.md", "manifest.json", "README.md", "packaging/a-weather-app.desktop", "packaging/icons/a-weather-app.svg", "packaging/go-README.md", "quickshell/a-weather-app.weather/WeatherWidget.qml", "quickshell/a-weather-app.weather/Translations.js", "licenses/hyprland-dependencies.txt", "licenses/go.txt"}
 
 func bundleFixture(t *testing.T, root, version string, overrides map[string][]byte) []byte {
 	t.Helper()

@@ -55,7 +55,7 @@ Popup {
             Layout.fillWidth: true
             PlainLabel {
                 Layout.fillWidth: true
-                text: root.warning && root.warning.kind === "canceled" ? "Warning cancellation" : "Official warning"
+                text: root.warning && root.warning.kind === "canceled" ? I18n.t("Warning cancellation") : I18n.t("Official warning")
                 font.pixelSize: Tokens.fontSize(25)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -64,7 +64,7 @@ Popup {
                 id: closeButton
                 objectName: "closeWarningDetails"
                 iconName: "close"
-                accessibleLabel: "Close warning details"
+                accessibleLabel: I18n.t("Close warning details")
                 onClicked: root.close()
             }
         }
@@ -72,7 +72,7 @@ Popup {
             objectName: "warningDetailStatus"
             Layout.fillWidth: true
             visible: root.state !== "ready"
-            text: root.state === "loading" ? "Loading original notice…" : root.error
+            text: root.state === "loading" ? I18n.t("Loading original notice…") : I18n.t(root.error)
             font.pixelSize: Tokens.fontSize(15)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -107,14 +107,14 @@ Popup {
                 PlainLabel {
                     objectName: "warningDetailEvent"
                     Layout.fillWidth: true
-                    text: root.warning ? root.warning.event || "Official weather notice" : ""
+                    text: root.warning ? root.warning.event || I18n.t("Official weather notice") : ""
                     font.pixelSize: Tokens.fontSize(23)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: root.warning ? (root.warning.issuer || "National Weather Service") + "\nIssued " + root.warning.sent_label + "\n" + root.warning.severity + " severity · " + root.warning.urgency + " · " + root.warning.certainty : ""
+                    text: root.warning ? I18n.t("%1\nIssued %2\n%3 severity · %4 · %5").arg((root.warning.issuer || "National Weather Service")).arg((I18n.date(root.warning.sent, root.warning.timezone, "long") || root.warning.sent_label)).arg(I18n.t(root.warning.severity)).arg(I18n.t(root.warning.urgency)).arg(I18n.t(root.warning.certainty)) : ""
                     font.pixelSize: Tokens.fontSize(14)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap
@@ -123,7 +123,7 @@ Popup {
                 PlainLabel {
                     objectName: "warningDetailValidity"
                     Layout.fillWidth: true
-                    text: !root.warning ? "" : root.warning.kind === "canceled" ? "This notice cancels an earlier warning." : (root.expired ? "The stated validity period has ended.\n" : "") + "Valid from " + root.warning.effective_label + "\nUntil " + root.warning.expires_label + " · " + root.warning.timezone
+                    text: !root.warning ? "" : root.warning.kind === "canceled" ? I18n.t("This notice cancels an earlier warning.") : I18n.t("%1Valid from %2\nUntil %3 · %4").arg((root.expired ? I18n.t("The stated validity period has ended.\n") : "")).arg((I18n.date(root.warning.effective, root.warning.timezone, "long") || root.warning.effective_label)).arg((I18n.date(root.warning.expires, root.warning.timezone, "long") || root.warning.expires_label)).arg(root.warning.timezone)
                     font.pixelSize: Tokens.fontSize(14)
                     color: Tokens.accent
                     wrapMode: Text.Wrap
@@ -131,7 +131,7 @@ Popup {
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Original notice from this session. Its status may have changed; check the current alert feed for later updates."
+                    text: I18n.t("Original notice from this session. Its status may have changed; check the current alert feed for later updates.")
                     font.pixelSize: Tokens.fontSize(13)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap
@@ -140,19 +140,19 @@ Popup {
                 Repeater {
                     model: root.warning ? [
                         {
-                            name: "Instructions",
+                            name: I18n.t("Instructions"),
                             field: "instruction"
                         },
                         {
-                            name: "Headline",
+                            name: I18n.t("Headline"),
                             field: "headline"
                         },
                         {
-                            name: "Description",
+                            name: I18n.t("Description"),
                             field: "description"
                         },
                         {
-                            name: "Affected area",
+                            name: I18n.t("Affected area"),
                             field: "area"
                         }
                     ] : []
@@ -175,7 +175,7 @@ Popup {
                             readOnly: true
                             selectByMouse: true
                             wrapMode: TextEdit.Wrap
-                            font.family: "sans-serif"
+                            font.family: I18n.fontFamily
                             font.pixelSize: Tokens.fontSize(16)
                             color: Tokens.foreground
                             selectedTextColor: Tokens.foreground

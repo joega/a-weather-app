@@ -55,3 +55,9 @@ test-radar:
 	qmake6 tests/radarimages-test.pro -o .radar-test.mk
 	$(MAKE) -f .radar-test.mk
 	env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software GO_RADAR_FIXTURE="$(abspath .radar-test-build/service.test)" ./radarimages-test
+
+.PHONY: test-i18n
+test-i18n:
+	qmake6 tests/i18n-test.pro -o .i18n-test.mk
+	$(MAKE) -f .i18n-test.mk
+	env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_IM_MODULE=none ./i18n-test

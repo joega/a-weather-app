@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/locale"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
 )
@@ -95,6 +96,7 @@ func (a *App) beginFetch(selection M) {
 // Legacy set_location explicitly changes the primary city. The new add action
 // only browses it, except when replacing the unchosen default on first use.
 func (a *App) beginLocation(selection M, primary bool) {
+	a.cancelMetadata()
 	if a.closed || a.options.Offline {
 		return
 	}
@@ -130,7 +132,7 @@ func (a *App) beginPointFetch(p *forecastPoint, selection M, primary bool) {
 	}
 	p.resolving = selection["mode"] == "auto"
 	p.needsResolve = false
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(locale.WithLanguage(context.Background(), a.effectiveLanguage()))
 	p.fetchCancel = cancel
 	p.fetchBusy, p.locationBusy = selection == nil, selection != nil
 	p.nextFetch = a.options.Now().Add(weather.RefreshSeconds * time.Second)
@@ -239,7 +241,7 @@ func (a *App) runForecastWork(work *forecastWork) {
 	if err == nil && country == "US" && a.options.FetchAlerts != nil && a.options.FetchAlertMessages == nil && alertResults == nil {
 		forecast["alerts"] = weather.UnavailableAlerts()
 	}
-	c := completion{point: work.point, generation: work.generation, makePrimary: work.makePrimary, selection: work.selection, location: location, forecast: forecast, country: country, place: place, err: err, alertsPending: err == nil && alertResults != nil}
+	c := completion{language: locale.ContextLanguage(ctx), point: work.point, generation: work.generation, makePrimary: work.makePrimary, selection: work.selection, location: location, forecast: forecast, country: country, place: place, err: err, alertsPending: err == nil && alertResults != nil}
 	a.sendForecastCompletion(ctx, c)
 	if err == nil && alertResults != nil {
 		alerts := weather.UnavailableAlerts()
@@ -274,6 +276,7 @@ func (a *App) poll() {
 	defer a.pollPrecipitation()
 	defer a.pollAirOutlook()
 	a.pollSearch()
+	a.pollMetadata()
 	// Completions precede the done marker. Drain them first so a new request
 	// cannot reuse a consumer until its old publication has been considered.
 	for {
@@ -303,6 +306,13 @@ func (a *App) applyForecastCompletion(c completion) {
 	}
 	if a.closed || (p != a.forecastPoint && p != a.primary) || c.generation != p.generation {
 		return
+	}
+	if c.selection == nil && (c.country == p.country || c.alerts != nil) && samePlaceCoordinates(c.location, p.location) {
+		c.location = safeio.Clone(p.location)
+		if c.forecast != nil {
+			c.forecast = safeio.Clone(c.forecast)
+			c.forecast["location"] = safeio.Clone(p.location)
+		}
 	}
 	alertOnly := c.alerts != nil
 	if alertOnly {
@@ -409,6 +419,9 @@ func (a *App) applyForecastCompletion(c completion) {
 	}
 	if err != nil {
 		p.locationError = "save_unconfirmed"
+	}
+	if c.selection != nil && c.language != "" && c.language != a.effectiveLanguage() {
+		a.refreshMetadata()
 	}
 	a.signal()
 }

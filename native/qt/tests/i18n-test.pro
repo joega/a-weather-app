@@ -1,0 +1,9 @@
+QT += testlib qml
+CONFIG += console c++17 testcase
+TARGET = i18n-test
+SOURCES += i18n_test.cpp ../i18n.cpp
+HEADERS += ../i18n.h
+RESOURCES += ../resources.qrc
+OBJECTS_DIR = .i18n-test-build
+MOC_DIR = .i18n-test-build
+RCC_DIR = .i18n-test-build

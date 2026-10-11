@@ -7,33 +7,33 @@
 // airnow.gov/aqi/aqi-basics, airindex.eea.europa.eu/AQI/index.html.
 function category(value, scale) {
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1000)
-        return "Unavailable";
+        return qsTranslate("App", "Unavailable");
     const index = Math.round(value);
     if (scale === "us") {
         if (index <= 50)
-            return "Good";
+            return qsTranslate("App", "Good");
         if (index <= 100)
-            return "Moderate";
+            return qsTranslate("App", "Moderate");
         if (index <= 150)
-            return "Unhealthy for sensitive groups";
+            return qsTranslate("App", "Unhealthy for sensitive groups");
         if (index <= 200)
-            return "Unhealthy";
+            return qsTranslate("App", "Unhealthy");
         if (index <= 300)
-            return "Very unhealthy";
-        return "Hazardous";
+            return qsTranslate("App", "Very unhealthy");
+        return qsTranslate("App", "Hazardous");
     }
     if (scale === "eu") {
         if (index <= 20)
-            return "Good";
+            return qsTranslate("App", "Good");
         if (index <= 40)
-            return "Fair";
+            return qsTranslate("App", "Fair");
         if (index <= 60)
-            return "Moderate";
+            return qsTranslate("App", "Moderate");
         if (index <= 80)
-            return "Poor";
+            return qsTranslate("App", "Poor");
         if (index <= 100)
-            return "Very poor";
-        return "Extremely poor";
+            return qsTranslate("App", "Very poor");
+        return qsTranslate("App", "Extremely poor");
     }
-    return "Unavailable";
+    return qsTranslate("App", "Unavailable");
 }

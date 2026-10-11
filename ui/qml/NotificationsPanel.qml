@@ -8,9 +8,9 @@ import "Forecast.js" as Forecast
 ColumnLayout {
     id: root
     spacing: 14
-    property var notifications: Forecast.notifications()
-    property var officialWarnings: Forecast.warningNotifications()
-    property string primaryName: "Primary place"
+    property var notifications: (I18n.revision, Forecast.notifications())
+    property var officialWarnings: (I18n.revision, Forecast.warningNotifications())
+    property string primaryName: I18n.t("Primary place")
     property bool settingsVisible: true
     property string timezone: "UTC"
     property bool busy: false
@@ -18,17 +18,17 @@ ColumnLayout {
     property string actionError: ""
     readonly property var settings: notifications.settings
     readonly property bool locked: busy || !serviceAvailable
-    readonly property string statusText: !serviceAvailable ? "Watching unavailable · weather service disconnected" : ({
-            off: "Watching is off",
-            waiting: "Waiting for a fresh forecast",
-            watching: "Watching hourly precipitation outlooks",
-            quiet: "Quiet hours · notifications paused",
-            paused: "Watching is paused",
-            unavailable: "Watching unavailable · check the forecast directly"
+    readonly property string statusText: !serviceAvailable ? I18n.t("Watching unavailable · weather service disconnected") : ({
+            off: I18n.t("Watching is off"),
+            waiting: I18n.t("Waiting for a fresh forecast"),
+            watching: I18n.t("Watching hourly precipitation outlooks"),
+            quiet: I18n.t("Quiet hours · notifications paused"),
+            paused: I18n.t("Watching is paused"),
+            unavailable: I18n.t("Watching unavailable · check the forecast directly")
         })[notifications.state]
     readonly property var hours: Array.from({
         length: 24
-    }, (_, hour) => (hour % 12 || 12) + (hour < 12 ? " AM" : " PM"))
+    }, (_, hour) => (hour % 12 || 12) + (hour < 12 ? I18n.t(" AM") : I18n.t(" PM")))
     signal patch(var values)
     signal pauseRequested
     signal resumeRequested
@@ -42,7 +42,7 @@ ColumnLayout {
         return panel ? panel.focusNotice(reference) : false;
     }
     PlainLabel {
-        text: "Notifications"
+        text: I18n.t("Notifications")
         font.pixelSize: Tokens.fontSize(23)
         font.weight: Font.DemiBold
     }
@@ -50,7 +50,7 @@ ColumnLayout {
         objectName: "notificationActionError"
         visible: root.actionError !== ""
         Layout.fillWidth: true
-        text: root.actionError
+        text: I18n.t(root.actionError)
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(13)
@@ -59,7 +59,7 @@ ColumnLayout {
     PlainLabel {
         objectName: "notificationLifecycle"
         Layout.fillWidth: true
-        text: "Enabled notifications keep this app running when you close its window. Reopen it from the bar to change notification settings or quit. Saved opt-in resumes when you open the app again; nothing starts at login."
+        text: I18n.t("Enabled notifications keep this app running when you close its window. Reopen it from the bar to change notification settings or quit. Saved opt-in resumes when you open the app again; nothing starts at login.")
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(14)
@@ -89,14 +89,14 @@ ColumnLayout {
         color: Tokens.border
     }
     PlainLabel {
-        text: "Hourly precipitation"
+        text: I18n.t("Hourly precipitation")
         font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
     PlainLabel {
         objectName: "notificationPolicy"
         Layout.fillWidth: true
-        text: "Quiet precipitation outlooks for the current hour and next three hours. Uses fresh hourly probabilities, not minute-by-minute onset predictions. Desktop effects can stay off."
+        text: I18n.t("Quiet precipitation outlooks for the current hour and next three hours. Uses fresh hourly probabilities, not minute-by-minute onset predictions. Desktop effects can stay off.")
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(14)
@@ -105,8 +105,8 @@ ColumnLayout {
     ToggleControl {
         Layout.fillWidth: true
         testName: "notificationEnabled"
-        title: "Precipitation watching"
-        caption: root.settings.enabled ? "Keeps watching when the window is hidden." : "Off until you choose to enable it."
+        title: I18n.t("Precipitation watching")
+        caption: root.settings.enabled ? I18n.t("Keeps watching when the window is hidden.") : I18n.t("Off until you choose to enable it.")
         checked: root.settings.enabled
         locked: root.locked || (!root.settings.enabled && !root.notifications.supported)
         optimistic: false
@@ -127,7 +127,7 @@ ColumnLayout {
         objectName: "notificationUnsupported"
         visible: !root.notifications.supported
         Layout.fillWidth: true
-        text: "Desktop delivery is unavailable. Install the optional libnotify package, then reopen the app. The forecast remains available."
+        text: I18n.t("Desktop delivery is unavailable. Install the optional libnotify package, then reopen the app. The forecast remains available.")
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(13)
@@ -137,14 +137,14 @@ ColumnLayout {
         objectName: "notificationDeliveryFailure"
         visible: root.notifications.delivery === "failed"
         Layout.fillWidth: true
-        text: "The last delivery could not be confirmed. It will not be retried for the same forecast event, to avoid duplicates."
+        text: I18n.t("The last delivery could not be confirmed. It will not be retried for the same forecast event, to avoid duplicates.")
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
     }
     PlainLabel {
-        text: "Notify when hourly chance reaches"
+        text: I18n.t("Notify when hourly chance reaches")
         font.pixelSize: Tokens.fontSize(15)
     }
     ChoiceControl {
@@ -152,11 +152,11 @@ ColumnLayout {
         testName: "notificationProbability"
         choices: [
             {
-                label: "50% or higher",
+                label: I18n.t("50% or higher"),
                 value: 50
             },
             {
-                label: "70% or higher",
+                label: I18n.t("70% or higher"),
                 value: 70
             }
         ]
@@ -169,8 +169,8 @@ ColumnLayout {
     ToggleControl {
         Layout.fillWidth: true
         testName: "notificationQuiet"
-        title: "Quiet hours"
-        caption: "Uses the forecast location’s local time."
+        title: I18n.t("Quiet hours")
+        caption: I18n.t("Uses the forecast location’s local time.")
         checked: root.settings.quiet_enabled
         locked: root.locked
         optimistic: false
@@ -185,7 +185,7 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: 6
             PlainLabel {
-                text: "From"
+                text: I18n.t("From")
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
@@ -196,7 +196,7 @@ ColumnLayout {
                 model: root.hours
                 currentIndex: root.settings.quiet_start
                 enabled: !root.locked && root.settings.quiet_enabled
-                Accessible.name: "Quiet hours start"
+                Accessible.name: I18n.t("Quiet hours start")
                 onActivated: index => {
                     if (index !== root.settings.quiet_end)
                         root.patch({
@@ -231,7 +231,7 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: 6
             PlainLabel {
-                text: "Until"
+                text: I18n.t("Until")
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
@@ -242,7 +242,7 @@ ColumnLayout {
                 model: root.hours
                 currentIndex: root.settings.quiet_end
                 enabled: !root.locked && root.settings.quiet_enabled
-                Accessible.name: "Quiet hours end"
+                Accessible.name: I18n.t("Quiet hours end")
                 onActivated: index => {
                     if (index !== root.settings.quiet_start)
                         root.patch({
@@ -277,7 +277,7 @@ ColumnLayout {
     PlainLabel {
         objectName: "notificationTimezone"
         Layout.fillWidth: true
-        text: "Local time · " + root.timezone
+        text: I18n.t("Local time · %1").arg(root.timezone)
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(13)
@@ -289,7 +289,7 @@ ColumnLayout {
         ActionButton {
             objectName: "notificationPause"
             Layout.fillWidth: true
-            text: root.notifications.state === "paused" ? "Resume watching" : "Pause for 1 hour"
+            text: root.notifications.state === "paused" ? I18n.t("Resume watching") : I18n.t("Pause for 1 hour")
             enabled: !root.locked && root.settings.enabled
             onClicked: {
                 if (root.notifications.state === "paused")
@@ -301,7 +301,7 @@ ColumnLayout {
         ActionButton {
             objectName: "notificationStop"
             Layout.fillWidth: true
-            text: "Stop watching"
+            text: I18n.t("Stop watching")
             enabled: !root.locked && root.settings.enabled
             onClicked: root.patch({
                 enabled: false
@@ -310,7 +310,7 @@ ColumnLayout {
     }
     PlainLabel {
         Layout.fillWidth: true
-        text: "Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session."
+        text: I18n.t("Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session.")
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(13)
@@ -318,7 +318,7 @@ ColumnLayout {
     }
     ActionButton {
         objectName: "quitWeatherApp"
-        text: "Quit app"
+        text: I18n.t("Quit app")
         onClicked: root.quitRequested()
     }
 }

@@ -22,7 +22,7 @@ Popup {
     property string metric: "us_aqi"
     property string selectedTime: ""
     readonly property var hours: result ? result.hours : []
-    readonly property var info: AirOutlook.info(metric)
+    readonly property var info: (I18n.revision, AirOutlook.info(metric))
     readonly property int selectedIndex: Math.max(0, hours.findIndex(h => h.time === selectedTime))
     readonly property var hour: hours[selectedIndex] || null
     signal requested
@@ -79,7 +79,7 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Air quality outlook"
+                    text: I18n.t("Air quality outlook")
                     font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -88,7 +88,7 @@ Popup {
                     id: closeButton
                     objectName: "closeAirOutlook"
                     iconName: "close"
-                    accessibleLabel: "Close air quality outlook"
+                    accessibleLabel: I18n.t("Close air quality outlook")
                     onClicked: root.close()
                 }
             }
@@ -102,7 +102,7 @@ Popup {
             PlainLabel {
                 objectName: "airOutlookStatus"
                 Layout.fillWidth: true
-                text: root.error === "air_outlook_in_use" ? "Air quality outlook is open in another window." : root.error === "air_outlook_context_changed" ? "The place changed. Open its outlook again." : root.state === "loading" ? "Loading air quality outlook…" : root.state === "waiting" ? "Waiting before the next update…" : root.result && root.result.fetched_at ? (root.state === "stale" ? "Cached outlook · " : "Updated ") + root.result.fetched_label + (root.result.refreshing ? " · Refreshing…" : root.result.error === "fetch_failed" ? " · Refresh unavailable; retrying while open" : root.result.error === "offline" ? " · Offline" : "") : root.result && root.result.error === "offline" ? "No air quality outlook is saved for this place." : "Air quality outlook is unavailable."
+                text: root.error === "air_outlook_in_use" ? I18n.t("Air quality outlook is open in another window.") : root.error === "air_outlook_context_changed" ? I18n.t("The place changed. Open its outlook again.") : root.state === "loading" ? I18n.t("Loading air quality outlook…") : root.state === "waiting" ? I18n.t("Waiting before the next update…") : root.result && root.result.fetched_at ? (root.state === "stale" ? I18n.t("Cached outlook · ") : I18n.t("Updated ")) + (I18n.date(root.result.fetched_at, root.result.timezone, "long") || root.result.fetched_label) + (root.result.refreshing ? I18n.t(" · Refreshing…") : root.result.error === "fetch_failed" ? I18n.t(" · Refresh unavailable; retrying while open") : root.result.error === "offline" ? I18n.t(" · Offline") : "") : root.result && root.result.error === "offline" ? I18n.t("No air quality outlook is saved for this place.") : I18n.t("Air quality outlook is unavailable.")
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
@@ -111,13 +111,13 @@ Popup {
             ActionButton {
                 objectName: "retryAirOutlook"
                 visible: root.state === "unavailable"
-                text: "Try again"
+                text: I18n.t("Try again")
                 onClicked: root.requested()
             }
             SettingsComboBox {
                 objectName: "airOutlookMetric"
                 Layout.fillWidth: true
-                Accessible.name: "Air quality measure"
+                Accessible.name: I18n.t("Air quality measure")
                 model: AirOutlook.metrics
                 textRole: "title"
                 valueRole: "key"
@@ -138,14 +138,14 @@ Popup {
                 PlainLabel {
                     objectName: "airOutlookTime"
                     Layout.fillWidth: true
-                    text: root.hour ? root.hour.label : ""
+                    text: root.hour ? (I18n.date(root.hour.time, root.result.timezone, "long") || root.hour.label) : ""
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     objectName: "airOutlookValue"
                     Layout.fillWidth: true
-                    text: AirOutlook.format(root.hour ? root.hour[root.metric] : null, root.metric)
+                    text: (I18n.revision, AirOutlook.format(root.hour ? root.hour[root.metric] : null, root.metric))
                     font.pixelSize: Tokens.fontSize(30)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -154,28 +154,29 @@ Popup {
                     objectName: "airOutlookCategory"
                     Layout.fillWidth: true
                     visible: root.info.scale !== ""
-                    text: AirOutlook.category(root.hour ? root.hour[root.metric] : null, root.metric)
+                    text: (I18n.revision, AirOutlook.category(root.hour ? root.hour[root.metric] : null, root.metric))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Next 48 hours from the current hour" + (root.info.unit ? " · " + root.info.unit : "")
+                    text: I18n.t("Next 48 hours from the current hour%1").arg((root.info.unit ? " · " + root.info.unit : ""))
                     font.pixelSize: Tokens.fontSize(18)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 ForecastChart {
+                    timezone: root.result ? root.result.timezone : "UTC"
                     objectName: "airOutlookChart"
                     Layout.fillWidth: true
                     Layout.preferredHeight: 190
                     hours: root.hours
                     metric: root.metric
                     metricLabel: root.info.title
-                    chartScale: AirOutlook.scale(root.hours, root.metric)
-                    rangeDescription: AirOutlook.range(root.hours, root.metric)
-                    valueFormatter: value => AirOutlook.format(value, root.metric, false)
-                    accessibleValueFormatter: value => AirOutlook.format(value, root.metric) + (root.info.scale ? ", " + AirOutlook.category(value, root.metric) : "")
+                    chartScale: (I18n.revision, AirOutlook.scale(root.hours, root.metric))
+                    rangeDescription: (I18n.revision, AirOutlook.range(root.hours, root.metric))
+                    valueFormatter: value => (I18n.revision, AirOutlook.format(value, root.metric, false))
+                    accessibleValueFormatter: value => (I18n.revision, AirOutlook.format(value, root.metric)) + (root.info.scale ? ", " + (I18n.revision, AirOutlook.category(value, root.metric)) : "")
                     selectedIndex: root.selectedIndex
                     onSelected: index => root.selectHour(index)
                 }
@@ -183,7 +184,7 @@ Popup {
                     Layout.fillWidth: true
                     ActionButton {
                         objectName: "airOutlookPrevious"
-                        text: "Previous"
+                        text: I18n.t("Previous")
                         enabled: root.selectedIndex > 0
                         onClicked: root.selectHour(root.selectedIndex - 1)
                     }
@@ -192,12 +193,12 @@ Popup {
                     }
                     ActionButton {
                         objectName: "airOutlookNow"
-                        text: "Current hour"
+                        text: I18n.t("Current hour")
                         onClicked: root.selectHour(0)
                     }
                     ActionButton {
                         objectName: "airOutlookNext"
-                        text: "Next"
+                        text: I18n.t("Next")
                         enabled: root.selectedIndex < root.hours.length - 1
                         onClicked: root.selectHour(root.selectedIndex + 1)
                     }
@@ -205,14 +206,14 @@ Popup {
                 PlainLabel {
                     objectName: "airOutlookRange"
                     Layout.fillWidth: true
-                    text: AirOutlook.range(root.hours, root.metric)
+                    text: (I18n.revision, AirOutlook.range(root.hours, root.metric))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Modeled forecasts, not local station readings. CAMS global uses a roughly 45 km grid and native three-hourly output; Open-Meteo supplies hourly values. Retrieval time is not model issuance."
+                text: I18n.t("Modeled forecasts, not local station readings. CAMS global uses a roughly 45 km grid and native three-hourly output; Open-Meteo supplies hourly values. Retrieval time is not model issuance.")
                 font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -220,7 +221,7 @@ Popup {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "AQI averaging periods differ from these hourly concentrations. PM2.5 alone does not identify wildfire smoke. For health advice and local alerts, consult your air-quality authority."
+                text: I18n.t("AQI averaging periods differ from these hourly concentrations. PM2.5 alone does not identify wildfire smoke. For health advice and local alerts, consult your air-quality authority.")
                 font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -230,25 +231,25 @@ Popup {
                 Layout.fillWidth: true
                 columns: width < 500 ? 1 : 3
                 ActionButton {
-                    text: "US AQI guide"
-                    accessibleLabel: "US AQI guide, opens browser"
+                    text: I18n.t("US AQI guide")
+                    accessibleLabel: I18n.t("US AQI guide, opens browser")
                     onClicked: Qt.openUrlExternally("https://www.airnow.gov/aqi/aqi-basics/")
                 }
                 ActionButton {
-                    text: "European AQI guide"
-                    accessibleLabel: "European AQI guide, opens browser"
+                    text: I18n.t("European AQI guide")
+                    accessibleLabel: I18n.t("European AQI guide, opens browser")
                     onClicked: Qt.openUrlExternally("https://airindex.eea.europa.eu/AQI/index.html")
                 }
                 ActionButton {
-                    text: "Data source"
-                    accessibleLabel: "Air quality data source, opens browser"
+                    text: I18n.t("Data source")
+                    accessibleLabel: I18n.t("Air quality data source, opens browser")
                     onClicked: Qt.openUrlExternally("https://open-meteo.com/en/docs/air-quality-api")
                 }
             }
             PlainLabel {
                 objectName: "airOutlookSource"
                 Layout.fillWidth: true
-                text: "CAMS global model data via Open-Meteo (CC BY 4.0)" + (root.result && root.result.save_failed ? "\nThis outlook could not be saved for offline use." : "")
+                text: "CAMS global model data via Open-Meteo (CC BY 4.0)" + (root.result && root.result.save_failed ? I18n.t("\nThis outlook could not be saved for offline use.") : "")
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap

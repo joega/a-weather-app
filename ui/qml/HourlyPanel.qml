@@ -12,23 +12,23 @@ GlassPanel {
     property string timezone: "America/New_York"
     property string windUnits: "auto"
     property bool compact: false
-    property var values: Dashboard.defaults().hourly
+    property var values: (I18n.revision, Dashboard.defaults()).hourly
     readonly property bool hasExtraValues: values.some(key => key !== "temperature_c" && key !== "precipitation_probability")
     function valueText(hour, key) {
         if (key === "temperature_c" || key === "apparent_temperature_c")
-            return Forecast.temp(hour[key], units);
+            return (I18n.revision, Forecast.temp(hour[key], units));
         if (key === "wind_speed_m_s" || key === "wind_gust_m_s")
-            return Forecast.wind(hour[key], units, windUnits);
+            return (I18n.revision, Forecast.wind(hour[key], units, windUnits));
         if (key === "uv_index")
-            return Forecast.uv(hour[key]);
-        return Forecast.percent(hour[key]);
+            return (I18n.revision, Forecast.uv(hour[key]));
+        return (I18n.revision, Forecast.percent(hour[key]));
     }
     signal hourSelected(var hour)
     implicitHeight: root.hours.length === 0 ? 124 * Tokens.textScale : rail.y + rail.height + 36 * Tokens.textScale
     PlainLabel {
         x: 20
         y: 14
-        text: "Next 24 hours"
+        text: I18n.t("Next 24 hours")
         font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
@@ -36,7 +36,7 @@ GlassPanel {
         visible: root.hours.length === 0
         x: 20
         y: 64
-        text: "Hourly forecast unavailable"
+        text: I18n.t("Hourly forecast unavailable")
         color: Tokens.secondary
     }
     Flickable {
@@ -64,7 +64,7 @@ GlassPanel {
                     width: root.hasExtraValues ? Math.max(132 * Tokens.textScale, rail.width / 10) : Math.max(86 * Tokens.textScale, rail.width / 12)
                     height: implicitContentHeight + topPadding + bottomPadding
                     padding: root.compact ? 4 : 8
-                    Accessible.name: modelData.local_hour + ", " + Forecast.title(modelData.condition) + ", " + root.values.map(key => Dashboard.title(key) + " " + root.valueText(modelData, key)).join(", ") + ". Open details"
+                    Accessible.name: I18n.t("%1, %2, %3. Open details").arg((I18n.date(modelData.time, root.timezone, "hour") || modelData.local_hour)).arg((I18n.revision, Forecast.title(modelData.condition))).arg(root.values.map(key => (I18n.revision, Dashboard.title(key)) + " " + root.valueText(modelData, key)).join(", "))
                     onActiveFocusChanged: if (activeFocus) {
                         if (x < rail.contentX)
                             rail.contentX = x;
@@ -82,7 +82,7 @@ GlassPanel {
                         PlainLabel {
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
-                            text: hourButton.modelData.local_hour
+                            text: (I18n.date(hourButton.modelData.time, root.timezone, "hour") || hourButton.modelData.local_hour)
                             font.pixelSize: Tokens.fontSize(14)
                         }
                         WeatherIcon {
@@ -104,7 +104,7 @@ GlassPanel {
                                     visible: valueRow.modelData !== "temperature_c" && !valueRow.probability
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: Dashboard.title(valueRow.modelData)
+                                    text: (I18n.revision, Dashboard.title(valueRow.modelData))
                                     font.pixelSize: Tokens.fontSize(11)
                                     color: Tokens.secondary
                                 }
@@ -151,7 +151,7 @@ GlassPanel {
         visible: root.hours.length > 0
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 12
-        text: root.values.includes("precipitation_probability") ? "Precipitation chance · Select an hour for details" : "Select an hour for details"
+        text: root.values.includes("precipitation_probability") ? I18n.t("Precipitation chance · Select an hour for details") : I18n.t("Select an hour for details")
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }

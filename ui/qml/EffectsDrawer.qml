@@ -9,7 +9,7 @@ GlassPanel {
     id: root
     property string effectiveVisualQuality: "static"
     property bool presentationActive: true
-    property var appearance: Forecast.appearance()
+    property var appearance: (I18n.revision, Forecast.appearance())
     signal appearanceRequested(var values)
     property bool plannerAvailable: false
     property bool forecastChangesAvailable: false
@@ -35,7 +35,7 @@ GlassPanel {
             reduced_motion: false,
             pause_fullscreen: true
         })
-    property string location: "Location unavailable"
+    property string location: I18n.t("Location unavailable")
     property string primaryLocation: location
     property bool hasSavedLocations: false
     signal manageLocationsRequested
@@ -67,16 +67,16 @@ GlassPanel {
                 zip_code: zipInput.text
             });
     }
-    property string serviceStatus: "Unavailable"
-    property string rendererStatus: "Stopped"
+    property string serviceStatus: I18n.t("Unavailable")
+    property string rendererStatus: I18n.t("Stopped")
     property bool busy: false
     property bool canStart: false
     property bool forecastAvailable: false
     property bool serviceAvailable: true
     property bool effectsRunning: false
     property bool persistent: false
-    property var notifications: Forecast.notifications()
-    property var officialWarnings: Forecast.warningNotifications()
+    property var notifications: (I18n.revision, Forecast.notifications())
+    property var officialWarnings: (I18n.revision, Forecast.warningNotifications())
     property string timezone: "UTC"
     property var setup: ({
             status: "unchecked",
@@ -87,18 +87,18 @@ GlassPanel {
         })
     property string actionError: ""
     readonly property string compatibilityText: ({
-            not_checked: "Check this desktop before turning on effects.",
-            ready: "Compatibility checks passed for this desktop.",
-            wayland_required: "Desktop effects require a Hyprland Wayland session.",
-            session_unavailable: "The current Hyprland session could not be verified. Reopen the app from your desktop and check again.",
-            output_unavailable: "The selected monitor is no longer available. Check again to refresh the monitor list.",
-            output_selection_required: "Choose which monitor should show desktop effects. Other monitors stay available.",
-            unsupported_output: "Desktop effects require a physical, unrotated SDR monitor within the supported size limits. The forecast app remains available.",
-            plugin_conflict: "Another native Hyprland plugin is loaded. Effects require an otherwise empty native plugin list; no plugins will be removed by this check.",
-            native_missing: "Desktop effects components are missing. Update or reinstall A Weather App, then check again.",
-            native_incompatible: "Desktop effects do not match this Hyprland build or the compatibility check failed. Update A Weather App for a matching release. Forecasts remain available.",
-            activation_failed: "The desktop changed or effects could not start. Check compatibility again before retrying."
-        })[setup.reason] || "Desktop effects unavailable."
+            not_checked: I18n.t("Check this desktop before turning on effects."),
+            ready: I18n.t("Compatibility checks passed for this desktop."),
+            wayland_required: I18n.t("Desktop effects require a Hyprland Wayland session."),
+            session_unavailable: I18n.t("The current Hyprland session could not be verified. Reopen the app from your desktop and check again."),
+            output_unavailable: I18n.t("The selected monitor is no longer available. Check again to refresh the monitor list."),
+            output_selection_required: I18n.t("Choose which monitor should show desktop effects. Other monitors stay available."),
+            unsupported_output: I18n.t("Desktop effects require a physical, unrotated SDR monitor within the supported size limits. The forecast app remains available."),
+            plugin_conflict: I18n.t("Another native Hyprland plugin is loaded. Effects require an otherwise empty native plugin list; no plugins will be removed by this check."),
+            native_missing: I18n.t("Desktop effects components are missing. Update or reinstall A Weather App, then check again."),
+            native_incompatible: I18n.t("Desktop effects do not match this Hyprland build or the compatibility check failed. Update A Weather App for a matching release. Forecasts remain available."),
+            activation_failed: I18n.t("The desktop changed or effects could not start. Check compatibility again before retrying.")
+        })[setup.reason] || I18n.t("Desktop effects unavailable.")
     function revealFocus(item) {
         let ancestor = item;
         while (ancestor && ancestor !== body)
@@ -129,7 +129,7 @@ GlassPanel {
     signal warningResumeRequested
     signal warningDetailRequested(var reference)
     property string launcherStatus: "ready"
-    property var updateStatus: Forecast.updateStatus(null)
+    property var updateStatus: (I18n.revision, Forecast.updateStatus(null))
     signal checkUpdatesRequested
     signal installUpdateRequested
     signal installLauncherRequested
@@ -172,11 +172,11 @@ GlassPanel {
                 Layout.fillWidth: true
                 spacing: 5
                 PlainLabel {
-                    text: "Settings"
+                    text: I18n.t("Settings")
                     font.pixelSize: Tokens.fontSize(32)
                 }
                 PlainLabel {
-                    text: "Location, notifications and desktop effects"
+                    text: I18n.t("Location, notifications and desktop effects")
                     color: Tokens.secondary
                     font.pixelSize: Tokens.fontSize(14)
                 }
@@ -184,7 +184,7 @@ GlassPanel {
             ActionButton {
                 objectName: "closeEffects"
                 iconName: "close"
-                accessibleLabel: "Close settings"
+                accessibleLabel: I18n.t("Close settings")
                 onClicked: root.closeRequested()
             }
         }
@@ -194,44 +194,44 @@ GlassPanel {
             spacing: 6
             ActionButton {
                 objectName: "settingsApplicationSection"
-                text: "Application"
+                text: I18n.t("Application")
                 selected: root.activeSection === applicationSection
                 onClicked: root.showSection(applicationSection)
             }
             ActionButton {
                 objectName: "settingsLocationSection"
-                text: "Location"
+                text: I18n.t("Location")
                 selected: root.activeSection === locationSection
                 onClicked: root.showSection(locationSection)
             }
             ActionButton {
                 id: notificationsButton
                 objectName: "settingsNotificationsSection"
-                text: "Notifications"
+                text: I18n.t("Notifications")
                 selected: root.activeSection === notificationsSection
                 onClicked: root.showSection(notificationsSection)
             }
             ActionButton {
                 objectName: "settingsEffectsSection"
-                text: "Effects"
+                text: I18n.t("Effects")
                 selected: root.activeSection === effectsSection
                 onClicked: root.showSection(effectsSection)
             }
             ActionButton {
                 objectName: "settingsPreviewSection"
-                text: "Preview"
+                text: I18n.t("Preview")
                 selected: root.activeSection === previewSection
                 onClicked: root.showSection(previewSection)
             }
             ActionButton {
                 objectName: "settingsAppearanceSection"
-                text: "Appearance"
+                text: I18n.t("Appearance")
                 selected: root.activeSection === appearanceSection
                 onClicked: root.showSection(appearanceSection)
             }
             ActionButton {
                 objectName: "settingsExperimentalSection"
-                text: "Experimental"
+                text: I18n.t("Experimental")
                 selected: root.activeSection === experimentalSection
                 onClicked: root.showSection(experimentalSection)
             }
@@ -259,9 +259,25 @@ GlassPanel {
             spacing: 16
             PlainLabel {
                 id: applicationSection
-                text: "Application"
+                text: I18n.t("Application")
                 font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
+            }
+            PlainLabel {
+                text: I18n.t("Language")
+                font.pixelSize: Tokens.fontSize(19)
+                font.weight: Font.DemiBold
+            }
+            SettingsComboBox {
+                objectName: "languageChoice"
+                Layout.fillWidth: true
+                model: I18n.languages
+                textRole: "name"
+                valueRole: "code"
+                currentIndex: Math.max(0, I18n.languages.findIndex(entry => entry.code === I18n.preference))
+                Accessible.name: I18n.t("Interface language")
+                Accessible.description: I18n.t("System / Automatic follows your system language preferences.")
+                onActivated: index => I18n.setPreference(I18n.languages[index].code)
             }
             UpdatePanel {
                 Layout.fillWidth: true
@@ -271,13 +287,13 @@ GlassPanel {
                 onInstallRequested: root.installUpdateRequested()
             }
             PlainLabel {
-                text: "Application launcher"
+                text: I18n.t("Application launcher")
                 font.pixelSize: Tokens.fontSize(19)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Add A Weather App and its icon to your application menu. This opens the same app without using the bar widget."
+                text: I18n.t("Add A Weather App and its icon to your application menu. This opens the same app without using the bar widget.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(14)
@@ -285,7 +301,7 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "installLauncher"
-                text: root.launcherStatus === "installed" ? "Launcher installed" : "Install application launcher"
+                text: root.launcherStatus === "installed" ? I18n.t("Launcher installed") : I18n.t("Install application launcher")
                 enabled: root.serviceAvailable && !root.busy && root.launcherStatus !== "installed"
                 onClicked: root.installLauncherRequested()
             }
@@ -293,11 +309,11 @@ GlassPanel {
                 objectName: "launcherStatus"
                 Layout.fillWidth: true
                 text: ({
-                        ready: "Installed for your user only. Keep this app in its current location.",
-                        installed: "Ready. Reopen your application menu and search for A Weather App.",
-                        conflict: "An existing launcher or icon differs. Nothing was overwritten. See the README launcher instructions to resolve it.",
-                        unsupported_path: "Move the app to a path without quotes, backslashes, dollar signs, percent signs, equals signs or backticks, then try again.",
-                        failed: "Could not install the launcher. Check your user application directory permissions and try again."
+                        ready: I18n.t("Installed for your user only. Keep this app in its current location."),
+                        installed: I18n.t("Ready. Reopen your application menu and search for A Weather App."),
+                        conflict: I18n.t("An existing launcher or icon differs. Nothing was overwritten. See the README launcher instructions to resolve it."),
+                        unsupported_path: I18n.t("Move the app to a path without quotes, backslashes, dollar signs, percent signs, equals signs or backticks, then try again."),
+                        failed: I18n.t("Could not install the launcher. Check your user application directory permissions and try again.")
                     })[root.launcherStatus]
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -313,7 +329,7 @@ GlassPanel {
                 id: locationSection
                 Layout.fillWidth: true
                 PlainLabel {
-                    text: "Location"
+                    text: I18n.t("Location")
                     font.pixelSize: Tokens.fontSize(23)
                     font.weight: Font.DemiBold
                 }
@@ -321,13 +337,13 @@ GlassPanel {
             PlainLabel {
                 objectName: "settingsLocation"
                 Layout.fillWidth: true
-                text: "Viewing · " + root.location
+                text: I18n.t("Viewing · %1").arg(root.location)
                 font.pixelSize: Tokens.fontSize(18)
             }
             PlainLabel {
                 Layout.fillWidth: true
                 visible: root.hasSavedLocations
-                text: "Home · " + root.primaryLocation
+                text: I18n.t("Home · %1").arg(root.primaryLocation)
                 color: Tokens.accent
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -335,14 +351,14 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "manageSavedLocations"
-                text: "Manage saved locations"
+                text: I18n.t("Manage saved locations")
                 visible: root.hasSavedLocations
                 onClicked: root.manageLocationsRequested()
             }
             PlainLabel {
                 Layout.fillWidth: true
                 visible: root.hasSavedLocations
-                text: "Search below to add and view a city. Choose Home in the locations list."
+                text: I18n.t("Search below to add and view a city. Choose Home in the locations list.")
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -351,7 +367,7 @@ GlassPanel {
             PlainLabel {
                 objectName: "locationMode"
                 Layout.fillWidth: true
-                text: root.locationSettings.mode === "zip" ? "ZIP code · " + root.locationSettings.zip_code : root.locationSettings.mode === "place" ? "Selected city · " + (root.locationSettings.country_code || "Country unavailable") : root.locationSettings.mode === "auto" ? "Local location" : root.locationSettings.mode === "custom" ? "Custom location" : "New York is the fallback. Use your current location, search for a city, or enter a ZIP code."
+                text: root.locationSettings.mode === "zip" ? I18n.t("ZIP code · %1").arg(root.locationSettings.zip_code) : root.locationSettings.mode === "place" ? I18n.t("Selected city · %1").arg((root.locationSettings.country_code || I18n.t("Country unavailable"))) : root.locationSettings.mode === "auto" ? I18n.t("Local location") : root.locationSettings.mode === "custom" ? I18n.t("Custom location") : I18n.t("New York is the fallback. Use your current location, search for a city, or enter a ZIP code.")
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -361,7 +377,7 @@ GlassPanel {
                 id: citySearch
                 Layout.fillWidth: true
                 search: root.placeSearch
-                selectionHint: root.hasSavedLocations ? "Choose a result to add and view it. Home stays the same." : "Optional country code, such as DE or BR. Choose a result to change location."
+                selectionHint: root.hasSavedLocations ? I18n.t("Choose a result to add and view it. Home stays the same.") : I18n.t("Optional country code, such as DE or BR. Choose a result to change location.")
                 serviceAvailable: root.serviceAvailable
                 locationBusy: root.locationLocked
                 onSearchRequested: values => root.placeSearchRequested(values)
@@ -369,7 +385,7 @@ GlassPanel {
                 onLocationRequested: values => root.locationRequested(values)
             }
             PlainLabel {
-                text: "5-digit US ZIP code"
+                text: I18n.t("5-digit US ZIP code")
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
@@ -383,7 +399,7 @@ GlassPanel {
                     validator: RegularExpressionValidator {
                         regularExpression: /[0-9]{5}/
                     }
-                    Accessible.name: "US ZIP code"
+                    Accessible.name: I18n.t("US ZIP code")
                     enabled: !root.locationLocked
                     inputMethodHints: Qt.ImhDigitsOnly
                     color: Tokens.foreground
@@ -399,7 +415,7 @@ GlassPanel {
                 }
                 ActionButton {
                     objectName: "applyLocationZip"
-                    text: root.hasSavedLocations ? "Add ZIP" : "Apply"
+                    text: root.hasSavedLocations ? I18n.t("Add ZIP") : I18n.t("Apply")
                     primary: true
                     enabled: !root.locationLocked && /^[0-9]{5}$/.test(zipInput.text)
                     onClicked: root.applyZip()
@@ -407,7 +423,7 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "useLocalLocation"
-                text: "Use local location"
+                text: I18n.t("Use local location")
                 primary: root.locationSettings.mode === "default"
                 enabled: !root.locationLocked
                 onClicked: root.locationRequested({
@@ -416,7 +432,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy."
+                text: I18n.t("Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(13)
@@ -426,15 +442,15 @@ GlassPanel {
                 objectName: "locationStatus"
                 Layout.fillWidth: true
                 visible: root.locationSettings.busy || root.locationSettings.error !== null
-                text: root.locationSettings.busy ? "Finding location and loading forecast…" : ({
-                        lookup_failed: "Location lookup failed. Try again.",
-                        zip_not_found: "ZIP code not found. Check the code and try again.",
-                        zip_ambiguous: "This ZIP code matches more than one location. Try another code.",
-                        place_not_found: "Selected city is no longer available. Search again.",
-                        stale_selection: "Search result expired. Search again.",
-                        timeout: "Location lookup timed out. Try again.",
-                        state_io_failed: "Location could not be saved. Try again.",
-                        save_unconfirmed: "Location changed, but saving could not be confirmed. Try again."
+                text: root.locationSettings.busy ? I18n.t("Finding location and loading forecast…") : ({
+                        lookup_failed: I18n.t("Location lookup failed. Try again."),
+                        zip_not_found: I18n.t("ZIP code not found. Check the code and try again."),
+                        zip_ambiguous: I18n.t("This ZIP code matches more than one location. Try another code."),
+                        place_not_found: I18n.t("Selected city is no longer available. Search again."),
+                        stale_selection: I18n.t("Search result expired. Search again."),
+                        timeout: I18n.t("Location lookup timed out. Try again."),
+                        state_io_failed: I18n.t("Location could not be saved. Try again."),
+                        save_unconfirmed: I18n.t("Location changed, but saving could not be confirmed. Try again.")
                     })[root.locationSettings.error] || ""
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -447,7 +463,7 @@ GlassPanel {
                 color: Tokens.border
             }
             PlainLabel {
-                text: "Measurement units"
+                text: I18n.t("Measurement units")
                 font.pixelSize: Tokens.fontSize(18)
             }
             UnitsChoice {
@@ -461,14 +477,14 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Auto follows the location. Manual units apply throughout the app and are saved."
+                text: I18n.t("Auto follows the location. Manual units apply throughout the app and are saved.")
                 font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
             }
             PlainLabel {
-                text: "Wind speed units"
+                text: I18n.t("Wind speed units")
                 font.pixelSize: Tokens.fontSize(18)
             }
             SettingsComboBox {
@@ -476,23 +492,23 @@ GlassPanel {
                 Layout.fillWidth: true
                 model: [
                     {
-                        label: "Auto (mph with °F, km/h with °C)",
+                        label: I18n.t("Auto (mph with °F, km/h with °C)"),
                         value: "auto"
                     },
                     {
-                        label: "Miles per hour (mph)",
+                        label: I18n.t("Miles per hour (mph)"),
                         value: "mph"
                     },
                     {
-                        label: "Kilometres per hour (km/h)",
+                        label: I18n.t("Kilometres per hour (km/h)"),
                         value: "km/h"
                     },
                     {
-                        label: "Metres per second (m/s)",
+                        label: I18n.t("Metres per second (m/s)"),
                         value: "m/s"
                     },
                     {
-                        label: "Knots (kn)",
+                        label: I18n.t("Knots (kn)"),
                         value: "kn"
                     }
                 ]
@@ -503,7 +519,7 @@ GlassPanel {
                 onActivated: root.patch({
                     wind_units: currentValue
                 })
-                Accessible.name: "Wind speed units"
+                Accessible.name: I18n.t("Wind speed units")
             }
             Rectangle {
                 Layout.fillWidth: true
@@ -537,13 +553,13 @@ GlassPanel {
             }
             PlainLabel {
                 id: effectsSection
-                text: "Desktop effects"
+                text: I18n.t("Desktop effects")
                 font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Optional and off until you start them. The forecast app works without desktop effects."
+                text: I18n.t("Optional and off until you start them. The forecast app works without desktop effects.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
@@ -560,20 +576,20 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "checkEffects"
-                text: root.setup.status === "unchecked" ? "Check compatibility" : "Check again"
+                text: root.setup.status === "unchecked" ? I18n.t("Check compatibility") : I18n.t("Check again")
                 enabled: root.serviceAvailable && !root.busy && !root.effectsRunning
                 onClicked: root.checkRequested()
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Checks the current Hyprland session, monitor and native components without starting effects. Activation checks them again."
+                text: I18n.t("Checks the current Hyprland session, monitor and native components without starting effects. Activation checks them again.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(13)
             }
             PlainLabel {
-                text: "Monitor"
+                text: I18n.t("Monitor")
                 font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
@@ -582,10 +598,10 @@ GlassPanel {
                 objectName: "effectsMonitor"
                 Layout.fillWidth: true
                 enabled: !root.busy && !root.effectsRunning && root.serviceAvailable
-                model: ["Automatic · app's monitor"].concat(root.setup.outputs.map(row => row.name + " · " + Math.round(row.width) + " × " + Math.round(row.height) + (row.enabled ? "" : " · Disabled")))
+                model: [I18n.t("Automatic · app's monitor")].concat(root.setup.outputs.map(row => row.name + " · " + Math.round(row.width) + " × " + Math.round(row.height) + (row.enabled ? "" : I18n.t(" · Disabled"))))
                 currentIndex: root.setup.output_selection === "automatic" ? 0 : root.setup.selected_output === null ? -1 : root.setup.outputs.findIndex(row => row.name === root.setup.selected_output) + 1
-                displayText: currentIndex < 0 ? "Choose a monitor" : currentText
-                Accessible.name: "Desktop effects monitor"
+                displayText: currentIndex < 0 ? I18n.t("Choose a monitor") : currentText
+                Accessible.name: I18n.t("Desktop effects monitor")
                 onActivated: index => {
                     if (index === 0)
                         root.outputRequested("");
@@ -595,7 +611,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Desktop renderer · " + root.rendererStatus
+                text: I18n.t("Desktop renderer · %1").arg(root.rendererStatus)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
@@ -607,7 +623,7 @@ GlassPanel {
                     objectName: "startPreview"
                     Layout.fillWidth: true
                     iconName: "play"
-                    text: "Start 5-minute preview"
+                    text: I18n.t("Start 5-minute preview")
                     primary: true
                     enabled: root.canStart && !root.busy && !root.effectsRunning
                     onClicked: root.startRequested()
@@ -615,14 +631,14 @@ GlassPanel {
                 ActionButton {
                     objectName: "stopEffects"
                     iconName: "stop"
-                    text: "Stop"
+                    text: I18n.t("Stop")
                     enabled: root.serviceAvailable && root.effectsRunning
                     onClicked: root.stopRequested()
                 }
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: !root.serviceAvailable ? "Weather service unavailable. Close and reopen to reconnect." : root.persistent ? "Live desktop stays on when you close the window. Use Stop or the Live desktop button to turn it off." : !root.forecastAvailable ? "Choose a location and load its forecast to enable desktop effects." : "Previews stop after five minutes. Live desktop in the header keeps live weather on until you stop it."
+                text: !root.serviceAvailable ? I18n.t("Weather service unavailable. Close and reopen to reconnect.") : root.persistent ? I18n.t("Live desktop stays on when you close the window. Use Stop or the Live desktop button to turn it off.") : !root.forecastAvailable ? I18n.t("Choose a location and load its forecast to enable desktop effects.") : I18n.t("Previews stop after five minutes. Live desktop in the header keeps live weather on until you stop it.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
@@ -632,7 +648,7 @@ GlassPanel {
                 objectName: "effectsActionError"
                 visible: root.actionError !== ""
                 Layout.fillWidth: true
-                text: root.actionError
+                text: I18n.t(root.actionError)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.accent
@@ -645,12 +661,12 @@ GlassPanel {
             }
             PlainLabel {
                 id: previewSection
-                text: "Preview"
+                text: I18n.t("Preview")
                 font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
-                text: "Weather source"
+                text: I18n.t("Weather source")
                 font.pixelSize: Tokens.fontSize(16)
             }
             ChoiceControl {
@@ -658,11 +674,11 @@ GlassPanel {
                 testName: "weatherSource"
                 choices: [
                     {
-                        label: "Live",
+                        label: I18n.t("Live"),
                         value: "live"
                     },
                     {
-                        label: "Manual",
+                        label: I18n.t("Manual"),
                         value: "manual"
                     }
                 ]
@@ -673,7 +689,7 @@ GlassPanel {
                     })
             }
             PlainLabel {
-                text: "Preview condition"
+                text: I18n.t("Preview condition")
                 font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
@@ -681,10 +697,10 @@ GlassPanel {
                 objectName: "previewCondition"
                 Layout.fillWidth: true
                 enabled: root.controls.mode === "manual" && !root.busy && !root.persistent
-                model: ["Clear", "Partly cloudy", "Cloudy", "Fog", "Drizzle", "Rain", "Snow", "Sleet", "Thunderstorm"]
+                model: [I18n.t("Clear"), I18n.t("Partly cloudy"), I18n.t("Cloudy"), I18n.t("Fog"), I18n.t("Drizzle"), I18n.t("Rain"), I18n.t("Snow"), I18n.t("Sleet"), I18n.t("Thunderstorm")]
                 property var values: ["clear", "partly_cloudy", "cloudy", "fog", "drizzle", "rain", "snow", "sleet", "thunderstorm"]
                 currentIndex: Math.max(0, values.indexOf(root.controls.manual.condition))
-                Accessible.name: "Preview condition"
+                Accessible.name: I18n.t("Preview condition")
                 onActivated: index => root.patch({
                         manual: {
                             condition: values[index]
@@ -693,7 +709,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Manual previews do not change the live forecast. Live desktop follows the location you are viewing."
+                text: I18n.t("Manual previews do not change the live forecast. Live desktop follows the location you are viewing.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(13)
@@ -706,33 +722,33 @@ GlassPanel {
             }
             PlainLabel {
                 id: appearanceSection
-                text: "Appearance"
+                text: I18n.t("Appearance")
                 font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             ActionButton {
                 objectName: "openDashboardEditor"
-                text: "Customize dashboard"
+                text: I18n.t("Customize dashboard")
                 enabled: root.dashboardAvailable
                 onClicked: root.dashboardRequested()
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Choose sections, their order, and the values shown in your forecast."
+                text: I18n.t("Choose sections, their order, and the values shown in your forecast.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             PlainLabel {
-                text: "Text size"
+                text: I18n.t("Text size")
                 font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
                 objectName: "textSizePreference"
                 Layout.fillWidth: true
-                Accessible.name: "Text size"
-                model: ["Standard · 100%", "Large · 125%", "Larger · 150%"]
+                Accessible.name: I18n.t("Text size")
+                model: [I18n.t("Standard · 100%"), I18n.t("Large · 125%"), I18n.t("Larger · 150%")]
                 currentIndex: [1, 1.25, 1.5].indexOf(root.appearance.text_scale)
                 enabled: root.serviceAvailable && !root.busy
                 onActivated: index => {
@@ -745,8 +761,8 @@ GlassPanel {
             ToggleControl {
                 Layout.fillWidth: true
                 testName: "highContrastPreference"
-                title: "High contrast"
-                caption: "Solid panels and stronger text and borders."
+                title: I18n.t("High contrast")
+                caption: I18n.t("Solid panels and stronger text and borders.")
                 checked: root.appearance.high_contrast
                 locked: !root.serviceAvailable || root.busy
                 optimistic: false
@@ -757,13 +773,13 @@ GlassPanel {
             PlainLabel {
                 Layout.fillWidth: true
                 visible: root.appearance.error !== null
-                text: root.appearance.error === "save_unconfirmed" ? "Readability changed, but saving was not confirmed. Choose the setting again to retry." : "Saved readability preferences could not be read. Defaults are shown; choosing a setting saves them again."
+                text: root.appearance.error === "save_unconfirmed" ? I18n.t("Readability changed, but saving was not confirmed. Choose the setting again to retry.") : I18n.t("Saved readability preferences could not be read. Defaults are shown; choosing a setting saves them again.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.accent
             }
             PlainLabel {
-                text: "Intensity"
+                text: I18n.t("Intensity")
                 font.pixelSize: Tokens.fontSize(16)
             }
             ChoiceControl {
@@ -771,15 +787,15 @@ GlassPanel {
                 testName: "intensity"
                 choices: [
                     {
-                        label: "Subtle",
+                        label: I18n.t("Subtle"),
                         value: "subtle"
                     },
                     {
-                        label: "Normal",
+                        label: I18n.t("Normal"),
                         value: "normal"
                     },
                     {
-                        label: "Immersive",
+                        label: I18n.t("Immersive"),
                         value: "immersive"
                     }
                 ]
@@ -790,7 +806,7 @@ GlassPanel {
                     })
             }
             PlainLabel {
-                text: "Frame rate"
+                text: I18n.t("Frame rate")
                 font.pixelSize: Tokens.fontSize(16)
             }
             ChoiceControl {
@@ -798,15 +814,15 @@ GlassPanel {
                 testName: "fps"
                 choices: [
                     {
-                        label: "15 FPS",
+                        label: I18n.t("15 FPS"),
                         value: 15
                     },
                     {
-                        label: "30 FPS",
+                        label: I18n.t("30 FPS"),
                         value: 30
                     },
                     {
-                        label: "60 FPS",
+                        label: I18n.t("60 FPS"),
                         value: 60
                     }
                 ]
@@ -819,8 +835,8 @@ GlassPanel {
             ToggleControl {
                 Layout.fillWidth: true
                 testName: "windowPhysics"
-                title: "Window physics"
-                caption: "Precipitation collides with window edges."
+                title: I18n.t("Window physics")
+                caption: I18n.t("Precipitation collides with window edges.")
                 checked: root.controls.window_physics
                 locked: root.busy
                 onToggled: v => root.patch({
@@ -830,8 +846,8 @@ GlassPanel {
             ToggleControl {
                 Layout.fillWidth: true
                 testName: "accumulation"
-                title: "Accumulation"
-                caption: "Subtle wetness and buildup on surfaces."
+                title: I18n.t("Accumulation")
+                caption: I18n.t("Subtle wetness and buildup on surfaces.")
                 checked: root.controls.accumulation
                 locked: root.busy
                 onToggled: v => root.patch({
@@ -841,8 +857,8 @@ GlassPanel {
             ToggleControl {
                 Layout.fillWidth: true
                 testName: "lightning"
-                title: "Lightning flashes"
-                caption: "Off by default."
+                title: I18n.t("Lightning flashes")
+                caption: I18n.t("Off by default.")
                 checked: root.controls.lightning_enabled
                 locked: root.busy
                 onToggled: v => root.patch({
@@ -851,13 +867,13 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Window visual quality"
+                text: I18n.t("Window visual quality")
                 font.pixelSize: Tokens.fontSize(16)
             }
             SettingsComboBox {
                 objectName: "visualQualityChoice"
                 Layout.fillWidth: true
-                model: ["Auto", "Full", "Economical", "Static"]
+                model: [I18n.t("Auto"), I18n.t("Full"), I18n.t("Economical"), I18n.t("Static")]
                 currentIndex: Math.max(0, ["auto", "full", "economical", "static"].indexOf(root.controls.visual_quality || "auto"))
                 enabled: !root.busy
                 onActivated: index => root.patch({
@@ -866,7 +882,7 @@ GlassPanel {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Current mode: " + root.effectiveVisualQuality.charAt(0).toUpperCase() + root.effectiveVisualQuality.slice(1) + ". Auto uses full visuals on supported hardware and a static sky and wind on software graphics. Economical reduces animation cadence and wind trail density. Unsupported graphics always use Static. Reduced motion always takes priority."
+                text: I18n.t("Current mode: %1%2. Auto uses full visuals on supported hardware and a static sky and wind on software graphics. Economical reduces animation cadence and wind trail density. Unsupported graphics always use Static. Reduced motion always takes priority.").arg(root.effectiveVisualQuality.charAt(0).toUpperCase()).arg(root.effectiveVisualQuality.slice(1))
                 wrapMode: Text.Wrap
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(12)
@@ -874,8 +890,8 @@ GlassPanel {
             ToggleControl {
                 Layout.fillWidth: true
                 testName: "reducedMotion"
-                title: "Reduced motion"
-                caption: "Stops precipitation and freezes the sky."
+                title: I18n.t("Reduced motion")
+                caption: I18n.t("Stops precipitation and freezes the sky.")
                 checked: root.controls.reduced_motion
                 locked: root.busy
                 onToggled: v => root.patch({
@@ -885,20 +901,20 @@ GlassPanel {
             ToggleControl {
                 Layout.fillWidth: true
                 testName: "pauseFullscreen"
-                title: "Pause in fullscreen"
-                caption: "Safety pause is always enabled for fullscreen applications."
+                title: I18n.t("Pause in fullscreen")
+                caption: I18n.t("Safety pause is always enabled for fullscreen applications.")
                 checked: true
                 locked: true
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Weather service · " + root.serviceStatus
+                text: I18n.t("Weather service · %1").arg(root.serviceStatus)
                 color: Tokens.accent
                 font.pixelSize: Tokens.fontSize(14)
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Sky follows the current forecast. Effects use the selected weather source."
+                text: I18n.t("Sky follows the current forecast. Effects use the selected weather source.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 color: Tokens.secondary
@@ -912,32 +928,32 @@ GlassPanel {
             PlainLabel {
                 id: experimentalSection
                 objectName: "experimentalSection"
-                text: "Experimental"
+                text: I18n.t("Experimental")
                 font.pixelSize: Tokens.fontSize(23)
                 font.weight: Font.DemiBold
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Features in development, available here to try as we refine them."
+                text: I18n.t("Features in development, available here to try as we refine them.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
             }
             PlainLabel {
-                text: "Forecast tools"
+                text: I18n.t("Forecast tools")
                 font.pixelSize: Tokens.fontSize(19)
                 font.weight: Font.DemiBold
             }
             ActionButton {
                 objectName: "openOutdoorPlanner"
-                text: "Outdoor planner"
+                text: I18n.t("Outdoor planner")
                 enabled: root.plannerAvailable
                 onClicked: root.outdoorRequested()
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Compare outdoor windows using your temperature, rain and wind preferences."
+                text: I18n.t("Compare outdoor windows using your temperature, rain and wind preferences.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(14)
@@ -945,13 +961,13 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "openForecastChanges"
-                text: "Forecast changes"
+                text: I18n.t("Forecast changes")
                 enabled: root.forecastChangesAvailable
                 onClicked: root.forecastChangesRequested()
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Compare the latest forecast with the one you previously viewed."
+                text: I18n.t("Compare the latest forecast with the one you previously viewed.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(14)
@@ -959,14 +975,14 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "openForecastShare"
-                text: "Share forecast"
+                text: I18n.t("Share forecast")
                 iconName: "share"
                 enabled: root.shareAvailable
                 onClicked: root.shareRequested()
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Copy a forecast summary or save an image."
+                text: I18n.t("Copy a forecast summary or save an image.")
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 font.pixelSize: Tokens.fontSize(14)

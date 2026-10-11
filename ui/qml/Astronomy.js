@@ -82,28 +82,31 @@ function result(v, q) {
 }
 function duration(seconds) {
     const minutes = Math.max(0, Math.round(seconds / 60));
-    return minutes < 60 ? minutes + "m" : Math.floor(minutes / 60) + "h " + (minutes % 60) + "m";
+    return minutes < 60 ? qsTranslate("App", "%1m").arg(minutes) : qsTranslate("App", "%1h %2m").arg(Math.floor(minutes / 60)).arg(minutes % 60);
 }
 function remaining(v, now) {
     return v.daylight.reduce((sum, s) => sum + Math.max(0, Date.parse(s.end) - Math.max(now, Date.parse(s.start))), 0) / 1000;
 }
 function phaseName(v) {
     if (v < 0.01 || v > 0.99)
-        return "Near new moon";
+        return qsTranslate("App", "Near new moon");
     if (Math.abs(v - 0.25) < 0.01)
-        return "Near first quarter";
+        return qsTranslate("App", "Near first quarter");
     if (Math.abs(v - 0.5) < 0.01)
-        return "Near full moon";
+        return qsTranslate("App", "Near full moon");
     if (Math.abs(v - 0.75) < 0.01)
-        return "Near last quarter";
-    return v < 0.25 ? "Waxing crescent" : v < 0.5 ? "Waxing gibbous" : v < 0.75 ? "Waning gibbous" : "Waning crescent";
+        return qsTranslate("App", "Near last quarter");
+    return v < 0.25 ? qsTranslate("App", "Waxing crescent") : v < 0.5 ? qsTranslate("App", "Waxing gibbous") : v < 0.75 ? qsTranslate("App", "Waning gibbous") : qsTranslate("App", "Waning crescent");
 }
 function events(rows, rise, set) {
-    return rows.length ? rows.map(e => (e.kind === "rise" ? rise : set) + " " + e.label).join(" · ") : "No crossings on this date";
+    return rows.length ? rows.map(e => (e.kind === "rise" ? rise : set) + " " + e.label).join(" · ") : qsTranslate("App", "No crossings on this date");
 }
 function horizon(v, key) {
-    const name = key === "sun" ? "Sun" : "Moon";
-    return v[key + "_state"] === "always_up" ? name + " stays above the horizon all day" : v[key + "_state"] === "always_down" ? name + " stays below the horizon all day" : events(v[key + "_events"], "Rise", "Set");
+    if (v[key + "_state"] === "always_up")
+        return key === "sun" ? qsTranslate("App", "Sun stays above the horizon all day") : qsTranslate("App", "Moon stays above the horizon all day");
+    if (v[key + "_state"] === "always_down")
+        return key === "sun" ? qsTranslate("App", "Sun stays below the horizon all day") : qsTranslate("App", "Moon stays below the horizon all day");
+    return events(v[key + "_events"], qsTranslate("App", "Rise"), qsTranslate("App", "Set"));
 }
 function shiftedDate(date, days) {
     return new Date(Date.parse(date) + days * 86400000).toISOString().slice(0, 10);

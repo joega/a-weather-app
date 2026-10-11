@@ -7,6 +7,7 @@ import "Forecast.js" as Forecast
 GlassPanel {
     id: root
     property var days: []
+    property string timezone: "UTC"
     property string units: "F"
     property bool compact: false
     readonly property int rowHeight: Math.ceil((compact ? 33 : 37) * Tokens.textScale)
@@ -29,7 +30,7 @@ GlassPanel {
     PlainLabel {
         x: 20
         y: 14
-        text: "10-day forecast"
+        text: I18n.t("10-day forecast")
         font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
@@ -37,7 +38,7 @@ GlassPanel {
         visible: root.days.length === 0
         x: 20
         y: 64
-        text: "Daily forecast unavailable"
+        text: I18n.t("Daily forecast unavailable")
         color: Tokens.secondary
     }
     Column {
@@ -58,7 +59,7 @@ GlassPanel {
                 rightPadding: 8
                 topPadding: 3
                 bottomPadding: 3
-                Accessible.name: modelData.day_label + ", " + Forecast.title(modelData.condition) + ", low " + Forecast.temp(modelData.low_c, root.units) + ", high " + Forecast.temp(modelData.high_c, root.units) + ". Open details"
+                Accessible.name: I18n.t("%1, %2, low %3, high %4. Open details").arg((I18n.date(modelData.date, root.timezone, "day") || modelData.day_label)).arg((I18n.revision, Forecast.title(modelData.condition))).arg((I18n.revision, Forecast.temp(modelData.low_c, root.units))).arg((I18n.revision, Forecast.temp(modelData.high_c, root.units)))
                 onClicked: root.daySelected(modelData)
                 background: Rectangle {
                     radius: 7
@@ -70,7 +71,7 @@ GlassPanel {
                         x: 0
                         anchors.verticalCenter: parent.verticalCenter
                         width: 58 * Tokens.textScale
-                        text: dayRow.modelData.day_label
+                        text: (I18n.date(dayRow.modelData.date, root.timezone, "day") || dayRow.modelData.day_label)
                         font.pixelSize: Tokens.fontSize(15)
                     }
                     WeatherIcon {
@@ -85,14 +86,14 @@ GlassPanel {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Math.max(0, parent.width * 0.40 - 102 * Tokens.textScale)
                         visible: parent.width > 400 * Tokens.textScale
-                        text: Forecast.title(dayRow.modelData.condition)
+                        text: (I18n.revision, Forecast.title(dayRow.modelData.condition))
                         font.pixelSize: Tokens.fontSize(13)
                         color: Tokens.secondary
                     }
                     PlainLabel {
                         x: parent.width * 0.47 - 30
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Forecast.temp(dayRow.modelData.low_c, root.units)
+                        text: (I18n.revision, Forecast.temp(dayRow.modelData.low_c, root.units))
                         font.pixelSize: Tokens.fontSize(15)
                     }
                     Rectangle {
@@ -124,7 +125,7 @@ GlassPanel {
                     PlainLabel {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Forecast.temp(dayRow.modelData.high_c, root.units)
+                        text: (I18n.revision, Forecast.temp(dayRow.modelData.high_c, root.units))
                         font.pixelSize: Tokens.fontSize(15)
                     }
                 }

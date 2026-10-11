@@ -160,7 +160,7 @@ GlassPanel {
         RowLayout {
             Layout.fillWidth: true
             PlainLabel {
-                text: "Locations"
+                text: I18n.t("Locations")
                 font.pixelSize: Tokens.fontSize(24)
                 Layout.fillWidth: true
             }
@@ -172,7 +172,7 @@ GlassPanel {
                 checkable: true
                 checked: root.editing
                 selected: root.editing
-                accessibleLabel: root.editing ? "Done editing locations" : "Edit locations"
+                accessibleLabel: root.editing ? I18n.t("Done editing locations") : I18n.t("Edit locations")
                 onClicked: {
                     root.editing = !root.editing;
                     editingToggle.forceActiveFocus();
@@ -181,7 +181,7 @@ GlassPanel {
             ActionButton {
                 objectName: "closeLocations"
                 iconName: "close"
-                accessibleLabel: "Close locations"
+                accessibleLabel: I18n.t("Close locations")
                 onClicked: root.closeRequested()
             }
         }
@@ -190,14 +190,14 @@ GlassPanel {
             visible: root.page !== "saved" || root.editing
             ActionButton {
                 objectName: "showSavedLocations"
-                text: "Back to locations"
+                text: I18n.t("Back to locations")
                 visible: root.page !== "saved"
                 Layout.fillWidth: true
                 onClicked: root.showSaved()
             }
             ActionButton {
                 objectName: "addSavedLocation"
-                text: "Add location"
+                text: I18n.t("Add location")
                 visible: root.page === "saved" && root.editing
                 Layout.fillWidth: true
                 enabled: root.rows.length < 20 && root.canAct && !root.adding
@@ -207,7 +207,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.page === "saved" && root.editing && root.rows.length >= 20
-            text: "You have 20 saved locations. Remove one to add another."
+            text: I18n.t("You have 20 saved locations. Remove one to add another.")
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -216,7 +216,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.page === "saved" && root.editing
-            text: "Select a name to rename. Home opens by default."
+            text: I18n.t("Select a name to rename. Home opens by default.")
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -226,7 +226,7 @@ GlassPanel {
             objectName: "savedLocationStatus"
             Layout.fillWidth: true
             visible: text !== ""
-            text: root.actionError || (root.adding ? "Finding location and loading forecast…" : Forecast.locationErrorText(root.locationSettings.error))
+            text: I18n.t(root.actionError) || (root.adding ? I18n.t("Finding location and loading forecast…") : (I18n.revision, Forecast.locationErrorText(root.locationSettings.error)))
             color: Tokens.gold
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -282,8 +282,8 @@ GlassPanel {
                 height: viewButton.implicitHeight
                 readonly property var summary: modelData.summary
                 readonly property bool usable: summary !== null && (summary.freshness === "fresh" || summary.freshness === "stale")
-                readonly property string units: Forecast.savedUnits(modelData, root.controls)
-                readonly property string label: Forecast.savedName(modelData)
+                readonly property string units: (I18n.revision, Forecast.savedUnits(modelData, root.controls))
+                readonly property string label: (I18n.revision, Forecast.savedName(modelData))
                 readonly property bool home: modelData.id === root.registry.primary
                 readonly property bool viewing: modelData.id === root.registry.viewed
                 Button {
@@ -297,7 +297,7 @@ GlassPanel {
                     bottomPadding: 16
                     hoverEnabled: true
                     enabled: root.canAct
-                    Accessible.name: (root.editing ? "Rename " : "View ") + placeRow.label + (placeRow.home ? ", home location" : "") + (placeRow.viewing ? ", currently viewed" : "") + ". " + (placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) + placeRow.units + ", " + Forecast.title(placeRow.summary.condition) : "Weather not loaded or expired") + ". " + Forecast.savedAlertText(placeRow.modelData)
+                    Accessible.name: (root.editing ? I18n.t("Rename ") : I18n.t("View ")) + placeRow.label + (placeRow.home ? I18n.t(", home location") : "") + (placeRow.viewing ? I18n.t(", currently viewed") : "") + ". " + (placeRow.usable ? (I18n.revision, Forecast.temp(placeRow.summary.temperature_c, placeRow.units)) + placeRow.units + ", " + (I18n.revision, Forecast.title(placeRow.summary.condition)) : I18n.t("Weather not loaded or expired")) + ". " + (I18n.revision, Forecast.savedAlertText(placeRow.modelData))
                     onClicked: root.activatePlace(placeRow.modelData)
                     onActiveFocusChanged: if (activeFocus)
                         root.selectPlace(placeRow.modelData.id)
@@ -325,7 +325,7 @@ GlassPanel {
                                     rightPadding: 0
                                     topPadding: 0
                                     bottomPadding: 0
-                                    Accessible.name: (root.editing ? "Rename " : "View ") + placeRow.label
+                                    Accessible.name: (root.editing ? I18n.t("Rename ") : I18n.t("View ")) + placeRow.label
                                     onClicked: root.activatePlace(placeRow.modelData)
                                     background: Rectangle {
                                         radius: 4
@@ -342,20 +342,20 @@ GlassPanel {
                                 PlainLabel {
                                     Layout.fillWidth: true
                                     visible: placeRow.modelData.label !== ""
-                                    text: Forecast.savedPlaceName(placeRow.modelData)
+                                    text: (I18n.revision, Forecast.savedPlaceName(placeRow.modelData))
                                     font.pixelSize: Tokens.fontSize(12)
                                     color: Tokens.secondary
                                 }
                                 PlainLabel {
                                     Layout.fillWidth: true
                                     visible: text !== ""
-                                    text: [placeRow.home ? "Home" : "", placeRow.viewing ? "Viewing" : "", placeRow.modelData.mode === "auto" ? "Current location" : ""].filter(value => value !== "").join(" · ")
+                                    text: [placeRow.home ? I18n.t("Home") : "", placeRow.viewing ? I18n.t("Viewing") : "", placeRow.modelData.mode === "auto" ? I18n.t("Current location") : ""].filter(value => value !== "").join(" · ")
                                     font.pixelSize: Tokens.fontSize(12)
                                     color: Tokens.accent
                                 }
                             }
                             PlainLabel {
-                                text: placeRow.usable ? Forecast.temp(placeRow.summary.temperature_c, placeRow.units) : "—"
+                                text: placeRow.usable ? (I18n.revision, Forecast.temp(placeRow.summary.temperature_c, placeRow.units)) : "—"
                                 font.pixelSize: Tokens.fontSize(32)
                             }
                         }
@@ -370,14 +370,14 @@ GlassPanel {
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: placeRow.usable ? Forecast.title(placeRow.summary.condition) : placeRow.summary === null ? "Weather not loaded" : "Weather unavailable"
+                                text: placeRow.usable ? (I18n.revision, Forecast.title(placeRow.summary.condition)) : placeRow.summary === null ? I18n.t("Weather not loaded") : I18n.t("Weather unavailable")
                                 font.pixelSize: Tokens.fontSize(13)
                             }
                         }
                         PlainLabel {
                             Layout.fillWidth: true
                             visible: placeRow.summary !== null
-                            text: placeRow.summary === null ? "" : placeRow.summary.freshness === "invalid_future" ? "Weather time unavailable" : (placeRow.summary.freshness === "expired" ? "Expired · " : placeRow.summary.freshness === "stale" ? "Earlier weather · " : "As of ") + Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP")
+                            text: placeRow.summary === null ? "" : placeRow.summary.freshness === "invalid_future" ? I18n.t("Weather time unavailable") : (placeRow.summary.freshness === "expired" ? I18n.t("Expired · ") : placeRow.summary.freshness === "stale" ? I18n.t("Earlier weather · ") : I18n.t("As of ")) + (I18n.date(placeRow.summary.valid_at, placeRow.modelData.timezone || "UTC", "long") || Qt.formatDateTime(new Date(placeRow.summary.valid_at), "MMM d, h:mm AP"))
                             font.pixelSize: Tokens.fontSize(11)
                             color: Tokens.secondary
                         }
@@ -385,7 +385,7 @@ GlassPanel {
                             objectName: "savedLocationAlerts_" + placeRow.index
                             Layout.fillWidth: true
                             visible: placeRow.summary !== null && (placeRow.summary.alert_status === "active" || placeRow.summary.alert_status === "cached")
-                            text: placeRow.summary && placeRow.summary.alert_count > 1 ? placeRow.summary.alert_count + " weather alerts" : "Weather alert"
+                            text: placeRow.summary && placeRow.summary.alert_count > 1 ? I18n.t("%1 weather alerts").arg(placeRow.summary.alert_count) : I18n.t("Weather alert")
                             color: Tokens.gold
                             font.pixelSize: Tokens.fontSize(12)
                         }
@@ -399,7 +399,7 @@ GlassPanel {
                                 ActionButton {
                                     objectName: "removeSaved_" + placeRow.index
                                     iconName: "minus"
-                                    accessibleLabel: "Remove " + placeRow.label
+                                    accessibleLabel: I18n.t("Remove %1").arg(placeRow.label)
                                     enabled: root.canAct && root.rows.length > 1 && !placeRow.home
                                     onClicked: if (enabled && root.rows.length > 1 && !placeRow.home)
                                         root.mutatePlace(placeRow.modelData, {
@@ -411,7 +411,7 @@ GlassPanel {
                                 ActionButton {
                                     objectName: "moveSavedUp_" + placeRow.index
                                     iconName: "chevron-up"
-                                    accessibleLabel: "Move " + placeRow.label + " up"
+                                    accessibleLabel: I18n.t("Move %1 up").arg(placeRow.label)
                                     enabled: root.canAct && !placeRow.home && placeRow.index > 1
                                     onClicked: if (enabled)
                                         root.movePlace(placeRow.modelData, -1)
@@ -419,7 +419,7 @@ GlassPanel {
                                 ActionButton {
                                     objectName: "moveSavedDown_" + placeRow.index
                                     iconName: "chevron-down"
-                                    accessibleLabel: "Move " + placeRow.label + " down"
+                                    accessibleLabel: I18n.t("Move %1 down").arg(placeRow.label)
                                     enabled: root.canAct && !placeRow.home && placeRow.index < root.rows.length - 1
                                     onClicked: if (enabled)
                                         root.movePlace(placeRow.modelData, 1)
@@ -431,7 +431,7 @@ GlassPanel {
                                     objectName: "primarySaved_" + placeRow.index
                                     iconName: "home"
                                     selected: placeRow.home
-                                    accessibleLabel: placeRow.home ? placeRow.label + " is Home" : "Set " + placeRow.label + " as Home"
+                                    accessibleLabel: placeRow.home ? I18n.t("%1 is Home").arg(placeRow.label) : I18n.t("Set %1 as Home").arg(placeRow.label)
                                     enabled: root.canAct && !placeRow.home
                                     onClicked: if (enabled && !placeRow.home)
                                         root.mutatePlace(placeRow.modelData, {
@@ -443,7 +443,7 @@ GlassPanel {
                             PlainLabel {
                                 Layout.fillWidth: true
                                 visible: root.rows.length <= 1 || placeRow.home
-                                text: root.rows.length <= 1 ? "Keep at least one location." : "Home stays first. Choose another Home to remove this location."
+                                text: root.rows.length <= 1 ? I18n.t("Keep at least one location.") : I18n.t("Home stays first. Choose another Home to remove this location.")
                                 color: Tokens.secondary
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
@@ -469,8 +469,8 @@ GlassPanel {
                                     text: root.aliasDraft
                                     onTextChanged: root.aliasDraft = text
                                     maximumLength: 160
-                                    placeholderText: "Custom name, or leave blank"
-                                    Accessible.name: "Custom name for " + placeRow.label + ", up to 80 characters"
+                                    placeholderText: I18n.t("Custom name, or leave blank")
+                                    Accessible.name: I18n.t("Custom name for %1, up to 80 characters").arg(placeRow.label)
                                     color: Tokens.foreground
                                     placeholderTextColor: Tokens.secondary
                                     selectByMouse: true
@@ -488,8 +488,8 @@ GlassPanel {
                                 ActionButton {
                                     id: saveName
                                     objectName: "saveLocationAlias"
-                                    text: "Save name"
-                                    enabled: root.canAct && Forecast.codepoints(root.aliasDraft.trim()) <= 80 && root.aliasDraft.trim() !== placeRow.modelData.label
+                                    text: I18n.t("Save name")
+                                    enabled: root.canAct && (I18n.revision, Forecast.codepoints(root.aliasDraft.trim())) <= 80 && root.aliasDraft.trim() !== placeRow.modelData.label
                                     onClicked: if (enabled)
                                         root.mutatePlace(placeRow.modelData, {
                                             action: "rename",
@@ -528,13 +528,13 @@ GlassPanel {
                         search: root.search
                         serviceAvailable: root.serviceAvailable
                         locationBusy: root.busy || root.adding || root.rows.length >= 20
-                        selectionHint: "Optional country code, such as DE or BR. Choose a city to save and view it."
+                        selectionHint: I18n.t("Optional country code, such as DE or BR. Choose a city to save and view it.")
                         onSearchRequested: values => root.searchRequested(values)
                         onCancelRequested: root.cancelSearchRequested()
                         onLocationRequested: values => root.addRequested(values)
                     }
                     PlainLabel {
-                        text: "Or use a 5-digit US ZIP code"
+                        text: I18n.t("Or use a 5-digit US ZIP code")
                         color: Tokens.secondary
                         font.pixelSize: Tokens.fontSize(14)
                     }
@@ -548,8 +548,8 @@ GlassPanel {
                             validator: RegularExpressionValidator {
                                 regularExpression: /[0-9]{0,5}/
                             }
-                            Accessible.name: "US ZIP code to add"
-                            placeholderText: "ZIP code"
+                            Accessible.name: I18n.t("US ZIP code to add")
+                            placeholderText: I18n.t("ZIP code")
                             color: Tokens.foreground
                             placeholderTextColor: Tokens.secondary
                             enabled: root.canAct && !root.adding && root.rows.length < 20
@@ -568,7 +568,7 @@ GlassPanel {
                         ActionButton {
                             id: addZip
                             objectName: "addSavedZip"
-                            text: "Add ZIP"
+                            text: I18n.t("Add ZIP")
                             enabled: zip.enabled && /^[0-9]{5}$/.test(zip.text)
                             onClicked: root.addRequested({
                                 mode: "zip",
@@ -578,7 +578,7 @@ GlassPanel {
                     }
                     ActionButton {
                         objectName: "addCurrentLocation"
-                        text: "Use current location"
+                        text: I18n.t("Use current location")
                         enabled: root.canAct && !root.adding && root.rows.length < 20
                         onClicked: root.addRequested({
                             mode: "auto"
@@ -586,7 +586,7 @@ GlassPanel {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: "Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy."
+                        text: I18n.t("Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy.")
                         color: Tokens.secondary
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
@@ -598,7 +598,7 @@ GlassPanel {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.page === "saved"
-            text: "Weather times use your desktop timezone."
+            text: I18n.t("Weather times use your desktop timezone.")
             color: Tokens.secondary
             wrapMode: Text.Wrap
             elide: Text.ElideNone

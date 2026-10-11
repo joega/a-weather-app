@@ -168,16 +168,16 @@ GlassPanel {
     onTileImagesChanged: Qt.callLater(root.requestTiles)
     onFailedTilesChanged: Qt.callLater(root.requestTiles)
     function windSpeed(value) {
-        return Forecast.wind(value, units, windUnits);
+        return (I18n.revision, Forecast.wind(value, units, windUnits));
     }
     function temperature(value) {
         return units === "F" ? (value * 1.8 + 32).toFixed(0) + "°F" : value.toFixed(0) + "°C";
     }
     function rain(value) {
-        return Forecast.amount(value, units);
+        return (I18n.revision, Forecast.amount(value, units));
     }
     function legendRain(value) {
-        return units === "F" && value > 0 && value / 25.4 < 0.005 ? "<0.01 in" : rain(value);
+        return units === "F" && value > 0 && value / 25.4 < 0.005 ? I18n.t("<0.01 in") : rain(value);
     }
     function ramp(value, min, max) {
         let p = Math.max(0, Math.min(1, (value - min) / Math.max(0.01, max - min)));
@@ -249,13 +249,13 @@ GlassPanel {
         PlainLabel {
             objectName: "mapModuleTitle"
             Layout.fillWidth: true
-            text: root.mapLayer === "temperature" ? "Temperature" : root.mapLayer === "wind" ? "Wind" : "Precipitation"
+            text: root.mapLayer === "temperature" ? I18n.t("Temperature") : root.mapLayer === "wind" ? I18n.t("Wind") : I18n.t("Precipitation")
             font.pixelSize: Tokens.fontSize(20)
             font.weight: Font.DemiBold
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: !root.mapData ? "" : root.mapLayer === "temperature" ? "At center · " + root.temperature(root.mapData.cells[12].temperature_c[root.hourIndex]) : root.mapLayer === "wind" ? (root.pointSelected ? "Selected point · " : "At center · ") + root.pointReadout : "Modeled total in preceding hour · " + root.rain(root.mapData.cells[12].precipitation_mm[root.hourIndex])
+            text: !root.mapData ? "" : root.mapLayer === "temperature" ? I18n.t("At center · %1").arg(root.temperature(root.mapData.cells[12].temperature_c[root.hourIndex])) : root.mapLayer === "wind" ? (root.pointSelected ? I18n.t("Selected point · ") : I18n.t("At center · ")) + root.pointReadout : I18n.t("Modeled total in preceding hour · %1").arg(root.rain(root.mapData.cells[12].precipitation_mm[root.hourIndex]))
             objectName: "mapPointReadout"
             font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
@@ -271,8 +271,8 @@ GlassPanel {
             activeFocusOnTab: root.mapLayer === "wind"
             enabled: root.mapLayer !== "wind" || root.mapData !== null
             Accessible.role: Accessible.Canvas
-            Accessible.name: root.mapLayer === "wind" ? "Wind map. " + root.pointReadout : root.mapLayer === "precipitation" ? "Precipitation forecast map" : "Temperature forecast map"
-            Accessible.description: root.mapLayer === "wind" ? "Interpolated forecast. Click a point or use arrow keys to inspect wind; Home returns to center." : "Forecast for the selected hour. Use the timeline to change the hour."
+            Accessible.name: root.mapLayer === "wind" ? I18n.t("Wind map. %1").arg(root.pointReadout) : root.mapLayer === "precipitation" ? I18n.t("Precipitation forecast map") : I18n.t("Temperature forecast map")
+            Accessible.description: root.mapLayer === "wind" ? I18n.t("Interpolated forecast. Click a point or use arrow keys to inspect wind; Home returns to center.") : I18n.t("Forecast for the selected hour. Use the timeline to change the hour.")
             onWidthChanged: root.invalidateWind()
             onHeightChanged: root.invalidateWind()
             Keys.onPressed: event => {
@@ -378,7 +378,7 @@ GlassPanel {
                 PlainLabel {
                     id: missingTiles
                     anchors.centerIn: parent
-                    text: "Geographic background unavailable"
+                    text: I18n.t("Geographic background unavailable")
                     font.pixelSize: Tokens.fontSize(12)
                     color: "#163448"
                 }
@@ -396,7 +396,7 @@ GlassPanel {
                     id: mapCredit
                     objectName: "mapCredit"
                     anchors.centerIn: parent
-                    text: Forecast.distance(root.mapData ? root.mapData.radius_miles * 1609.344 : 16093.44, root.units) + " radius · © OpenStreetMap contributors (ODbL)"
+                    text: I18n.t("%1 radius · © OpenStreetMap contributors (ODbL)").arg((I18n.revision, Forecast.distance(root.mapData ? root.mapData.radius_miles * 1609.344 : 16093.44, root.units)))
                     font.pixelSize: Tokens.fontSize(11)
                     color: "#132f43"
                 }
@@ -419,7 +419,7 @@ GlassPanel {
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
                 visible: root.mapData === null
-                text: !root.hasLocation ? "Choose a location to see local maps" : root.mapStatus === "loading" ? "Loading local model forecast…" : root.offline ? "Map unavailable offline for this location" : "Map forecast unavailable"
+                text: !root.hasLocation ? I18n.t("Choose a location to see local maps") : root.mapStatus === "loading" ? I18n.t("Loading local model forecast…") : root.offline ? I18n.t("Map unavailable offline for this location") : I18n.t("Map forecast unavailable")
                 color: "#233e54"
             }
         }
@@ -428,7 +428,7 @@ GlassPanel {
             visible: root.mapData !== null
             PlainLabel {
                 objectName: "mapLegend"
-                text: root.dryPrecipitation ? "No precipitation modeled for this hour" : root.mapLayer === "wind" ? (!root.animationActive ? "Static trails" : "Trails flow downwind") + " · tap to inspect · " + Forecast.windUnit(root.units, root.windUnits) : "Legend"
+                text: root.dryPrecipitation ? I18n.t("No precipitation modeled for this hour") : root.mapLayer === "wind" ? I18n.t("%1 · tap to inspect · %2").arg((!root.animationActive ? I18n.t("Static trails") : I18n.t("Trails flow downwind"))).arg((I18n.revision, Forecast.windUnit(root.units, root.windUnits))) : I18n.t("Legend")
                 font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap

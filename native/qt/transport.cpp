@@ -15,7 +15,7 @@ WeatherTransport::WeatherTransport(QString socketPath, bool diagnostic, QObject*
         socklen_t size = sizeof(peer);
         if (getsockopt(socket.socketDescriptor(), SOL_SOCKET, SO_PEERCRED, &peer, &size) != 0 ||
             peer.uid != getuid()) {
-            fail("Weather service identity could not be verified");
+            fail(QT_TRANSLATE_NOOP("App", "Weather service identity could not be verified"));
             return;
         }
         if (verbose)
@@ -24,10 +24,12 @@ WeatherTransport::WeatherTransport(QString socketPath, bool diagnostic, QObject*
         emit ready();
     });
     connect(&socket, &QLocalSocket::readyRead, this, &WeatherTransport::read);
-    connect(&socket, &QLocalSocket::disconnected, this,
-            [this] { fail("Weather service stopped. Close and reopen to reconnect."); });
+    connect(&socket, &QLocalSocket::disconnected, this, [this] {
+        fail(QT_TRANSLATE_NOOP("App", "Weather service stopped. Close and reopen to reconnect."));
+    });
     connect(&socket, &QLocalSocket::errorOccurred, this, [this](QLocalSocket::LocalSocketError) {
-        fail("Weather service is unavailable. Close and reopen to reconnect.");
+        fail(QT_TRANSLATE_NOOP("App",
+                               "Weather service is unavailable. Close and reopen to reconnect."));
     });
 }
 WeatherTransport::~WeatherTransport() {
@@ -46,7 +48,7 @@ void WeatherTransport::start() {
     socket.connectToServer(path);
     QTimer::singleShot(5000, this, [this] {
         if (!connected())
-            fail("Weather service connection timed out");
+            fail(QT_TRANSLATE_NOOP("App", "Weather service connection timed out"));
     });
 }
 bool WeatherTransport::send(const QVariantMap& request) {
@@ -63,7 +65,7 @@ bool WeatherTransport::send(const QVariantMap& request) {
     return socket.write(bytes + '\n') == bytes.size() + 1;
 }
 void WeatherTransport::disconnectService() {
-    fail("Weather service connection closed");
+    fail(QT_TRANSLATE_NOOP("App", "Weather service connection closed"));
 }
 void WeatherTransport::fail(const QString& error) {
     if (failed)
@@ -88,20 +90,22 @@ void WeatherTransport::read() {
             buffer.remove(0, newline + 1);
             QJsonObject obj;
             if (!decodeProtocol(line, &obj)) {
-                fail("Weather service returned invalid data");
+                fail(QT_TRANSLATE_NOOP("App", "Weather service returned invalid data"));
                 return;
             }
             if (obj.value("event") == "warning_desktop") {
                 const auto command = obj.value("native").toObject();
                 if (!warnings && command.value("kind") == "activate") {
                     warnings = new DesktopWarnings(this);
-                    connect(warnings, &DesktopWarnings::report, this,
-                            [this](const QJsonObject& report) {
-                                if (connected() && !send({{"version", 1},
-                                                          {"op", "warning_native"},
-                                                          {"native", report.toVariantMap()}}))
-                                    fail("Weather service notification channel is unavailable");
-                            });
+                    connect(
+                        warnings, &DesktopWarnings::report, this,
+                        [this](const QJsonObject& report) {
+                            if (connected() && !send({{"version", 1},
+                                                      {"op", "warning_native"},
+                                                      {"native", report.toVariantMap()}}))
+                                fail(QT_TRANSLATE_NOOP(
+                                    "App", "Weather service notification channel is unavailable"));
+                        });
                 }
                 if (warnings)
                     warnings->accept(command);
@@ -111,7 +115,7 @@ void WeatherTransport::read() {
             emit message(QString::fromUtf8(line));
         }
         if (buffer.size() > 262144) {
-            fail("Weather service response exceeded its limit");
+            fail(QT_TRANSLATE_NOOP("App", "Weather service response exceeded its limit"));
             return;
         }
     }

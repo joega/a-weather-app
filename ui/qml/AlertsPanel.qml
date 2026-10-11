@@ -49,7 +49,7 @@ GlassPanel {
         width: Math.max(0, root.width - 32)
         spacing: 9
         PlainLabel {
-            text: "Weather alerts"
+            text: I18n.t("Weather alerts")
             font.pixelSize: Tokens.fontSize(17)
             font.weight: Font.DemiBold
         }
@@ -72,8 +72,8 @@ GlassPanel {
                     rightPadding: 9
                     topPadding: 8
                     bottomPadding: 8
-                    Accessible.name: modelData.event + ", " + modelData.severity + ", expires " + modelData.expires_label + (expanded ? ". Hide details" : ". Show details")
-                    Accessible.description: expanded ? "Full alert details appear below the alert list." : "Select to read the full alert details below the alert list."
+                    Accessible.name: I18n.t("%1, %2, expires %3%4").arg(modelData.event).arg(I18n.t(modelData.severity)).arg(modelData.expires_label).arg((expanded ? I18n.t(". Hide details") : I18n.t(". Show details")))
+                    Accessible.description: expanded ? I18n.t("Full alert details appear below the alert list.") : I18n.t("Select to read the full alert details below the alert list.")
                     onActiveFocusChanged: if (activeFocus)
                         root.reveal(alertButton)
                     onClicked: {
@@ -110,7 +110,7 @@ GlassPanel {
                         }
                         PlainLabel {
                             width: parent.width
-                            text: alertButton.modelData.severity + " · Until " + (alertButton.modelData.expires_label || "time unavailable")
+                            text: I18n.t("%1 · Until %2").arg(I18n.t(alertButton.modelData.severity)).arg((alertButton.modelData.expires_label || I18n.t("time unavailable")))
                             color: root.accent(alertButton.modelData.severity)
                             font.pixelSize: Tokens.fontSize(12)
                             wrapMode: Text.Wrap
@@ -149,7 +149,7 @@ GlassPanel {
                     objectName: "alertShortened_" + entry.index
                     visible: entry.modelData.text_truncated === true
                     width: parent.width
-                    text: root.source === "National Weather Service" ? "This alert text has been shortened. Read the complete warning and instructions from the National Weather Service." : "This alert text has been shortened. Check the official alert source for complete details."
+                    text: root.source === "National Weather Service" ? I18n.t("This alert text has been shortened. Read the complete warning and instructions from the National Weather Service.") : I18n.t("This alert text has been shortened. Check the official alert source for complete details.")
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                     font.pixelSize: Tokens.fontSize(13)
@@ -166,7 +166,7 @@ GlassPanel {
                 PlainLabel {
                     objectName: "alertDescription_" + entry.index
                     width: parent.width
-                    text: entry.modelData.description + (root.source ? "\nSource: " + root.source : "")
+                    text: entry.modelData.description + (root.source ? I18n.t("\nSource: ") + root.source : "")
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                     color: Tokens.secondary
@@ -176,7 +176,7 @@ GlassPanel {
                     id: officialSource
                     objectName: "alertOfficialSource_" + entry.index
                     visible: root.source === "National Weather Service"
-                    text: "Open official NWS alerts"
+                    text: I18n.t("Open official NWS alerts")
                     onActiveFocusChanged: if (activeFocus)
                         root.reveal(officialSource)
                     onClicked: Qt.openUrlExternally("https://www.weather.gov/alerts")

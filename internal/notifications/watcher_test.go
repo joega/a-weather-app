@@ -245,7 +245,7 @@ func TestCandidatePrecedingHourAndPlainText(t *testing.T) {
 		t.Fatalf("preceding-hour candidate %v", event)
 	}
 	body := event["body"].(string)
-	if !strings.Contains(body, "Sun 12 PM EDT–1 PM EDT") {
+	if !strings.Contains(body, "2026-09-27 12:00 EDT–13:00 EDT") {
 		t.Fatalf("honest timezone label: %s", body)
 	}
 	for _, r := range "<>&\x00\n\u202e" {

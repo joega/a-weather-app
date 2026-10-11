@@ -1,9 +1,9 @@
 import QtQuick.Dialogs
 
 FileDialog {
-    title: "Save forecast image"
+    title: I18n.t("Save forecast image")
     fileMode: FileDialog.SaveFile
-    nameFilters: ["PNG image (*.png)"]
+    nameFilters: [I18n.t("PNG image (*.png)")]
     defaultSuffix: "png"
     signal chosen(url destination)
     signal finished

@@ -1,0 +1,42 @@
+{
+  "%1 averages %2 → %3 across %n hour(s).": [
+    "%1 averages %2 → %3 across %n hour.",
+    "%1 averages %2 → %3 across %n hours."
+  ],
+  "%n alert(s)": [
+    "%n alert",
+    "%n alerts"
+  ],
+  "%n hour(s)": [
+    "%n hour",
+    "%n hours"
+  ],
+  "%n minute(s) ago": [
+    "%n minute ago",
+    "%n minutes ago"
+  ],
+  "%n modeled hour(s) with at least 0.1 mm": [
+    "%n modeled hour with at least 0.1 mm",
+    "%n modeled hours with at least 0.1 mm"
+  ],
+  "%n more": [
+    "%n more",
+    "%n more"
+  ],
+  "Available hourly range: %1 – %2. %n of %3 samples available.": [
+    "Available hourly range: %1 – %2. %n of %3 samples available.",
+    "Available hourly range: %1 – %2. %n of %3 samples available."
+  ],
+  "Full day · %1 of %n hours": [
+    "Full day · %1 of %n hour",
+    "Full day · %1 of %n hours"
+  ],
+  "Known subtotal · %1 of %n hours": [
+    "Known subtotal · %1 of %n hour",
+    "Known subtotal · %1 of %n hours"
+  ],
+  "Low precipitation chances in the next %n hourly forecast(s).": [
+    "Low precipitation chances in the next %n hourly forecast.",
+    "Low precipitation chances in the next %n hourly forecasts."
+  ]
+}

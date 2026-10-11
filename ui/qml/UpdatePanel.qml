@@ -5,7 +5,7 @@ import "Forecast.js" as Forecast
 GlassPanel {
     id: root
     objectName: "updatePanel"
-    property var status: Forecast.updateStatus(null)
+    property var status: (I18n.revision, Forecast.updateStatus(null))
     readonly property bool updating: ["downloading", "verifying", "restarting"].indexOf(status.state) >= 0
     readonly property bool canUpdate: status.available !== "" && ["available", "failed", "rolled_back"].indexOf(status.state) >= 0
     readonly property bool canCheck: !updating && ["checking", "development", "unsupported"].indexOf(status.state) < 0
@@ -22,21 +22,21 @@ GlassPanel {
         PlainLabel {
             objectName: "installedAppVersion"
             Layout.fillWidth: true
-            text: root.status.installed !== "" ? "A Weather App · " + root.status.installed : "App updates"
+            text: root.status.installed !== "" ? "A Weather App · " + root.status.installed : I18n.t("App updates")
             font.pixelSize: Tokens.fontSize(19)
             font.weight: Font.DemiBold
         }
         PlainLabel {
             Layout.fillWidth: true
             visible: root.status.available !== ""
-            text: "Version " + root.status.available + " available"
+            text: I18n.t("Version %1 available").arg(root.status.available)
             font.pixelSize: Tokens.fontSize(16)
             color: Tokens.accent
         }
         PlainLabel {
             objectName: "updateMessage"
             Layout.fillWidth: true
-            text: root.status.message || (root.status.state === "current" ? "You’re up to date. Updates are checked daily." : "Updates are checked daily.")
+            text: I18n.t(root.status.message) || (root.status.state === "current" ? I18n.t("You’re up to date. Updates are checked daily.") : I18n.t("Updates are checked daily."))
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             font.pixelSize: Tokens.fontSize(14)
@@ -48,13 +48,13 @@ GlassPanel {
                 objectName: "installUpdate"
                 visible: root.canUpdate || root.updating
                 enabled: root.canUpdate && !root.updating
-                text: root.updating ? "Updating…" : "Update and restart"
+                text: root.updating ? I18n.t("Updating…") : I18n.t("Update and restart")
                 onClicked: root.installRequested()
             }
             ActionButton {
                 objectName: "checkUpdates"
                 enabled: root.canCheck
-                text: root.status.state === "checking" ? "Checking…" : "Check for updates"
+                text: root.status.state === "checking" ? I18n.t("Checking…") : I18n.t("Check for updates")
                 onClicked: root.checkRequested()
             }
             Item {

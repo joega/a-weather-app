@@ -105,12 +105,12 @@ function result(v, q) {
 }
 function indicated(v) {
     return ({
-            rain: "Rain indicated",
-            snow: "Snow indicated",
-            rain_and_snow: "Rain and snow indicated",
-            precipitation: "Precipitation indicated",
-            none: "No accumulation modeled",
-            unknown: "Precipitation type unavailable"
+            rain: qsTranslate("App", "Rain indicated"),
+            snow: qsTranslate("App", "Snow indicated"),
+            rain_and_snow: qsTranslate("App", "Rain and snow indicated"),
+            precipitation: qsTranslate("App", "Precipitation indicated"),
+            none: qsTranslate("App", "No accumulation modeled"),
+            unknown: qsTranslate("App", "Precipitation type unavailable")
         })[v] || "";
 }
 function formatted(value, suffix, digits) {
@@ -118,8 +118,8 @@ function formatted(value, suffix, digits) {
         return "—";
     const step = Math.pow(10, -digits);
     if (value > 0 && value < step)
-        return "<" + step.toFixed(digits) + " " + suffix;
-    return value.toFixed(value === 0 ? 0 : digits) + " " + suffix;
+        return "<" + Forecast.displayNumber(step, digits) + " " + suffix;
+    return Forecast.displayNumber(value, value === 0 ? 0 : digits) + " " + suffix;
 }
 function liquid(v, units) {
     return formatted(v === null ? null : units === "F" ? v / 25.4 : v, units === "F" ? "in" : "mm", units === "F" ? 2 : 1);
@@ -138,12 +138,12 @@ function accumulation(day, key, units) {
 }
 function coverage(day, key) {
     if (!day || day[key + "_subtotal"] === null)
-        return "Unavailable";
-    return (day[key] === null ? "Known subtotal · " : "Full day · ") + day[key + "_coverage"] + " of " + day.duration_hours + " hours";
+        return qsTranslate("App", "Unavailable");
+    return (day[key] === null ? qsTranslate("App", "Known subtotal · %1 of %n hours", "", day.duration_hours) : qsTranslate("App", "Full day · %1 of %n hours", "", day.duration_hours)).arg(day[key + "_coverage"]);
 }
 function range(day, key, units) {
     if (!day || day[key + "_min_m"] === null)
-        return "Unavailable";
+        return qsTranslate("App", "Unavailable");
     const format = n => key === "depth" ? snow(n * 100, units) : height(n, units);
     return format(day[key + "_min_m"]) + (day[key + "_min_m"] === day[key + "_max_m"] ? "" : " – " + format(day[key + "_max_m"]));
 }
@@ -155,7 +155,7 @@ function chartHours(rows) {
         const h = rows.find(r => Date.parse(r.start) === at);
         output.push({
             time: new Date(at).toISOString(),
-            local_hour: h ? h.label.split(" – ")[0] : "Gap",
+            local_hour: h ? h.label.split(" – ")[0] : qsTranslate("App", "Gap"),
             local_label: h ? h.label : new Date(at).toISOString(),
             precipitation_rate_mm_hr: h ? h.total_mm : null
         });

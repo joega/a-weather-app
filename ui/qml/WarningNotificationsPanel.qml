@@ -8,8 +8,8 @@ import "Forecast.js" as Forecast
 ColumnLayout {
     id: root
     spacing: 12
-    property var notifications: Forecast.warningNotifications()
-    property string primaryName: "Primary place"
+    property var notifications: (I18n.revision, Forecast.warningNotifications())
+    property string primaryName: I18n.t("Primary place")
     property string timezone: "UTC"
     property bool busy: false
     property bool serviceAvailable: true
@@ -19,7 +19,7 @@ ColumnLayout {
     readonly property bool paused: notifications.paused_until !== null && notifications.paused_until * 1000 > now
     readonly property var hours: Array.from({
         length: 24
-    }, (_, hour) => (hour % 12 || 12) + (hour < 12 ? " AM" : " PM"))
+    }, (_, hour) => (hour % 12 || 12) + (hour < 12 ? I18n.t(" AM") : I18n.t(" PM")))
     signal patch(var values)
     signal pauseRequested
     signal resumeRequested
@@ -41,13 +41,13 @@ ColumnLayout {
         onTriggered: root.now = Date.now()
     }
     PlainLabel {
-        text: "Official US warnings"
+        text: I18n.t("Official US warnings")
         font.pixelSize: Tokens.fontSize(20)
         font.weight: Font.DemiBold
     }
     PlainLabel {
         Layout.fillWidth: true
-        text: "National Weather Service warnings for " + root.primaryName + ". Checks run roughly every 2–3 minutes when available. Delivery may be delayed; this is not a real-time emergency alert service."
+        text: I18n.t("National Weather Service warnings for %1. Checks run roughly every 2–3 minutes when available. Delivery may be delayed; this is not a real-time emergency alert service.").arg(root.primaryName)
         font.pixelSize: Tokens.fontSize(14)
         color: Tokens.secondary
         wrapMode: Text.Wrap
@@ -56,8 +56,8 @@ ColumnLayout {
     ToggleControl {
         Layout.fillWidth: true
         testName: "warningEnabled"
-        title: "Official warning notifications"
-        caption: root.settings.enabled ? "Continues checking while the window is hidden." : "Off until you enable it."
+        title: I18n.t("Official warning notifications")
+        caption: root.settings.enabled ? I18n.t("Continues checking while the window is hidden.") : I18n.t("Off until you enable it.")
         checked: root.settings.enabled
         locked: root.locked || (!root.settings.enabled && !root.notifications.supported)
         optimistic: false
@@ -68,7 +68,7 @@ ColumnLayout {
     PlainLabel {
         objectName: "warningMonitoringStatus"
         Layout.fillWidth: true
-        text: Forecast.warningStatus(root.notifications, root.serviceAvailable)
+        text: (I18n.revision, Forecast.warningStatus(root.notifications, root.serviceAvailable))
         font.pixelSize: Tokens.fontSize(15)
         color: Tokens.accent
         wrapMode: Text.Wrap
@@ -79,7 +79,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         visible: root.settings.enabled && root.notifications.fetched_at !== null
-        text: root.notifications.fetched_at ? "Latest warning data: " + root.notifications.fetched_at.replace("T", " ").replace("Z", " UTC") : ""
+        text: root.notifications.fetched_at ? I18n.t("Latest warning data: %1").arg(root.notifications.fetched_at.replace("T", " ").replace("Z", I18n.t(" UTC"))) : ""
         font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap
@@ -88,7 +88,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         visible: !root.notifications.supported
-        text: "Official warning delivery requires the native desktop app and a supported warning feed."
+        text: I18n.t("Official warning delivery requires the native desktop app and a supported warning feed.")
         font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap
@@ -99,7 +99,7 @@ ColumnLayout {
         Layout.fillWidth: true
         spacing: 12
         PlainLabel {
-            text: "New warnings to deliver"
+            text: I18n.t("New warnings to deliver")
             font.pixelSize: Tokens.fontSize(15)
         }
         SettingsComboBox {
@@ -107,15 +107,15 @@ ColumnLayout {
             Layout.fillWidth: true
             model: [
                 {
-                    label: "Severe and extreme",
+                    label: I18n.t("Severe and extreme"),
                     value: "severe"
                 },
                 {
-                    label: "Moderate and above",
+                    label: I18n.t("Moderate and above"),
                     value: "moderate"
                 },
                 {
-                    label: "All severities, including unknown",
+                    label: I18n.t("All severities, including unknown"),
                     value: "all"
                 }
             ]
@@ -123,7 +123,7 @@ ColumnLayout {
             valueRole: "value"
             currentIndex: model.findIndex(row => row.value === root.settings.minimum_severity)
             enabled: !root.locked
-            Accessible.name: "New warning severity"
+            Accessible.name: I18n.t("New warning severity")
             onActivated: {
                 root.patch({
                     minimum_severity: currentValue
@@ -133,7 +133,7 @@ ColumnLayout {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Material updates and cancellations for previously attempted notices are included, even if their severity falls."
+            text: I18n.t("Material updates and cancellations for previously attempted notices are included, even if their severity falls.")
             font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
@@ -142,8 +142,8 @@ ColumnLayout {
         ToggleControl {
             Layout.fillWidth: true
             testName: "warningQuiet"
-            title: "Quiet hours for warnings"
-            caption: "Uses the primary place’s local time."
+            title: I18n.t("Quiet hours for warnings")
+            caption: I18n.t("Uses the primary place’s local time.")
             checked: root.settings.quiet_enabled
             locked: root.locked
             optimistic: false
@@ -162,7 +162,7 @@ ColumnLayout {
                 currentIndex: root.settings.quiet_start
                 enabledOptions: root.hours.map((_, index) => index !== root.settings.quiet_end)
                 enabled: !root.locked && root.settings.quiet_enabled
-                Accessible.name: "Warning quiet hours start"
+                Accessible.name: I18n.t("Warning quiet hours start")
                 onActivated: index => {
                     if (index !== root.settings.quiet_end)
                         root.patch({
@@ -183,7 +183,7 @@ ColumnLayout {
                 currentIndex: root.settings.quiet_end
                 enabledOptions: root.hours.map((_, index) => index !== root.settings.quiet_start)
                 enabled: !root.locked && root.settings.quiet_enabled
-                Accessible.name: "Warning quiet hours end"
+                Accessible.name: I18n.t("Warning quiet hours end")
                 onActivated: index => {
                     if (index !== root.settings.quiet_start)
                         root.patch({
@@ -195,7 +195,7 @@ ColumnLayout {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Local time · " + root.timezone
+            text: I18n.t("Local time · %1").arg(root.timezone)
             font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
@@ -204,8 +204,8 @@ ColumnLayout {
         ToggleControl {
             Layout.fillWidth: true
             testName: "warningUrgent"
-            title: "Allow urgent interruptions"
-            caption: "Can bypass warning quiet hours."
+            title: I18n.t("Allow urgent interruptions")
+            caption: I18n.t("Can bypass warning quiet hours.")
             checked: root.settings.urgent_override
             locked: root.locked
             optimistic: false
@@ -215,7 +215,7 @@ ColumnLayout {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Only imminent Severe or Extreme warnings reported as observed or likely qualify. Your desktop controls how urgent notices appear. A manual pause always stops delivery."
+            text: I18n.t("Only imminent Severe or Extreme warnings reported as observed or likely qualify. Your desktop controls how urgent notices appear. A manual pause always stops delivery.")
             font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
@@ -227,14 +227,14 @@ ColumnLayout {
             ActionButton {
                 objectName: "warningPause"
                 Layout.fillWidth: true
-                text: root.paused ? "Resume delivery" : "Pause for 1 hour"
+                text: root.paused ? I18n.t("Resume delivery") : I18n.t("Pause for 1 hour")
                 enabled: !root.locked
                 onClicked: root.paused ? root.resumeRequested() : root.pauseRequested()
             }
             ActionButton {
                 objectName: "warningStop"
                 Layout.fillWidth: true
-                text: "Turn off warnings"
+                text: I18n.t("Turn off warnings")
                 enabled: !root.locked
                 onClicked: root.patch({
                     enabled: false
@@ -244,7 +244,7 @@ ColumnLayout {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.notifications.delivery === "uncertain" || root.notifications.delivery === "failed"
-            text: "The last notice was not confirmed as delivered. It will not be retried automatically, to avoid duplicates."
+            text: I18n.t("The last notice was not confirmed as delivered. It will not be retried automatically, to avoid duplicates.")
             font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
@@ -253,7 +253,7 @@ ColumnLayout {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.notifications.ready && !root.notifications.actions
-            text: "This desktop does not offer notification buttons. Open recent notices below."
+            text: I18n.t("This desktop does not offer notification buttons. Open recent notices below.")
             font.pixelSize: Tokens.fontSize(13)
             color: Tokens.secondary
             wrapMode: Text.Wrap
@@ -262,7 +262,7 @@ ColumnLayout {
     }
     PlainLabel {
         visible: root.notifications.recent.length > 0
-        text: "Recent notices"
+        text: I18n.t("Recent notices")
         font.pixelSize: Tokens.fontSize(17)
         font.weight: Font.DemiBold
     }
@@ -277,7 +277,7 @@ ColumnLayout {
             Layout.fillWidth: true
             implicitHeight: noticeBody.implicitHeight + 20
             enabled: root.serviceAvailable
-            Accessible.name: modelData.title + ", " + modelData.place + ", " + Forecast.warningDeliveryLabel(modelData.delivery)
+            Accessible.name: modelData.title + ", " + modelData.place + ", " + (I18n.revision, Forecast.warningDeliveryLabel(modelData.delivery))
             onClicked: root.detailRequested({
                 location: modelData.location,
                 key: modelData.key
@@ -294,7 +294,7 @@ ColumnLayout {
                 }
                 PlainLabel {
                     width: parent.width
-                    text: notice.modelData.place + " · " + Forecast.warningDeliveryLabel(notice.modelData.delivery)
+                    text: notice.modelData.place + " · " + (I18n.revision, Forecast.warningDeliveryLabel(notice.modelData.delivery))
                     font.pixelSize: Tokens.fontSize(13)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap
@@ -311,7 +311,7 @@ ColumnLayout {
     PlainLabel {
         visible: root.notifications.recent.length > 0
         Layout.fillWidth: true
-        text: "Up to 16 recent notices remain available for 24 hours in this session. Desktop acceptance does not confirm that a notice was read."
+        text: I18n.t("Up to 16 recent notices remain available for 24 hours in this session. Desktop acceptance does not confirm that a notice was read.")
         font.pixelSize: Tokens.fontSize(13)
         color: Tokens.secondary
         wrapMode: Text.Wrap

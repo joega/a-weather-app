@@ -25,14 +25,14 @@ Rectangle {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: root.summary ? root.summary.place : "Forecast unavailable"
+            text: root.summary ? root.summary.place : I18n.t("Forecast unavailable")
             font.pixelSize: Tokens.fontSize(30)
             wrapMode: Text.Wrap
             elide: Text.ElideNone
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: root.summary ? root.summary.timezone : "Refresh the forecast to share it."
+            text: root.summary ? root.summary.timezone : I18n.t("Refresh the forecast to share it.")
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(13)
             wrapMode: Text.Wrap
@@ -180,7 +180,7 @@ Rectangle {
         PlainLabel {
             Layout.fillWidth: true
             visible: root.summary !== null
-            text: "Hourly summaries use local time and the available forecast hours."
+            text: I18n.t("Hourly summaries use local time and the available forecast hours.")
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(11)
             wrapMode: Text.Wrap

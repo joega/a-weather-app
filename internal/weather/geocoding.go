@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/joega/a-weather-app/internal/locale"
 	"math"
 	"net/url"
 	"regexp"
@@ -86,7 +87,18 @@ func placeDisplayLabel(name, region, country string) string {
 }
 
 func ValidatePlaceSearch(v Object) (Object, error) {
-	if len(v) != 2 && len(v) != 3 {
+	language, hasLanguage := v["language"]
+	if hasLanguage {
+		code, ok := language.(string)
+		if !ok || !locale.Valid(code) {
+			return nil, errors.New("invalid search language")
+		}
+	}
+	fields := len(v)
+	if hasLanguage {
+		fields--
+	}
+	if fields != 2 && fields != 3 {
 		return nil, errors.New("invalid place search")
 	}
 	token := float64(0)
@@ -96,7 +108,7 @@ func ValidatePlaceSearch(v Object) (Object, error) {
 			return nil, errors.New("invalid search client token")
 		}
 		token = float64(value)
-	} else if len(v) == 3 {
+	} else if fields == 3 {
 		return nil, errors.New("invalid place search field")
 	}
 	query, ok := v["query"].(string)
@@ -116,7 +128,11 @@ func ValidatePlaceSearch(v Object) (Object, error) {
 	if !ok || (country != "" && !countryCodePattern.MatchString(country)) {
 		return nil, errors.New("invalid country code")
 	}
-	return Object{"query": query, "country_code": country, "client_token": token}, nil
+	result := Object{"query": query, "country_code": country, "client_token": token}
+	if hasLanguage {
+		result["language"] = language
+	}
+	return result, nil
 }
 
 func geocodingTree(v any) error {
@@ -192,7 +208,8 @@ func (provider jsonProvider) searchPlaces(ctx context.Context, request Object) (
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-	q := url.Values{"name": {v["query"].(string)}, "count": {"10"}, "language": {"en"}, "format": {"json"}}
+	languageCode, _ := v["language"].(string)
+	q := url.Values{"name": {v["query"].(string)}, "count": {"10"}, "language": {locale.ProviderLanguage(languageCode)}, "format": {"json"}}
 	if country := v["country_code"].(string); country != "" {
 		q.Set("countryCode", country)
 	}
@@ -263,7 +280,7 @@ func (provider jsonProvider) resolvePlace(ctx context.Context, rawID any) (Objec
 	if !ok {
 		return nil, locError("stale_selection")
 	}
-	p, e := provider.geocodingJSON(ctx, "/v1/get", url.Values{"id": {fmt.Sprint(id)}})
+	p, e := provider.geocodingJSON(ctx, "/v1/get", url.Values{"id": {fmt.Sprint(id)}, "language": {locale.ProviderLanguage(locale.ContextLanguage(ctx))}})
 	if e != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()

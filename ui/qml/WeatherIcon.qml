@@ -106,7 +106,7 @@ Item {
             }
             if (root.condition === "unknown") {
                 c.fillStyle = "#b7cbdc";
-                c.font = "24px sans-serif";
+                c.font = "24px " + I18n.fontFamily;
                 c.textAlign = "center";
                 c.fillText("—", 24, 29);
             }

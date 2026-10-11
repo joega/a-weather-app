@@ -32,7 +32,7 @@ Popup {
     signal findRequested(var preferences)
     onPlanChanged: {
         if (plan) {
-            preferences = Outdoor.preferences(plan.preferences);
+            preferences = (I18n.revision, Outdoor.preferences(plan.preferences));
             dirty = false;
         }
     }
@@ -52,14 +52,14 @@ Popup {
     }
     function label(key, n) {
         if (key === "hours")
-            return n + (n === 1 ? " hour" : " hours");
+            return n + (n === 1 ? I18n.t(" hour") : I18n.t(" hours"));
         if (key.indexOf("temperature") >= 0)
-            return Forecast.temp(n, units);
+            return (I18n.revision, Forecast.temp(n, units));
         if (key === "max_probability")
-            return Forecast.percent(n);
+            return (I18n.revision, Forecast.percent(n));
         if (key === "max_hourly_precipitation_mm")
-            return units === "F" ? (n / 25.4).toFixed(3) + " in/hour" : n + " mm/hour";
-        return Forecast.wind(n, units, windUnits);
+            return units === "F" ? I18n.t("%1 in/hour").arg(I18n.number(n / 25.4, 3)) : I18n.t("%1 mm/hour").arg(I18n.number(n, 1));
+        return (I18n.revision, Forecast.wind(n, units, windUnits));
     }
     function choices(row) {
         if (!preferences)
@@ -115,7 +115,7 @@ Popup {
                 Layout.fillWidth: true
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: "Outdoor planner"
+                    text: I18n.t("Outdoor planner")
                     font.pixelSize: Tokens.fontSize(26)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -124,14 +124,14 @@ Popup {
                     id: closeButton
                     objectName: "closeOutdoorPlanner"
                     iconName: "close"
-                    accessibleLabel: "Close outdoor planner"
+                    accessibleLabel: I18n.t("Close outdoor planner")
                     onClicked: root.close()
                 }
             }
             PlainLabel {
                 objectName: "outdoorPlannerPlace"
                 Layout.fillWidth: true
-                text: root.place + " · Next 48 hours\n" + root.freshness
+                text: I18n.t("%1 · Next 48 hours\n%2").arg(root.place).arg(root.freshness)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -139,7 +139,7 @@ Popup {
             PlainLabel {
                 visible: root.alertCount > 0
                 Layout.fillWidth: true
-                text: root.alertCount + (root.alertCount === 1 ? " official alert is" : " official alerts are") + " active here. Review the alerts on the forecast screen before planning."
+                text: I18n.t("%1%2 active here. Review the alerts on the forecast screen before planning.").arg(root.alertCount).arg((root.alertCount === 1 ? I18n.t(" official alert is") : I18n.t(" official alerts are")))
                 color: "#ffd99b"
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -148,7 +148,7 @@ Popup {
                 Layout.fillWidth: true
                 ActionButton {
                     objectName: "outdoorAdjustPreferences"
-                    text: root.editing ? "Hide preferences" : "Adjust preferences"
+                    text: root.editing ? I18n.t("Hide preferences") : I18n.t("Adjust preferences")
                     enabled: root.preferences !== null && root.state !== "loading"
                     onClicked: root.editing = !root.editing
                 }
@@ -157,7 +157,7 @@ Popup {
                 }
                 ActionButton {
                     objectName: "outdoorFindTimes"
-                    text: root.state === "loading" ? "Finding times…" : "Find times"
+                    text: root.state === "loading" ? I18n.t("Finding times…") : I18n.t("Find times")
                     primary: true
                     enabled: root.available && root.state !== "loading"
                     onClicked: root.findRequested(root.preferences)
@@ -166,7 +166,7 @@ Popup {
             PlainLabel {
                 visible: root.preferences !== null && !root.editing
                 Layout.fillWidth: true
-                text: !root.preferences ? "" : root.label("hours", root.preferences.hours) + " · " + root.label("min_temperature_c", root.preferences.min_temperature_c) + " to " + root.label("max_temperature_c", root.preferences.max_temperature_c) + " · " + (root.preferences.daylight_only ? "Daylight only" : "Day or night") + "\nHourly precipitation: up to " + root.label("max_probability", root.preferences.max_probability) + " and " + root.label("max_hourly_precipitation_mm", root.preferences.max_hourly_precipitation_mm) + "\nWind up to " + root.label("max_wind_m_s", root.preferences.max_wind_m_s) + " · Gusts up to " + root.label("max_gust_m_s", root.preferences.max_gust_m_s)
+                text: !root.preferences ? "" : I18n.t("%1 · %2 to %3 · %4\nHourly precipitation: up to %5 and %6\nWind up to %7 · Gusts up to %8").arg(root.label("hours", root.preferences.hours)).arg(root.label("min_temperature_c", root.preferences.min_temperature_c)).arg(root.label("max_temperature_c", root.preferences.max_temperature_c)).arg((root.preferences.daylight_only ? I18n.t("Daylight only") : I18n.t("Day or night"))).arg(root.label("max_probability", root.preferences.max_probability)).arg(root.label("max_hourly_precipitation_mm", root.preferences.max_hourly_precipitation_mm)).arg(root.label("max_wind_m_s", root.preferences.max_wind_m_s)).arg(root.label("max_gust_m_s", root.preferences.max_gust_m_s))
                 font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -183,37 +183,37 @@ Popup {
                     model: [
                         {
                             key: "hours",
-                            title: "Time outside",
+                            title: I18n.t("Time outside"),
                             values: [1, 2, 3, 4]
                         },
                         {
                             key: "max_probability",
-                            title: "Maximum hourly rain / snow chance",
+                            title: I18n.t("Maximum hourly rain / snow chance"),
                             values: [0, .1, .2, .4, .6, .8, 1]
                         },
                         {
                             key: "min_temperature_c",
-                            title: "Minimum temperature",
+                            title: I18n.t("Minimum temperature"),
                             values: [-20, -10, 0, 5, 10, 15, 20, 25, 30, 40]
                         },
                         {
                             key: "max_temperature_c",
-                            title: "Maximum temperature",
+                            title: I18n.t("Maximum temperature"),
                             values: [0, 5, 10, 15, 20, 25, 27, 30, 35, 40, 50]
                         },
                         {
                             key: "max_wind_m_s",
-                            title: "Maximum wind",
+                            title: I18n.t("Maximum wind"),
                             values: [0, 2, 4, 6, 8, 10, 15, 20]
                         },
                         {
                             key: "max_gust_m_s",
-                            title: "Maximum gusts",
+                            title: I18n.t("Maximum gusts"),
                             values: [0, 4, 6, 8, 10, 15, 20, 30]
                         },
                         {
                             key: "max_hourly_precipitation_mm",
-                            title: "Maximum hourly precipitation",
+                            title: I18n.t("Maximum hourly precipitation"),
                             values: [0, .1, .5, 1, 2, 5, 10]
                         }
                     ]
@@ -247,8 +247,8 @@ Popup {
                     Layout.preferredWidth: 1
                     Layout.minimumWidth: 180
                     testName: "outdoorDaylight"
-                    title: "Daylight only"
-                    caption: "Use sunrise and sunset"
+                    title: I18n.t("Daylight only")
+                    caption: I18n.t("Use sunrise and sunset")
                     checked: root.preferences ? root.preferences.daylight_only : true
                     optimistic: false
                     onToggled: value => root.updatePreference("daylight_only", value)
@@ -257,7 +257,7 @@ Popup {
             PlainLabel {
                 visible: root.editing
                 Layout.fillWidth: true
-                text: "Find times saves these preferences for every place. Hourly precipitation is liquid equivalent, including rain and melted snow."
+                text: I18n.t("Find times saves these preferences for every place. Hourly precipitation is liquid equivalent, including rain and melted snow.")
                 font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -267,7 +267,7 @@ Popup {
                 objectName: "outdoorPlannerStatus"
                 Layout.fillWidth: true
                 visible: text !== ""
-                text: root.state === "loading" ? "Checking the loaded hourly forecast…" : root.dirty ? "Preferences changed. Find times to update the suggestions." : root.error || (!root.plan ? "" : ["fresh", "stale"].indexOf(root.plan.freshness) < 0 ? "This forecast is too old or unavailable for planning. Refresh the forecast and try again." : root.plan.windows.length === 0 ? "There are not enough consecutive forecast hours for this duration." : root.plan.windows.some(row => row.fits) ? "" : "No complete match found. These are the closest available windows.")
+                text: root.state === "loading" ? I18n.t("Checking the loaded hourly forecast…") : root.dirty ? I18n.t("Preferences changed. Find times to update the suggestions.") : I18n.t(root.error) || (!root.plan ? "" : ["fresh", "stale"].indexOf(root.plan.freshness) < 0 ? I18n.t("This forecast is too old or unavailable for planning. Refresh the forecast and try again.") : root.plan.windows.length === 0 ? I18n.t("There are not enough consecutive forecast hours for this duration.") : root.plan.windows.some(row => row.fits) ? "" : I18n.t("No complete match found. These are the closest available windows."))
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -301,14 +301,14 @@ Popup {
                         PlainLabel {
                             objectName: "outdoorExplanation_" + resultCard.index
                             Layout.fillWidth: true
-                            text: Outdoor.explanation(resultCard.modelData)
+                            text: (I18n.revision, Outdoor.explanation(resultCard.modelData))
                             color: resultCard.modelData.fits ? Tokens.accent : "#ffd99b"
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
                         PlainLabel {
                             Layout.fillWidth: true
-                            text: Outdoor.metrics(resultCard.modelData, root.units, root.windUnits)
+                            text: (I18n.revision, Outdoor.metrics(resultCard.modelData, root.units, root.windUnits))
                             font.pixelSize: Tokens.fontSize(13)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
@@ -320,7 +320,7 @@ Popup {
                 objectName: "outdoorSaveStatus"
                 visible: root.plan !== null && ["unavailable", "unconfirmed"].indexOf(root.plan.save_status) >= 0
                 Layout.fillWidth: true
-                text: root.plan && root.plan.save_status === "unconfirmed" ? "These preferences apply here, but saving could not be confirmed." : "Saved preferences could not be read. Default preferences are shown."
+                text: root.plan && root.plan.save_status === "unconfirmed" ? I18n.t("These preferences apply here, but saving could not be confirmed.") : I18n.t("Saved preferences could not be read. Default preferences are shown.")
                 color: "#ffd99b"
                 font.pixelSize: Tokens.fontSize(13)
                 wrapMode: Text.Wrap
@@ -328,7 +328,7 @@ Popup {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Hourly forecast by Open-Meteo · Times are local to this place. Windows are ranked by your preferences, then earliest first; incomplete data ranks last. UV, air quality, ice and official warnings are not included in the ranking."
+                text: I18n.t("Hourly forecast by Open-Meteo · Times are local to this place. Windows are ranked by your preferences, then earliest first; incomplete data ranks last. UV, air quality, ice and official warnings are not included in the ranking.")
                 color: Tokens.secondary
                 font.pixelSize: Tokens.fontSize(12)
                 wrapMode: Text.Wrap

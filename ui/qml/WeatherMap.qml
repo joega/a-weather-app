@@ -17,13 +17,14 @@ ColumnLayout {
             hour_labels: [],
             fetched_label: null
         })
-    property var radarState: Forecast.emptyRadar()
+    property var radarState: (I18n.revision, Forecast.emptyRadar())
     property var imageControl: null
     property real locationLatitude: 0
     property real locationLongitude: 0
     signal radarViewRequested(real latitude, real longitude, int zoom)
     signal radarHistoryRequested(bool enabled)
     property string location: ""
+    property string locationIdentity: location
     property string units: "F"
     property string windUnits: "auto"
     property bool hasLocation: false
@@ -43,7 +44,7 @@ ColumnLayout {
         layerTabs.currentIndex = 0;
         adjustingDefault = false;
     }
-    onLocationChanged: resetDefaultLayer()
+    onLocationIdentityChanged: resetDefaultLayer()
     onRadarStateChanged: defaultLayerSync.restart()
     function applyDefaultFallback() {
         // Forecast maps remain the useful default outside observed-radar coverage.
@@ -152,13 +153,13 @@ ColumnLayout {
         Layout.fillWidth: true
         PlainLabel {
             Layout.fillWidth: true
-            text: "Local weather maps · " + root.location
+            text: I18n.t("Local weather maps · %1").arg(root.location)
             font.pixelSize: Tokens.fontSize(21)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }
         PlainLabel {
-            text: root.selectedLayer === "radar" ? "Past observations" : root.mapData ? root.mapData.hours.length + " hours" : ""
+            text: root.selectedLayer === "radar" ? I18n.t("Past observations") : root.mapData ? I18n.t("%n hour(s)", root.mapData.hours.length) : ""
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(13)
         }
@@ -175,14 +176,14 @@ ColumnLayout {
         spacing: 6
         background: Item {}
         Repeater {
-            model: ["Radar", "Precipitation", "Temperature", "Wind"]
+            model: [I18n.t("Radar"), I18n.t("Precipitation"), I18n.t("Temperature"), I18n.t("Wind")]
             TabButton {
                 id: tab
                 required property string modelData
                 required property int index
                 objectName: "mapLayerTab" + index
                 text: modelData
-                Accessible.name: modelData === "Radar" ? "Observed radar map" : modelData + " forecast map"
+                Accessible.name: index === 0 ? I18n.t("Observed radar map") : I18n.t("%1 forecast map").arg(modelData)
                 width: (layerTabs.availableWidth - layerTabs.spacing * 3) * [0.20, 0.32, 0.30, 0.18][index]
                 implicitHeight: Math.max(40, implicitContentHeight + topPadding + bottomPadding)
                 background: Rectangle {
@@ -207,7 +208,7 @@ ColumnLayout {
         ActionButton {
             Layout.alignment: Qt.AlignTop
             objectName: "mapPreviousHour"
-            text: "Previous"
+            text: I18n.t("Previous")
             enabled: root.mapData && root.hourIndex > 0
             onClicked: root.selectHour(root.hourIndex - 1)
         }
@@ -225,7 +226,7 @@ ColumnLayout {
             readonly property int labelStride: Math.max(1, Math.ceil(minimumLabelSpacing / Math.max(1, timeline.tickTravel / Math.max(1, count - 1))))
             FontMetrics {
                 id: hourFont
-                font.family: "sans-serif"
+                font.family: I18n.fontFamily
                 font.pixelSize: Tokens.fontSize(11)
             }
             Slider {
@@ -244,8 +245,8 @@ ColumnLayout {
                 readonly property real tickStart: leftPadding + handle.width / 2
                 readonly property real tickTravel: Math.max(0, availableWidth - handle.width)
                 readonly property int previewIndex: Math.max(0, Math.min(to, Math.round((hoverProbe.point.position.x - tickStart) / Math.max(1, tickTravel) * to)))
-                Accessible.name: "Forecast map hour"
-                Accessible.description: root.mapData ? root.mapState.hour_labels[root.hourIndex] : "Forecast map not loaded"
+                Accessible.name: I18n.t("Forecast map hour")
+                Accessible.description: root.mapData ? root.mapState.hour_labels[root.hourIndex] : I18n.t("Forecast map not loaded")
                 onMoved: root.selectHour(Math.round(value))
                 background: Item {
                     Rectangle {
@@ -331,15 +332,15 @@ ColumnLayout {
         ActionButton {
             Layout.alignment: Qt.AlignTop
             objectName: "mapNextHour"
-            text: "Next"
+            text: I18n.t("Next")
             enabled: root.mapData && root.hourIndex < root.mapData.hours.length - 1
             onClicked: root.selectHour(root.hourIndex + 1)
         }
         ActionButton {
             Layout.alignment: Qt.AlignTop
             objectName: "mapPlayback"
-            text: root.playing ? "Stop" : "Play"
-            accessibleLabel: root.playing ? "Stop map playback and return to the current hour" : "Play the map forecast timeline"
+            text: root.playing ? I18n.t("Stop") : I18n.t("Play")
+            accessibleLabel: root.playing ? I18n.t("Stop map playback and return to the current hour") : I18n.t("Play the map forecast timeline")
             selected: root.playing
             enabled: root.canPlay
             onClicked: root.playing ? root.stopPlayback() : root.startPlayback()
@@ -349,7 +350,7 @@ ColumnLayout {
         objectName: "mapSelectedTime"
         visible: root.selectedLayer !== "radar"
         Layout.fillWidth: true
-        text: root.mapData ? "Forecast valid " + root.mapState.hour_labels[root.hourIndex] + " · Hour " + (root.hourIndex + 1) + " of " + root.mapData.hours.length : root.hasLocation ? "Local model maps load as you scroll here" : "Choose a location to see local maps"
+        text: root.mapData ? I18n.t("Forecast valid %1 · Hour %2 of %3").arg(root.mapState.hour_labels[root.hourIndex]).arg((root.hourIndex + 1)).arg(root.mapData.hours.length) : root.hasLocation ? I18n.t("Local model maps load as you scroll here") : I18n.t("Choose a location to see local maps")
         wrapMode: Text.Wrap
         elide: Text.ElideNone
         font.pixelSize: Tokens.fontSize(14)
@@ -368,7 +369,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         visible: root.selectedLayer !== "radar" && root.mapData !== null
-        text: root.mapData ? root.mapData.model_name + " · native grid ~" + Forecast.distance(root.mapData.resolution_km * 1000, root.units) + " · 5×5 samples requested ~" + Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units) + " apart · smooth visual interpolation, no added forecast detail · fetched " + root.mapState.fetched_label + (root.mapState.status === "stale" ? " · stale" : "") + (root.mapState.offline ? " · offline" : "") : ""
+        text: root.mapData ? I18n.t("%1 · native grid ~%2 · 5×5 samples requested ~%3 apart · smooth visual interpolation, no added forecast detail · fetched %4%5%6").arg(root.mapData.model_name).arg((I18n.revision, Forecast.distance(root.mapData.resolution_km * 1000, root.units))).arg((I18n.revision, Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units))).arg(root.mapState.fetched_label).arg((root.mapState.status === "stale" ? I18n.t(" · stale") : "")).arg((root.mapState.offline ? I18n.t(" · offline") : "")) : ""
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
         wrapMode: Text.Wrap
@@ -377,7 +378,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         visible: root.selectedLayer !== "radar" && root.mapData !== null
-        text: root.mapData ? root.mapData.attribution + (root.mapData.resolution_km >= 10 ? " · Coarse global pattern; neighborhood detail unavailable." : "") : ""
+        text: root.mapData ? root.mapData.attribution + (root.mapData.resolution_km >= 10 ? I18n.t(" · Coarse global pattern; neighborhood detail unavailable.") : "") : ""
         font.pixelSize: Tokens.fontSize(11)
         color: Tokens.secondary
         wrapMode: Text.Wrap

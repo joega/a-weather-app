@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/locale"
 	"github.com/joega/a-weather-app/internal/safeio"
 	"github.com/joega/a-weather-app/internal/weather"
 )
@@ -148,4 +149,38 @@ func warningNotice(decision WarningDecision, m weather.AlertMessage, place strin
 		urgency = "critical"
 	}
 	return WarningNotice{Key: decision.Key, Location: decision.Location, Kind: decision.Kind, Place: Text(place, 100), Timezone: zone.String(), Title: Text(prefix+event, 120), Body: strings.Join(parts, "\n"), Urgency: urgency}
+}
+
+// Localize only app-authored templates; official provider text stays verbatim.
+func localizedWarningNotice(code string, d WarningDecision, m weather.AlertMessage, place string, zone *time.Location, settings M) WarningNotice {
+	notice := warningNotice(d, m, place, zone, settings)
+	notice.Title = warningDisplayTitle(code, d.Kind, m.Event)
+	issuer := Text(m.Issuer, 100)
+	if issuer == "" {
+		issuer = "National Weather Service"
+	}
+	parts := []string{Text(place, 100), issuer}
+	if d.Kind != "canceled" {
+		parts = append(parts, locale.T(code, "%1 · valid until %2", locale.T(code, m.Severity), locale.DateTime(m.Expires.In(zone))))
+	}
+	if instruction := Text(strings.Join(strings.Fields(m.Instruction), " "), 500); instruction != "" {
+		parts = append(parts, instruction)
+	} else if headline := Text(m.Headline, 200); headline != "" {
+		parts = append(parts, headline)
+	}
+	notice.Body = strings.Join(parts, "\n")
+	return notice
+}
+
+func warningDisplayTitle(code, kind, event string) string {
+	event = Text(event, 120)
+	if strings.TrimSpace(event) == "" {
+		event = locale.T(code, "Official weather warning")
+	}
+	if kind == "updated" {
+		event = locale.T(code, "Updated: %1", event)
+	} else if kind == "canceled" {
+		event = locale.T(code, "Canceled: %1", event)
+	}
+	return Text(event, 240)
 }

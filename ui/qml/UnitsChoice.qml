@@ -20,23 +20,23 @@ SettingsComboBox {
     popupWidth: Math.max(width, 220)
     model: [
         {
-            label: "Auto (°" + root.units + ")",
+            label: I18n.t("Auto (°%1)").arg(root.units),
             value: "auto"
         },
         {
-            label: "Fahrenheit (°F)",
+            label: I18n.t("Fahrenheit (°F)"),
             value: "F"
         },
         {
-            label: "Celsius (°C)",
+            label: I18n.t("Celsius (°C)"),
             value: "C"
         }
     ]
     textRole: "label"
     valueRole: "value"
     currentIndex: automaticUnits ? 0 : units === "F" ? 1 : 2
-    displayText: abbreviated ? "°" + units : automaticUnits ? "Auto (°" + units + ")" : compact ? "°" + units : units === "F" ? "Fahrenheit (°F)" : "Celsius (°C)"
-    Accessible.name: "Measurement units: " + (automaticUnits ? "Automatic (°" + units + ")" : units === "F" ? "Fahrenheit" : "Celsius")
+    displayText: abbreviated ? "°" + units : automaticUnits ? I18n.t("Auto (°%1)").arg(units) : compact ? "°" + units : units === "F" ? I18n.t("Fahrenheit (°F)") : I18n.t("Celsius (°C)")
+    Accessible.name: I18n.t("Measurement units: %1").arg((automaticUnits ? I18n.t("Automatic (°%1)").arg(units) : units === "F" ? I18n.t("Fahrenheit") : I18n.t("Celsius")))
     ToolTip {
         id: tooltip
         visible: root.abbreviated && root.enabled && root.hovered && !root.popup.visible

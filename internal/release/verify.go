@@ -43,7 +43,7 @@ var artifactNames = []string{
 var runtimeNames = []string{
 	"LICENSE", "THIRD_PARTY_NOTICES.md", "manifest.json", "README.md",
 	"packaging/a-weather-app.desktop", "packaging/icons/a-weather-app.svg", "packaging/go-README.md",
-	"quickshell/a-weather-app.weather/WeatherWidget.qml", "licenses/hyprland-dependencies.txt", "licenses/go.txt",
+	"quickshell/a-weather-app.weather/WeatherWidget.qml", "quickshell/a-weather-app.weather/Translations.js", "licenses/hyprland-dependencies.txt", "licenses/go.txt",
 }
 
 type record struct {

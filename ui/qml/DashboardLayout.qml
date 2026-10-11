@@ -5,12 +5,12 @@ import "Dashboard.js" as Dashboard
 
 ColumnLayout {
     id: root
-    property var preferences: Dashboard.defaults()
+    property var preferences: (I18n.revision, Dashboard.defaults())
     property bool paired: false
     property var components: ({})
     property var mapItem: null
     property var rows: []
-    readonly property string rowKey: JSON.stringify(Dashboard.rows(preferences.sections, true))
+    readonly property string rowKey: JSON.stringify((I18n.revision, Dashboard.rows(preferences.sections, true)))
     onRowKeyChanged: rows = JSON.parse(rowKey)
     readonly property real mapTop: {
         let item = mapItem, top = 0;

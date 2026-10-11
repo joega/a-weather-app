@@ -9,7 +9,7 @@ GlassPanel {
     id: root
     objectName: "radarMap"
     implicitHeight: content.implicitHeight + 32
-    property var radarState: Forecast.emptyRadar()
+    property var radarState: (I18n.revision, Forecast.emptyRadar())
     property var tileClient: null
     property var imageControl: null
     property var tileImages: ({})
@@ -63,17 +63,17 @@ GlassPanel {
     readonly property int desiredIndex: frames.findIndex(f => f.time === desiredTime)
     readonly property string freshnessText: {
         if (radarState.status === "unsupported")
-            return "Observed radar currently covers the contiguous United States.";
+            return I18n.t("Observed radar currently covers the contiguous United States.");
         if (radarState.status === "offline")
-            return "Radar is unavailable offline.";
+            return I18n.t("Radar is unavailable offline.");
         if (radarState.status === "unavailable")
-            return "Radar is temporarily unavailable. Forecast maps are still available.";
+            return I18n.t("Radar is temporarily unavailable. Forecast maps are still available.");
         if (radarState.status === "loading" && displayedFrame === null)
-            return "Loading radar…";
+            return I18n.t("Loading radar…");
         if (radarState.latest === "")
-            return "Observed radar loads when this map is in view.";
+            return I18n.t("Observed radar loads when this map is in view.");
         const minutes = Math.max(0, Math.floor((clockNow - Date.parse(radarState.latest)) / 60000));
-        return (radarState.status === "stale" ? "Stale radar · " : "Latest radar · ") + (minutes < 1 ? "less than a minute ago" : minutes + " min ago");
+        return (radarState.status === "stale" ? I18n.t("Stale radar · ") : I18n.t("Latest radar · ")) + (minutes < 1 ? I18n.t("less than a minute ago") : I18n.t("%n minute(s) ago", minutes));
     }
     signal viewRequested(real latitude, real longitude, int zoom)
     signal historyRequested(bool enabled)
@@ -267,14 +267,14 @@ GlassPanel {
             Layout.fillWidth: true
             PlainLabel {
                 Layout.fillWidth: true
-                text: "Observed radar"
+                text: I18n.t("Observed radar")
                 font.pixelSize: Tokens.fontSize(21)
                 font.weight: Font.DemiBold
             }
             ActionButton {
                 objectName: "radarExpand"
-                text: root.expanded ? "Collapse" : "Expand"
-                accessibleLabel: root.expanded ? "Collapse radar map" : "Expand radar map"
+                text: root.expanded ? I18n.t("Collapse") : I18n.t("Expand")
+                accessibleLabel: root.expanded ? I18n.t("Collapse radar map") : I18n.t("Expand radar map")
                 onClicked: root.expanded = !root.expanded
             }
         }
@@ -290,7 +290,7 @@ GlassPanel {
             Layout.fillWidth: true
             ActionButton {
                 objectName: "radarPrevious"
-                text: "Previous"
+                text: I18n.t("Previous")
                 enabled: root.desiredIndex > 0
                 onClicked: root.select(root.desiredIndex - 1)
             }
@@ -302,18 +302,18 @@ GlassPanel {
                 stepSize: 1
                 value: Math.max(0, root.desiredIndex)
                 enabled: root.frames.length > 1
-                Accessible.name: "Radar observation time"
+                Accessible.name: I18n.t("Radar observation time")
                 onMoved: root.select(Math.round(value))
             }
             ActionButton {
                 objectName: "radarNext"
-                text: "Next"
+                text: I18n.t("Next")
                 enabled: root.desiredIndex >= 0 && root.desiredIndex < root.frames.length - 1
                 onClicked: root.select(root.desiredIndex + 1)
             }
             ActionButton {
                 objectName: "radarPlay"
-                text: root.playing ? "Pause" : "Play"
+                text: root.playing ? I18n.t("Pause") : I18n.t("Play")
                 enabled: root.canPlay
                 selected: root.playing
                 onClicked: {
@@ -323,7 +323,7 @@ GlassPanel {
             }
             ActionButton {
                 objectName: "radarLatest"
-                text: "Latest"
+                text: I18n.t("Latest")
                 enabled: root.frames.length > 0
                 onClicked: root.latest()
             }
@@ -334,10 +334,10 @@ GlassPanel {
             visible: text !== ""
             text: {
                 if (root.imageError)
-                    return "Could not load this radar image. Choose Latest to try again.";
+                    return I18n.t("Could not load this radar image. Choose Latest to try again.");
                 if (root.displayedFrame)
-                    return "Radar at " + root.displayedFrame.label + (root.manualLoadingVisible ? " · loading selected time…" : "");
-                return root.active && root.desiredID !== "" ? "Loading radar image…" : "";
+                    return I18n.t("Radar at ") + root.displayedFrame.label + (root.manualLoadingVisible ? I18n.t(" · loading selected time…") : "");
+                return root.active && root.desiredID !== "" ? I18n.t("Loading radar image…") : "";
             }
             color: Tokens.secondary
             font.pixelSize: Tokens.fontSize(13)
@@ -352,8 +352,8 @@ GlassPanel {
             clip: true
             activeFocusOnTab: true
             Accessible.role: Accessible.Canvas
-            Accessible.name: "Observed radar map. " + (root.displayedFrame ? root.displayedFrame.label : root.freshnessText)
-            Accessible.description: "Drag to pan. Arrow keys pan. Plus and minus zoom. Home returns to the viewed location. Blank areas can lack radar coverage."
+            Accessible.name: I18n.t("Observed radar map. %1").arg((root.displayedFrame ? root.displayedFrame.label : root.freshnessText))
+            Accessible.description: I18n.t("Drag to pan. Arrow keys pan. Plus and minus zoom. Home returns to the viewed location. Blank areas can lack radar coverage.")
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Left)
                     root.pan(-0.2, 0);
@@ -483,7 +483,7 @@ GlassPanel {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 55
-                text: "Geographic background unavailable"
+                text: I18n.t("Geographic background unavailable")
                 visible: root.visibleTiles.length > 0 && root.visibleTiles.every(tile => root.failedTiles[tile.key])
                 color: "white"
                 font.pixelSize: Tokens.fontSize(13)
@@ -502,20 +502,20 @@ GlassPanel {
                 ActionButton {
                     objectName: "radarZoomOut"
                     text: "−"
-                    accessibleLabel: "Zoom radar out"
+                    accessibleLabel: I18n.t("Zoom radar out")
                     enabled: root.bounds && root.zoom > 4
                     onClicked: root.moveTo(root.centerLat, root.centerLon, root.zoom - 1)
                 }
                 ActionButton {
                     objectName: "radarZoomIn"
                     text: "+"
-                    accessibleLabel: "Zoom radar in"
+                    accessibleLabel: I18n.t("Zoom radar in")
                     enabled: root.bounds && root.zoom < 10
                     onClicked: root.moveTo(root.centerLat, root.centerLon, root.zoom + 1)
                 }
                 ActionButton {
                     objectName: "radarRecenter"
-                    text: "Recenter"
+                    text: I18n.t("Recenter")
                     enabled: root.bounds !== null && !root.atLocation
                     onClicked: root.moveTo(root.locationLatitude, root.locationLongitude, 7)
                 }
@@ -531,7 +531,7 @@ GlassPanel {
                 PlainLabel {
                     id: credit
                     anchors.centerIn: parent
-                    text: "© OpenStreetMap contributors (ODbL)"
+                    text: I18n.t("© OpenStreetMap contributors (ODbL)")
                     color: "#15384a"
                     font.pixelSize: Tokens.fontSize(11)
                 }
@@ -554,7 +554,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: root.frames.length + " / " + root.radarState.frames.length + " observations ready" + (root.radarState.frames.some(f => f.state === "failed" || f.state === "limited") ? " · some frames unavailable" : "") + " · NOAA/NWS MRMS · reflectivity (dBZ), ~1 km grid"
+            text: I18n.t("%1 / %2 observations ready%3 · NOAA/NWS MRMS · reflectivity (dBZ), ~1 km grid").arg(root.frames.length).arg(root.radarState.frames.length).arg((root.radarState.frames.some(f => f.state === "failed" || f.state === "limited") ? I18n.t(" · some frames unavailable") : ""))
             font.pixelSize: Tokens.fontSize(12)
             color: Tokens.secondary
             wrapMode: Text.Wrap
@@ -562,7 +562,7 @@ GlassPanel {
         }
         PlainLabel {
             Layout.fillWidth: true
-            text: "Past radar echoes, not a rain forecast. Blank areas may lack coverage; reflectivity does not identify rain or snow."
+            text: I18n.t("Past radar echoes, not a rain forecast. Blank areas may lack coverage; reflectivity does not identify rain or snow.")
             font.pixelSize: Tokens.fontSize(12)
             color: Tokens.secondary
             wrapMode: Text.Wrap

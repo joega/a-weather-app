@@ -5,29 +5,30 @@ Item {
     id: root
     objectName: "forecastTrend"
     property var hours: []
+    property string timezone: "UTC"
     property string units: "F"
     property string windUnits: "auto"
     property string metric: "temperature_c"
-    property string metricLabel: Forecast.metricInfo(metric).label
-    property var chartScale: Forecast.metricScale(hours, metric)
-    property string rangeDescription: Forecast.metricRange(hours, metric, units, windUnits)
-    property var valueFormatter: value => Forecast.metricValue(value, metric, units, windUnits)
+    property string metricLabel: (I18n.revision, Forecast.metricInfo(metric)).label
+    property var chartScale: (I18n.revision, Forecast.metricScale(hours, metric))
+    property string rangeDescription: (I18n.revision, Forecast.metricRange(hours, metric, units, windUnits))
+    property var valueFormatter: value => (I18n.revision, Forecast.metricValue(value, metric, units, windUnits))
     property var accessibleValueFormatter: value => valueFormatter(value) + (["temperature_c", "apparent_temperature_c", "dew_point_c"].indexOf(metric) >= 0 ? units : "")
     property int selectedIndex: 0
     readonly property string selectedDescription: {
         const hour = hours[selectedIndex];
         if (!hour)
-            return "No hourly data available.";
-        const label = hour.local_label || hour.label || hour.time || hour.local_hour || "Selected hour";
+            return I18n.t("No hourly data available.");
+        const label = I18n.date(hour.time, root.timezone, "long") || hour.local_label || hour.label || hour.time || hour.local_hour || I18n.t("Selected hour");
         const value = hour[metric];
-        return label + ". " + metricLabel + ": " + (typeof value === "number" && Number.isFinite(value) ? accessibleValueFormatter(value) : "unavailable") + ".";
+        return label + ". " + metricLabel + ": " + (typeof value === "number" && Number.isFinite(value) ? accessibleValueFormatter(value) : I18n.t("Unavailable")) + ".";
     }
     signal selected(int index)
     activeFocusOnTab: true
     Accessible.role: Accessible.Chart
     Accessible.focusable: true
-    Accessible.name: metricLabel + " forecast chart"
-    Accessible.description: selectedDescription + " " + rangeDescription + " Use left and right arrows to select an hour, Home for the first, and End for the last."
+    Accessible.name: I18n.t("%1 forecast chart").arg(metricLabel)
+    Accessible.description: I18n.t("%1 %2 Use left and right arrows to select an hour, Home for the first, and End for the last.").arg(selectedDescription).arg(rangeDescription)
     Accessible.onDecreaseAction: selectHour(selectedIndex - 1)
     Accessible.onIncreaseAction: selectHour(selectedIndex + 1)
     function announceSelection() {
@@ -98,7 +99,7 @@ Item {
             const left = 64 * Tokens.textScale, right = width - 18, top = 22, bottom = height - 18;
             const x = i => left + (right - left) * (i + 0.5) / values.length;
             const y = v => bottom - (v - low) / (high - low) * (bottom - top);
-            c.font = Tokens.fontSize(12) + "px sans-serif";
+            c.font = Tokens.fontSize(12) + "px " + I18n.fontFamily;
             c.fillStyle = Tokens.secondary;
             c.fillText(root.valueText(high), 0, top + 4);
             c.fillText(root.valueText(low), 0, bottom + 4);
@@ -180,7 +181,7 @@ Item {
         anchors.left: parent.left
         anchors.leftMargin: 64 * Tokens.textScale
         anchors.bottom: parent.bottom
-        text: root.hours.length ? root.hours[0].local_hour : ""
+        text: root.hours.length ? (I18n.date(root.hours[0].time, root.timezone, "hour") || root.hours[0].local_hour) : ""
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }
@@ -188,7 +189,7 @@ Item {
         anchors.right: parent.right
         anchors.rightMargin: 18
         anchors.bottom: parent.bottom
-        text: root.hours.length ? root.hours[root.hours.length - 1].local_hour : ""
+        text: root.hours.length ? (I18n.date(root.hours[root.hours.length - 1].time, root.timezone, "hour") || root.hours[root.hours.length - 1].local_hour) : ""
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
     }
@@ -196,7 +197,7 @@ Item {
         objectName: "forecastTrendUnavailable"
         anchors.centerIn: parent
         visible: !root.hours.some(h => h[root.metric] !== null && h[root.metric] !== undefined)
-        text: "Trend unavailable"
+        text: I18n.t("Trend unavailable")
         color: Tokens.secondary
     }
 }

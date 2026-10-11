@@ -26,3 +26,9 @@ docs/
 !ui/shaders/atmosphere.frag.qsb
 !native/frame-alignment/a-weather-app-frame-alignment.so
 !native/atmosphere/a-weather-app-atmosphere
+
+# Internationalization test/build outputs
+native/qt/i18n-test
+native/qt/.i18n-test*
+native/.i18n-test-build/
+scripts/__pycache__/

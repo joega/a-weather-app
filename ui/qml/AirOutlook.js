@@ -6,67 +6,99 @@
 const metrics = [
     {
         key: "us_aqi",
-        title: "US AQI",
+        get title() {
+            return qsTranslate("App", "US AQI");
+        },
         unit: "",
         max: 1000,
         scale: "us",
-        description: "US index calculated by Open-Meteo. Its pollutant indices use different averaging periods; the overall index is the highest of them."
+        get description() {
+            return qsTranslate("App", "US index calculated by Open-Meteo. Its pollutant indices use different averaging periods; the overall index is the highest of them.");
+        }
     },
     {
         key: "european_aqi",
-        title: "European AQI",
+        get title() {
+            return qsTranslate("App", "European AQI");
+        },
         unit: "",
         max: 1000,
         scale: "eu",
-        description: "European index calculated by Open-Meteo from hourly pollutant concentrations. Its numeric scale differs from US AQI."
+        get description() {
+            return qsTranslate("App", "European index calculated by Open-Meteo from hourly pollutant concentrations. Its numeric scale differs from US AQI.");
+        }
     },
     {
         key: "pm2_5",
-        title: "PM2.5",
+        get title() {
+            return qsTranslate("App", "PM2.5");
+        },
         unit: "µg/m³",
         max: 5000,
         scale: "",
-        description: "Fine airborne particles up to 2.5 µm in diameter. A concentration alone does not identify the pollution's source."
+        get description() {
+            return qsTranslate("App", "Fine airborne particles up to 2.5 µm in diameter. A concentration alone does not identify the pollution's source.");
+        }
     },
     {
         key: "pm10",
-        title: "PM10",
+        get title() {
+            return qsTranslate("App", "PM10");
+        },
         unit: "µg/m³",
         max: 5000,
         scale: "",
-        description: "Airborne particles up to 10 µm in diameter, including fine particles."
+        get description() {
+            return qsTranslate("App", "Airborne particles up to 10 µm in diameter, including fine particles.");
+        }
     },
     {
         key: "nitrogen_dioxide",
-        title: "Nitrogen dioxide",
+        get title() {
+            return qsTranslate("App", "Nitrogen dioxide");
+        },
         unit: "µg/m³",
         max: 5000,
         scale: "",
-        description: "Modeled near-surface nitrogen dioxide concentration."
+        get description() {
+            return qsTranslate("App", "Modeled near-surface nitrogen dioxide concentration.");
+        }
     },
     {
         key: "ozone",
-        title: "Ozone",
+        get title() {
+            return qsTranslate("App", "Ozone");
+        },
         unit: "µg/m³",
         max: 5000,
         scale: "",
-        description: "Modeled near-surface ozone concentration."
+        get description() {
+            return qsTranslate("App", "Modeled near-surface ozone concentration.");
+        }
     },
     {
         key: "sulphur_dioxide",
-        title: "Sulphur dioxide",
+        get title() {
+            return qsTranslate("App", "Sulphur dioxide");
+        },
         unit: "µg/m³",
         max: 5000,
         scale: "",
-        description: "Modeled near-surface sulphur dioxide concentration."
+        get description() {
+            return qsTranslate("App", "Modeled near-surface sulphur dioxide concentration.");
+        }
     },
     {
         key: "carbon_monoxide",
-        title: "Carbon monoxide",
+        get title() {
+            return qsTranslate("App", "Carbon monoxide");
+        },
         unit: "µg/m³",
         max: 100000,
         scale: "",
-        description: "Modeled near-surface carbon monoxide concentration."
+        get description() {
+            return qsTranslate("App", "Modeled near-surface carbon monoxide concentration.");
+        }
     }
 ];
 function context(s) {
@@ -124,8 +156,8 @@ function format(value, key, includeUnit) {
         return "—";
     const m = info(key);
     if (m.scale)
-        return Math.round(value).toString();
-    const number = value > 0 && value < .1 ? "<0.1" : value.toFixed(1);
+        return Forecast.displayNumber(Math.round(value), 0);
+    const number = value > 0 && value < .1 ? "<" + Forecast.displayNumber(0.1, 1) : Forecast.displayNumber(value, 1);
     return number + (includeUnit === false ? "" : " " + m.unit);
 }
 function category(value, key) {
@@ -146,5 +178,5 @@ function scale(hours, key) {
 }
 function range(hours, key) {
     const r = scale(hours, key);
-    return r ? "Available hourly range: " + format(r.minimum, key) + " – " + format(r.maximum, key) + ". " + r.count + " of " + hours.length + " samples available." : "No samples available for this measure in the next 48 hours.";
+    return r ? qsTranslate("App", "Available hourly range: %1 – %2. %n of %3 samples available.", "", r.count).arg(format(r.minimum, key)).arg(format(r.maximum, key)).arg(hours.length) : qsTranslate("App", "No samples available for this measure in the next 48 hours.");
 }

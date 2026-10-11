@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joega/a-weather-app/internal/locale"
 	"github.com/joega/a-weather-app/internal/safeio"
 )
 
@@ -162,7 +163,7 @@ type Sender func(context.Context, string, string) error
 // Send invokes notify-send with sanitized text and bounded subprocess cleanup.
 // The command inherits only the environment needed for desktop delivery.
 func Send(ctx context.Context, title, body string) error {
-	cmd := exec.CommandContext(ctx, "/usr/bin/notify-send", "--app-name=A Weather App", "--urgency=low", "--expire-time=8000", "--transient", "--hint=boolean:suppress-sound:true", "--", Text(title, 80), Text(body, 320))
+	cmd := exec.CommandContext(ctx, "/usr/bin/notify-send", "--app-name=A Weather App", "--urgency=low", "--expire-time=8000", "--transient", "--hint=boolean:suppress-sound:true", "--", Text(title, 240), Text(body, 640))
 	cmd.WaitDelay = 500 * time.Millisecond
 	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 	cmd.Env = []string{"PATH=/usr/bin:/bin"}
@@ -185,6 +186,7 @@ type Watcher struct {
 	closing        bool
 	send           Sender
 	supported      bool
+	language       string
 	cancel         context.CancelFunc
 	done           chan error
 	zoneName       string
@@ -267,6 +269,12 @@ func (w *Watcher) save(v M) error {
 	w.document = v
 	return nil
 }
+func (w *Watcher) SetLanguage(code string) {
+	if locale.Valid(code) {
+		w.language = code
+	}
+}
+
 func (w *Watcher) cancelDelivery() {
 	if w.cancel != nil {
 		w.cancel()
@@ -488,8 +496,10 @@ func (w *Watcher) Tick(forecast, location M, now time.Time, dataOK bool) {
 	done := make(chan error, 1)
 	w.done = done
 	w.delivery = "pending"
+	title := locale.T(w.language, str(event["title"]))
+	body := locale.T(w.language, "%1: %2% chance of precipitation for %3. Open-Meteo hourly forecast; timing may change.", event["place"], event["probability"], event["window"])
 	go func() {
-		err := w.send(ctx, str(event["title"]), str(event["body"]))
+		err := w.send(ctx, title, Text(body, 640))
 		if err == nil && ctx.Err() != nil {
 			err = ctx.Err()
 		}

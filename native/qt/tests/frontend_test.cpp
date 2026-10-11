@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "i18n.h"
 #include <QQmlEngine>
 #include <QQmlContext>
 #include <QQmlComponent>
@@ -910,6 +911,8 @@ class FrontendTest : public QObject {
         tiles.cache->setMaximumCacheSize(32 * 1024 * 1024);
         tiles.manager.setCache(tiles.cache);
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"graphicsCapabilities", QVariant::fromValue<QObject*>(&capabilities)},
@@ -1176,9 +1179,84 @@ class FrontendTest : public QObject {
         }
         window->hide();
     }
+    void languageSwitchPreservesStateAndCoalesces() {
+        FakeTransport transport;
+        QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
+        engine.setInitialProperties(
+            {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
+             {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
+        engine.load(QUrl("qrc:/ui/qml/shell.qml"));
+        QCOMPARE(engine.rootObjects().size(), 1);
+        auto* root = engine.rootObjects().first();
+        auto state = metricSnapshot(1);
+        state["language"] = QJsonObject{{"choice", "auto"}, {"effective", "en"}};
+        deliver(transport, {{"version", 1}, {"event", "snapshot"}, {"snapshot", state}});
+        root->setProperty("effectsOpen", false);
+        evaluate(engine, root, "details.showHour(root.hours[0])");
+        const auto city = root->property("location");
+        const auto units = root->property("units");
+        const auto selected = evaluate(engine, root, "details.selectedTime");
+        QVERIFY(!selected.toString().isEmpty());
+        const auto canonical = evaluate(engine, root, "JSON.stringify(root.forecast)");
+        // A pending refresh must not prevent or discard the latest language choice.
+        evaluate(engine, root, "backend.send('refresh')");
+        QVERIFY(!transport.requests.isEmpty());
+        const int refreshId = transport.requests.last()["request_id"].toInt();
+        const QStringList languages{"en",      "es", "fr", "de", "pt", "ja", "zh-Hans",
+                                    "zh-Hant", "uk", "hi", "it", "ko", "id", "pl"};
+        for (const auto& language : languages) {
+            evaluate(engine, root, QString("I18n.setPreference('%1')").arg(language));
+            QCOMPARE(nativeLanguage.preference(), language);
+            QCOMPARE(root->property("location"), city);
+            QCOMPARE(root->property("units"), units);
+            QCOMPARE(evaluate(engine, root, "details.selectedTime"), selected);
+            QCOMPARE(evaluate(engine, root, "JSON.stringify(root.forecast)"), canonical);
+        }
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("refresh"));
+        // A stale snapshot from the pending operation cannot revert the optimistic choice.
+        state["snapshot_revision"] = 2;
+        deliver(transport,
+                {{"version", 1}, {"request_id", refreshId}, {"ok", true}, {"snapshot", state}});
+        QCOMPARE(nativeLanguage.preference(), QString("pl"));
+        QCOMPARE(transport.requests.last()["op"].toString(), QString("set_language"));
+        auto languageRequest = transport.requests.last();
+        const auto preference = languageRequest["language"].toMap();
+        QCOMPARE(preference["choice"].toString(), QString("pl"));
+        QCOMPARE(preference["effective"].toString(), nativeLanguage.language());
+        state["snapshot_revision"] = 3;
+        state["language"] = QJsonObject{{"choice", "pl"}, {"effective", nativeLanguage.language()}};
+        deliver(transport, {{"version", 1},
+                            {"request_id", languageRequest["request_id"].toInt()},
+                            {"ok", true},
+                            {"snapshot", state}});
+        QVERIFY(!evaluate(engine, root, "backend.languageChanging").toBool());
+        QCOMPARE(nativeLanguage.preference(), QString("pl"));
+        evaluate(engine, root, "I18n.setPreference('auto')");
+        QCOMPARE(nativeLanguage.preference(), QString("auto"));
+        const auto prefix = qEnvironmentVariable("WEATHER_QT_I18N_SCREENSHOT_PREFIX");
+        if (!prefix.isEmpty()) {
+            evaluate(engine, root, "details.close()");
+            root->setProperty("effectsOpen", true);
+            auto* window = qobject_cast<QQuickWindow*>(root->findChild<QObject*>("weatherWindow"));
+            QVERIFY(window);
+            for (const auto& language : languages) {
+                nativeLanguage.setPreference(language);
+                for (const auto& size : {QSize(1180, 840), QSize(700, 850)}) {
+                    window->resize(size);
+                    QTest::qWait(80);
+                    QVERIFY(window->grabWindow().save(prefix + "-" + language + "-" +
+                                                      QString::number(size.width()) + ".png"));
+                }
+            }
+        }
+    }
     void updateNoticeAndActions() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
@@ -1699,6 +1777,8 @@ class FrontendTest : public QObject {
         MapTiles tiles(nullptr, server.url());
         useTemporaryTileCache(tiles, directory);
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
                                      {"mapTiles", QVariant::fromValue(&tiles)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -1857,6 +1937,8 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         MapTiles tiles;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.rootContext()->setContextProperty("mapTiles", &tiles);
         engine.setInitialProperties(
@@ -1966,6 +2048,8 @@ class FrontendTest : public QObject {
     void briefingValidationAndInteraction() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -2093,6 +2177,8 @@ class FrontendTest : public QObject {
     void desktopEffectsUseWeatherWindowMonitor() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -2263,6 +2349,8 @@ class FrontendTest : public QObject {
         QFETCH(double, textScale);
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -2636,6 +2724,8 @@ class FrontendTest : public QObject {
         QFETCH(double, textScale);
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -2770,6 +2860,8 @@ class FrontendTest : public QObject {
     void metricDetailsOnDemandAndKeyboard() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -3056,6 +3148,8 @@ class FrontendTest : public QObject {
         QFETCH(int, width);
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -3184,6 +3278,8 @@ class FrontendTest : public QObject {
         QFETCH(double, textScale);
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -3338,6 +3434,8 @@ class FrontendTest : public QObject {
         QFETCH(double, textScale);
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -3604,6 +3702,8 @@ class FrontendTest : public QObject {
     void mainLocationNavigation() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)},
              {"mapTiles", QVariant::fromValue<QObject*>(nullptr)}});
@@ -3689,6 +3789,8 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         FakeMapTiles tiles;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
                                      {"mapTiles", QVariant::fromValue(&tiles)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -3869,6 +3971,8 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         FakeMapTiles tiles;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.rootContext()->setContextProperty("mapTiles", &tiles);
         engine.setInitialProperties(
@@ -4343,6 +4447,8 @@ class FrontendTest : public QObject {
         FakeMapTiles tiles;
         RadarImageControl control;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         auto* images = new FakeRadarImages(control.state());
         engine.addImageProvider("radar", images);
         engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
@@ -4490,6 +4596,8 @@ class FrontendTest : public QObject {
         FakeMapTiles tiles;
         RadarImageControl control;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         auto* images = new FakeRadarImages(control.state());
         engine.addImageProvider("radar", images);
         engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
@@ -4813,6 +4921,8 @@ class FrontendTest : public QObject {
     void applicationWindowMaps() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
@@ -4833,6 +4943,8 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         FakeMapTiles tiles;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties({{"weatherTransport", QVariant::fromValue(&transport)},
                                      {"mapTiles", QVariant::fromValue(&tiles)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -5343,6 +5455,8 @@ class FrontendTest : public QObject {
     void warningNativeClickShowsLazyOriginalDetailAndKeepsAlive() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -5414,6 +5528,8 @@ class FrontendTest : public QObject {
     void warningSettingsWaitForSavedStateAndOpenRecentNotice() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -5486,6 +5602,8 @@ class FrontendTest : public QObject {
         QFETCH(bool, multiline);
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -5585,6 +5703,8 @@ class FrontendTest : public QObject {
     void unsupportedNotifications() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
@@ -5724,6 +5844,8 @@ class FrontendTest : public QObject {
         FakeTransport transport;
         FakeMapTiles tiles;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.rootContext()->setContextProperty("mapTiles", &tiles);
         engine.setInitialProperties(
@@ -6036,6 +6158,8 @@ class FrontendTest : public QObject {
     void pendingAlertsKeepForecastUsable() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(&transport)}});
         engine.load(QUrl("qrc:/ui/qml/shell.qml"));
@@ -6615,6 +6739,8 @@ class FrontendTest : public QObject {
     void airQualityLocationTimeLabels() {
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
@@ -6649,6 +6775,8 @@ class FrontendTest : public QObject {
             QSKIP("Set WEATHER_QT_AQ_SCREENSHOT_PREFIX for private render capture");
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
@@ -6755,6 +6883,8 @@ class FrontendTest : public QObject {
             QSKIP("Set WEATHER_QT_METRICS_SCREENSHOT_PREFIX for private render capture");
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},
@@ -6835,6 +6965,8 @@ class FrontendTest : public QObject {
             QSKIP("Set WEATHER_QT_SCREENSHOT_PREFIX for private render capture");
         FakeTransport transport;
         QQmlApplicationEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         engine.rootContext()->setContextProperty("weatherTransport", &transport);
         engine.setInitialProperties(
             {{"weatherTransport", engine.rootContext()->contextProperty("weatherTransport")},

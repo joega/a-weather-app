@@ -6,7 +6,7 @@ Text {
     style: skyText ? Text.Raised : Text.Normal
     styleColor: "#b00b1c30"
     color: Tokens.foreground
-    font.family: "sans-serif"
+    font.family: I18n.fontFamily
     font.pixelSize: Tokens.fontSize(17)
     elide: Text.ElideRight
 }

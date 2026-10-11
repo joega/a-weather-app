@@ -1,0 +1,2885 @@
+{
+  "\nNo previous viewed forecast is available.": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "\nPrevious viewed: ": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "\nSource: ": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "\nThese details could not be saved for offline use.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "\nThis outlook could not be saved for offline use.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  " (0.004 in)": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  " AM": [
+    "ui/qml/NotificationsPanel.qml",
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  " PM": [
+    "ui/qml/NotificationsPanel.qml",
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  " Some hourly intervals cross a local-day boundary and are excluded from totals.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  " UTC": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  " hour": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  " hours": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  " official alert is": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  " official alerts are": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  " remaining": [
+    "ui/qml/shell.qml"
+  ],
+  " µg/m³": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  " · Alerts: ": [
+    "ui/qml/shell.qml"
+  ],
+  " · Coarse global pattern; neighborhood detail unavailable.": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  " · Disabled": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  " · Offline": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/AirQualityPanel.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  " · Partial coverage": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  " · Refresh failed": [
+    "ui/qml/shell.qml"
+  ],
+  " · Refresh unavailable; retrying while open": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  " · Refreshing…": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  " · Updating": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  " · loading selected time…": [
+    "ui/qml/RadarMap.qml"
+  ],
+  " · offline": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  " · some frames unavailable": [
+    "ui/qml/RadarMap.qml"
+  ],
+  " · stale": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "%1\nIssued %2\n%3 severity · %4 · %5": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "%1 %2 Use left and right arrows to select an hour, Home for the first, and End for the last.": [
+    "ui/qml/ForecastChart.qml"
+  ],
+  "%1 / %2 observations ready%3 · NOAA/NWS MRMS · reflectivity (dBZ), ~1 km grid": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "%1 Only remaining forecast hours are shown.": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "%1 averages %2 → %3 across %n hour(s).": [
+    "ui/qml/Changes.js"
+  ],
+  "%1 forecast chart": [
+    "ui/qml/ForecastChart.qml"
+  ],
+  "%1 forecast map": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "%1 in/hour": [
+    "ui/qml/Changes.js",
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "%1 is Home": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "%1 longer than the previous day": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "%1 mm/hour": [
+    "ui/qml/Changes.js",
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "%1 of daylight\n%2%3": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "%1 radius · © OpenStreetMap contributors (ODbL)": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "%1 remaining today": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "%1 shorter than the previous day": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "%1 to %2 · Peak hourly precipitation chance %3\n%4 total precipitation · Wind up to %5 · Gusts %6": [
+    "ui/qml/Outdoor.js"
+  ],
+  "%1 weather alerts": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "%1 · %2 to %3 · %4\nHourly precipitation: up to %5 and %6\nWind up to %7 · Gusts up to %8": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "%1 · %2 · Feels like %3": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "%1 · %2% illuminated\nAt %3 on this date\n%4": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "%1 · High %2 · Low %3\nPrecipitation chance %4": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "%1 · Next 48 hours": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "%1 · Next 48 hours\n%2": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "%1 · Until %2": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "%1 · native grid ~%2 · 5×5 samples requested ~%3 apart · smooth visual interpolation, no added forecast detail · fetched %4%5%6": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "%1 · tap to inspect · %2": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "%1 · valid until %2": [
+    "internal/notifications/warning_policy.go",
+    "translations/extra-sources.json"
+  ],
+  "%1%2 active here. Review the alerts on the forecast screen before planning.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "%1, %2, %3. Open details": [
+    "ui/qml/HourlyPanel.qml"
+  ],
+  "%1, %2, expires %3%4": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "%1, %2, low %3, high %4. Open details": [
+    "ui/qml/DailyPanel.qml"
+  ],
+  "%1: %2% chance of precipitation for %3. Open-Meteo hourly forecast; timing may change.": [
+    "internal/notifications/watcher.go",
+    "translations/extra-sources.json"
+  ],
+  "%1Valid from %2\nUntil %3 · %4": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "%1h %2m": [
+    "ui/qml/Astronomy.js"
+  ],
+  "%1m": [
+    "ui/qml/Astronomy.js"
+  ],
+  "%1°%2 cooler": [
+    "ui/qml/Changes.js"
+  ],
+  "%1°%2 warmer": [
+    "ui/qml/Changes.js"
+  ],
+  "%n alert(s)": [
+    "internal/app/bar.go"
+  ],
+  "%n hour(s)": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "%n minute(s) ago": [
+    "ui/qml/RadarMap.qml",
+    "ui/qml/shell.qml"
+  ],
+  "%n modeled hour(s) with at least 0.1 mm": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "%n more": [
+    "ui/qml/Changes.js"
+  ],
+  ", currently viewed": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  ", home location": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  ". Hide details": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  ". Show details": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "10-day forecast": [
+    "ui/qml/DailyPanel.qml",
+    "ui/qml/Dashboard.js"
+  ],
+  "15 FPS": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "30 FPS": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "5-digit US ZIP code": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "50% or higher": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "6 AM–noon": [
+    "ui/qml/Share.js"
+  ],
+  "6 PM–midnight": [
+    "ui/qml/Share.js"
+  ],
+  "60 FPS": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "70% or higher": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "<0.01 in": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "A Weather App forecast unavailable": [
+    "translations/extra-sources.json"
+  ],
+  "A Weather App updates": [
+    "translations/extra-sources.json"
+  ],
+  "A comparison will appear when the latest forecast is shown.": [
+    "ui/qml/Changes.js"
+  ],
+  "A comparison will be available after a newer forecast is shown.": [
+    "ui/qml/Changes.js"
+  ],
+  "A control action is already pending. Try again.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "AQI averaging periods differ from these hourly concentrations. PM2.5 alone does not identify wildfire smoke. For health advice and local alerts, consult your air-quality authority.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "About the same as the previous day": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Accepted by desktop": [
+    "ui/qml/Forecast.js"
+  ],
+  "Accumulation": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Add A Weather App and its icon to your application menu. This opens the same app without using the bar widget.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Add ZIP": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Add location": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Adding a place requires an internet connection. Saved places remain available.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Adjust preferences": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Affected area": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Afternoon": [
+    "ui/qml/Share.js"
+  ],
+  "Air quality": [
+    "ui/qml/Dashboard.js"
+  ],
+  "Air quality data expired · values hidden": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Air quality data source, opens browser": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Air quality measure": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Air quality outlook": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Air quality outlook is open in another window.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Air quality outlook is unavailable.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Air quality unavailable": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Air quality updates separately, at most hourly. Forecast Refresh does not force an air quality update.": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Air quality · CAMS global model": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Airborne particles up to 10 µm in diameter, including fine particles.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Alert status unavailable": [
+    "ui/qml/Forecast.js",
+    "ui/qml/shell.qml"
+  ],
+  "Alerts not supported here": [
+    "internal/app/bar.go"
+  ],
+  "Alerts unavailable": [
+    "internal/app/bar.go"
+  ],
+  "All severities, including unknown": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Allow urgent interruptions": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "An existing launcher or icon differs. Nothing was overwritten. See the README launcher instructions to resolve it.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Another native Hyprland plugin is loaded. Effects require an otherwise empty native plugin list; no plugins will be removed by this check.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "App updates": [
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Appearance": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Application": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Application launcher": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Apply": [
+    "ui/qml/DashboardEditor.qml",
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Apr": [
+    "ui/qml/Share.js"
+  ],
+  "As of ": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Astronomy date in year-month-day format": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "At center · ": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "At center · %1": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "At the interval's end: ground snow %1 · Freezing level %2 above sea level.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Atmospheric pressure adjusted to mean sea level, allowing comparison across elevations.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Aug": [
+    "ui/qml/Share.js"
+  ],
+  "Auto": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Auto (mph with °F, km/h with °C)": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Auto (°%1)": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Auto follows the location. Manual units apply throughout the app and are saved.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Automatic (°%1)": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Automatic · app's monitor": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Available %1": [
+    "translations/extra-sources.json"
+  ],
+  "Available hourly range: %1 – %2.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Available hourly range: %1 – %2. %n of %3 samples available.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Available hourly range: %1 – %2. Some hours are unavailable.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Available precipitation chances reach %1 (%2).": [
+    "ui/qml/Forecast.js"
+  ],
+  "Back to locations": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Back to top": [
+    "ui/qml/shell.qml"
+  ],
+  "Browse 30 days before or after today": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Cached NWS alert": [
+    "ui/qml/Forecast.js"
+  ],
+  "Cached alert feed · checking for updates…": [
+    "ui/qml/shell.qml"
+  ],
+  "Cached alert feed · current alert status unavailable": [
+    "ui/qml/shell.qml"
+  ],
+  "Cached alert feed; current status unavailable": [
+    "internal/app/bar.go"
+  ],
+  "Cached data invalid": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Cached forecast · ": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Cached outlook · ": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Cached weather alerts may be out of date. Check the issuing agency for current alerts.": [
+    "ui/qml/Share.js"
+  ],
+  "Calculated locally using SunCalc/Meeus formulas. Times assume a level horizon and standard refraction; terrain, altitude and weather can change what you see. Golden light is a sun-angle window, not a clear-sky forecast. Moon shape is a schematic phase view. All times use this place’s timezone.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Calculating sun and moon…": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Can bypass warning quiet hours.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Canceled: %1": [
+    "internal/notifications/warning_policy.go",
+    "translations/extra-sources.json"
+  ],
+  "Carbon monoxide": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Celsius": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Celsius (°C)": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Chance of precipitation during the hour ending at each time. Probability is different from the amount that may fall.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Change date": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Change location (Ctrl+L)": [
+    "ui/qml/shell.qml"
+  ],
+  "Check again": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Check compatibility": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Check for updates": [
+    "translations/extra-sources.json",
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Check this desktop before turning on effects.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Checking for updates…": [
+    "translations/extra-sources.json"
+  ],
+  "Checking forecast changes…": [
+    "ui/qml/Changes.js"
+  ],
+  "Checking official alerts": [
+    "internal/app/bar.go"
+  ],
+  "Checking official alerts…": [
+    "ui/qml/shell.qml"
+  ],
+  "Checking the loaded hourly forecast…": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Checking…": [
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Checks the current Hyprland session, monitor and native components without starting effects. Activation checks them again.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Choose a city, your current location, or a ZIP code in Locations": [
+    "ui/qml/shell.qml"
+  ],
+  "Choose a local file with a .png extension.": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Choose a location and load its forecast to enable desktop effects.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Choose a location to see local maps": [
+    "ui/qml/WeatherMap.qml",
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Choose a location using the pin beside the city name, then open Sun & moon.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Choose a location using the pin beside the city name, then open its rain and snow totals.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Choose a monitor": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Choose a result to add and view it. Home stays the same.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Choose a valid date within a year of today, or select Today to retry.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Choose sections, their order, and the values shown in your forecast.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Choose what you see and its order. Current conditions, official alerts and source information always stay visible.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Choose which monitor should show desktop effects. Other monitors stay available.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "City name": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Civil (−6°): %1\nNautical (−12°): %2\nAstronomical (−18°): %3": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Cleanup needs attention": [
+    "ui/qml/shell.qml"
+  ],
+  "Clear": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Close": [
+    "translations/extra-sources.json"
+  ],
+  "Close air quality outlook": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Close dashboard editor": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Close forecast changes": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Close forecast details": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Close forecast sharing": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Close locations": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Close outdoor planner": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Close rain and snow": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Close settings": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Close sun and moon": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Close warning details": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Closing weather app…": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Cloud cover": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Cloudy": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Collapse": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Collapse radar map": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Compact": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Compare outdoor windows using your temperature, rain and wind preferences.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Compare the latest forecast with the one you previously viewed.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Comparison unavailable for this forecast.": [
+    "ui/qml/Changes.js"
+  ],
+  "Compatibility checks passed for this desktop.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Connect and load a forecast to find outdoor times.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Continues checking while the window is hidden.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Copy a forecast summary or save an image.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Copy text": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Could not check for updates. Check your connection and try again.": [
+    "translations/extra-sources.json"
+  ],
+  "Could not create the image. Try again.": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Could not install the launcher. Check your user application directory permissions and try again.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Could not load this radar image. Choose Latest to try again.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Could not save the image. Choose another location and try again.": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Could not save update": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Country": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Country unavailable": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Current conditions valid %1": [
+    "ui/qml/Share.js"
+  ],
+  "Current hour": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Current location": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Current metrics": [
+    "ui/qml/Dashboard.js"
+  ],
+  "Current mode: %1%2. Auto uses full visuals on supported hardware and a static sky and wind on software graphics. Economical reduces animation cadence and wind trail density. Unsupported graphics always use Static. Reduced motion always takes priority.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Current model value": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Current official alert status unavailable.": [
+    "ui/qml/Share.js"
+  ],
+  "Custom location": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Custom name for %1, up to 80 characters": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Custom name, or leave blank": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Customize dashboard": [
+    "ui/qml/DashboardEditor.qml",
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Daily forecast unavailable": [
+    "ui/qml/DailyPanel.qml"
+  ],
+  "Data source": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Date, up to 30 days before or after today": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Dawn": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Day or night": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Daylight only": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Dec": [
+    "ui/qml/Share.js"
+  ],
+  "Defaults selected. Apply to save them.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Delivery unconfirmed": [
+    "ui/qml/Forecast.js"
+  ],
+  "Description": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Desktop delivery is unavailable. Install the optional libnotify package, then reopen the app. The forecast remains available.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Desktop effects": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop effects components are missing. Update or reinstall A Weather App, then check again.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop effects could not start. Check compatibility in Settings.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Desktop effects could not stop": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Desktop effects do not match this Hyprland build or the compatibility check failed. Update A Weather App for a matching release. Forecasts remain available.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop effects monitor": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop effects require a Hyprland Wayland session.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop effects require a physical, unrotated SDR monitor within the supported size limits. The forecast app remains available.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop effects unavailable.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Desktop renderer · %1": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Dew point": [
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Dew point %1": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Diagnostics": [
+    "ui/qml/shell.qml"
+  ],
+  "Disconnected · cached forecast": [
+    "ui/qml/shell.qml"
+  ],
+  "Disconnected · forecast unavailable": [
+    "ui/qml/shell.qml"
+  ],
+  "Done": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Done editing locations": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Downloading and verifying the update…": [
+    "translations/extra-sources.json"
+  ],
+  "Drag to pan. Arrow keys pan. Plus and minus zoom. Home returns to the viewed location. Blank areas can lack radar coverage.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Drizzle": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Dusk": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "E": [
+    "ui/qml/Forecast.js"
+  ],
+  "Earlier saved history was unavailable. A new comparison history has started.": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Earlier weather · ": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Economical": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Edit locations": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Effects": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Enabled notifications keep this app running when you close its window. Reopen it from the bar to change notification settings or quit. Saved opt-in resumes when you open the app again; nothing starts at login.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Enter a two-letter country code or leave it blank.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Enter at least two characters.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "European AQI": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "European AQI guide": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "European AQI guide, opens browser": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "European AQI scale": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "European index calculated by Open-Meteo from hourly pollutant concentrations. Its numeric scale differs from US AQI.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Evening": [
+    "ui/qml/Share.js"
+  ],
+  "Expand": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Expand radar map": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Experimental": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Expired forecast": [
+    "ui/qml/shell.qml"
+  ],
+  "Expired forecast · ": [
+    "ui/qml/shell.qml"
+  ],
+  "Expired · ": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Extreme": [
+    "translations/extra-sources.json"
+  ],
+  "Extremely poor": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Fahrenheit": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Fahrenheit (°F)": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Fair": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Features in development, available here to try as we refine them.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Feb": [
+    "ui/qml/Share.js"
+  ],
+  "Feels like": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js"
+  ],
+  "Feels like %1": [
+    "ui/qml/Share.js"
+  ],
+  "Feels like %1 · High %2 · Low %3": [
+    "ui/qml/shell.qml"
+  ],
+  "Find times": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Find times saves these preferences for every place. Hourly precipitation is liquid equivalent, including rain and melted snow.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Finding location and loading forecast…": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/LocationPicker.qml",
+    "ui/qml/shell.qml"
+  ],
+  "Finding times…": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Fine airborne particles up to 2.5 µm in diameter. A concentration alone does not identify the pollution's source.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Fine particles": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Fog": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Forecast air temperature at the selected time.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Forecast changes": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Forecast copied.": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Forecast for the selected hour. Use the timeline to change the hour.": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Forecast gust speed. Gusts represent brief peaks rather than sustained wind.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Forecast image saved.": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Forecast map hour": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Forecast map not loaded": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Forecast measurement": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Forecast rainfall and snowfall amounts for each day.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Forecast sustained wind speed at the selected time.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Forecast tools": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Forecast unavailable": [
+    "ui/qml/ForecastShareCard.qml",
+    "ui/qml/shell.qml"
+  ],
+  "Forecast valid %1 · Hour %2 of %3": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Forecast: Open-Meteo": [
+    "ui/qml/shell.qml"
+  ],
+  "Frame rate": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Fresh air quality model data": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Fresh when previewed": [
+    "ui/qml/Share.js"
+  ],
+  "Fri": [
+    "ui/qml/Share.js"
+  ],
+  "From": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Full": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Full alert details appear below the alert list.": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "Full day · %1 of %n hours": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Gap": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Geographic background unavailable": [
+    "ui/qml/RadarMap.qml",
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Golden light (−4° to +6°)\n%1": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Good": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Ground snow and freezing level show the range of available samples. Ground snow is not new snowfall. These values do not predict pavement icing or travel safety.%1": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Gusts": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Gusts %1": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Gusts up to %1.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Hazardous": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Headline": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Hidden": [
+    "ui/qml/DashboardOrder.qml"
+  ],
+  "Hide preferences": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Hide sections you don't need. Hidden maps and air quality stop requesting new data.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "High %1 · Low %2": [
+    "ui/qml/Share.js"
+  ],
+  "High contrast": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "High precipitation-chance hours shifted earlier": [
+    "ui/qml/Changes.js"
+  ],
+  "High precipitation-chance hours shifted later": [
+    "ui/qml/Changes.js"
+  ],
+  "Highest available hourly chance: %1\n%2. This is not continuous rain or snow duration.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Highlights show larger revisions in matching forecast hours. Smaller changes may still matter. Precipitation windows describe modeled hours, not exact onset times. Retrieval times are when this app obtained the data. These comparisons do not measure forecast accuracy.": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "History could not be saved. This comparison is available for this session; it may be lost after restarting.": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Home": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Home stays first. Choose another Home to remove this location.": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Home · %1": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Hourly data unavailable": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Hourly detail unavailable": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Hourly forecast": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Hourly forecast by Open-Meteo · Times are local to this place. Windows are ranked by your preferences, then earliest first; incomplete data ranks last. UV, air quality, ice and official warnings are not included in the ranking.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Hourly forecast unavailable": [
+    "ui/qml/HourlyPanel.qml"
+  ],
+  "Hourly liquid equivalent": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Hourly liquid-equivalent precipitation": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Hourly maximum gust": [
+    "ui/qml/Changes.js"
+  ],
+  "Hourly outlook unavailable.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Hourly precipitation": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Hourly precipitation outlook": [
+    "translations/extra-sources.json"
+  ],
+  "Hourly summaries use local time and the available forecast hours.": [
+    "ui/qml/ForecastShareCard.qml"
+  ],
+  "Hourly temperatures %1–%2.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Hourly ultraviolet index from the forecast model. The index has no units.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Hourly values": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Hours compared\nTemperature: %1/%2\nPrecipitation chance: %3/%4 · Amount: %5/%6 · Gusts: %7/%8\nMissing hours are excluded; partly elapsed precipitation and gust intervals are excluded.": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Humidity": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml",
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Immersive": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Include place name": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Incomplete data: %1": [
+    "ui/qml/Outdoor.js"
+  ],
+  "Install application launcher": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Installed %1": [
+    "translations/extra-sources.json"
+  ],
+  "Installed for your user only. Keep this app in its current location.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Instructions": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Intensity": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Interface language": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Interpolated forecast. Click a point or use arrow keys to inspect wind; Home returns to center.": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Invalid air quality timestamp · values hidden": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Invalid forecast timestamp · ": [
+    "ui/qml/shell.qml"
+  ],
+  "Jan": [
+    "ui/qml/Share.js"
+  ],
+  "Jul": [
+    "ui/qml/Share.js"
+  ],
+  "Jun": [
+    "ui/qml/Share.js"
+  ],
+  "Keep at least one location.": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Keep at least one metric selected. These appear inside Current metrics.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Keeps watching when the window is hidden.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Kilometres per hour (km/h)": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Knots (kn)": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Known subtotal · %1 of %n hours": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Language": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Language preference could not be saved. Try again.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Large · 125%": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Larger · 150%": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Latest": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Latest radar · ": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Latest warning data: %1": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Launcher installed": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Legend": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Less precipitation expected": [
+    "ui/qml/Changes.js"
+  ],
+  "Lighter gusts expected": [
+    "ui/qml/Changes.js"
+  ],
+  "Lightning flashes": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Liquid %1 · Rain %2 · New snow %3\nChance %4 · %5": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Liquid equivalent": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Liquid-equivalent precipitation": [
+    "ui/qml/Changes.js"
+  ],
+  "Live": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Live animated weather for Hyprland, with forecasts and interactive desktop weather effects": [
+    "translations/extra-sources.json"
+  ],
+  "Live desktop stays on when you close the window. Use Stop or the Live desktop button to turn it off.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Live desktop · On": [
+    "ui/qml/shell.qml"
+  ],
+  "Live desktop: Off — turn on": [
+    "ui/qml/shell.qml"
+  ],
+  "Live desktop: On — turn off": [
+    "ui/qml/shell.qml"
+  ],
+  "Live forecast unavailable · Refresh to try again": [
+    "ui/qml/shell.qml"
+  ],
+  "Loading air quality outlook…": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Loading local model forecast…": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Loading location…": [
+    "ui/qml/shell.qml"
+  ],
+  "Loading original notice…": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Loading radar image…": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Loading radar…": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Loading rain and snow…": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Local location": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Local model maps load as you scroll here": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Local time · %1": [
+    "ui/qml/NotificationsPanel.qml",
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Local weather maps · %1": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Location": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Location change could not start. Try again.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Location changed, but saving could not be confirmed. Try again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Location could not be saved. Try again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Location lookup failed. Try again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Location lookup timed out. Try again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Location unavailable": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Location, notifications and desktop effects": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Locations": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Low precipitation chances in the next %n hourly forecast(s).": [
+    "ui/qml/Forecast.js"
+  ],
+  "Low precipitation chances.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Manage saved locations": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Manual": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Manual effects preview · %1": [
+    "ui/qml/shell.qml"
+  ],
+  "Manual previews do not change the live forecast. Live desktop follows the location you are viewing.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Map forecast unavailable": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Map unavailable offline for this location": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Mar": [
+    "ui/qml/Share.js"
+  ],
+  "Matches all your preferences": [
+    "ui/qml/Outdoor.js"
+  ],
+  "Material updates and cancellations for previously attempted notices are included, even if their severity falls.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Maximum gusts": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Maximum hourly precipitation": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Maximum hourly rain / snow chance": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Maximum temperature": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Maximum wind": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "May": [
+    "ui/qml/Share.js"
+  ],
+  "Mean sea level": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Mean sea level pressure": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Measurement units": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Measurement units: %1": [
+    "ui/qml/UnitsChoice.qml"
+  ],
+  "Metres per second (m/s)": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Metrics": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Miles per hour (mph)": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Minimum temperature": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Minor": [
+    "translations/extra-sources.json"
+  ],
+  "Model forecast time unavailable": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Model forecast valid %1 · Fetched %2": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Modeled apparent temperature accounts for conditions such as wind and humidity.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Modeled forecasts, not local station readings. CAMS global uses a roughly 45 km grid and native three-hourly output; Open-Meteo supplies hourly values. Retrieval time is not model issuance.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Modeled horizontal visibility. Local conditions can vary from the model.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Modeled near-surface carbon monoxide concentration.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Modeled near-surface nitrogen dioxide concentration.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Modeled near-surface ozone concentration.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Modeled near-surface sulphur dioxide concentration.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Modeled total in preceding hour · %1": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Modeled totals for the whole local day, including earlier hours. Liquid equivalent includes snow and other precipitation expressed as water.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Modeled wet hours unavailable": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Moderate": [
+    "translations/extra-sources.json",
+    "ui/qml/AirQuality.js"
+  ],
+  "Moderate and above": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Mon": [
+    "ui/qml/Share.js"
+  ],
+  "Monitor": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Monitoring official NWS warnings": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · a complete warning check could not be confirmed": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · connect and resolve the primary place": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · desktop notification service is not ready": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · native delivery is not supported": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · saved settings could not be read": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · saving could not be confirmed": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · the clock changed; waiting for fresh data": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · warning data is stale": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · warning history capacity reached": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · warning history could not be opened": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · warning history is incomplete": [
+    "ui/qml/Forecast.js"
+  ],
+  "Monitoring unavailable · weather service disconnected": [
+    "ui/qml/Forecast.js"
+  ],
+  "Moon stays above the horizon all day": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Moon stays below the horizon all day": [
+    "ui/qml/Astronomy.js"
+  ],
+  "More precipitation expected": [
+    "ui/qml/Changes.js"
+  ],
+  "Morning": [
+    "ui/qml/Share.js"
+  ],
+  "Move %1 down": [
+    "ui/qml/DashboardOrder.qml",
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Move %1 up": [
+    "ui/qml/DashboardOrder.qml",
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Move the app to a path without quotes, backslashes, dollar signs, percent signs, equals signs or backticks, then try again.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "N": [
+    "ui/qml/Forecast.js"
+  ],
+  "NE": [
+    "ui/qml/Forecast.js"
+  ],
+  "NW": [
+    "ui/qml/Forecast.js"
+  ],
+  "NWS alert in saved feed": [
+    "ui/qml/Forecast.js"
+  ],
+  "National Weather Service warnings for %1. Checks run roughly every 2–3 minutes when available. Delivery may be delayed; this is not a real-time emergency alert service.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Near first quarter": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Near full moon": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Near last quarter": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Near new moon": [
+    "ui/qml/Astronomy.js"
+  ],
+  "New York is the fallback. Use your current location, search for a city, or enter a ZIP code.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "New snowfall": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "New warning severity": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "New warnings to deliver": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Next": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/AstronomyDetails.qml",
+    "ui/qml/ForecastDetails.qml",
+    "ui/qml/PrecipitationDetails.qml",
+    "ui/qml/RadarMap.qml",
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Next 24 hours": [
+    "ui/qml/HourlyPanel.qml"
+  ],
+  "Next 48 hours from the current hour%1": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "Nitrogen dioxide": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "No accumulation modeled": [
+    "ui/qml/Precipitation.js"
+  ],
+  "No active NWS alerts reported": [
+    "ui/qml/shell.qml"
+  ],
+  "No active alerts in cached feed": [
+    "internal/app/bar.go"
+  ],
+  "No active alerts in saved NWS feed": [
+    "ui/qml/Forecast.js"
+  ],
+  "No active official alerts in the latest feed.": [
+    "ui/qml/Share.js"
+  ],
+  "No air quality outlook is saved for this place.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "No amount is available for this interval.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "No complete match found. These are the closest available windows.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "No crossings on this date": [
+    "ui/qml/Astronomy.js"
+  ],
+  "No hourly data": [
+    "ui/qml/Share.js"
+  ],
+  "No hourly data available.": [
+    "ui/qml/ForecastChart.qml"
+  ],
+  "No major changes in the compared hours.": [
+    "ui/qml/Changes.js"
+  ],
+  "No matching places found.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "No precipitation modeled for this hour": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "No rain and snow details are saved for this place.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "No samples available for this measure in the next 48 hours.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "No values available in this period.": [
+    "ui/qml/Forecast.js"
+  ],
+  "No window on this date": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Noon–6 PM": [
+    "ui/qml/Share.js"
+  ],
+  "Normal": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Not sent": [
+    "ui/qml/Forecast.js"
+  ],
+  "Notification settings could not be saved. Reopen the app and try again.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Notifications": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Notify when hourly chance reaches": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Nov": [
+    "ui/qml/Share.js"
+  ],
+  "Observed radar": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Observed radar currently covers the contiguous United States.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Observed radar loads when this map is in view.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Observed radar map": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Observed radar map. %1": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Oct": [
+    "ui/qml/Share.js"
+  ],
+  "Off by default.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Off until you choose to enable it.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Off until you enable it.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Official US warnings": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Official alerts are not supported here": [
+    "ui/qml/shell.qml"
+  ],
+  "Official alerts not supported here": [
+    "ui/qml/Forecast.js"
+  ],
+  "Official warning": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Official warning delivery requires the native desktop app and a supported warning feed.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Official warning monitoring is available for US places": [
+    "ui/qml/Forecast.js"
+  ],
+  "Official warning monitoring is off": [
+    "ui/qml/Forecast.js"
+  ],
+  "Official warning notifications": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Official weather alerts are active. Check the issuing agency for current instructions.": [
+    "ui/qml/Share.js"
+  ],
+  "Official weather notice": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Official weather warning": [
+    "internal/notifications/warning_policy.go",
+    "translations/extra-sources.json"
+  ],
+  "Only imminent Severe or Extreme warnings reported as observed or likely qualify. Your desktop controls how urgent notices appear. A manual pause always stops delivery.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Open 48-hour air quality outlook": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Open A Weather App to choose a location": [
+    "translations/extra-sources.json"
+  ],
+  "Open forecast": [
+    "translations/extra-sources.json"
+  ],
+  "Open forecast details": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Open official NWS alerts": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "Open sun and moon planning": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Open the app for version information": [
+    "translations/extra-sources.json"
+  ],
+  "Open warning": [
+    "native/qt/desktopwarnings.cpp",
+    "translations/extra-sources.json"
+  ],
+  "Open-Meteo · Forecasts retrieved\nCurrent: %1%2\n%3": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Optional and off until you start them. The forecast app works without desktop effects.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Optional country code, such as DE or BR. Choose a city to save and view it.": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Optional country code, such as DE or BR. Choose a result to change location.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Optional two-letter country code": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Or use a 5-digit US ZIP code": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Original notice from this session. Its status may have changed; check the current alert feed for later updates.": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Outdoor planner": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Outdoor times are unavailable for this forecast.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Outlook": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Outside your preferences: %1": [
+    "ui/qml/Outdoor.js"
+  ],
+  "Ozone": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "PM10": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "PM2.5": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "PM2.5 · µg/m³": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "PNG image (*.png)": [
+    "ui/qml/ForecastSaveDialog.qml"
+  ],
+  "Partial": [
+    "ui/qml/Share.js"
+  ],
+  "Partial hourly forecast.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Partly cloudy": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Past observations": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Past radar echoes, not a rain forecast. Blank areas may lack coverage; reflectivity does not identify rain or snow.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Pause": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Pause for 1 hour": [
+    "ui/qml/NotificationsPanel.qml",
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Pause in fullscreen": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Peak chance %1": [
+    "ui/qml/Share.js"
+  ],
+  "Pending effects start cancelled by Stop": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Pin 1–3 values per hour. Use the arrows to choose their order. Open any hour for all details.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Place data: GeoNames via Open-Meteo (CC BY 4.0).": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Place search failed. Edit the query to retry.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Play": [
+    "ui/qml/RadarMap.qml",
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Play the map forecast timeline": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Poor": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Precipitation": [
+    "ui/qml/WeatherMap.qml",
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Precipitation amount": [
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Precipitation chance": [
+    "ui/qml/Changes.js",
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Precipitation chance %1": [
+    "ui/qml/Share.js"
+  ],
+  "Precipitation chance %1 points higher": [
+    "ui/qml/Changes.js"
+  ],
+  "Precipitation chance %1 points lower": [
+    "ui/qml/Changes.js"
+  ],
+  "Precipitation chance peaks at %1 (%2).": [
+    "ui/qml/Forecast.js"
+  ],
+  "Precipitation chance peaks at %1 around %2.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Precipitation chance · Select an hour for details": [
+    "ui/qml/HourlyPanel.qml"
+  ],
+  "Precipitation collides with window edges.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Precipitation forecast map": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Precipitation indicated": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Precipitation interval: %1. Times are local to the forecast location.": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Precipitation outlook is incomplete.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Precipitation total for the hour ending at each time. Missing values do not mean dry weather.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Precipitation type unavailable": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Precipitation watching": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Preferences changed. Find times to update the suggestions.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Pressure": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Preview": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Preview condition": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Previews stop after five minutes. Live desktop in the header keeps live weather on until you stop it.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Previous": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/AstronomyDetails.qml",
+    "ui/qml/ForecastDetails.qml",
+    "ui/qml/PrecipitationDetails.qml",
+    "ui/qml/RadarMap.qml",
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Previously: %1\nNow: %2\nModeled hours with at least 50% precipitation chance.": [
+    "ui/qml/Changes.js"
+  ],
+  "Primary place": [
+    "ui/qml/NotificationsPanel.qml",
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Quiet hours": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Quiet hours end": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Quiet hours for warnings": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Quiet hours start": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Quiet hours · notifications paused": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Quiet hours · urgent overrides are enabled": [
+    "ui/qml/Forecast.js"
+  ],
+  "Quiet hours · warning delivery is paused": [
+    "ui/qml/Forecast.js"
+  ],
+  "Quiet precipitation outlooks for the current hour and next three hours. Uses fresh hourly probabilities, not minute-by-minute onset predictions. Desktop effects can stay off.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Quit app": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Radar": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Radar at ": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Radar is temporarily unavailable. Forecast maps are still available.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Radar is unavailable offline.": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Radar observation time": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Rain": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Rain & showers": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Rain & snow totals": [
+    "ui/qml/ForecastDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Rain and snow details are open in another window.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Rain and snow details are unavailable.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Rain and snow forecast date": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Rain and snow indicated": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Rain indicated": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Readability changed, but saving was not confirmed. Choose the setting again to retry.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Readability preferences could not be saved. Try again.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Ready": [
+    "ui/qml/shell.qml"
+  ],
+  "Ready. Reopen your application menu and search for A Weather App.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Recent notices": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Recenter": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Reduced motion": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Refresh forecast": [
+    "ui/qml/shell.qml"
+  ],
+  "Refresh the forecast to share it.": [
+    "ui/qml/ForecastShareCard.qml"
+  ],
+  "Refreshing live forecast…": [
+    "ui/qml/shell.qml"
+  ],
+  "Relative humidity describes how close the air is to saturation at its temperature.": [
+    "ui/qml/Forecast.js"
+  ],
+  "Reload saved": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Remove %1": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Rename ": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Restore defaults": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Resume delivery": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Resume watching": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Retrieved %1": [
+    "ui/qml/Share.js"
+  ],
+  "Retry comparison": [
+    "ui/qml/ForecastChanges.qml"
+  ],
+  "Rise": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Running · ": [
+    "ui/qml/shell.qml"
+  ],
+  "S": [
+    "ui/qml/Forecast.js"
+  ],
+  "SE": [
+    "ui/qml/Forecast.js"
+  ],
+  "SW": [
+    "ui/qml/Forecast.js"
+  ],
+  "Safety pause is always enabled for fullscreen applications.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Sat": [
+    "ui/qml/Share.js"
+  ],
+  "Save forecast image": [
+    "ui/qml/ForecastSaveDialog.qml"
+  ],
+  "Save image…": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Save name": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Saved layout could not be read. Defaults are shown; Apply saves a new layout.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Saved preferences could not be read. Default preferences are shown.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Saved readability preferences could not be read. Defaults are shown; choosing a setting saves them again.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Saving…": [
+    "ui/qml/DashboardEditor.qml",
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Search below to add and view a city. Choose Home in the locations list.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Search result expired. Search again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Search timed out. Edit the query to retry.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Search unavailable offline.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Search unavailable while disconnected.": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Search worldwide cities": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Searching places…": [
+    "ui/qml/PlaceSearch.qml"
+  ],
+  "Sections": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Select a name to rename. Home opens by default.": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Select an hour for details": [
+    "ui/qml/HourlyPanel.qml"
+  ],
+  "Select to read the full alert details below the alert list.": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "Selected city is no longer available. Search again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Selected city · %1": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Selected hour": [
+    "ui/qml/ForecastChart.qml"
+  ],
+  "Selected point · ": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Sending…": [
+    "ui/qml/Forecast.js"
+  ],
+  "Sep": [
+    "ui/qml/Share.js"
+  ],
+  "Set": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Set %1 as Home": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Settings": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/shell.qml"
+  ],
+  "Severe": [
+    "translations/extra-sources.json"
+  ],
+  "Severe and extreme": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Share forecast": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/ForecastShare.qml"
+  ],
+  "Shared from A Weather App": [
+    "ui/qml/Share.js"
+  ],
+  "Shown": [
+    "ui/qml/DashboardOrder.qml"
+  ],
+  "Sky follows the current forecast. Effects use the selected weather source.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Sleet": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Snow": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Snow indicated": [
+    "ui/qml/Precipitation.js"
+  ],
+  "Snow on the ground: %1\nFreezing level: %2 above sea level": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Solar times unavailable": [
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Solid panels and stronger text and borders.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Source: Open-Meteo best match · Modeled forecast%1": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Spacing": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Spacious": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "Stale": [
+    "internal/app/bar.go"
+  ],
+  "Stale air quality model data": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Stale forecast": [
+    "ui/qml/shell.qml"
+  ],
+  "Stale forecast · ": [
+    "ui/qml/shell.qml"
+  ],
+  "Stale forecast · check for updates": [
+    "ui/qml/Share.js"
+  ],
+  "Stale radar · ": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Standard · 100%": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Start 5-minute preview": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Starting the update…": [
+    "translations/extra-sources.json"
+  ],
+  "Starting…": [
+    "ui/qml/shell.qml"
+  ],
+  "Static": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Static trails": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Status unknown · cleanup pending": [
+    "ui/qml/shell.qml"
+  ],
+  "Stop": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Stop desktop effects before changing setup.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Stop map playback and return to the current hour": [
+    "ui/qml/WeatherMap.qml"
+  ],
+  "Stop watching": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Stopped": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/shell.qml"
+  ],
+  "Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Stops precipitation and freezes the sky.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Stronger gusts expected": [
+    "ui/qml/Changes.js"
+  ],
+  "Subtle": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Subtle wetness and buildup on surfaces.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Sulphur dioxide": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "Sun": [
+    "ui/qml/Share.js"
+  ],
+  "Sun & moon": [
+    "ui/qml/AstronomyDetails.qml",
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Sun & moon unavailable": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Sun stays above the horizon all day": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Sun stays below the horizon all day": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Sunrise %1 · Sunset %2": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "Sunrise & sunset": [
+    "ui/qml/Dashboard.js"
+  ],
+  "System / Automatic": [
+    "translations/extra-sources.json",
+    "ui/qml/I18n.qml"
+  ],
+  "System / Automatic follows your system language preferences.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Temperature": [
+    "ui/qml/Changes.js",
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/WeatherMap.qml",
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Temperature forecast map": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Text size": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "The change is visible, but saving could not be confirmed.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "The current Hyprland session could not be verified. Reopen the app from your desktop and check again.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "The desktop changed or effects could not start. Check compatibility again before retrying.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "The file picker is unavailable. You can still copy the forecast text.": [
+    "ui/qml/shell.qml"
+  ],
+  "The forecast is still loading. Try again in a moment.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "The last delivery could not be confirmed. It will not be retried for the same forecast event, to avoid duplicates.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "The last notice was not confirmed as delivered. It will not be retried automatically, to avoid duplicates.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "The layout could not be saved. Your edits are still here. Try Apply again when connected.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "The layout is visible, but saving could not be confirmed. Apply to retry.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "The layout is visible, but saving was not confirmed. Apply to try again.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "The location changed. Reopen Sun & moon for the current location.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "The location is changing. Try today when it is ready.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "The location is still loading. Try again when it is ready.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "The location is still loading. Try today again in a moment.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "The place changed. Open its outlook again.": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "The place changed. Open its rain and snow details again.": [
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "The place or forecast changed. Find times again using the latest forecast.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "The saved layout changed. Reload it before applying edits.": [
+    "ui/qml/DashboardEditor.qml"
+  ],
+  "The saved place could not be changed. Try again.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "The selected monitor is no longer available. Check again to refresh the monitor list.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "The stated validity period has ended.\n": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "The temperature at which the air would become saturated if cooled.": [
+    "ui/qml/Forecast.js"
+  ],
+  "The timezone stays visible. Coordinates are never included.": [
+    "ui/qml/ForecastShare.qml"
+  ],
+  "The two indices use different scales. Lower values indicate cleaner air.": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "The updater did not start. Check your connection and try again.": [
+    "translations/extra-sources.json"
+  ],
+  "The weather service is disconnected. Reopen the app to reconnect.": [
+    "ui/qml/AstronomyDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "There are not enough consecutive forecast hours for this duration.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "These forecasts have no matching future hours.": [
+    "ui/qml/Changes.js"
+  ],
+  "These preferences apply here, but saving could not be confirmed.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "This ZIP code matches more than one location. Try another code.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "This alert text has been shortened. Check the official alert source for complete details.": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "This alert text has been shortened. Read the complete warning and instructions from the National Weather Service.": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "This desktop does not offer notification buttons. Open recent notices below.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "This forecast is too old or unavailable for planning. Refresh the forecast and try again.": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "This notice cancels an earlier warning.": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "This notice is no longer available in this session. It may have expired from the recent list, or monitoring was turned off. Check the current alert feed.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "This original notice exceeds the detail size limit. Its instructions have not been shortened.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "This running weather service does not support Sun & moon. Quit and reopen the updated app.": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Thu": [
+    "ui/qml/Share.js"
+  ],
+  "Thunderstorm": [
+    "translations/extra-sources.json",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "Time outside": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Time unavailable": [
+    "native/qt/i18n.cpp",
+    "ui/qml/Forecast.js"
+  ],
+  "Today": [
+    "ui/qml/AstronomyDetails.qml",
+    "ui/qml/PrecipitationDetails.qml",
+    "ui/qml/shell.qml"
+  ],
+  "Today · ": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Toggle A Weather App window": [
+    "translations/extra-sources.json"
+  ],
+  "Tomorrow": [
+    "ui/qml/shell.qml"
+  ],
+  "Tonight": [
+    "ui/qml/shell.qml"
+  ],
+  "Too little shared hourly data to compare.": [
+    "ui/qml/Changes.js"
+  ],
+  "Trails flow downwind": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Trend unavailable": [
+    "ui/qml/ForecastChart.qml"
+  ],
+  "Try again": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Try today": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "Tue": [
+    "ui/qml/Share.js"
+  ],
+  "Turn off warnings": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Twilight & light": [
+    "ui/qml/AstronomyDetails.qml"
+  ],
+  "US AQI": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "US AQI guide": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "US AQI guide, opens browser": [
+    "ui/qml/AirOutlookDetails.qml"
+  ],
+  "US AQI scale": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "US ZIP code": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "US ZIP code to add": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "US index calculated by Open-Meteo. Its pollutant indices use different averaging periods; the overall index is the highest of them.": [
+    "ui/qml/AirOutlook.js"
+  ],
+  "UV index": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml",
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "Unavailable": [
+    "internal/app/bar.go",
+    "translations/extra-sources.json",
+    "ui/qml/AirQuality.js",
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastChart.qml",
+    "ui/qml/MetricsPanel.qml",
+    "ui/qml/Precipitation.js",
+    "ui/qml/shell.qml"
+  ],
+  "Unavailable · close and reopen": [
+    "ui/qml/shell.qml"
+  ],
+  "Unhealthy": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Unhealthy for sensitive groups": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Until": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Up to 16 recent notices remain available for 24 hours in this session. Desktop acceptance does not confirm that a notice was read.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Update and restart": [
+    "translations/extra-sources.json",
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Update could not start. Check your connection and ensure the plugin has no local changes, then try again.": [
+    "translations/extra-sources.json"
+  ],
+  "Update failed": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Update timed out": [
+    "ui/qml/AirQualityPanel.qml"
+  ],
+  "Updated ": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Updated to %1.": [
+    "ui/qml/shell.qml"
+  ],
+  "Updated: %1": [
+    "internal/notifications/warning_policy.go",
+    "translations/extra-sources.json"
+  ],
+  "Updates are checked daily.": [
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Updating…": [
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Use current location": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Use local location": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Use sunrise and sunset": [
+    "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Uses the forecast location’s local time.": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Uses the primary place’s local time.": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Version %1 available": [
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "Very poor": [
+    "ui/qml/AirQuality.js"
+  ],
+  "Very unhealthy": [
+    "ui/qml/AirQuality.js"
+  ],
+  "View ": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "View details": [
+    "native/qt/desktopwarnings.cpp",
+    "translations/extra-sources.json"
+  ],
+  "Viewing": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Viewing · %1": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Visibility": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/MetricsPanel.qml"
+  ],
+  "W": [
+    "ui/qml/Forecast.js"
+  ],
+  "Waiting before the next update…": [
+    "ui/qml/AirOutlookDetails.qml",
+    "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Waiting for a complete, fresh warning check": [
+    "ui/qml/Forecast.js"
+  ],
+  "Waiting for a fresh forecast": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Waiting for a newer forecast to compare.": [
+    "ui/qml/Changes.js"
+  ],
+  "Waning crescent": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Waning gibbous": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Warning cancellation": [
+    "ui/qml/WarningDetails.qml"
+  ],
+  "Warning delivery paused · monitoring continues": [
+    "ui/qml/Forecast.js"
+  ],
+  "Warning details are unavailable while the weather service is disconnected.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Warning monitoring was turned off. Recent notices have been cleared.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Warning quiet hours end": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Warning quiet hours start": [
+    "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Watching hourly precipitation outlooks": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Watching is off": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Watching is paused": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Watching unavailable · check the forecast directly": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Watching unavailable · weather service disconnected": [
+    "ui/qml/NotificationsPanel.qml"
+  ],
+  "Waxing crescent": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Waxing gibbous": [
+    "ui/qml/Astronomy.js"
+  ],
+  "Weather alert": [
+    "internal/app/bar.go",
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Weather alerts": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "Weather and alerts unavailable": [
+    "internal/app/bar.go"
+  ],
+  "Weather data from ": [
+    "ui/qml/shell.qml"
+  ],
+  "Weather forecast": [
+    "ui/qml/Share.js"
+  ],
+  "Weather maps": [
+    "ui/qml/Dashboard.js"
+  ],
+  "Weather not loaded": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Weather not loaded or expired": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Weather request timed out": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service connection closed": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service connection timed out": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service could not accept the action": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service disconnected. Reopen the app to find outdoor times.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service identity could not be verified": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service is unavailable for this action": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service is unavailable. Close and reopen to reconnect.": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service notification channel is unavailable": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service rejected the request": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service response exceeded its limit": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service returned invalid data": [
+    "native/qt/transport.cpp",
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service shutdown timed out": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "Weather service stopped. Close and reopen to reconnect.": [
+    "native/qt/transport.cpp"
+  ],
+  "Weather service unavailable. Close and reopen to reconnect.": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Weather service · %1": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Weather source": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Weather time unavailable": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Weather times use your desktop timezone.": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Weather unavailable": [
+    "internal/app/bar.go",
+    "ui/qml/LocationPicker.qml"
+  ],
+  "Wed": [
+    "ui/qml/Share.js"
+  ],
+  "Wind": [
+    "ui/qml/Dashboard.js",
+    "ui/qml/Forecast.js",
+    "ui/qml/ForecastDetails.qml",
+    "ui/qml/MetricsPanel.qml",
+    "ui/qml/WeatherMap.qml",
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Wind %1": [
+    "ui/qml/Share.js"
+  ],
+  "Wind map. %1": [
+    "ui/qml/WeatherMapCard.qml"
+  ],
+  "Wind speed units": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Window physics": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Window visual quality": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "You can save up to 20 places. Remove one before adding another.": [
+    "ui/qml/backend/Bridge.qml"
+  ],
+  "You have 20 saved locations. Remove one to add another.": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "You have the latest supported release": [
+    "translations/extra-sources.json"
+  ],
+  "Your previous forecast is too old to compare.": [
+    "ui/qml/Changes.js"
+  ],
+  "You’re up to date. Updates are checked daily.": [
+    "ui/qml/UpdatePanel.qml"
+  ],
+  "ZIP code": [
+    "ui/qml/LocationPicker.qml"
+  ],
+  "ZIP code not found. Check the code and try again.": [
+    "ui/qml/EffectsDrawer.qml",
+    "ui/qml/Forecast.js"
+  ],
+  "ZIP code · %1": [
+    "ui/qml/EffectsDrawer.qml"
+  ],
+  "Zoom radar in": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "Zoom radar out": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "daylight": [
+    "ui/qml/Outdoor.js"
+  ],
+  "gusts": [
+    "ui/qml/Outdoor.js"
+  ],
+  "just now": [
+    "ui/qml/shell.qml"
+  ],
+  "less than a minute ago": [
+    "ui/qml/RadarMap.qml"
+  ],
+  "precipitation amount": [
+    "ui/qml/Outdoor.js"
+  ],
+  "precipitation chance": [
+    "ui/qml/Outdoor.js"
+  ],
+  "temperature": [
+    "ui/qml/Outdoor.js"
+  ],
+  "the preceding hour": [
+    "ui/qml/ForecastDetails.qml"
+  ],
+  "time unavailable": [
+    "ui/qml/AlertsPanel.qml"
+  ],
+  "unknown": [
+    "translations/extra-sources.json"
+  ],
+  "wind": [
+    "ui/qml/Outdoor.js"
+  ],
+  "© OpenStreetMap contributors (ODbL)": [
+    "ui/qml/RadarMap.qml"
+  ]
+}

@@ -205,6 +205,7 @@ func (a *App) snapshot() M {
 		notifications = a.notifications.Snapshot()
 	}
 	result := M{"schema_version": 1.0, "location": safeio.Clone(location), "location_settings": M{"mode": a.mode, "zip_code": a.zip, "busy": a.locationBusy, "error": a.locationError}, "current": current, "hourly": hourly, "daily": daily, "alerts": M{"status": status, "items": display}, "source": M{"name": "Open-Meteo", "attribution": "Weather data by Open-Meteo.com (CC BY 4.0)", "fetched_at": fetched, "freshness": live["freshness"], "age_seconds": live["age_seconds"], "error": a.errorCode, "refreshing": a.fetchBusy}, "notifications": notifications, "controls": safeio.Clone(a.controls), "atmosphere": live["effects"], "preview": M{"current": preview["current"], "effects": preview["effects"], "freshness": preview["freshness"]}, "effect_status": a.effectsStatus(), "effects_setup": a.setupStatus(), "launcher_status": a.launcherStatus}
+	result["language"] = M{"choice": a.controls["language"], "effective": a.effectiveLanguage()}
 	settings := object(result["location_settings"])
 	settings["country_code"], settings["place"] = a.country, nil
 	if a.place != nil {

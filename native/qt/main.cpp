@@ -1,4 +1,5 @@
 #include "transport.h"
+#include "i18n.h"
 #include "maptiles.h"
 #include "radarimages.h"
 #include "graphicscapabilities.h"
@@ -105,6 +106,8 @@ int main(int argc, char** argv) {
     WindowActivation windowActivation;
     RadarImageControl radarImages;
     QQmlApplicationEngine engine;
+    NativeI18n i18n(&engine);
+    engine.rootContext()->setContextProperty("nativeI18n", &i18n);
     engine.addImageProvider("radar",
                             new RadarImageProvider(args.value("socket"), radarImages.state()));
     engine.setInitialProperties(

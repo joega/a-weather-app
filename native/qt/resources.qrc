@@ -1,4 +1,5 @@
 <RCC><qresource prefix="/ui">
+<file alias="qml/I18n.qml">../../ui/qml/I18n.qml</file>
 <file alias="qml/shell.qml">../../ui/qml/shell.qml</file>
 <file alias="qml/qmldir">../../ui/qml/qmldir</file>
 <file alias="qml/WindField.js">../../ui/qml/WindField.js</file>
@@ -56,4 +57,20 @@
 <file alias="shaders/atmosphere.frag.qsb">../../ui/shaders/atmosphere.frag.qsb</file>
 <file alias="shaders/atmosphere.gl330.frag">../../ui/shaders/atmosphere.gl330.frag</file>
 <file alias="shaders/atmosphere.gles300.frag">../../ui/shaders/atmosphere.gles300.frag</file>
+</qresource>
+<qresource prefix="/i18n">
+<file alias="app_en.ts">../../translations/app_en.ts</file>
+<file alias="app_es.ts">../../translations/app_es.ts</file>
+<file alias="app_fr.ts">../../translations/app_fr.ts</file>
+<file alias="app_de.ts">../../translations/app_de.ts</file>
+<file alias="app_pt.ts">../../translations/app_pt.ts</file>
+<file alias="app_ja.ts">../../translations/app_ja.ts</file>
+<file alias="app_zh-Hans.ts">../../translations/app_zh-Hans.ts</file>
+<file alias="app_zh-Hant.ts">../../translations/app_zh-Hant.ts</file>
+<file alias="app_uk.ts">../../translations/app_uk.ts</file>
+<file alias="app_hi.ts">../../translations/app_hi.ts</file>
+<file alias="app_it.ts">../../translations/app_it.ts</file>
+<file alias="app_ko.ts">../../translations/app_ko.ts</file>
+<file alias="app_id.ts">../../translations/app_id.ts</file>
+<file alias="app_pl.ts">../../translations/app_pl.ts</file>
 </qresource></RCC>

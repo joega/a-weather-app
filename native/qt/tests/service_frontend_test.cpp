@@ -1,4 +1,5 @@
 #include <QtTest>
+#include "i18n.h"
 #include <QClipboard>
 #include <QImageReader>
 #include <QLocale>
@@ -394,6 +395,9 @@ class ServiceFrontendTest : public QObject {
         transport = std::make_unique<WeatherTransport>(fixture.socket, false);
         mapTiles = std::make_unique<MapTiles>();
         engine = std::make_unique<QQmlApplicationEngine>();
+        auto* nativeLanguage = new NativeI18n(engine.get(), QLocale("en_US"));
+        nativeLanguage->setParent(engine.get());
+        engine->rootContext()->setContextProperty("nativeI18n", nativeLanguage);
         engine->setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(transport.get())},
              {"mapTiles", QVariant::fromValue<QObject*>(mapTiles.get())}});
