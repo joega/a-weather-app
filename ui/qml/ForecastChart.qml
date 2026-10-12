@@ -9,10 +9,10 @@ Item {
     property string units: "F"
     property string windUnits: "auto"
     property string metric: "temperature_c"
-    property string metricLabel: (I18n.revision, Forecast.metricInfo(metric)).label
-    property var chartScale: (I18n.revision, Forecast.metricScale(hours, metric))
-    property string rangeDescription: (I18n.revision, Forecast.metricRange(hours, metric, units, windUnits))
-    property var valueFormatter: value => (I18n.revision, Forecast.metricValue(value, metric, units, windUnits))
+    property string metricLabel: I18n.observe(Forecast.metricInfo(metric)).label
+    property var chartScale: I18n.observe(Forecast.metricScale(hours, metric))
+    property string rangeDescription: I18n.observe(Forecast.metricRange(hours, metric, units, windUnits))
+    property var valueFormatter: value => I18n.observe(Forecast.metricValue(value, metric, units, windUnits))
     property var accessibleValueFormatter: value => valueFormatter(value) + (["temperature_c", "apparent_temperature_c", "dew_point_c"].indexOf(metric) >= 0 ? units : "")
     property int selectedIndex: 0
     readonly property string selectedDescription: {

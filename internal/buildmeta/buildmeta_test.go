@@ -34,7 +34,7 @@ func fixture(t *testing.T) (string, string, Metadata) {
 		os.MkdirAll(filepath.Dir(p), 0755)
 		os.WriteFile(p, []byte("source fixture"), 0644)
 	}
-	for _, dir := range []string{".agents", ".codex", "native/qt/.frontend-test-build"} {
+	for _, dir := range []string{".agents", ".codex", "native/qt/.frontend-test-build", "native/qt/.i18n-test-build"} {
 		os.MkdirAll(filepath.Join(source, dir), 0755)
 		os.WriteFile(filepath.Join(source, dir, "personal.md"), []byte("private"), 0644)
 	}

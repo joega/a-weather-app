@@ -9,7 +9,7 @@ GlassPanel {
     id: root
     objectName: "radarMap"
     implicitHeight: content.implicitHeight + 32
-    property var radarState: (I18n.revision, Forecast.emptyRadar())
+    property var radarState: I18n.observe(Forecast.emptyRadar())
     property var tileClient: null
     property var imageControl: null
     property var tileImages: ({})

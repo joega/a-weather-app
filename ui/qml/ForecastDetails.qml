@@ -121,7 +121,7 @@ Popup {
                 font.pixelSize: Tokens.fontSize(19)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
-                text: root.day ? I18n.t("%1 · High %2 · Low %3\nPrecipitation chance %4").arg((I18n.revision, Forecast.title(root.day.condition))).arg((I18n.revision, Forecast.temp(root.day.high_c, root.units))).arg((I18n.revision, Forecast.temp(root.day.low_c, root.units))).arg((I18n.revision, Forecast.percent(root.day.precipitation_probability))) : ""
+                text: root.day ? I18n.t("%1 · High %2 · Low %3\nPrecipitation chance %4").arg(I18n.observe(Forecast.title(root.day.condition))).arg(I18n.observe(Forecast.temp(root.day.high_c, root.units))).arg(I18n.observe(Forecast.temp(root.day.low_c, root.units))).arg(I18n.observe(Forecast.percent(root.day.precipitation_probability))) : ""
             }
             PlainLabel {
                 visible: root.day !== null
@@ -165,7 +165,7 @@ Popup {
             PlainLabel {
                 objectName: "selectedForecastValue"
                 Layout.fillWidth: true
-                text: (I18n.revision, Forecast.metricInfo(root.metric)).label + ": " + (I18n.revision, Forecast.metricValue(root.hour ? root.hour[root.metric] : null, root.metric, root.units, root.windUnits))
+                text: I18n.observe(Forecast.metricInfo(root.metric)).label + ": " + I18n.observe(Forecast.metricValue(root.hour ? root.hour[root.metric] : null, root.metric, root.units, root.windUnits))
                 font.pixelSize: Tokens.fontSize(22)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -173,7 +173,7 @@ Popup {
             PlainLabel {
                 objectName: "forecastMetricRange"
                 Layout.fillWidth: true
-                text: (I18n.revision, Forecast.metricRange(root.hours, root.metric, root.units, root.windUnits))
+                text: I18n.observe(Forecast.metricRange(root.hours, root.metric, root.units, root.windUnits))
                 font.pixelSize: Tokens.fontSize(14)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -181,7 +181,7 @@ Popup {
             }
             PlainLabel {
                 Layout.fillWidth: true
-                text: I18n.t("%1 Only remaining forecast hours are shown.").arg((I18n.revision, Forecast.metricInfo(root.metric)).explanation)
+                text: I18n.t("%1 Only remaining forecast hours are shown.").arg(I18n.observe(Forecast.metricInfo(root.metric)).explanation)
                 font.pixelSize: Tokens.fontSize(13)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap
@@ -214,7 +214,7 @@ Popup {
             PlainLabel {
                 visible: root.hour !== null
                 Layout.fillWidth: true
-                text: root.hour ? I18n.t("%1 · %2 · Feels like %3").arg((I18n.revision, Forecast.title(root.hour.condition))).arg((I18n.revision, Forecast.temp(root.hour.temperature_c, root.units))).arg((I18n.revision, Forecast.temp(root.hour.apparent_temperature_c, root.units))) : ""
+                text: root.hour ? I18n.t("%1 · %2 · Feels like %3").arg(I18n.observe(Forecast.title(root.hour.condition))).arg(I18n.observe(Forecast.temp(root.hour.temperature_c, root.units))).arg(I18n.observe(Forecast.temp(root.hour.apparent_temperature_c, root.units))) : ""
                 font.pixelSize: Tokens.fontSize(22)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -229,42 +229,42 @@ Popup {
                     model: root.hour ? [
                         {
                             title: I18n.t("Precipitation chance"),
-                            value: (I18n.revision, Forecast.percent(root.hour.precipitation_probability))
+                            value: I18n.observe(Forecast.percent(root.hour.precipitation_probability))
                         },
                         {
                             title: I18n.t("Precipitation amount"),
-                            value: (I18n.revision, Forecast.amount(root.hour.precipitation_rate_mm_hr, root.units))
+                            value: I18n.observe(Forecast.amount(root.hour.precipitation_rate_mm_hr, root.units))
                         },
                         {
                             title: I18n.t("Wind"),
-                            value: (I18n.revision, Forecast.direction(root.hour.wind_direction_deg)) + " " + (I18n.revision, Forecast.wind(root.hour.wind_speed_m_s, root.units, root.windUnits))
+                            value: I18n.observe(Forecast.direction(root.hour.wind_direction_deg)) + " " + I18n.observe(Forecast.wind(root.hour.wind_speed_m_s, root.units, root.windUnits))
                         },
                         {
                             title: I18n.t("Gusts"),
-                            value: (I18n.revision, Forecast.wind(root.hour.wind_gust_m_s, root.units, root.windUnits))
+                            value: I18n.observe(Forecast.wind(root.hour.wind_gust_m_s, root.units, root.windUnits))
                         },
                         {
                             title: I18n.t("Humidity"),
-                            value: (I18n.revision, Forecast.percent(root.hour.humidity))
+                            value: I18n.observe(Forecast.percent(root.hour.humidity))
                         },
                         {
                             title: I18n.t("Cloud cover"),
-                            value: (I18n.revision, Forecast.percent(root.hour.cloud_cover))
+                            value: I18n.observe(Forecast.percent(root.hour.cloud_cover))
                         },
                         {
                             kind: "uv",
                             title: I18n.t("UV index"),
-                            value: (I18n.revision, Forecast.uv(root.hour.uv_index))
+                            value: I18n.observe(Forecast.uv(root.hour.uv_index))
                         },
                         {
                             kind: "pressure",
                             title: I18n.t("Mean sea level pressure"),
-                            value: (I18n.revision, Forecast.pressure(root.hour.pressure_msl_hpa, root.units))
+                            value: I18n.observe(Forecast.pressure(root.hour.pressure_msl_hpa, root.units))
                         },
                         {
                             kind: "dew_point",
                             title: I18n.t("Dew point"),
-                            value: (I18n.revision, Forecast.temp(root.hour.dew_point_c, root.units))
+                            value: I18n.observe(Forecast.temp(root.hour.dew_point_c, root.units))
                         }
                     ] : []
                     delegate: ColumnLayout {

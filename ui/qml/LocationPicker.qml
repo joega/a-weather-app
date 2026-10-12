@@ -226,7 +226,7 @@ GlassPanel {
             objectName: "savedLocationStatus"
             Layout.fillWidth: true
             visible: text !== ""
-            text: I18n.t(root.actionError) || (root.adding ? I18n.t("Finding location and loading forecast…") : (I18n.revision, Forecast.locationErrorText(root.locationSettings.error)))
+            text: I18n.t(root.actionError) || (root.adding ? I18n.t("Finding location and loading forecast…") : I18n.observe(Forecast.locationErrorText(root.locationSettings.error)))
             color: Tokens.gold
             wrapMode: Text.Wrap
             elide: Text.ElideNone
@@ -282,8 +282,8 @@ GlassPanel {
                 height: viewButton.implicitHeight
                 readonly property var summary: modelData.summary
                 readonly property bool usable: summary !== null && (summary.freshness === "fresh" || summary.freshness === "stale")
-                readonly property string units: (I18n.revision, Forecast.savedUnits(modelData, root.controls))
-                readonly property string label: (I18n.revision, Forecast.savedName(modelData))
+                readonly property string units: I18n.observe(Forecast.savedUnits(modelData, root.controls))
+                readonly property string label: I18n.observe(Forecast.savedName(modelData))
                 readonly property bool home: modelData.id === root.registry.primary
                 readonly property bool viewing: modelData.id === root.registry.viewed
                 Button {
@@ -297,7 +297,7 @@ GlassPanel {
                     bottomPadding: 16
                     hoverEnabled: true
                     enabled: root.canAct
-                    Accessible.name: (root.editing ? I18n.t("Rename ") : I18n.t("View ")) + placeRow.label + (placeRow.home ? I18n.t(", home location") : "") + (placeRow.viewing ? I18n.t(", currently viewed") : "") + ". " + (placeRow.usable ? (I18n.revision, Forecast.temp(placeRow.summary.temperature_c, placeRow.units)) + placeRow.units + ", " + (I18n.revision, Forecast.title(placeRow.summary.condition)) : I18n.t("Weather not loaded or expired")) + ". " + (I18n.revision, Forecast.savedAlertText(placeRow.modelData))
+                    Accessible.name: (root.editing ? I18n.t("Rename ") : I18n.t("View ")) + placeRow.label + (placeRow.home ? I18n.t(", home location") : "") + (placeRow.viewing ? I18n.t(", currently viewed") : "") + ". " + (placeRow.usable ? I18n.observe(Forecast.temp(placeRow.summary.temperature_c, placeRow.units)) + placeRow.units + ", " + I18n.observe(Forecast.title(placeRow.summary.condition)) : I18n.t("Weather not loaded or expired")) + ". " + I18n.observe(Forecast.savedAlertText(placeRow.modelData))
                     onClicked: root.activatePlace(placeRow.modelData)
                     onActiveFocusChanged: if (activeFocus)
                         root.selectPlace(placeRow.modelData.id)
@@ -342,7 +342,7 @@ GlassPanel {
                                 PlainLabel {
                                     Layout.fillWidth: true
                                     visible: placeRow.modelData.label !== ""
-                                    text: (I18n.revision, Forecast.savedPlaceName(placeRow.modelData))
+                                    text: I18n.observe(Forecast.savedPlaceName(placeRow.modelData))
                                     font.pixelSize: Tokens.fontSize(12)
                                     color: Tokens.secondary
                                 }
@@ -355,7 +355,7 @@ GlassPanel {
                                 }
                             }
                             PlainLabel {
-                                text: placeRow.usable ? (I18n.revision, Forecast.temp(placeRow.summary.temperature_c, placeRow.units)) : "—"
+                                text: placeRow.usable ? I18n.observe(Forecast.temp(placeRow.summary.temperature_c, placeRow.units)) : "—"
                                 font.pixelSize: Tokens.fontSize(32)
                             }
                         }
@@ -370,7 +370,7 @@ GlassPanel {
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: placeRow.usable ? (I18n.revision, Forecast.title(placeRow.summary.condition)) : placeRow.summary === null ? I18n.t("Weather not loaded") : I18n.t("Weather unavailable")
+                                text: placeRow.usable ? I18n.observe(Forecast.title(placeRow.summary.condition)) : placeRow.summary === null ? I18n.t("Weather not loaded") : I18n.t("Weather unavailable")
                                 font.pixelSize: Tokens.fontSize(13)
                             }
                         }
@@ -489,7 +489,7 @@ GlassPanel {
                                     id: saveName
                                     objectName: "saveLocationAlias"
                                     text: I18n.t("Save name")
-                                    enabled: root.canAct && (I18n.revision, Forecast.codepoints(root.aliasDraft.trim())) <= 80 && root.aliasDraft.trim() !== placeRow.modelData.label
+                                    enabled: root.canAct && I18n.observe(Forecast.codepoints(root.aliasDraft.trim())) <= 80 && root.aliasDraft.trim() !== placeRow.modelData.label
                                     onClicked: if (enabled)
                                         root.mutatePlace(placeRow.modelData, {
                                             action: "rename",

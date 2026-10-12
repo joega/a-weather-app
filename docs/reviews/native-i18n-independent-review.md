@@ -2,7 +2,7 @@
 
 Reviewed native/qt/i18n.cpp,h and ui/qml/I18n.qml; also service search/request ownership boundary. No edits to reviewed root files. Reviewer model inherited from parent (no override); no native-speaker verification.
 
-## Findings requiring resolution before acceptance
+## Initial findings, resolved in the current tree
 
 1. NativeI18n::match checks zh region before rejecting unknown four-character script. Thus zh-Latn-TW currently resolves Hant, while corrected Go and widget reject it. Move unsupported-script rejection before region matching. Script overrides known regions correctly for zh-Hant-CN and zh-Hans-TW.
 2. `NativeI18n::date(kind="day")` always uses `ddd, MMM d`, imposing English-style date order even when regional locale uses day-month-year. Use a regional date format plus localized day name if appropriate. Also dates' weekday/month names come from the system formatting locale, so switching interface language under an English system retains English names. Confirm intended meaning of independent regional format versus translated dates and cover explicitly.
@@ -26,3 +26,25 @@ Reviewed native/qt/i18n.cpp,h and ui/qml/I18n.qml; also service search/request o
 `GOCACHE=/tmp/aweather-i18n-go-cache go test ./internal/app ./internal/weather ./internal/notifications ./internal/locale ./internal/release` passed (socket fixture escalation used). Additional package/buildmeta/updater regression remains in progress; source buildmeta currently rejects parent's Python generator per existing no-Python source policy.
 
 Provider reference checked: https://open-meteo.com/en/docs/geocoding-api language parameter is lowercased and translated names fall back to English/native when unavailable. Qt reference: https://doc.qt.io/qt-6/qcoreapplication.html#installTranslator
+
+## Resolution checkpoint
+
+Finding 4 resolved by internal/app/place_metadata.go separate bounded metadata owner; full provider identity guards, one running/replacement pending, 8s context, cancellation at shutdown. Name-only persisted update avoids adopt resets. Pending weather completion aligns label after metadata change when canonical coordinates/timezone/country match; air-quality caching now ignores name-only differences. Dedicated tests latest-language cancellation/no overlap, five identity mutation rejections, offline retention, persistence, in-flight weather label retention passed.
+
+Package/buildmeta and updater tests passed. Root owns remaining native date/empty catalog findings and reports fixes. English missing-catalog effective fallback allowed while explicit choice remains persisted.
+
+## Final focused Qt global/lifetime review
+
+Reviewed repaired NativeI18n constructor exports and native/qt/main.cpp ownership order. `weatherFormatNumber`/`weatherFormatDate` are per-engine bound invokable method values, not a raw QObject inserted as a JS global. Explicit CppOwnership prevents JS GC from deleting the stack-owned NativeI18n; main constructs the engine before NativeI18n, so NativeI18n is destroyed first and removes its process translator before engine teardown. QML QObject wrappers invalidate on QObject destruction; the retained method values do not transfer ownership. Current application lifetime has no actionable dangling-engine path. Source-level lifetime review agrees with root's passing shared-library formatting tests; no broad re-audit performed.
+
+Number/date functions change display only. Canonical timestamps enter QDateTime and IANA QTimeZone before conversion; date keys stay QDate, not UTC-midnight instants. Numeric/regional layout stays QLocale(system), translated day-name uses effective interface locale. Chinese unsupported-script rejection now precedes region fallback; empty catalog now falls back English. Bundled resources are generated/trusted and coverage gates enforce placeholder/numerus shape, with unknown App sources falling back through QCoreApplication.
+
+Regional notification gap resolved by root headless Qt helper + internal/locale/notification_time.go. Helper is rooted at trusted absolute Options.Root/native/qt/a-weather-app-qt, regular executable, no PATH/shell, 1-second context deadline, at most256 stdout bytes, validated UTF8/plain output, 32-label FIFO. Both notification owners call it only inside their existing bounded delivery goroutines after ledger reservation, preserving owner-mutex responsiveness, per-tick/cache bounds, and parent3-second cancellation. Failed/development helper returns local numeric ISO fallback. Scope includes immutable captured LC_TIME environment independent of interface choice.
+
+Direct actual helper proof: LC_ALL empty, LC_TIME=de_DE.UTF-8, LANG=en_US.UTF-8 and LANGUAGE hi/uk, 2026-11-01T05:30Z/06:30Z in America/New_York -> 01.11.26 01:30 EDT / 01.11.26 01:30 EST, preserving DST distinction and regional date order without GUI.
+
+## Final regression checkpoint
+
+Full `GOCACHE=<repo>/.i18n-test-build/service-go-cache GOTMPDIR=/tmp/aw-ir go test -race ./...` passed every package, including updater72.7s. Initial race compile hit temporary filesystem quota; only this task's disposable /tmp/aweather-i18n-go-cache was cleaned, source/evidence preserved, and cache moved to the already excluded test-build directory on the main filesystem. First filesystem-backed app run exceeded Unix-domain socket path length with a long GOTMPDIR; short scratch path fixed the fixture environment.
+
+After full suite, language matcher core strips singleton extensions before script/region matching, so zh-TW-u-nu-latn and zh-TW-x-Hans retain Hant, zh-u-nu-latn selects Hans, and unsupported core zh-Latn-TW remains rejected. Widget matcher8cases passed separately. NWS Unknown severity now maps to existing translated unknown display source while canonical code remains unchanged. Focused post-hardening race regressions on locale/notifications/app/weather passed.

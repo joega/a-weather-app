@@ -63,7 +63,7 @@ ColumnLayout {
             ToggleControl {
                 id: toggle
                 Layout.fillWidth: true
-                title: (I18n.revision, Dashboard.title(row.modelData.id))
+                title: I18n.observe(Dashboard.title(row.modelData.id))
                 caption: row.modelData.enabled ? I18n.t("Shown") : I18n.t("Hidden")
                 checked: row.modelData.enabled
                 optimistic: false
@@ -75,7 +75,7 @@ ColumnLayout {
                 id: up
                 objectName: "dashboard_" + root.group + "_" + row.modelData.id + "_up"
                 text: "↑"
-                accessibleLabel: I18n.t("Move %1 up").arg((I18n.revision, Dashboard.title(row.modelData.id)))
+                accessibleLabel: I18n.t("Move %1 up").arg(I18n.observe(Dashboard.title(row.modelData.id)))
                 enabled: row.index > 0 && (!root.selectedOnlyMoves || row.modelData.enabled)
                 onClicked: root.change(row.index, "up")
             }
@@ -83,7 +83,7 @@ ColumnLayout {
                 id: down
                 objectName: "dashboard_" + root.group + "_" + row.modelData.id + "_down"
                 text: "↓"
-                accessibleLabel: I18n.t("Move %1 down").arg((I18n.revision, Dashboard.title(row.modelData.id)))
+                accessibleLabel: I18n.t("Move %1 down").arg(I18n.observe(Dashboard.title(row.modelData.id)))
                 enabled: row.index + 1 < (root.selectedOnlyMoves ? root.selectedCount : root.rows.length) && (!root.selectedOnlyMoves || row.modelData.enabled)
                 onClicked: root.change(row.index, "down")
             }

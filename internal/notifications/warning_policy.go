@@ -153,6 +153,10 @@ func warningNotice(decision WarningDecision, m weather.AlertMessage, place strin
 
 // Localize only app-authored templates; official provider text stays verbatim.
 func localizedWarningNotice(code string, d WarningDecision, m weather.AlertMessage, place string, zone *time.Location, settings M) WarningNotice {
+	return localizedWarningNoticeWithDate(code, d, m, place, zone, settings, locale.DateTime(m.Expires.In(zone)))
+}
+
+func localizedWarningNoticeWithDate(code string, d WarningDecision, m weather.AlertMessage, place string, zone *time.Location, settings M, expiry string) WarningNotice {
 	notice := warningNotice(d, m, place, zone, settings)
 	notice.Title = warningDisplayTitle(code, d.Kind, m.Event)
 	issuer := Text(m.Issuer, 100)
@@ -161,7 +165,11 @@ func localizedWarningNotice(code string, d WarningDecision, m weather.AlertMessa
 	}
 	parts := []string{Text(place, 100), issuer}
 	if d.Kind != "canceled" {
-		parts = append(parts, locale.T(code, "%1 · valid until %2", locale.T(code, m.Severity), locale.DateTime(m.Expires.In(zone))))
+		severitySource := m.Severity
+		if severitySource == "Unknown" {
+			severitySource = "unknown"
+		}
+		parts = append(parts, locale.T(code, "%1 · valid until %2", locale.T(code, severitySource), expiry))
 	}
 	if instruction := Text(strings.Join(strings.Fields(m.Instruction), " "), 500); instruction != "" {
 		parts = append(parts, instruction)

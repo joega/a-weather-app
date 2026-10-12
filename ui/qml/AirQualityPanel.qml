@@ -10,7 +10,7 @@ GlassPanel {
     objectName: "airQualityPanel"
     property bool outlookEnabled: false
     signal outlookRequested
-    property var airQuality: (I18n.revision, Forecast.airQuality())
+    property var airQuality: I18n.observe(Forecast.airQuality())
     implicitHeight: Math.max(224, body.implicitHeight + 40)
     function index(value) {
         return value === null ? "—" : Math.round(value).toString();
@@ -82,13 +82,13 @@ GlassPanel {
                         kind: "us",
                         title: I18n.t("US AQI scale"),
                         value: root.index(root.airQuality.us_aqi),
-                        category: (I18n.revision, AirQuality.category(root.airQuality.us_aqi, "us"))
+                        category: I18n.observe(AirQuality.category(root.airQuality.us_aqi, "us"))
                     },
                     {
                         kind: "eu",
                         title: I18n.t("European AQI scale"),
                         value: root.index(root.airQuality.european_aqi),
-                        category: (I18n.revision, AirQuality.category(root.airQuality.european_aqi, "eu"))
+                        category: I18n.observe(AirQuality.category(root.airQuality.european_aqi, "eu"))
                     },
                     {
                         kind: "pm",

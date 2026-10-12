@@ -57,6 +57,7 @@ for copy in first second; do
       run_phase go-lint make lint
       run_phase go-race go test -race ./...
       run_phase go-vet go vet ./...
+      run_phase translation-coverage bash scripts/i18n_catalogs.sh --check --complete
       run_phase qt-tests make -C native/qt test
       run_phase native-format make check-native-qml-format
       run_phase native-analysis make check-native-analysis

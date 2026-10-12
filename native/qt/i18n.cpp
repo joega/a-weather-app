@@ -74,12 +74,18 @@ QString CatalogTranslator::translate(const char* context, const char* source, co
     return forms.value(qMin(index, int(forms.size()) - 1));
 }
 QString NativeI18n::match(const QString& input) {
-    const QString tag = input.trimmed().replace('_', '-').section('.', 0, 0);
+    const QString tag = input.trimmed().replace('_', '-').section('.', 0, 0).section('@', 0, 0);
     const QString base = tag.section('-', 0, 0).toLower();
     if (base == "ru")
         return "uk";
     if (base == "zh") {
-        const auto parts = tag.toLower().split('-');
+        auto parts = tag.toLower().split('-');
+        for (int i = 1; i < parts.size(); ++i) {
+            if (parts[i].size() == 1) {
+                parts = parts.mid(0, i);
+                break;
+            }
+        }
         if (parts.contains("hant"))
             return "zh-Hant";
         if (parts.contains("hans"))
@@ -108,6 +114,15 @@ NativeI18n::NativeI18n(QQmlEngine* target, const QLocale& formatting)
     auto preferences = qEnvironmentVariable("LANGUAGE").split(':', Qt::SkipEmptyParts);
     preferences.append(QLocale::system().uiLanguages());
     automatic = detect(preferences);
+    // Shared .pragma library scripts have no component context. A per-engine
+    // global gives the same owned native formatter to stateless JS helpers.
+    // Keep C++ ownership: this object can be a stack-owned application member.
+    QQmlEngine::setObjectOwnership(this, QQmlEngine::CppOwnership);
+    if (engine) {
+        const auto formatter = engine->newQObject(this);
+        engine->globalObject().setProperty("weatherFormatNumber", formatter.property("number"));
+        engine->globalObject().setProperty("weatherFormatDate", formatter.property("date"));
+    }
     QCoreApplication::installTranslator(&translator);
     apply("auto", automatic);
 }

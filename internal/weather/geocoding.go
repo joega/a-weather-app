@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/locale"
 	"math"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/joega/a-weather-app/internal/locale"
 )
 
 const geocodingBase = "https://geocoding-api.open-meteo.com"

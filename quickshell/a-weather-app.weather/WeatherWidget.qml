@@ -20,7 +20,9 @@ OmarchyUi.BarWidget {
     readonly property bool configured: projectPath !== "" && statePath !== ""
     readonly property bool opened: app.running
     property string language: Translations.detect((Quickshell.env("LANGUAGE") || "").split(":").concat([Quickshell.env("LC_ALL") || Quickshell.env("LC_MESSAGES"), Quickshell.env("LANG")]))
-    function tr(source, args) { return Translations.text(language, source, args); }
+    function tr(source, args) {
+        return Translations.text(language, source, args);
+    }
     property string label: "A Weather App"
     property string tooltip: tr("Open A Weather App to choose a location")
     property string buffer: ""
@@ -131,7 +133,8 @@ OmarchyUi.BarWidget {
             const value = JSON.parse(buffer);
             if (!value || typeof value !== "object" || Array.isArray(value) || value.schema_version !== 1 || typeof value.label !== "string" || value.label.length > 96 || typeof value.tooltip !== "string" || value.tooltip.length > 256 || ["fresh", "stale", "expired", "invalid_future", "unavailable"].indexOf(value.freshness) < 0)
                 throw "invalid";
-            if (typeof value.language === "string" && Translations.match(value.language) === value.language) language = value.language;
+            if (typeof value.language === "string" && Translations.match(value.language) === value.language)
+                language = value.language;
             label = plain(value.label, 96);
             tooltip = plain(value.tooltip, 256);
             const u = value.update;
@@ -330,7 +333,7 @@ OmarchyUi.BarWidget {
                 root.acceptRead();
             else {
                 root.label = "—° · " + root.tr("Unavailable");
-                root.tooltip = tr("A Weather App forecast unavailable");
+                root.tooltip = root.tr("A Weather App forecast unavailable");
             }
             root.buffer = "";
             if (root.pendingRead)
@@ -448,7 +451,7 @@ OmarchyUi.BarWidget {
             }
             Text {
                 width: parent.width
-                text: root.tr(root.updateError) || (updateInstaller.running ? root.tr("Downloading and verifying the update…") : root.waitingForUpdater ? root.tr("Starting the update…") : updateChecker.running ? root.tr("Checking for updates…") : root.tr(root.update.message) || root.tr("You have the latest supported release"))
+                text: root.tr(root.updateError) || (updateInstaller.running ? root.tr("Downloading and verifying the update…") : root.waitingForUpdater ? root.tr("Starting the update…") : updateChecker.running ? root.tr("Checking for updates…") : Translations.updateMessage(root.language, root.update))
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
                 color: Color.foreground

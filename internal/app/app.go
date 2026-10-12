@@ -45,16 +45,17 @@ type Effects interface {
 // UpdateStatus returns a caller-owned snapshot and should not block.
 // Offline suppresses automatic fetches and update checks.
 type Options struct {
-	UpdateStatus      func() M
-	AcknowledgeUpdate func(string) error
-	CheckUpdates      func(context.Context, bool) error
-	StartUpdate       func() error
-	Root              string
-	Now               func() time.Time
-	Fetch             func(context.Context, M, time.Time) (M, error)
-	Resolve           func(context.Context, M) (M, error)
-	ResolveSelection  func(context.Context, M) (M, error)
-	FetchCountry      func(context.Context, M, time.Time, string) (M, error)
+	UpdateStatus              func() M
+	AcknowledgeUpdate         func(string) error
+	CheckUpdates              func(context.Context, bool) error
+	StartUpdate               func() error
+	Root                      string
+	NotificationDateFormatter locale.DateFormatter
+	Now                       func() time.Time
+	Fetch                     func(context.Context, M, time.Time) (M, error)
+	Resolve                   func(context.Context, M) (M, error)
+	ResolveSelection          func(context.Context, M) (M, error)
+	FetchCountry              func(context.Context, M, time.Time, string) (M, error)
 	// FetchCurrentSummary warms saved cards independently of full forecasts.
 	// Nil leaves cards cache-only for custom providers.
 	FetchCurrentSummary func(context.Context, M, time.Time) (M, error)
@@ -366,7 +367,12 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	if e != nil {
 		return nil, e
 	}
+	formatDate := o.NotificationDateFormatter
+	if formatDate == nil {
+		formatDate = locale.NotificationDateFormatter(o.Root)
+	}
 	a.notifications = notifications.New(state, o.Sender)
+	a.notifications.SetDateFormatter(formatDate)
 	a.syncNotificationLanguage()
 	if o.FetchAlertMessages != nil {
 		a.alerts = newAlertScheduler(o.FetchAlertMessages, a.signal)
@@ -375,6 +381,7 @@ func newApp(state *safeio.Directory, o Options, primaryOnly bool) (*App, error) 
 	if !primaryOnly {
 		a.warningDesktop = &warningDesktop{signal: a.signal}
 		a.warnings = notifications.NewWarningWatcher(state, a.warningDesktop.Send, a.signal)
+		a.warnings.SetDateFormatter(formatDate)
 		a.warnings.SetDeliveryReady(false)
 		a.syncNotificationLanguage()
 		a.warningObserver = a.warnings

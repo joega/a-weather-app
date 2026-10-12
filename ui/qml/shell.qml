@@ -21,10 +21,10 @@ QtObject {
     readonly property var viewedPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.viewed) : null
     readonly property var primaryPlace: savedLocations ? savedLocations.items.find(row => row.id === savedLocations.primary) : null
     readonly property bool primaryForecastAvailable: savedLocations ? savedLocations.primary_forecast_available : root.forecast !== null
-    readonly property string primaryName: primaryPlace ? (I18n.revision, Forecast.savedName(primaryPlace)) : root.location
+    readonly property string primaryName: primaryPlace ? I18n.observe(Forecast.savedName(primaryPlace)) : root.location
     readonly property string primaryTimezone: primaryPlace ? primaryPlace.timezone : root.timezone
-    property var dashboardPreferences: (I18n.revision, Dashboard.defaults())
-    property var appearance: (I18n.revision, Forecast.appearance())
+    property var dashboardPreferences: I18n.observe(Dashboard.defaults())
+    property var appearance: I18n.observe(Forecast.appearance())
     onAppearanceChanged: {
         Tokens.textScale = appearance.text_scale;
         Tokens.highContrast = appearance.high_contrast;
@@ -365,7 +365,7 @@ QtObject {
             });
     }
     property bool initialLocationChecked: false
-    readonly property var updateStatus: bridge.snapshot ? bridge.snapshot.update : (I18n.revision, Forecast.updateStatus(null))
+    readonly property var updateStatus: bridge.snapshot ? bridge.snapshot.update : I18n.observe(Forecast.updateStatus(null))
     property string shownUpdateVersion: ""
     property bool updateNoticeActive: false
     onUpdateStatusChanged: Qt.callLater(showUpdateNotice)
@@ -504,7 +504,7 @@ QtObject {
         if (bridge.snapshot && bridge.snapshot.location_settings.busy)
             return I18n.t("Finding location and loading forecast…");
         if (bridge.snapshot && bridge.snapshot.location_settings.error)
-            return (I18n.revision, Forecast.locationErrorText(bridge.snapshot.location_settings.error));
+            return I18n.observe(Forecast.locationErrorText(bridge.snapshot.location_settings.error));
         if (bridge.snapshot && bridge.snapshot.source.refreshing)
             return I18n.t("Refreshing live forecast…");
         if (bridge.snapshot && bridge.snapshot.location_settings.mode === "default" && !forecast)
@@ -888,7 +888,7 @@ QtObject {
                                     objectName: "currentTemperature"
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: root.current ? (I18n.revision, Forecast.temp(root.current.temperature_c, root.units)) : "—°"
+                                    text: root.current ? I18n.observe(Forecast.temp(root.current.temperature_c, root.units)) : "—°"
                                     font.pixelSize: Tokens.fontSize(96)
                                     font.weight: Font.Light
                                     // Trim the large numerals' extra space above the glyphs.
@@ -901,13 +901,13 @@ QtObject {
                                     horizontalAlignment: Text.AlignHCenter
                                     wrapMode: Text.Wrap
                                     elide: Text.ElideNone
-                                    text: root.current ? (I18n.revision, Forecast.title(root.current.condition)) : I18n.t("Forecast unavailable")
+                                    text: root.current ? I18n.observe(Forecast.title(root.current.condition)) : I18n.t("Forecast unavailable")
                                     font.pixelSize: Tokens.fontSize(22)
                                 }
                                 PlainLabel {
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: I18n.t("Feels like %1 · High %2 · Low %3").arg((I18n.revision, Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units))).arg((I18n.revision, Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units))).arg((I18n.revision, Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)))
+                                    text: I18n.t("Feels like %1 · High %2 · Low %3").arg(I18n.observe(Forecast.temp(root.current ? root.current.apparent_temperature_c : null, root.units))).arg(I18n.observe(Forecast.temp(root.days.length ? root.days[0].high_c : null, root.units))).arg(I18n.observe(Forecast.temp(root.days.length ? root.days[0].low_c : null, root.units)))
                                     skyText: true
                                     font.pixelSize: Tokens.fontSize(16)
                                     wrapMode: Text.Wrap
@@ -943,7 +943,7 @@ QtObject {
                             }
                             PlainLabel {
                                 visible: root.controls.mode === "manual" && !root.liveDesktop
-                                text: I18n.t("Manual effects preview · %1").arg((I18n.revision, Forecast.title(root.controls.manual.condition)))
+                                text: I18n.t("Manual effects preview · %1").arg(I18n.observe(Forecast.title(root.controls.manual.condition)))
                                 font.pixelSize: Tokens.fontSize(13)
                                 color: Tokens.accent
                             }
@@ -957,7 +957,7 @@ QtObject {
                                     today: I18n.t("Today"),
                                     tonight: I18n.t("Tonight"),
                                     tomorrow: I18n.t("Tomorrow")
-                                })[root.selectedBriefing.period] + " · " + (I18n.revision, Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits)) : (I18n.revision, Forecast.outlook(root.hours, root.units, root.windUnits))
+                                })[root.selectedBriefing.period] + " · " + I18n.observe(Forecast.briefingText(root.selectedBriefing, root.units, root.windUnits)) : I18n.observe(Forecast.outlook(root.hours, root.units, root.windUnits))
                             font.pixelSize: Tokens.fontSize(18)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
@@ -967,7 +967,7 @@ QtObject {
                 UpdatePanel {
                     objectName: "updateNotice"
                     Layout.fillWidth: true
-                    status: bridge.snapshot ? bridge.snapshot.update : (I18n.revision, Forecast.updateStatus(null))
+                    status: bridge.snapshot ? bridge.snapshot.update : I18n.observe(Forecast.updateStatus(null))
                     visible: ["available", "publishing", "failed", "downloading", "verifying", "restarting", "rolled_back"].indexOf(status.state) >= 0
                     enabled: bridge.available && !bridge.busy
                     onCheckRequested: bridge.send("check_updates")
@@ -1094,7 +1094,7 @@ QtObject {
             id: airQualityComponent
             AirQualityPanel {
                 objectName: "airQualityPanel"
-                airQuality: bridge.snapshot ? bridge.snapshot.air_quality : (I18n.revision, Forecast.airQuality())
+                airQuality: bridge.snapshot ? bridge.snapshot.air_quality : I18n.observe(Forecast.airQuality())
                 outlookEnabled: bridge.available && root.hasMapLocation && !bridge.snapshot.location_settings.busy
                 onOutlookRequested: root.openAirOutlook()
             }
@@ -1166,8 +1166,8 @@ QtObject {
                     selected_output: null,
                     output_selection: "automatic"
                 })
-            notifications: bridge.snapshot ? bridge.snapshot.notifications : (I18n.revision, Forecast.notifications())
-            officialWarnings: bridge.snapshot ? bridge.snapshot.warning_notifications : (I18n.revision, Forecast.warningNotifications())
+            notifications: bridge.snapshot ? bridge.snapshot.notifications : I18n.observe(Forecast.notifications())
+            officialWarnings: bridge.snapshot ? bridge.snapshot.warning_notifications : I18n.observe(Forecast.warningNotifications())
             timezone: root.primaryTimezone
             actionError: bridge.error
             canStart: bridge.available && root.forecast !== null && bridge.snapshot !== null && bridge.snapshot.effect_status !== "cleanup_failed" && setup.status === "ready"
@@ -1209,7 +1209,7 @@ QtObject {
             onWarningResumeRequested: bridge.send("resume_warning_notifications")
             onWarningDetailRequested: reference => root.openWarning(reference, false)
             launcherStatus: bridge.snapshot ? bridge.snapshot.launcher_status : "ready"
-            updateStatus: bridge.snapshot ? bridge.snapshot.update : (I18n.revision, Forecast.updateStatus(null))
+            updateStatus: bridge.snapshot ? bridge.snapshot.update : I18n.observe(Forecast.updateStatus(null))
             onCheckUpdatesRequested: bridge.send("check_updates")
             onInstallUpdateRequested: bridge.send("install_update")
             onInstallLauncherRequested: bridge.send("install_launcher")
@@ -1241,7 +1241,7 @@ QtObject {
                 objectName: "locationPicker"
                 registry: root.savedLocations
                 controls: root.controls
-                search: bridge.snapshot ? bridge.snapshot.place_search : (I18n.revision, Forecast.placeSearch(undefined))
+                search: bridge.snapshot ? bridge.snapshot.place_search : I18n.observe(Forecast.placeSearch(undefined))
                 locationSettings: bridge.snapshot ? bridge.snapshot.location_settings : ({
                         busy: false,
                         error: null

@@ -107,6 +107,10 @@
   "%1 averages %2 → %3 across %n hour(s).": [
     "ui/qml/Changes.js"
   ],
+  "%1 failed": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "%1 forecast chart": [
     "ui/qml/ForecastChart.qml"
   ],
@@ -267,9 +271,11 @@
     "ui/qml/WeatherMapCard.qml"
   ],
   "A Weather App forecast unavailable": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "A Weather App updates": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "A comparison will appear when the latest forecast is shown.": [
@@ -280,6 +286,14 @@
   ],
   "A control action is already pending. Try again.": [
     "ui/qml/backend/Bridge.qml"
+  ],
+  "A new release is being prepared. It will be offered when its verified release pin is ready.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "A new version is ready to install": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "AQI averaging periods differ from these hourly concentrations. PM2.5 alone does not identify wildfire smoke. For health advice and local alerts, consult your air-quality authority.": [
     "ui/qml/AirOutlookDetails.qml"
@@ -429,6 +443,7 @@
     "ui/qml/EffectsDrawer.qml"
   ],
   "Available %1": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Available hourly range: %1 – %2.": [
@@ -514,6 +529,7 @@
     "ui/qml/EffectsDrawer.qml"
   ],
   "Check for updates": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json",
     "ui/qml/UpdatePanel.qml"
   ],
@@ -521,7 +537,10 @@
     "ui/qml/EffectsDrawer.qml"
   ],
   "Checking for updates…": [
-    "translations/extra-sources.json"
+    "quickshell/a-weather-app.weather/Translations.js",
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
+    "translations/extra-sources.json",
+    "ui/qml/Forecast.js"
   ],
   "Checking forecast changes…": [
     "ui/qml/Changes.js"
@@ -593,6 +612,7 @@
     "ui/qml/Forecast.js"
   ],
   "Close": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Close air quality outlook": [
@@ -660,6 +680,10 @@
   "Compatibility checks passed for this desktop.": [
     "ui/qml/EffectsDrawer.qml"
   ],
+  "Completing the update…": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "Connect and load a forecast to find outdoor times.": [
     "ui/qml/backend/Bridge.qml"
   ],
@@ -673,7 +697,13 @@
     "ui/qml/ForecastShare.qml"
   ],
   "Could not check for updates. Check your connection and try again.": [
-    "translations/extra-sources.json"
+    "quickshell/a-weather-app.weather/Translations.js",
+    "translations/extra-sources.json",
+    "ui/qml/Forecast.js"
+  ],
+  "Could not check for updates. Try again.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Could not create the image. Try again.": [
     "ui/qml/ForecastShare.qml"
@@ -683,6 +713,10 @@
   ],
   "Could not load this radar image. Choose Latest to try again.": [
     "ui/qml/RadarMap.qml"
+  ],
+  "Could not restore the previous version.\n%1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Could not save the image. Choose another location and try again.": [
     "ui/qml/ForecastShare.qml"
@@ -793,6 +827,10 @@
   "Desktop renderer · %1": [
     "ui/qml/EffectsDrawer.qml"
   ],
+  "Development checkout · build updates locally": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "Dew point": [
     "ui/qml/Forecast.js",
     "ui/qml/ForecastDetails.qml"
@@ -816,7 +854,12 @@
     "ui/qml/LocationPicker.qml"
   ],
   "Downloading and verifying the update…": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
+  ],
+  "Downloading the new version…": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Drag to pan. Arrow keys pan. Plus and minus zoom. Home returns to the viewed location. Blank areas can lack radar coverage.": [
     "ui/qml/RadarMap.qml"
@@ -879,6 +922,9 @@
   ],
   "Expand radar map": [
     "ui/qml/RadarMap.qml"
+  ],
+  "Expected": [
+    "translations/extra-sources.json"
   ],
   "Experimental": [
     "ui/qml/EffectsDrawer.qml"
@@ -1019,6 +1065,9 @@
   "Full day · %1 of %n hours": [
     "ui/qml/Precipitation.js"
   ],
+  "Future": [
+    "translations/extra-sources.json"
+  ],
   "Gap": [
     "ui/qml/Precipitation.js"
   ],
@@ -1146,6 +1195,9 @@
     "ui/qml/ForecastDetails.qml",
     "ui/qml/MetricsPanel.qml"
   ],
+  "Immediate": [
+    "translations/extra-sources.json"
+  ],
   "Immersive": [
     "ui/qml/EffectsDrawer.qml"
   ],
@@ -1159,6 +1211,7 @@
     "ui/qml/EffectsDrawer.qml"
   ],
   "Installed %1": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Installed for your user only. Keep this app in its current location.": [
@@ -1244,6 +1297,9 @@
   ],
   "Lightning flashes": [
     "ui/qml/EffectsDrawer.qml"
+  ],
+  "Likely": [
+    "translations/extra-sources.json"
   ],
   "Liquid %1 · Rain %2 · New snow %3\nChance %4 · %5": [
     "ui/qml/PrecipitationDetails.qml"
@@ -1662,6 +1718,9 @@
   "Nov": [
     "ui/qml/Share.js"
   ],
+  "Observed": [
+    "translations/extra-sources.json"
+  ],
   "Observed radar": [
     "ui/qml/RadarMap.qml"
   ],
@@ -1730,9 +1789,11 @@
     "ui/qml/AirQualityPanel.qml"
   ],
   "Open A Weather App to choose a location": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Open forecast": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Open forecast details": [
@@ -1745,6 +1806,7 @@
     "ui/qml/MetricsPanel.qml"
   ],
   "Open the app for version information": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Open warning": [
@@ -1772,6 +1834,10 @@
   ],
   "Original notice from this session. Its status may have changed; check the current alert feed for later updates.": [
     "ui/qml/WarningDetails.qml"
+  ],
+  "Original technical details: %1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Outdoor planner": [
     "ui/qml/EffectsDrawer.qml",
@@ -1812,6 +1878,9 @@
     "ui/qml/EffectsDrawer.qml",
     "ui/qml/Forecast.js"
   ],
+  "Past": [
+    "translations/extra-sources.json"
+  ],
   "Past observations": [
     "ui/qml/WeatherMap.qml"
   ],
@@ -1850,8 +1919,15 @@
   "Play the map forecast timeline": [
     "ui/qml/WeatherMap.qml"
   ],
+  "Plugin changes were preserved. Review them before trying another update.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "Poor": [
     "ui/qml/AirQuality.js"
+  ],
+  "Possible": [
+    "translations/extra-sources.json"
   ],
   "Precipitation": [
     "ui/qml/WeatherMap.qml",
@@ -1911,6 +1987,10 @@
   ],
   "Preferences changed. Find times to update the suggestions.": [
     "ui/qml/OutdoorPlanner.qml"
+  ],
+  "Preparing the update…": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Pressure": [
     "ui/qml/Dashboard.js",
@@ -2054,6 +2134,14 @@
   ],
   "Restore defaults": [
     "ui/qml/DashboardEditor.qml"
+  ],
+  "Restored the previous version.\n%1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "Restored the previous version. You can retry the update.\n%1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Resume delivery": [
     "ui/qml/WarningNotificationsPanel.qml"
@@ -2248,6 +2336,7 @@
     "ui/qml/EffectsDrawer.qml"
   ],
   "Starting the update…": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Starting…": [
@@ -2281,6 +2370,10 @@
   ],
   "Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session.": [
     "ui/qml/NotificationsPanel.qml"
+  ],
+  "Stopping weather effects and preparing to restart…": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Stops precipitation and freezes the sky.": [
     "ui/qml/EffectsDrawer.qml"
@@ -2339,6 +2432,10 @@
   "Text size": [
     "ui/qml/EffectsDrawer.qml"
   ],
+  "The bar could not refresh. Reopen it after reviewing the plugin.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "The change is visible, but saving could not be confirmed.": [
     "ui/qml/backend/Bridge.qml"
   ],
@@ -2390,6 +2487,14 @@
   "The place or forecast changed. Find times again using the latest forecast.": [
     "ui/qml/backend/Bridge.qml"
   ],
+  "The previous update stopped. Open the app to recover, or retry the update.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "The runtime was restored, but the plugin could not be restored. Review the plugin before trying another update.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "The saved layout changed. Reload it before applying edits.": [
     "ui/qml/DashboardEditor.qml"
   ],
@@ -2410,6 +2515,14 @@
   ],
   "The two indices use different scales. Lower values indicate cleaner air.": [
     "ui/qml/AirQualityPanel.qml"
+  ],
+  "The update was rolled back.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "The updater did not start. Check for updates and try again.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "The updater did not start. Check your connection and try again.": [
     "translations/extra-sources.json"
@@ -2479,6 +2592,7 @@
     "ui/qml/AstronomyDetails.qml"
   ],
   "Toggle A Weather App window": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
   ],
   "Tomorrow": [
@@ -2541,6 +2655,7 @@
   ],
   "Unavailable": [
     "internal/app/bar.go",
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json",
     "ui/qml/AirQuality.js",
     "ui/qml/EffectsDrawer.qml",
@@ -2559,6 +2674,12 @@
   "Unhealthy for sensitive groups": [
     "ui/qml/AirQuality.js"
   ],
+  "Unknown": [
+    "translations/extra-sources.json"
+  ],
+  "Unlikely": [
+    "translations/extra-sources.json"
+  ],
   "Until": [
     "ui/qml/NotificationsPanel.qml"
   ],
@@ -2566,21 +2687,36 @@
     "ui/qml/WarningNotificationsPanel.qml"
   ],
   "Update and restart": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json",
     "ui/qml/UpdatePanel.qml"
+  ],
+  "Update could not finish.\n%1\nTry again.": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Update could not start. Check your connection and ensure the plugin has no local changes, then try again.": [
     "translations/extra-sources.json"
   ],
   "Update failed": [
-    "ui/qml/AirQualityPanel.qml"
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/AirQualityPanel.qml",
+    "ui/qml/Forecast.js"
   ],
   "Update timed out": [
     "ui/qml/AirQualityPanel.qml"
   ],
+  "Update was not installed.\n%1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "Updated ": [
     "ui/qml/AirOutlookDetails.qml",
     "ui/qml/PrecipitationDetails.qml"
+  ],
+  "Updated successfully": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Updated to %1.": [
     "ui/qml/shell.qml"
@@ -2590,7 +2726,12 @@
     "translations/extra-sources.json"
   ],
   "Updates are checked daily.": [
-    "ui/qml/UpdatePanel.qml"
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "Updates are unavailable for this installation": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Updating…": [
     "ui/qml/UpdatePanel.qml"
@@ -2613,6 +2754,10 @@
   ],
   "Uses the primary place’s local time.": [
     "ui/qml/WarningNotificationsPanel.qml"
+  ],
+  "Verifying the downloaded release…": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "Version %1 available": [
     "ui/qml/UpdatePanel.qml"
@@ -2828,7 +2973,8 @@
     "ui/qml/Changes.js"
   ],
   "You’re up to date. Updates are checked daily.": [
-    "ui/qml/UpdatePanel.qml"
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "ZIP code": [
     "ui/qml/LocationPicker.qml"
@@ -2846,17 +2992,177 @@
   "Zoom radar out": [
     "ui/qml/RadarMap.qml"
   ],
+  "an update is already in progress": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "another runtime installer is running": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "archive entry limit": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "archive exceeds download bound": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "archive file exceeds bound": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "archive links and special files are unsupported": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "archive metadata differs from release metadata": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "archive version differs from selected release": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "cannot identify system directory ownership": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "cannot identify the installed plugin revision": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "check for updates before installing": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "could not refresh the Omarchy bar": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "daylight": [
     "ui/qml/Outdoor.js"
+  ],
+  "development builds must be updated locally": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "development checkouts are built locally": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "development or linked plugins must be updated locally": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "download checksum verification failed": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "download: HTTP %1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "existing managed release differs from the running bundle": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "existing release differs from verified download": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "existing release directory failed verification": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "expanded archive exceeds bound": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "gusts": [
     "ui/qml/Outdoor.js"
   ],
+  "installation is not owned by this user": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "installation lock is not held": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "installed runtime version does not match its selector": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "installer unavailable": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid archive root": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid installation path": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid original runtime path": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid plugin revision in transaction": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid previous runtime version": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid published release pin": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid release pin": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid release version": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "invalid update journal phase": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "just now": [
     "ui/qml/shell.qml"
   ],
+  "launcher changed during update": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "launcher was edited during update": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "less than a minute ago": [
     "ui/qml/RadarMap.qml"
+  ],
+  "no newer supported release is available": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "not a stable release": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "plugin changed while preparing the update": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "plugin update cannot fast-forward; local history was preserved": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "precipitation amount": [
     "ui/qml/Outdoor.js"
@@ -2864,20 +3170,161 @@
   "precipitation chance": [
     "ui/qml/Outdoor.js"
   ],
+  "release checksum differs from published pin": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release metadata differs from published pin": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release pin changed during preparation; check for updates again": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release publication is not consistent yet": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release request: HTTP %1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release response exceeds bound": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release version exceeds bound": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "release was built from modified sources": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "reopen the installed version before updating": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "running runtime version does not match its manifest": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "runtime selection changed while preparing the update": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "runtime verification: %1": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "temperature": [
     "ui/qml/Outdoor.js"
+  ],
+  "the new weather app did not start successfully": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "the plugin checkout is missing; reinstall it before updating": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "the plugin checkout is on a custom branch; update it locally": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "the plugin has local changes; no files were changed": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "the plugin's origin is not the official repository": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "the preceding hour": [
     "ui/qml/ForecastDetails.qml"
   ],
+  "the previous update was interrupted": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "the previous update was interrupted; try the update again": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "the runtime selector changed outside this update; reopen your selected version": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "this installation does not use the managed release launcher": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "time unavailable": [
     "ui/qml/AlertsPanel.qml"
   ],
+  "transaction does not belong to this installation": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unexpected weather service owns the socket": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
   "unknown": [
+    "quickshell/a-weather-app.weather/WeatherWidget.qml",
     "translations/extra-sources.json"
+  ],
+  "unrecognized runtime selection": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unsafe download redirect": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unsafe installation directory": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unsafe or duplicate archive path": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unsafe redirect": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unsupported launcher path": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "unsupported plugin checkout": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "update notice does not match the installed update": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "updated plugin failed Omarchy validation": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "weather effects did not stop cleanly": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
+  ],
+  "weather service did not exit": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "wind": [
     "ui/qml/Outdoor.js"
+  ],
+  "wrong runtime answered after restart": [
+    "quickshell/a-weather-app.weather/Translations.js",
+    "ui/qml/Forecast.js"
   ],
   "© OpenStreetMap contributors (ODbL)": [
     "ui/qml/RadarMap.qml"

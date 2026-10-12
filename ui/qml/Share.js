@@ -9,8 +9,8 @@ function dateLabel(value) {
     const date = new Date(value + "T00:00:00Z");
     if (!isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value)
         return "—";
-    if (typeof nativeI18n !== "undefined")
-        return nativeI18n.date(value + "T00:00:00Z", "UTC", "date");
+    if (typeof weatherFormatDate === "function")
+        return weatherFormatDate(value + "T00:00:00Z", "UTC", "date");
     return [qsTranslate("App", "Sun"), qsTranslate("App", "Mon"), qsTranslate("App", "Tue"), qsTranslate("App", "Wed"), qsTranslate("App", "Thu"), qsTranslate("App", "Fri"), qsTranslate("App", "Sat")][date.getUTCDay()] + ", " + date.getUTCDate() + " " + monthName(date.getUTCMonth()) + " " + date.getUTCFullYear();
 }
 function monthName(month) {
@@ -129,8 +129,8 @@ function utc(stamp) {
     const date = new Date(stamp);
     if (!isFinite(date.getTime()))
         return "—";
-    if (typeof nativeI18n !== "undefined")
-        return nativeI18n.date(stamp, "UTC", "datetime") + " UTC";
+    if (typeof weatherFormatDate === "function")
+        return weatherFormatDate(stamp, "UTC", "datetime");
     return date.getUTCDate() + " " + monthName(date.getUTCMonth()) + " " + date.getUTCFullYear() + ", " + String(date.getUTCHours()).padStart(2, "0") + ":" + String(date.getUTCMinutes()).padStart(2, "0") + " UTC";
 }
 function text(v) {

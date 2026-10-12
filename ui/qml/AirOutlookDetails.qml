@@ -22,7 +22,7 @@ Popup {
     property string metric: "us_aqi"
     property string selectedTime: ""
     readonly property var hours: result ? result.hours : []
-    readonly property var info: (I18n.revision, AirOutlook.info(metric))
+    readonly property var info: I18n.observe(AirOutlook.info(metric))
     readonly property int selectedIndex: Math.max(0, hours.findIndex(h => h.time === selectedTime))
     readonly property var hour: hours[selectedIndex] || null
     signal requested
@@ -145,7 +145,7 @@ Popup {
                 PlainLabel {
                     objectName: "airOutlookValue"
                     Layout.fillWidth: true
-                    text: (I18n.revision, AirOutlook.format(root.hour ? root.hour[root.metric] : null, root.metric))
+                    text: I18n.observe(AirOutlook.format(root.hour ? root.hour[root.metric] : null, root.metric))
                     font.pixelSize: Tokens.fontSize(30)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -154,7 +154,7 @@ Popup {
                     objectName: "airOutlookCategory"
                     Layout.fillWidth: true
                     visible: root.info.scale !== ""
-                    text: (I18n.revision, AirOutlook.category(root.hour ? root.hour[root.metric] : null, root.metric))
+                    text: I18n.observe(AirOutlook.category(root.hour ? root.hour[root.metric] : null, root.metric))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -173,10 +173,10 @@ Popup {
                     hours: root.hours
                     metric: root.metric
                     metricLabel: root.info.title
-                    chartScale: (I18n.revision, AirOutlook.scale(root.hours, root.metric))
-                    rangeDescription: (I18n.revision, AirOutlook.range(root.hours, root.metric))
-                    valueFormatter: value => (I18n.revision, AirOutlook.format(value, root.metric, false))
-                    accessibleValueFormatter: value => (I18n.revision, AirOutlook.format(value, root.metric)) + (root.info.scale ? ", " + (I18n.revision, AirOutlook.category(value, root.metric)) : "")
+                    chartScale: I18n.observe(AirOutlook.scale(root.hours, root.metric))
+                    rangeDescription: I18n.observe(AirOutlook.range(root.hours, root.metric))
+                    valueFormatter: value => I18n.observe(AirOutlook.format(value, root.metric, false))
+                    accessibleValueFormatter: value => I18n.observe(AirOutlook.format(value, root.metric)) + (root.info.scale ? ", " + I18n.observe(AirOutlook.category(value, root.metric)) : "")
                     selectedIndex: root.selectedIndex
                     onSelected: index => root.selectHour(index)
                 }
@@ -206,7 +206,7 @@ Popup {
                 PlainLabel {
                     objectName: "airOutlookRange"
                     Layout.fillWidth: true
-                    text: (I18n.revision, AirOutlook.range(root.hours, root.metric))
+                    text: I18n.observe(AirOutlook.range(root.hours, root.metric))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }

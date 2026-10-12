@@ -17,7 +17,7 @@ ColumnLayout {
             hour_labels: [],
             fetched_label: null
         })
-    property var radarState: (I18n.revision, Forecast.emptyRadar())
+    property var radarState: I18n.observe(Forecast.emptyRadar())
     property var imageControl: null
     property real locationLatitude: 0
     property real locationLongitude: 0
@@ -44,7 +44,10 @@ ColumnLayout {
         layerTabs.currentIndex = 0;
         adjustingDefault = false;
     }
-    onLocationIdentityChanged: resetDefaultLayer()
+    property bool initialLocationReady: false
+    Component.onCompleted: initialLocationReady = true
+    onLocationIdentityChanged: if (initialLocationReady)
+        resetDefaultLayer()
     onRadarStateChanged: defaultLayerSync.restart()
     function applyDefaultFallback() {
         // Forecast maps remain the useful default outside observed-radar coverage.
@@ -369,7 +372,7 @@ ColumnLayout {
     PlainLabel {
         Layout.fillWidth: true
         visible: root.selectedLayer !== "radar" && root.mapData !== null
-        text: root.mapData ? I18n.t("%1 · native grid ~%2 · 5×5 samples requested ~%3 apart · smooth visual interpolation, no added forecast detail · fetched %4%5%6").arg(root.mapData.model_name).arg((I18n.revision, Forecast.distance(root.mapData.resolution_km * 1000, root.units))).arg((I18n.revision, Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units))).arg(root.mapState.fetched_label).arg((root.mapState.status === "stale" ? I18n.t(" · stale") : "")).arg((root.mapState.offline ? I18n.t(" · offline") : "")) : ""
+        text: root.mapData ? I18n.t("%1 · native grid ~%2 · 5×5 samples requested ~%3 apart · smooth visual interpolation, no added forecast detail · fetched %4%5%6").arg(root.mapData.model_name).arg(I18n.observe(Forecast.distance(root.mapData.resolution_km * 1000, root.units))).arg(I18n.observe(Forecast.distance(root.mapData.radius_miles * 1609.344 / 2, root.units))).arg(root.mapState.fetched_label).arg((root.mapState.status === "stale" ? I18n.t(" · stale") : "")).arg((root.mapState.offline ? I18n.t(" · offline") : "")) : ""
         font.pixelSize: Tokens.fontSize(12)
         color: Tokens.secondary
         wrapMode: Text.Wrap

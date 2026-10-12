@@ -3,10 +3,11 @@ package notifications
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/joega/a-weather-app/internal/locale"
 	"math"
 	"sort"
 	"time"
+
+	"github.com/joega/a-weather-app/internal/locale"
 )
 
 // These copied values, rather than references to forecast maps or rows, make
@@ -133,7 +134,7 @@ func (c *candidateCache) candidate(forecast, location M, now time.Time, probabil
 			start, end := time.Unix(int64(h[0]), 0).In(zone), leaves.In(zone)
 			window := locale.DateTime(start) + "–" + end.Format("15:04 MST")
 			key := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprintf("%.4f,%.4f", lat, lon))))
-			c.event = M{"location": key, "start": g.start, "end": g.end, "title": "Hourly precipitation outlook", "place": Text(name, 96), "probability": math.RoundToEven(h[1] * 100), "window": window, "body": Text(fmt.Sprintf("%s: %.0f%% chance of precipitation for %s. Open-Meteo hourly forecast; timing may change.", Text(name, 96), math.RoundToEven(h[1]*100), window), 320)}
+			c.event = M{"location": key, "start": g.start, "end": g.end, "title": "Hourly precipitation outlook", "place": Text(name, 96), "probability": math.RoundToEven(h[1] * 100), "window": window, "window_start": float64(start.Unix()), "window_end": float64(end.Unix()), "body": Text(fmt.Sprintf("%s: %.0f%% chance of precipitation for %s. Open-Meteo hourly forecast; timing may change.", Text(name, 96), math.RoundToEven(h[1]*100), window), 320)}
 		}
 	}
 	return c.event, c.eventUntil

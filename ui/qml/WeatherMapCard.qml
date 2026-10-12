@@ -168,13 +168,13 @@ GlassPanel {
     onTileImagesChanged: Qt.callLater(root.requestTiles)
     onFailedTilesChanged: Qt.callLater(root.requestTiles)
     function windSpeed(value) {
-        return (I18n.revision, Forecast.wind(value, units, windUnits));
+        return I18n.observe(Forecast.wind(value, units, windUnits));
     }
     function temperature(value) {
         return units === "F" ? (value * 1.8 + 32).toFixed(0) + "°F" : value.toFixed(0) + "°C";
     }
     function rain(value) {
-        return (I18n.revision, Forecast.amount(value, units));
+        return I18n.observe(Forecast.amount(value, units));
     }
     function legendRain(value) {
         return units === "F" && value > 0 && value / 25.4 < 0.005 ? I18n.t("<0.01 in") : rain(value);
@@ -396,7 +396,7 @@ GlassPanel {
                     id: mapCredit
                     objectName: "mapCredit"
                     anchors.centerIn: parent
-                    text: I18n.t("%1 radius · © OpenStreetMap contributors (ODbL)").arg((I18n.revision, Forecast.distance(root.mapData ? root.mapData.radius_miles * 1609.344 : 16093.44, root.units)))
+                    text: I18n.t("%1 radius · © OpenStreetMap contributors (ODbL)").arg(I18n.observe(Forecast.distance(root.mapData ? root.mapData.radius_miles * 1609.344 : 16093.44, root.units)))
                     font.pixelSize: Tokens.fontSize(11)
                     color: "#132f43"
                 }
@@ -428,7 +428,7 @@ GlassPanel {
             visible: root.mapData !== null
             PlainLabel {
                 objectName: "mapLegend"
-                text: root.dryPrecipitation ? I18n.t("No precipitation modeled for this hour") : root.mapLayer === "wind" ? I18n.t("%1 · tap to inspect · %2").arg((!root.animationActive ? I18n.t("Static trails") : I18n.t("Trails flow downwind"))).arg((I18n.revision, Forecast.windUnit(root.units, root.windUnits))) : I18n.t("Legend")
+                text: root.dryPrecipitation ? I18n.t("No precipitation modeled for this hour") : root.mapLayer === "wind" ? I18n.t("%1 · tap to inspect · %2").arg((!root.animationActive ? I18n.t("Static trails") : I18n.t("Trails flow downwind"))).arg(I18n.observe(Forecast.windUnit(root.units, root.windUnits))) : I18n.t("Legend")
                 font.pixelSize: Tokens.fontSize(12)
                 color: Tokens.secondary
                 wrapMode: Text.Wrap

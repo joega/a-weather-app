@@ -8,7 +8,7 @@ import "Forecast.js" as Forecast
 ColumnLayout {
     id: root
     spacing: 12
-    property var notifications: (I18n.revision, Forecast.warningNotifications())
+    property var notifications: I18n.observe(Forecast.warningNotifications())
     property string primaryName: I18n.t("Primary place")
     property string timezone: "UTC"
     property bool busy: false
@@ -68,7 +68,7 @@ ColumnLayout {
     PlainLabel {
         objectName: "warningMonitoringStatus"
         Layout.fillWidth: true
-        text: (I18n.revision, Forecast.warningStatus(root.notifications, root.serviceAvailable))
+        text: I18n.observe(Forecast.warningStatus(root.notifications, root.serviceAvailable))
         font.pixelSize: Tokens.fontSize(15)
         color: Tokens.accent
         wrapMode: Text.Wrap
@@ -277,7 +277,7 @@ ColumnLayout {
             Layout.fillWidth: true
             implicitHeight: noticeBody.implicitHeight + 20
             enabled: root.serviceAvailable
-            Accessible.name: modelData.title + ", " + modelData.place + ", " + (I18n.revision, Forecast.warningDeliveryLabel(modelData.delivery))
+            Accessible.name: modelData.title + ", " + modelData.place + ", " + I18n.observe(Forecast.warningDeliveryLabel(modelData.delivery))
             onClicked: root.detailRequested({
                 location: modelData.location,
                 key: modelData.key
@@ -294,7 +294,7 @@ ColumnLayout {
                 }
                 PlainLabel {
                     width: parent.width
-                    text: notice.modelData.place + " · " + (I18n.revision, Forecast.warningDeliveryLabel(notice.modelData.delivery))
+                    text: notice.modelData.place + " · " + I18n.observe(Forecast.warningDeliveryLabel(notice.modelData.delivery))
                     font.pixelSize: Tokens.fontSize(13)
                     color: Tokens.secondary
                     wrapMode: Text.Wrap

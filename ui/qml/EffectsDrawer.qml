@@ -9,7 +9,7 @@ GlassPanel {
     id: root
     property string effectiveVisualQuality: "static"
     property bool presentationActive: true
-    property var appearance: (I18n.revision, Forecast.appearance())
+    property var appearance: I18n.observe(Forecast.appearance())
     signal appearanceRequested(var values)
     property bool plannerAvailable: false
     property bool forecastChangesAvailable: false
@@ -75,8 +75,8 @@ GlassPanel {
     property bool serviceAvailable: true
     property bool effectsRunning: false
     property bool persistent: false
-    property var notifications: (I18n.revision, Forecast.notifications())
-    property var officialWarnings: (I18n.revision, Forecast.warningNotifications())
+    property var notifications: I18n.observe(Forecast.notifications())
+    property var officialWarnings: I18n.observe(Forecast.warningNotifications())
     property string timezone: "UTC"
     property var setup: ({
             status: "unchecked",
@@ -129,7 +129,7 @@ GlassPanel {
     signal warningResumeRequested
     signal warningDetailRequested(var reference)
     property string launcherStatus: "ready"
-    property var updateStatus: (I18n.revision, Forecast.updateStatus(null))
+    property var updateStatus: I18n.observe(Forecast.updateStatus(null))
     signal checkUpdatesRequested
     signal installUpdateRequested
     signal installLauncherRequested

@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <TS version="2.1" language="fr" sourcelanguage="en">
   <context>
     <name>App</name>
@@ -194,6 +194,12 @@ Gravité %3 · %4 · %5</translation>
         <numerusform>%1 passe en moyenne de %2 à %3 sur %n heure.</numerusform>
         <numerusform>%1 passe en moyenne de %2 à %3 sur %n heures.</numerusform>
       </translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>%1 failed</source>
+      <translation>%1 a échoué</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastChart.qml" />
@@ -490,11 +496,13 @@ Jusqu’à %3 · %4</translation>
       <translation>&lt;0,01 po</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>A Weather App forecast unavailable</source>
       <translation>Prévision A Weather App indisponible</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>A Weather App updates</source>
       <translation>Mises à jour A Weather App</translation>
@@ -513,6 +521,18 @@ Jusqu’à %3 · %4</translation>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>A control action is already pending. Try again.</source>
       <translation>Une action de contrôle est déjà en attente. Réessayez.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>A new release is being prepared. It will be offered when its verified release pin is ready.</source>
+      <translation>Une nouvelle version est en préparation. Elle sera proposée lorsque sa référence vérifiée sera prête.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>A new version is ready to install</source>
+      <translation>Une nouvelle version est prête à installer</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
@@ -758,6 +778,7 @@ Jusqu’à %3 · %4</translation>
       <translation>Automatique · écran de l’application</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Available %1</source>
       <translation>Disponible %1</translation>
@@ -902,6 +923,7 @@ Jusqu’à %3 · %4</translation>
       <translation>Vérifier la compatibilité</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/UpdatePanel.qml" />
       <source>Check for updates</source>
@@ -913,7 +935,10 @@ Jusqu’à %3 · %4</translation>
       <translation>Vérifiez ce bureau avant d’activer les effets.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Checking for updates…</source>
       <translation>Recherche de mises à jour…</translation>
     </message>
@@ -1035,6 +1060,7 @@ Astronomique (−18°) : %3</translation>
       <translation>Dégagé</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Close</source>
       <translation>Fermer</translation>
@@ -1147,6 +1173,12 @@ Astronomique (−18°) : %3</translation>
       <translation>Les vérifications de compatibilité ont réussi pour ce bureau.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Completing the update…</source>
+      <translation>Finalisation de la mise à jour…</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Connect and load a forecast to find outdoor times.</source>
       <translation>Connectez-vous et chargez une prévision pour trouver des créneaux d’activités.</translation>
@@ -1167,9 +1199,17 @@ Astronomique (−18°) : %3</translation>
       <translation>Copier le texte</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
       <location filename="../translations/extra-sources.json" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Could not check for updates. Check your connection and try again.</source>
-      <translation type="unfinished" />
+      <translation>Impossible de rechercher des mises à jour. Vérifiez votre connexion et réessayez.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Could not check for updates. Try again.</source>
+      <translation>Impossible de rechercher des mises à jour. Réessayez.</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastShare.qml" />
@@ -1185,6 +1225,14 @@ Astronomique (−18°) : %3</translation>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Could not load this radar image. Choose Latest to try again.</source>
       <translation>Impossible de charger cette image radar. Choisissez Dernière pour réessayer.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Could not restore the previous version.
+%1</source>
+      <translation>Impossible de restaurer la version précédente.
+%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastShare.qml" />
@@ -1368,6 +1416,12 @@ Astronomique (−18°) : %3</translation>
       <translation>Moteur de rendu du bureau · %1</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Development checkout · build updates locally</source>
+      <translation>Copie de développement · compilez les mises à jour localement</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Forecast.js" />
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>Dew point</source>
@@ -1404,9 +1458,16 @@ Astronomique (−18°) : %3</translation>
       <translation>Terminer la modification des lieux</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Downloading and verifying the update…</source>
       <translation>Téléchargement et vérification de la mise à jour…</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Downloading the new version…</source>
+      <translation>Téléchargement de la nouvelle version…</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
@@ -1509,6 +1570,11 @@ Astronomique (−18°) : %3</translation>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Expand radar map</source>
       <translation>Développer la carte radar</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Expected</source>
+      <translation>Attendu</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -1741,6 +1807,11 @@ Astronomique (−18°) : %3</translation>
       </translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Future</source>
+      <translation>Futur</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Gap</source>
       <translation>Intervalle</translation>
@@ -1958,6 +2029,11 @@ Les heures manquantes et les intervalles de précipitations et de rafales partie
       <translation>Humidité</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Immediate</source>
+      <translation>Immédiat</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Immersive</source>
       <translation>Immersif</translation>
@@ -1978,6 +2054,7 @@ Les heures manquantes et les intervalles de précipitations et de rafales partie
       <translation>Installer le lanceur d’applications</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Installed %1</source>
       <translation>Installée %1</translation>
@@ -2124,6 +2201,11 @@ Les heures manquantes et les intervalles de précipitations et de rafales partie
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Lightning flashes</source>
       <translation>Éclairs</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Likely</source>
+      <translation>Probable</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
@@ -2816,6 +2898,11 @@ Probabilité %4 · %5</translation>
       <translation>nov.</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Observed</source>
+      <translation>Observé</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Observed radar</source>
       <translation>Radar observé</translation>
@@ -2927,11 +3014,13 @@ Probabilité %4 · %5</translation>
       <translation>Ouvrir les perspectives de qualité de l’air sur 48 heures</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Open A Weather App to choose a location</source>
       <translation>Ouvrez A Weather App pour choisir un lieu</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Open forecast</source>
       <translation>Ouvrir la prévision</translation>
@@ -2952,6 +3041,7 @@ Probabilité %4 · %5</translation>
       <translation>Ouvrir la planification du soleil et de la lune</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Open the app for version information</source>
       <translation>Ouvrez l’application pour les informations de version</translation>
@@ -3001,6 +3091,12 @@ Actuel : %1%2
       <location filename="../ui/qml/WarningDetails.qml" />
       <source>Original notice from this session. Its status may have changed; check the current alert feed for later updates.</source>
       <translation>Avis original de cette session. Son état peut avoir changé ; consultez les alertes actuelles pour les mises à jour suivantes.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Original technical details: %1</source>
+      <translation>Détails techniques originaux : %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -3066,6 +3162,11 @@ Actuel : %1%2
       <translation>Partiellement nuageux</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Past</source>
+      <translation>Passé</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Past observations</source>
       <translation>Observations passées</translation>
@@ -3128,9 +3229,20 @@ Actuel : %1%2
       <translation>Lire la chronologie de la carte prévisionnelle</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Plugin changes were preserved. Review them before trying another update.</source>
+      <translation>Les modifications du greffon ont été conservées. Examinez-les avant de retenter une mise à jour.</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/AirQuality.js" />
       <source>Poor</source>
       <translation>Mauvaise</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Possible</source>
+      <translation>Possible</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMap.qml" />
@@ -3226,6 +3338,12 @@ Actuel : %1%2
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>Preferences changed. Find times to update the suggestions.</source>
       <translation>Préférences modifiées. Trouvez des créneaux pour actualiser les suggestions.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Preparing the update…</source>
+      <translation>Préparation de la mise à jour…</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
@@ -3461,6 +3579,22 @@ Heures modélisées avec au moins 50% de probabilité de précipitations.</trans
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Restore defaults</source>
       <translation>Rétablir les valeurs par défaut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Restored the previous version.
+%1</source>
+      <translation>La version précédente a été restaurée.
+%1</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Restored the previous version. You can retry the update.
+%1</source>
+      <translation>La version précédente a été restaurée. Vous pouvez réessayer la mise à jour.
+%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
@@ -3726,7 +3860,7 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Source: Open-Meteo best match · Modeled forecast%1</source>
-      <translation>Source : meilleur modèle Open-Meteo · Prévision modélisée%1</translation>
+      <translation>Source : meilleure correspondance Open-Meteo · Prévision modélisée%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
@@ -3779,6 +3913,7 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Lancer l’aperçu de 5 minutes</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Starting the update…</source>
       <translation>Démarrage de la mise à jour…</translation>
@@ -3834,6 +3969,12 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session.</source>
       <translation>L’arrêt de la surveillance garde la prévision ouverte. Quitter l’application arrête toute surveillance en arrière-plan et les effets de bureau pour cette session.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Stopping weather effects and preparing to restart…</source>
+      <translation>Arrêt des effets météo et préparation du redémarrage…</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -3927,6 +4068,12 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Taille du texte</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The bar could not refresh. Reopen it after reviewing the plugin.</source>
+      <translation>La barre n’a pas pu être actualisée. Rouvrez-la après avoir examiné le greffon.</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>The change is visible, but saving could not be confirmed.</source>
       <translation>Le changement est visible, mais l’enregistrement n’a pas pu être confirmé.</translation>
@@ -4012,6 +4159,18 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Le lieu ou la prévision a changé. Trouvez à nouveau des créneaux avec la dernière prévision.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The previous update stopped. Open the app to recover, or retry the update.</source>
+      <translation>La mise à jour précédente s’est arrêtée. Ouvrez l’application pour récupérer, ou réessayez la mise à jour.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The runtime was restored, but the plugin could not be restored. Review the plugin before trying another update.</source>
+      <translation>L’environnement d’exécution a été restauré, mais pas le greffon. Examinez le greffon avant de retenter une mise à jour.</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>The saved layout changed. Reload it before applying edits.</source>
       <translation>La disposition enregistrée a changé. Rechargez-la avant d’appliquer les modifications.</translation>
@@ -4049,9 +4208,21 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Les deux indices utilisent des échelles différentes. Les valeurs basses indiquent un air plus propre.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The update was rolled back.</source>
+      <translation>La mise à jour a été annulée et la version précédente rétablie.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The updater did not start. Check for updates and try again.</source>
+      <translation>Le programme de mise à jour n’a pas démarré. Recherchez des mises à jour et réessayez.</translation>
+    </message>
+    <message>
       <location filename="../translations/extra-sources.json" />
       <source>The updater did not start. Check your connection and try again.</source>
-      <translation type="unfinished" />
+      <translation>Le programme de mise à jour n’a pas démarré. Vérifiez votre connexion et réessayez.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
@@ -4156,6 +4327,7 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Aujourd’hui · </translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Toggle A Weather App window</source>
       <translation>Afficher ou masquer la fenêtre A Weather App</translation>
@@ -4256,6 +4428,7 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
     </message>
     <message>
       <location filename="../internal/app/bar.go" />
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/AirQuality.js" />
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -4283,6 +4456,16 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Malsaine pour les groupes sensibles</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Unknown</source>
+      <translation>Inconnu</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Unlikely</source>
+      <translation>Peu probable</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Until</source>
       <translation>Jusqu’à</translation>
@@ -4293,18 +4476,31 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Jusqu’à 16 avis récents restent disponibles pendant 24 heures dans cette session. L’acceptation par le bureau ne confirme pas la lecture d’un avis.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/UpdatePanel.qml" />
       <source>Update and restart</source>
       <translation>Mettre à jour et redémarrer</translation>
     </message>
     <message>
-      <location filename="../translations/extra-sources.json" />
-      <source>Update could not start. Check your connection and ensure the plugin has no local changes, then try again.</source>
-      <translation type="unfinished" />
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Update could not finish.
+%1
+Try again.</source>
+      <translation>La mise à jour n’a pas pu se terminer.
+%1
+Réessayez.</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Update could not start. Check your connection and ensure the plugin has no local changes, then try again.</source>
+      <translation>La mise à jour n’a pas pu démarrer. Vérifiez votre connexion et l’absence de modifications locales du greffon, puis réessayez.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
       <location filename="../ui/qml/AirQualityPanel.qml" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Update failed</source>
       <translation>Échec de la mise à jour</translation>
     </message>
@@ -4314,10 +4510,24 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>La mise à jour a pris trop de temps</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Update was not installed.
+%1</source>
+      <translation>La mise à jour n’a pas été installée.
+%1</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Updated </source>
       <translation>Mis à jour </translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Updated successfully</source>
+      <translation>Mise à jour réussie</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
@@ -4331,9 +4541,16 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Mis à jour : %1</translation>
     </message>
     <message>
-      <location filename="../ui/qml/UpdatePanel.qml" />
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Updates are checked daily.</source>
       <translation>Les mises à jour sont vérifiées chaque jour.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Updates are unavailable for this installation</source>
+      <translation>Les mises à jour sont indisponibles pour cette installation</translation>
     </message>
     <message>
       <location filename="../ui/qml/UpdatePanel.qml" />
@@ -4370,6 +4587,12 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Uses the primary place’s local time.</source>
       <translation>Utilise l’heure locale du lieu principal.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Verifying the downloaded release…</source>
+      <translation>Vérification de la version téléchargée…</translation>
     </message>
     <message>
       <location filename="../ui/qml/UpdatePanel.qml" />
@@ -4719,7 +4942,8 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Votre prévision précédente est trop ancienne pour être comparée.</translation>
     </message>
     <message>
-      <location filename="../ui/qml/UpdatePanel.qml" />
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>You’re up to date. Updates are checked daily.</source>
       <translation>Vous êtes à jour. Les mises à jour sont vérifiées chaque jour.</translation>
     </message>
@@ -4750,9 +4974,135 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>Zoom arrière du radar</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>an update is already in progress</source>
+      <translation>une mise à jour est déjà en cours</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>another runtime installer is running</source>
+      <translation>un autre installateur d’environnement d’exécution est en cours</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive entry limit</source>
+      <translation>limite du nombre d’entrées de l’archive</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive exceeds download bound</source>
+      <translation>l’archive dépasse la limite de téléchargement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive file exceeds bound</source>
+      <translation>un fichier de l’archive dépasse la limite</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive links and special files are unsupported</source>
+      <translation>les liens et fichiers spéciaux de l’archive ne sont pas pris en charge</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive metadata differs from release metadata</source>
+      <translation>les métadonnées de l’archive diffèrent de celles de la version</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive version differs from selected release</source>
+      <translation>la version de l’archive diffère de la version sélectionnée</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>cannot identify system directory ownership</source>
+      <translation>impossible d’identifier le propriétaire du dossier système</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>cannot identify the installed plugin revision</source>
+      <translation>impossible d’identifier la révision du greffon installé</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>check for updates before installing</source>
+      <translation>recherchez des mises à jour avant d’installer</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>could not refresh the Omarchy bar</source>
+      <translation>impossible d’actualiser la barre Omarchy</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>daylight</source>
       <translation>lumière du jour</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>development builds must be updated locally</source>
+      <translation>les versions de développement doivent être mises à jour localement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>development checkouts are built locally</source>
+      <translation>les copies de développement sont compilées localement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>development or linked plugins must be updated locally</source>
+      <translation>les greffons de développement ou liés doivent être mis à jour localement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>download checksum verification failed</source>
+      <translation>la vérification de la somme de contrôle du téléchargement a échoué</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>download: HTTP %1</source>
+      <translation>téléchargement : HTTP %1</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>existing managed release differs from the running bundle</source>
+      <translation>la version gérée existante diffère du paquet en cours d’exécution</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>existing release differs from verified download</source>
+      <translation>la version existante diffère du téléchargement vérifié</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>existing release directory failed verification</source>
+      <translation>la vérification du dossier de la version existante a échoué</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>expanded archive exceeds bound</source>
+      <translation>l’archive décompressée dépasse la limite</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
@@ -4760,14 +5110,128 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>rafales</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installation is not owned by this user</source>
+      <translation>cette installation n’appartient pas à cet utilisateur</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installation lock is not held</source>
+      <translation>le verrou d’installation n’est pas détenu</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installed runtime version does not match its selector</source>
+      <translation>la version de l’environnement d’exécution installé ne correspond pas à son sélecteur</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installer unavailable</source>
+      <translation>installateur indisponible</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid archive root</source>
+      <translation>racine de l’archive invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid installation path</source>
+      <translation>chemin d’installation invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid original runtime path</source>
+      <translation>chemin original de l’environnement d’exécution invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid plugin revision in transaction</source>
+      <translation>révision du greffon invalide dans la transaction</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid previous runtime version</source>
+      <translation>version précédente de l’environnement d’exécution invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid published release pin</source>
+      <translation>référence de version publiée invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid release pin</source>
+      <translation>référence de version invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid release version</source>
+      <translation>version publiée invalide</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid update journal phase</source>
+      <translation>phase du journal de mise à jour invalide</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/shell.qml" />
       <source>just now</source>
       <translation>à l’instant</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>launcher changed during update</source>
+      <translation>le lanceur a changé pendant la mise à jour</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>launcher was edited during update</source>
+      <translation>le lanceur a été modifié pendant la mise à jour</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>less than a minute ago</source>
       <translation>il y a moins d’une minute</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>no newer supported release is available</source>
+      <translation>aucune version prise en charge plus récente n’est disponible</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>not a stable release</source>
+      <translation>ce n’est pas une version stable</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>plugin changed while preparing the update</source>
+      <translation>le greffon a changé pendant la préparation de la mise à jour</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>plugin update cannot fast-forward; local history was preserved</source>
+      <translation>la mise à jour du greffon ne permet pas d’avance rapide ; l’historique local a été conservé</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
@@ -4780,9 +5244,111 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>probabilité de précipitations</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release checksum differs from published pin</source>
+      <translation>la somme de contrôle de la version diffère de la référence publiée</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release metadata differs from published pin</source>
+      <translation>les métadonnées de la version diffèrent de la référence publiée</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release pin changed during preparation; check for updates again</source>
+      <translation>la référence de version a changé pendant la préparation ; recherchez des mises à jour à nouveau</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release publication is not consistent yet</source>
+      <translation>la publication de la version n’est pas encore cohérente</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release request: HTTP %1</source>
+      <translation>requête de version : HTTP %1</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release response exceeds bound</source>
+      <translation>la réponse de publication dépasse la limite</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release version exceeds bound</source>
+      <translation>la version dépasse la limite</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release was built from modified sources</source>
+      <translation>la version a été compilée à partir de sources modifiées</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>reopen the installed version before updating</source>
+      <translation>rouvrez la version installée avant de mettre à jour</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>running runtime version does not match its manifest</source>
+      <translation>la version de l’environnement d’exécution actif ne correspond pas à son manifeste</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>runtime selection changed while preparing the update</source>
+      <translation>la sélection de l’environnement d’exécution a changé pendant la préparation</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>runtime verification: %1</source>
+      <translation>vérification de l’environnement d’exécution : %1</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>temperature</source>
       <translation>température</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the new weather app did not start successfully</source>
+      <translation>la nouvelle application météo n’a pas démarré correctement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin checkout is missing; reinstall it before updating</source>
+      <translation>la copie du greffon est absente ; réinstallez-la avant la mise à jour</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin checkout is on a custom branch; update it locally</source>
+      <translation>la copie du greffon est sur une branche personnalisée ; mettez-la à jour localement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin has local changes; no files were changed</source>
+      <translation>le greffon contient des modifications locales ; aucun fichier n’a été modifié</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin's origin is not the official repository</source>
+      <translation>l’origine du greffon n’est pas le dépôt officiel</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastDetails.qml" />
@@ -4790,19 +5356,128 @@ Altitude du niveau de gel : %2 au-dessus du niveau de la mer</translation>
       <translation>l’heure précédente</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the previous update was interrupted</source>
+      <translation>la mise à jour précédente a été interrompue</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the previous update was interrupted; try the update again</source>
+      <translation>la mise à jour précédente a été interrompue ; réessayez la mise à jour</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the runtime selector changed outside this update; reopen your selected version</source>
+      <translation>le sélecteur d’environnement d’exécution a changé hors de cette mise à jour ; rouvrez la version sélectionnée</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>this installation does not use the managed release launcher</source>
+      <translation>cette installation n’utilise pas le lanceur de versions géré</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/AlertsPanel.qml" />
       <source>time unavailable</source>
       <translation>heure indisponible</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>transaction does not belong to this installation</source>
+      <translation>la transaction n’appartient pas à cette installation</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unexpected weather service owns the socket</source>
+      <translation>un service météo inattendu possède le socket</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>unknown</source>
       <translation>inconnu</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unrecognized runtime selection</source>
+      <translation>sélection d’environnement d’exécution inconnue</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe download redirect</source>
+      <translation>redirection de téléchargement non sûre</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe installation directory</source>
+      <translation>dossier d’installation non sûr</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe or duplicate archive path</source>
+      <translation>chemin d’archive non sûr ou dupliqué</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe redirect</source>
+      <translation>redirection non sûre</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsupported launcher path</source>
+      <translation>chemin du lanceur non pris en charge</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsupported plugin checkout</source>
+      <translation>copie du greffon non prise en charge</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>update notice does not match the installed update</source>
+      <translation>l’avis de mise à jour ne correspond pas à la mise à jour installée</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>updated plugin failed Omarchy validation</source>
+      <translation>le greffon mis à jour a échoué à la validation Omarchy</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>weather effects did not stop cleanly</source>
+      <translation>les effets météo ne se sont pas arrêtés proprement</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>weather service did not exit</source>
+      <translation>le service météo ne s’est pas terminé</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>wind</source>
       <translation>vent</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>wrong runtime answered after restart</source>
+      <translation>le mauvais environnement d’exécution a répondu après le redémarrage</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />

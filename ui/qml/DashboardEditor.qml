@@ -8,7 +8,7 @@ Popup {
     id: root
     objectName: "dashboardEditor"
     required property var bridge
-    property var draft: (I18n.revision, Dashboard.defaults())
+    property var draft: I18n.observe(Dashboard.defaults())
     property double revision: 0
     property bool submitted: false
     property string message: ""
@@ -25,14 +25,14 @@ Popup {
     function reload() {
         if (!saved)
             return;
-        draft = (I18n.revision, Dashboard.preferences(saved.preferences));
+        draft = I18n.observe(Dashboard.preferences(saved.preferences));
         revision = saved.revision;
         message = saved.error === "state_unavailable" ? I18n.source("Saved layout could not be read. Defaults are shown; Apply saves a new layout.") : saved.error === "save_unconfirmed" ? I18n.source("The layout is visible, but saving was not confirmed. Apply to try again.") : "";
     }
     function update(key, value) {
-        let next = (I18n.revision, Dashboard.preferences(draft));
+        let next = I18n.observe(Dashboard.preferences(draft));
         next[key] = value;
-        draft = (I18n.revision, Dashboard.preferences(next));
+        draft = I18n.observe(Dashboard.preferences(next));
     }
     function revealFocus(item) {
         const flick = scroll.contentItem as Flickable;
@@ -228,7 +228,7 @@ Popup {
                 text: I18n.t("Restore defaults")
                 enabled: !root.bridge.dashboardSaving
                 onClicked: {
-                    root.draft = (I18n.revision, Dashboard.defaults());
+                    root.draft = I18n.observe(Dashboard.defaults());
                     root.message = I18n.source("Defaults selected. Apply to save them.");
                 }
             }

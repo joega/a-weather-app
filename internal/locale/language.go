@@ -24,6 +24,12 @@ func Match(tag string) string {
 	if len(parts) == 0 {
 		return ""
 	}
+	for i, part := range parts {
+		if i > 0 && len(part) == 1 {
+			parts = parts[:i]
+			break
+		}
+	}
 	base := parts[0]
 	if base == "ru" {
 		return "uk"

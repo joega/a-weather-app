@@ -184,9 +184,9 @@ Popup {
                 Accessible.name: I18n.t("Date, up to 30 days before or after today")
                 value: root.result ? Math.max(-30, Math.min(30, (Date.parse(root.result.date) - Date.parse(root.result.today)) / 86400000)) : 0
                 onMoved: if (!pressed && root.result)
-                    root.requested((I18n.revision, Astronomy.shiftedDate(root.result.today, value)))
+                    root.requested(I18n.observe(Astronomy.shiftedDate(root.result.today, value)))
                 onPressedChanged: if (!pressed && root.result)
-                    root.requested((I18n.revision, Astronomy.shiftedDate(root.result.today, value)))
+                    root.requested(I18n.observe(Astronomy.shiftedDate(root.result.today, value)))
             }
             PlainLabel {
                 objectName: "astronomyStatus"
@@ -210,7 +210,7 @@ Popup {
                 PlainLabel {
                     objectName: "astronomyDaylight"
                     Layout.fillWidth: true
-                    text: !root.result ? "" : I18n.t("%1 of daylight\n%2%3").arg((I18n.revision, Astronomy.duration(root.result.daylight_seconds))).arg((Math.abs(root.result.change_seconds) < 30 ? I18n.t("About the same as the previous day") : (root.result.change_seconds > 0 ? I18n.t("%1 longer than the previous day") : I18n.t("%1 shorter than the previous day")).arg((I18n.revision, Astronomy.duration(Math.abs(root.result.change_seconds)))))).arg((root.now >= Date.parse(root.result.day_start) && root.now < Date.parse(root.result.day_end) ? "\n" + I18n.t("%1 remaining today").arg((I18n.revision, Astronomy.duration((I18n.revision, Astronomy.remaining(root.result, root.now))))) : ""))
+                    text: !root.result ? "" : I18n.t("%1 of daylight\n%2%3").arg(I18n.observe(Astronomy.duration(root.result.daylight_seconds))).arg((Math.abs(root.result.change_seconds) < 30 ? I18n.t("About the same as the previous day") : (root.result.change_seconds > 0 ? I18n.t("%1 longer than the previous day") : I18n.t("%1 shorter than the previous day")).arg(I18n.observe(Astronomy.duration(Math.abs(root.result.change_seconds)))))).arg((root.now >= Date.parse(root.result.day_start) && root.now < Date.parse(root.result.day_end) ? "\n" + I18n.t("%1 remaining today").arg(I18n.observe(Astronomy.duration(I18n.observe(Astronomy.remaining(root.result, root.now))))) : ""))
                     font.pixelSize: Tokens.fontSize(19)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -218,7 +218,7 @@ Popup {
                 PlainLabel {
                     objectName: "astronomySunTimes"
                     Layout.fillWidth: true
-                    text: root.result ? (I18n.revision, Astronomy.horizon(root.result, "sun")) : ""
+                    text: root.result ? I18n.observe(Astronomy.horizon(root.result, "sun")) : ""
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -251,7 +251,7 @@ Popup {
                     PlainLabel {
                         objectName: "astronomyMoonPhase"
                         Layout.fillWidth: true
-                        text: !root.result ? "" : I18n.t("%1 · %2% illuminated\nAt %3 on this date\n%4").arg((I18n.revision, Astronomy.phaseName(root.result.phase))).arg(I18n.number(Math.round(root.result.illumination * 100))).arg((I18n.date(root.result.phase_at, root.result.timezone, "time") || root.result.phase_label)).arg((I18n.revision, Astronomy.horizon(root.result, "moon")))
+                        text: !root.result ? "" : I18n.t("%1 · %2% illuminated\nAt %3 on this date\n%4").arg(I18n.observe(Astronomy.phaseName(root.result.phase))).arg(I18n.number(Math.round(root.result.illumination * 100))).arg((I18n.date(root.result.phase_at, root.result.timezone, "time") || root.result.phase_label)).arg(I18n.observe(Astronomy.horizon(root.result, "moon")))
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }
@@ -264,7 +264,7 @@ Popup {
                 PlainLabel {
                     objectName: "astronomyTwilight"
                     Layout.fillWidth: true
-                    text: !root.result ? "" : I18n.t("Civil (−6°): %1\nNautical (−12°): %2\nAstronomical (−18°): %3").arg((I18n.revision, Astronomy.events(root.result.civil_events, I18n.t("Dawn"), I18n.t("Dusk")))).arg((I18n.revision, Astronomy.events(root.result.nautical_events, I18n.t("Dawn"), I18n.t("Dusk")))).arg((I18n.revision, Astronomy.events(root.result.astronomical_events, I18n.t("Dawn"), I18n.t("Dusk"))))
+                    text: !root.result ? "" : I18n.t("Civil (−6°): %1\nNautical (−12°): %2\nAstronomical (−18°): %3").arg(I18n.observe(Astronomy.events(root.result.civil_events, I18n.t("Dawn"), I18n.t("Dusk")))).arg(I18n.observe(Astronomy.events(root.result.nautical_events, I18n.t("Dawn"), I18n.t("Dusk")))).arg(I18n.observe(Astronomy.events(root.result.astronomical_events, I18n.t("Dawn"), I18n.t("Dusk"))))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }

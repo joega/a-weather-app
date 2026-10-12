@@ -2923,14 +2923,16 @@ class FrontendTest : public QObject {
         QCOMPARE(accessibleChart->role(), QAccessible::Chart);
         QVERIFY(accessibleChart->state().focusable);
         QCOMPARE(accessibleChart->text(QAccessible::Name), QString("Pressure forecast chart"));
-        QVERIFY(accessibleChart->text(QAccessible::Description).contains("Mon 1 PM UTC"));
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .contains(nativeLanguage.date("2026-09-28T13:00:00Z", "UTC", "long")));
         QVERIFY(accessibleChart->text(QAccessible::Description).contains("29.92 inHg"));
         chart->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Right);
         QCOMPARE(details->property("selectedIndex").toInt(), 1);
         QCOMPARE(selected->property("text").toString(), QString("Pressure: —"));
         QVERIFY(accessibleChart->text(QAccessible::Description)
-                    .startsWith("Mon 2 PM UTC. Pressure: unavailable."));
+                    .startsWith(nativeLanguage.date("2026-09-28T14:00:00Z", "UTC", "long") +
+                                ". Pressure: Unavailable."));
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(details->property("selectedIndex").toInt(), 2);
         QCOMPARE(selected->property("text").toString(), QString("Pressure: 29.68 inHg"));
@@ -3753,6 +3755,8 @@ class FrontendTest : public QObject {
     }
     void measurementConversions() {
         QQmlEngine engine;
+        NativeI18n nativeLanguage(&engine, QLocale("en_US"));
+        engine.rootContext()->setContextProperty("nativeI18n", &nativeLanguage);
         QQmlComponent component(&engine);
         component.setData(
             "import QtQml\nimport \"qrc:/ui/qml/Forecast.js\" as Forecast\nQtObject {}", QUrl());
@@ -3768,7 +3772,7 @@ class FrontendTest : public QObject {
                  {"Forecast.wind(0,'C')", "0 km/h"},
                  {"Forecast.wind(null,'F')", "—"},
                  {"Forecast.pressure(1013.25,'F')", "29.92 inHg"},
-                 {"Forecast.pressure(1013.25,'C')", "1013 hPa"},
+                 {"Forecast.pressure(1013.25,'C')", "1,013 hPa"},
                  {"Forecast.pressure(null,'F')", "—"},
                  {"Forecast.distance(16093.44,'C')", "16.1 km"},
                  {"Forecast.distance(16093.44,'F')", "10.0 mi"},
@@ -3777,7 +3781,7 @@ class FrontendTest : public QObject {
                  {"Forecast.amount(25.4,'F')", "1.00 in"},
                  {"Forecast.amount(25.4,'C')", "25.4 mm"},
                  {"Forecast.outlook([{precipitation_probability:0,wind_gust_m_s:10}],'C','kn')",
-                  "Low precipitation chances in the next 1 hourly forecasts. Gusts up to 19 "
+                  "Low precipitation chances in the next 1 hourly forecast. Gusts up to 19 "
                   "kn."}}) {
             QQmlExpression expression(qmlContext(scope.data()), scope.data(), test.first);
             const auto result = expression.evaluate();
@@ -3848,6 +3852,7 @@ class FrontendTest : public QObject {
         // A different city restores the default; unsupported coverage may then
         // select the forecast map again, without overwriting an explicit choice.
         panel->setProperty("location", "Berlin, Germany");
+        panel->setProperty("locationIdentity", "different-berlin-identity");
         QVERIFY(panel->property("defaultLayer").toBool());
         panel->setProperty("radarState", loading.toVariantMap());
         panel->setProperty("radarState", unsupported.toVariantMap());

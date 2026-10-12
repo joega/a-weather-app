@@ -13,7 +13,7 @@ go:
 	CGO_ENABLED=1 $(GO) build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid= -linkmode=external -extldflags=-Wl,-z,relro,-z,now,-z,noexecstack -X main.buildMode=$(APP_MODE) -X main.appVersion=$(APP_VERSION)' -o build/a-weather-app ./cmd/a-weather-app
 qt:
 	$(MAKE) -C native/qt
-test: test-go
+test: test-go check-i18n
 	$(MAKE) -C native/qt test
 test-go: lint
 	$(GO) test -race ./...
@@ -52,3 +52,7 @@ check-native-analysis:
 check-qml-analysis:
 	bash scripts/check_qml_analysis.sh
 check-native-qml: check-native-qml-format check-native-analysis check-qml-analysis
+
+.PHONY: check-i18n
+check-i18n:
+	bash scripts/i18n_catalogs.sh --check --complete

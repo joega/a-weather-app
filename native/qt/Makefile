@@ -11,6 +11,7 @@ test:
 	qmake6 tests/frontend-test.pro -o .frontend-test.mk
 	$(MAKE) -f .frontend-test.mk
 	env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software ./frontend-test
+	$(MAKE) test-i18n
 	$(MAKE) test-radar
 	$(MAKE) test-warnings
 	$(MAKE) test-warning-e2e

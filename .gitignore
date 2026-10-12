@@ -31,4 +31,5 @@ docs/
 native/qt/i18n-test
 native/qt/.i18n-test*
 native/.i18n-test-build/
+.i18n-test-build/
 scripts/__pycache__/

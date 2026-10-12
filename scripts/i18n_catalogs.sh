@@ -16,14 +16,29 @@ SINGLE = {'ja','zh-Hans','zh-Hant','ko','id'}
 STRING = r'"(?:\\.|[^"\\])*"'
 PLACEHOLDERS = re.compile(r'%[1-9][0-9]*|%n|\{[a-zA-Z][a-zA-Z0-9_]*\}')
 def literal(value): return json.loads(value)
+def write_atomic(path, content):
+    temporary = path.with_name(path.name+'.i18n-tmp')
+    temporary.write_text(content)
+    temporary.replace(path)
+WIDGET_EXTRAS = {
+    'The updater did not start. Check your connection and try again.',
+    'Could not check for updates. Check your connection and try again.',
+    'Update could not start. Check your connection and ensure the plugin has no local changes, then try again.',
+}
+def widget_sources(sources):
+    return {source for source,locations in sources.items() if source in WIDGET_EXTRAS or any(location.startswith('quickshell/') or location == 'internal/app/bar.go' for location in locations)}
 def extract():
     entries = collections.defaultdict(set)
     patterns = [re.compile(r'(?:I18n\.(?:t|source)|\bt)\(\s*('+STRING+r')'), re.compile(r'qsTranslate\(\s*"App"\s*,\s*('+STRING+r')'), re.compile(r'(?:QCoreApplication::translate|QT_TRANSLATE_NOOP)\(\s*"App"\s*,\s*('+STRING+r')'), re.compile(r'locale\.[TN]\(\s*[^,]+,\s*('+STRING+r')'), re.compile(r'\btr\(\s*('+STRING+r')')]
-    paths = list((ROOT/'ui/qml').rglob('*.qml')) + list((ROOT/'ui/qml').rglob('*.js')) + list((ROOT/'native/qt').glob('*.cpp')) + list((ROOT/'internal').rglob('*.go'))
+    paths = list((ROOT/'ui/qml').rglob('*.qml')) + list((ROOT/'ui/qml').rglob('*.js')) + list((ROOT/'native/qt').glob('*.cpp')) + list((ROOT/'internal').rglob('*.go')) + list((ROOT/'quickshell').rglob('*.qml')) + list((ROOT/'quickshell').rglob('*.js'))
     for path in paths:
         if path.name.endswith('_test.go'): continue
         text = path.read_text()
-        for pattern in patterns:
+        scoped_patterns = patterns
+        if str(path.relative_to(ROOT)).startswith('quickshell/'):
+            text = re.sub(r'var dictionaries = \(.*?\);', '', text, flags=re.S)
+            scoped_patterns = patterns + [re.compile(r'\btext\(\s*code\s*,\s*('+STRING+r')')]
+        for pattern in scoped_patterns:
             for match in pattern.finditer(text):
                 source = literal(match.group(1))
                 if source: entries[source].add(str(path.relative_to(ROOT)))
@@ -53,14 +68,15 @@ def build(sources):
                     for form in translated: ET.SubElement(translation,'numerusform').text=form
                 else: translation.text=translated
         ET.indent(tree,space='  ')
-        ET.ElementTree(tree).write(ROOT/'translations'/('app_'+code+'.ts'), encoding='utf-8',xml_declaration=True)
-        (ROOT/'internal/locale/catalogs'/(code+'.json')).write_text(json.dumps(catalog,ensure_ascii=False,indent=2)+'\n')
+        write_atomic(ROOT/'translations'/('app_'+code+'.ts'), '<?xml version="1.0" encoding="utf-8"?>\n'+ET.tostring(tree,encoding='unicode')+'\n')
+        write_atomic(ROOT/'internal/locale/catalogs'/(code+'.json'),json.dumps(catalog,ensure_ascii=False,indent=2)+'\n')
     widget = ROOT/'quickshell/a-weather-app.weather/Translations.js'
     if widget.exists():
-        dictionaries = {code: json.loads((ROOT/'internal/locale/catalogs'/(code+'.json')).read_text()) for code in LANGUAGES}
+        wanted = widget_sources(sources)
+        dictionaries = {code: {source: value for source,value in json.loads((ROOT/'internal/locale/catalogs'/(code+'.json')).read_text()).items() if source in wanted} for code in LANGUAGES}
         content = widget.read_text()
         content = re.sub(r'var dictionaries = \(.*?\);', lambda _: 'var dictionaries = ('+json.dumps(dictionaries,ensure_ascii=False,separators=(',',':'))+');', content, count=1, flags=re.S)
-        widget.write_text(content)
+        write_atomic(widget,content)
     desktop=ROOT/'packaging/a-weather-app.desktop'
     if desktop.exists():
         content=re.sub(r'^Comment\[[^]]+\]=.*\n?', '', desktop.read_text(), flags=re.M)
@@ -70,9 +86,11 @@ def build(sources):
             lines=[]
             for code in LANGUAGES[1:]:
                 translated=json.loads((ROOT/'internal/locale/catalogs'/(code+'.json')).read_text()).get(source)
-                if isinstance(translated,str): lines.append('Comment['+code.replace('-','_')+']='+translated)
+                if isinstance(translated,str):
+                    aliases = {'zh-Hans':['zh_Hans','zh_CN','zh_SG'], 'zh-Hant':['zh_Hant','zh_TW','zh_HK','zh_MO'], 'uk':['uk','ru']}
+                    for desktop_locale in aliases.get(code,[code]): lines.append('Comment['+desktop_locale+']='+translated)
             content=content[:match.end()]+'\n'+'\n'.join(lines)+content[match.end():]
-            desktop.write_text(content)
+            write_atomic(desktop,content)
     (ROOT/'translations/sources.json').write_text(json.dumps(sources,ensure_ascii=False,indent=2)+'\n')
 def validate(sources, complete=False):
     failures=[]; report={}
@@ -91,6 +109,10 @@ def validate(sources, complete=False):
                 if not isinstance(form,str) or not form.strip(): failures.append(f'{code}: empty translation: {source}'); continue
                 if collections.Counter(PLACEHOLDERS.findall(source))!=collections.Counter(PLACEHOLDERS.findall(form)): failures.append(f'{code}: placeholder mismatch: {source}')
             if value==source: unchanged.append(source)
+            for form in forms:
+                if isinstance(form,str):
+                    for marker in ['© OpenStreetMap contributors (ODbL)', 'Open-Meteo', 'A Weather App', 'Hyprland', 'National Weather Service', 'SunCalc/Meeus', 'libnotify', 'ipwho.is', 'Omarchy', 'GeoNames', 'CAMS', 'NOAA', 'NWS', '.png']:
+                        if source.count(marker) != form.count(marker): failures.append(f'{code}: protected name or attribution mismatch: {source}: {marker}')
         if complete and missing: failures.append(f'{code}: {len(missing)} missing translations')
         report[code]={'translated':len(set(sources)&set(authored)),'missing':missing,'obsolete':extra,'identical_source':unchanged}
     (ROOT/'translations/coverage.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
@@ -100,7 +122,8 @@ def validate(sources, complete=False):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(); parser.add_argument('--check',action='store_true'); parser.add_argument('--complete',action='store_true'); args=parser.parse_args()
     sources=extract()
-    if not args.check: build(sources)
-    sys.exit(0 if validate(sources,args.complete) else 1)
+    valid = validate(sources,args.complete)
+    if valid and not args.check: build(sources)
+    sys.exit(0 if valid else 1)
 
 PY

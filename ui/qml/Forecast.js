@@ -1141,8 +1141,8 @@ function localTime(v, tz, kind) {
     if (!v)
         return "—";
     try {
-        if (typeof nativeI18n !== "undefined")
-            return nativeI18n.date(v, tz, kind);
+        if (typeof weatherFormatDate === "function")
+            return weatherFormatDate(v, tz, kind);
         return new Date(v).toLocaleString("en-US", {
             timeZone: tz,
             hour: "numeric",
@@ -1270,8 +1270,8 @@ function radarState(v) {
 
 // Display formatting never changes canonical weather values.
 function displayNumber(value, precision) {
-    if (typeof nativeI18n !== "undefined")
-        return nativeI18n.number(value, precision);
+    if (typeof weatherFormatNumber === "function")
+        return weatherFormatNumber(value, precision);
     return Number(value).toFixed(precision);
 }
 
@@ -1285,4 +1285,270 @@ function languageState(value) {
         choice: value.choice,
         effective: value.effective
     };
+}
+
+// Translate updater presentation without changing persisted states, pins or diagnostics.
+// Literal cases mirror application-authored Go notices; unknown details stay verbatim.
+function knownUpdateText(message) {
+    switch (message) {
+    case "A new release is being prepared. It will be offered when its verified release pin is ready.":
+        return qsTranslate("App", "A new release is being prepared. It will be offered when its verified release pin is ready.");
+    case "A new version is ready to install":
+        return qsTranslate("App", "A new version is ready to install");
+    case "Checking for updates…":
+        return qsTranslate("App", "Checking for updates…");
+    case "Completing the update…":
+        return qsTranslate("App", "Completing the update…");
+    case "Could not check for updates. Check your connection and try again.":
+        return qsTranslate("App", "Could not check for updates. Check your connection and try again.");
+    case "Could not check for updates. Try again.":
+        return qsTranslate("App", "Could not check for updates. Try again.");
+    case "Development checkout · build updates locally":
+        return qsTranslate("App", "Development checkout · build updates locally");
+    case "Downloading the new version…":
+        return qsTranslate("App", "Downloading the new version…");
+    case "Plugin changes were preserved. Review them before trying another update.":
+        return qsTranslate("App", "Plugin changes were preserved. Review them before trying another update.");
+    case "Preparing the update…":
+        return qsTranslate("App", "Preparing the update…");
+    case "Stopping weather effects and preparing to restart…":
+        return qsTranslate("App", "Stopping weather effects and preparing to restart…");
+    case "The bar could not refresh. Reopen it after reviewing the plugin.":
+        return qsTranslate("App", "The bar could not refresh. Reopen it after reviewing the plugin.");
+    case "The previous update stopped. Open the app to recover, or retry the update.":
+        return qsTranslate("App", "The previous update stopped. Open the app to recover, or retry the update.");
+    case "The runtime was restored, but the plugin could not be restored. Review the plugin before trying another update.":
+        return qsTranslate("App", "The runtime was restored, but the plugin could not be restored. Review the plugin before trying another update.");
+    case "The updater did not start. Check for updates and try again.":
+        return qsTranslate("App", "The updater did not start. Check for updates and try again.");
+    case "Updated successfully":
+        return qsTranslate("App", "Updated successfully");
+    case "Updates are unavailable for this installation":
+        return qsTranslate("App", "Updates are unavailable for this installation");
+    case "Verifying the downloaded release…":
+        return qsTranslate("App", "Verifying the downloaded release…");
+    case "You’re up to date. Updates are checked daily.":
+        return qsTranslate("App", "You’re up to date. Updates are checked daily.");
+    case "an update is already in progress":
+        return qsTranslate("App", "an update is already in progress");
+    case "another runtime installer is running":
+        return qsTranslate("App", "another runtime installer is running");
+    case "cannot identify system directory ownership":
+        return qsTranslate("App", "cannot identify system directory ownership");
+    case "cannot identify the installed plugin revision":
+        return qsTranslate("App", "cannot identify the installed plugin revision");
+    case "check for updates before installing":
+        return qsTranslate("App", "check for updates before installing");
+    case "could not refresh the Omarchy bar":
+        return qsTranslate("App", "could not refresh the Omarchy bar");
+    case "development builds must be updated locally":
+        return qsTranslate("App", "development builds must be updated locally");
+    case "development checkouts are built locally":
+        return qsTranslate("App", "development checkouts are built locally");
+    case "development or linked plugins must be updated locally":
+        return qsTranslate("App", "development or linked plugins must be updated locally");
+    case "existing release differs from verified download":
+        return qsTranslate("App", "existing release differs from verified download");
+    case "existing release directory failed verification":
+        return qsTranslate("App", "existing release directory failed verification");
+    case "installation is not owned by this user":
+        return qsTranslate("App", "installation is not owned by this user");
+    case "installation lock is not held":
+        return qsTranslate("App", "installation lock is not held");
+    case "installed runtime version does not match its selector":
+        return qsTranslate("App", "installed runtime version does not match its selector");
+    case "installer unavailable":
+        return qsTranslate("App", "installer unavailable");
+    case "invalid installation path":
+        return qsTranslate("App", "invalid installation path");
+    case "invalid original runtime path":
+        return qsTranslate("App", "invalid original runtime path");
+    case "invalid plugin revision in transaction":
+        return qsTranslate("App", "invalid plugin revision in transaction");
+    case "invalid previous runtime version":
+        return qsTranslate("App", "invalid previous runtime version");
+    case "invalid published release pin":
+        return qsTranslate("App", "invalid published release pin");
+    case "invalid release pin":
+        return qsTranslate("App", "invalid release pin");
+    case "invalid release version":
+        return qsTranslate("App", "invalid release version");
+    case "invalid update journal phase":
+        return qsTranslate("App", "invalid update journal phase");
+    case "no newer supported release is available":
+        return qsTranslate("App", "no newer supported release is available");
+    case "not a stable release":
+        return qsTranslate("App", "not a stable release");
+    case "plugin changed while preparing the update":
+        return qsTranslate("App", "plugin changed while preparing the update");
+    case "plugin update cannot fast-forward; local history was preserved":
+        return qsTranslate("App", "plugin update cannot fast-forward; local history was preserved");
+    case "release pin changed during preparation; check for updates again":
+        return qsTranslate("App", "release pin changed during preparation; check for updates again");
+    case "release publication is not consistent yet":
+        return qsTranslate("App", "release publication is not consistent yet");
+    case "release response exceeds bound":
+        return qsTranslate("App", "release response exceeds bound");
+    case "release version exceeds bound":
+        return qsTranslate("App", "release version exceeds bound");
+    case "runtime selection changed while preparing the update":
+        return qsTranslate("App", "runtime selection changed while preparing the update");
+    case "the new weather app did not start successfully":
+        return qsTranslate("App", "the new weather app did not start successfully");
+    case "the plugin checkout is missing; reinstall it before updating":
+        return qsTranslate("App", "the plugin checkout is missing; reinstall it before updating");
+    case "the plugin checkout is on a custom branch; update it locally":
+        return qsTranslate("App", "the plugin checkout is on a custom branch; update it locally");
+    case "the plugin has local changes; no files were changed":
+        return qsTranslate("App", "the plugin has local changes; no files were changed");
+    case "the plugin's origin is not the official repository":
+        return qsTranslate("App", "the plugin's origin is not the official repository");
+    case "the previous update was interrupted":
+        return qsTranslate("App", "the previous update was interrupted");
+    case "the previous update was interrupted; try the update again":
+        return qsTranslate("App", "the previous update was interrupted; try the update again");
+    case "the runtime selector changed outside this update; reopen your selected version":
+        return qsTranslate("App", "the runtime selector changed outside this update; reopen your selected version");
+    case "this installation does not use the managed release launcher":
+        return qsTranslate("App", "this installation does not use the managed release launcher");
+    case "transaction does not belong to this installation":
+        return qsTranslate("App", "transaction does not belong to this installation");
+    case "unexpected weather service owns the socket":
+        return qsTranslate("App", "unexpected weather service owns the socket");
+    case "unrecognized runtime selection":
+        return qsTranslate("App", "unrecognized runtime selection");
+    case "unsafe installation directory":
+        return qsTranslate("App", "unsafe installation directory");
+    case "unsafe redirect":
+        return qsTranslate("App", "unsafe redirect");
+    case "unsupported plugin checkout":
+        return qsTranslate("App", "unsupported plugin checkout");
+    case "update notice does not match the installed update":
+        return qsTranslate("App", "update notice does not match the installed update");
+    case "updated plugin failed Omarchy validation":
+        return qsTranslate("App", "updated plugin failed Omarchy validation");
+    case "weather effects did not stop cleanly":
+        return qsTranslate("App", "weather effects did not stop cleanly");
+    case "weather service did not exit":
+        return qsTranslate("App", "weather service did not exit");
+    case "wrong runtime answered after restart":
+        return qsTranslate("App", "wrong runtime answered after restart");
+    case "release checksum differs from published pin":
+        return qsTranslate("App", "release checksum differs from published pin");
+    case "release metadata differs from published pin":
+        return qsTranslate("App", "release metadata differs from published pin");
+    case "release was built from modified sources":
+        return qsTranslate("App", "release was built from modified sources");
+    case "archive metadata differs from release metadata":
+        return qsTranslate("App", "archive metadata differs from release metadata");
+    case "archive version differs from selected release":
+        return qsTranslate("App", "archive version differs from selected release");
+    case "unsafe download redirect":
+        return qsTranslate("App", "unsafe download redirect");
+    case "archive exceeds download bound":
+        return qsTranslate("App", "archive exceeds download bound");
+    case "download checksum verification failed":
+        return qsTranslate("App", "download checksum verification failed");
+    case "archive entry limit":
+        return qsTranslate("App", "archive entry limit");
+    case "invalid archive root":
+        return qsTranslate("App", "invalid archive root");
+    case "unsafe or duplicate archive path":
+        return qsTranslate("App", "unsafe or duplicate archive path");
+    case "archive file exceeds bound":
+        return qsTranslate("App", "archive file exceeds bound");
+    case "expanded archive exceeds bound":
+        return qsTranslate("App", "expanded archive exceeds bound");
+    case "archive links and special files are unsupported":
+        return qsTranslate("App", "archive links and special files are unsupported");
+    case "unsupported launcher path":
+        return qsTranslate("App", "unsupported launcher path");
+    case "launcher changed during update":
+        return qsTranslate("App", "launcher changed during update");
+    case "launcher was edited during update":
+        return qsTranslate("App", "launcher was edited during update");
+    case "existing managed release differs from the running bundle":
+        return qsTranslate("App", "existing managed release differs from the running bundle");
+    case "reopen the installed version before updating":
+        return qsTranslate("App", "reopen the installed version before updating");
+    case "running runtime version does not match its manifest":
+        return qsTranslate("App", "running runtime version does not match its manifest");
+    default:
+        break;
+    }
+    let http = message.match(/^release request: HTTP ([0-9]{3})$/);
+    if (http)
+        return qsTranslate("App", "release request: HTTP %1").arg(http[1]);
+    http = message.match(/^download: HTTP ([0-9]{3})$/);
+    if (http)
+        return qsTranslate("App", "download: HTTP %1").arg(http[1]);
+    const command = message.match(/^(git|omarchy|omarchy-plugin-validate) failed$/);
+    if (command)
+        return qsTranslate("App", "%1 failed").arg(command[1]);
+    if (message.startsWith("runtime verification: "))
+        return qsTranslate("App", "runtime verification: %1").arg(updateDiagnostic(message.slice("runtime verification: ".length)));
+    return null;
+}
+function updateDiagnostic(message) {
+    const exact = knownUpdateText(message);
+    if (exact !== null)
+        return exact;
+    const barWarning = " The bar could not refresh. Reopen it after reviewing the plugin.";
+    if (message.endsWith(barWarning))
+        return updateDiagnostic(message.slice(0, -barWarning.length)) + "\n" + qsTranslate("App", "The bar could not refresh. Reopen it after reviewing the plugin.");
+    // errors.Join preserves newline-separated causes; localize only exact known causes.
+    return message.split("\n").map(detail => {
+        const known = knownUpdateText(detail);
+        return known !== null ? known : qsTranslate("App", "Original technical details: %1").arg(detail);
+    }).join("\n");
+}
+function updateStateMessage(state) {
+    switch (state) {
+    case "unsupported":
+        return qsTranslate("App", "Updates are unavailable for this installation");
+    case "development":
+        return qsTranslate("App", "Development checkout · build updates locally");
+    case "current":
+        return qsTranslate("App", "You’re up to date. Updates are checked daily.");
+    case "available":
+        return qsTranslate("App", "A new version is ready to install");
+    case "publishing":
+        return qsTranslate("App", "A new release is being prepared. It will be offered when its verified release pin is ready.");
+    case "checking":
+        return qsTranslate("App", "Checking for updates…");
+    case "downloading":
+        return qsTranslate("App", "Downloading the new version…");
+    case "verifying":
+        return qsTranslate("App", "Verifying the downloaded release…");
+    case "restarting":
+        return qsTranslate("App", "Completing the update…");
+    case "updated":
+        return qsTranslate("App", "Updated successfully");
+    case "rolled_back":
+        return qsTranslate("App", "The update was rolled back.");
+    case "failed":
+        return qsTranslate("App", "Update failed");
+    default:
+        return qsTranslate("App", "Updates are checked daily.");
+    }
+}
+function updateMessage(status) {
+    const message = status && typeof status.message === "string" ? status.message : "";
+    const exact = knownUpdateText(message);
+    if (exact !== null)
+        return exact;
+    if (message.startsWith("Update could not finish: ") && message.endsWith(". Try again."))
+        return qsTranslate("App", "Update could not finish.\n%1\nTry again.").arg(updateDiagnostic(message.slice("Update could not finish: ".length, -". Try again.".length)));
+    if (message.startsWith("Update was not installed: "))
+        return qsTranslate("App", "Update was not installed.\n%1").arg(updateDiagnostic(message.slice("Update was not installed: ".length)));
+    if (message.startsWith("Could not restore the previous version: "))
+        return qsTranslate("App", "Could not restore the previous version.\n%1").arg(updateDiagnostic(message.slice("Could not restore the previous version: ".length)));
+    if (message.startsWith("Restored the previous version. ")) {
+        const detail = message.slice("Restored the previous version. ".length);
+        if (detail.endsWith(". You can retry the update."))
+            return qsTranslate("App", "Restored the previous version. You can retry the update.\n%1").arg(updateDiagnostic(detail.slice(0, -". You can retry the update.".length)));
+        return qsTranslate("App", "Restored the previous version.\n%1").arg(updateDiagnostic(detail));
+    }
+    const stateMessage = updateStateMessage(status ? status.state : "unsupported");
+    return message ? stateMessage + "\n" + updateDiagnostic(message) : stateMessage;
 }

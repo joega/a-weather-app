@@ -92,7 +92,7 @@ Popup {
                 objectName: "forecastChangesStatus"
                 visible: !root.result || root.result.changes.length === 0
                 Layout.fillWidth: true
-                text: (I18n.revision, Changes.summary(root.result, root.state, root.units))
+                text: I18n.observe(Changes.summary(root.result, root.state, root.units))
                 font.pixelSize: Tokens.fontSize(18)
                 wrapMode: Text.Wrap
                 elide: Text.ElideNone
@@ -106,7 +106,7 @@ Popup {
                     spacing: 6
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: (I18n.revision, Changes.title(changeRow.modelData, root.units))
+                        text: I18n.observe(Changes.title(changeRow.modelData, root.units))
                         font.pixelSize: Tokens.fontSize(19)
                         font.bold: true
                         wrapMode: Text.Wrap
@@ -121,7 +121,7 @@ Popup {
                     }
                     PlainLabel {
                         Layout.fillWidth: true
-                        text: (I18n.revision, Changes.values(changeRow.modelData, root.units, root.windUnits))
+                        text: I18n.observe(Changes.values(changeRow.modelData, root.units, root.windUnits))
                         wrapMode: Text.Wrap
                         elide: Text.ElideNone
                     }

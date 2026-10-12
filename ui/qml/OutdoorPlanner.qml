@@ -32,7 +32,7 @@ Popup {
     signal findRequested(var preferences)
     onPlanChanged: {
         if (plan) {
-            preferences = (I18n.revision, Outdoor.preferences(plan.preferences));
+            preferences = I18n.observe(Outdoor.preferences(plan.preferences));
             dirty = false;
         }
     }
@@ -54,12 +54,12 @@ Popup {
         if (key === "hours")
             return n + (n === 1 ? I18n.t(" hour") : I18n.t(" hours"));
         if (key.indexOf("temperature") >= 0)
-            return (I18n.revision, Forecast.temp(n, units));
+            return I18n.observe(Forecast.temp(n, units));
         if (key === "max_probability")
-            return (I18n.revision, Forecast.percent(n));
+            return I18n.observe(Forecast.percent(n));
         if (key === "max_hourly_precipitation_mm")
             return units === "F" ? I18n.t("%1 in/hour").arg(I18n.number(n / 25.4, 3)) : I18n.t("%1 mm/hour").arg(I18n.number(n, 1));
-        return (I18n.revision, Forecast.wind(n, units, windUnits));
+        return I18n.observe(Forecast.wind(n, units, windUnits));
     }
     function choices(row) {
         if (!preferences)
@@ -301,14 +301,14 @@ Popup {
                         PlainLabel {
                             objectName: "outdoorExplanation_" + resultCard.index
                             Layout.fillWidth: true
-                            text: (I18n.revision, Outdoor.explanation(resultCard.modelData))
+                            text: I18n.observe(Outdoor.explanation(resultCard.modelData))
                             color: resultCard.modelData.fits ? Tokens.accent : "#ffd99b"
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone
                         }
                         PlainLabel {
                             Layout.fillWidth: true
-                            text: (I18n.revision, Outdoor.metrics(resultCard.modelData, root.units, root.windUnits))
+                            text: I18n.observe(Outdoor.metrics(resultCard.modelData, root.units, root.windUnits))
                             font.pixelSize: Tokens.fontSize(13)
                             wrapMode: Text.Wrap
                             elide: Text.ElideNone

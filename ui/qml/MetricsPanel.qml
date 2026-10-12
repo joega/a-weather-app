@@ -9,7 +9,7 @@ GlassPanel {
     signal metricSelected(string metric)
     property bool compact: false
     property bool presentationActive: true
-    property var selection: (I18n.revision, Dashboard.defaults()).metrics
+    property var selection: I18n.observe(Dashboard.defaults()).metrics
     readonly property var selectedMetrics: selection.filter(row => row.enabled).map(row => ({
                 kind: row.id
             }))
@@ -45,19 +45,19 @@ GlassPanel {
         {
             kind: "wind",
             title: I18n.t("Wind"),
-            value: root.current ? (I18n.revision, Forecast.direction(root.current.wind_direction_deg)) + " " + (I18n.revision, Forecast.wind(root.current.wind_speed_m_s, root.units, root.windUnits)) : "—",
-            detail: root.current ? I18n.t("Gusts %1").arg((I18n.revision, Forecast.wind(root.current.wind_gust_m_s, root.units, root.windUnits))) : I18n.t("Unavailable")
+            value: root.current ? I18n.observe(Forecast.direction(root.current.wind_direction_deg)) + " " + I18n.observe(Forecast.wind(root.current.wind_speed_m_s, root.units, root.windUnits)) : "—",
+            detail: root.current ? I18n.t("Gusts %1").arg(I18n.observe(Forecast.wind(root.current.wind_gust_m_s, root.units, root.windUnits))) : I18n.t("Unavailable")
         },
         {
             kind: "humidity",
             title: I18n.t("Humidity"),
-            value: root.current ? (I18n.revision, Forecast.percent(root.current.humidity)) : "—",
-            detail: I18n.t("Dew point %1").arg((I18n.revision, Forecast.temp(root.current ? root.current.dew_point_c : null, root.units)))
+            value: root.current ? I18n.observe(Forecast.percent(root.current.humidity)) : "—",
+            detail: I18n.t("Dew point %1").arg(I18n.observe(Forecast.temp(root.current ? root.current.dew_point_c : null, root.units)))
         },
         {
             kind: "visibility",
             title: I18n.t("Visibility"),
-            value: (I18n.revision, Forecast.distance(root.current ? root.current.visibility_m : null, root.units)),
+            value: I18n.observe(Forecast.distance(root.current ? root.current.visibility_m : null, root.units)),
             detail: ""
         },
         {
@@ -69,13 +69,13 @@ GlassPanel {
         {
             kind: "uv",
             title: I18n.t("UV index"),
-            value: (I18n.revision, Forecast.uv(root.current ? root.current.uv_index : null)),
+            value: I18n.observe(Forecast.uv(root.current ? root.current.uv_index : null)),
             detail: I18n.t("Current model value")
         },
         {
             kind: "pressure",
             title: I18n.t("Pressure"),
-            value: (I18n.revision, Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null, root.units)),
+            value: I18n.observe(Forecast.pressure(root.current ? root.current.pressure_msl_hpa : null, root.units)),
             detail: I18n.t("Mean sea level")
         }
     ]

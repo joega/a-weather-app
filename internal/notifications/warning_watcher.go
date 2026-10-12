@@ -44,6 +44,7 @@ type warningDetailRecord struct {
 // its owner. It does no provider polling and creates no idle goroutine/timer.
 // Tick must run on target/policy changes and before delivering observations.
 type WarningWatcher struct {
+	formatDate                   locale.DateFormatter
 	language                     string
 	state                        *safeio.Directory
 	files                        warningFiles
@@ -163,6 +164,8 @@ func (w *WarningWatcher) WantsFeed() bool {
 // SetDeliveryReady tracks transient native availability separately from saved
 // opt-in. Losing the daemon cancels work and requires a fresh observation when
 // it returns; an unavailable adapter must not cause background history polling.
+func (w *WarningWatcher) SetDateFormatter(format locale.DateFormatter) { w.formatDate = format }
+
 func (w *WarningWatcher) SetLanguage(code string) {
 	if locale.Valid(code) {
 		w.language = code
@@ -517,8 +520,18 @@ func (w *WarningWatcher) evaluate(now time.Time) {
 		w.rememberDetail(notice, m, now)
 		w.nextDelivery = now.Add(warningDeliverySpacing)
 		send, signal := w.send, w.signal
+		formatDate, language, place, zone := w.formatDate, w.language, w.name, w.zone
 		go func() {
-			err := send(ctx, notice)
+			deliveryNotice := notice
+			if formatDate != nil && d.Kind != "canceled" {
+				deliveryNotice = localizedWarningNoticeWithDate(language, d, m, place, zone, settings, formatDate(ctx, m.Expires, zone))
+			}
+			var err error
+			if ctx.Err() != nil {
+				err = ctx.Err()
+			} else {
+				err = send(ctx, deliveryNotice)
+			}
 			if contextErr := ctx.Err(); contextErr != nil {
 				err = contextErr
 			}

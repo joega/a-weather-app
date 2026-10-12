@@ -59,7 +59,7 @@ GlassPanel {
                 rightPadding: 8
                 topPadding: 3
                 bottomPadding: 3
-                Accessible.name: I18n.t("%1, %2, low %3, high %4. Open details").arg((I18n.date(modelData.date, root.timezone, "day") || modelData.day_label)).arg((I18n.revision, Forecast.title(modelData.condition))).arg((I18n.revision, Forecast.temp(modelData.low_c, root.units))).arg((I18n.revision, Forecast.temp(modelData.high_c, root.units)))
+                Accessible.name: I18n.t("%1, %2, low %3, high %4. Open details").arg((I18n.date(modelData.date, root.timezone, "day") || modelData.day_label)).arg(I18n.observe(Forecast.title(modelData.condition))).arg(I18n.observe(Forecast.temp(modelData.low_c, root.units))).arg(I18n.observe(Forecast.temp(modelData.high_c, root.units)))
                 onClicked: root.daySelected(modelData)
                 background: Rectangle {
                     radius: 7
@@ -86,14 +86,14 @@ GlassPanel {
                         anchors.verticalCenter: parent.verticalCenter
                         width: Math.max(0, parent.width * 0.40 - 102 * Tokens.textScale)
                         visible: parent.width > 400 * Tokens.textScale
-                        text: (I18n.revision, Forecast.title(dayRow.modelData.condition))
+                        text: I18n.observe(Forecast.title(dayRow.modelData.condition))
                         font.pixelSize: Tokens.fontSize(13)
                         color: Tokens.secondary
                     }
                     PlainLabel {
                         x: parent.width * 0.47 - 30
                         anchors.verticalCenter: parent.verticalCenter
-                        text: (I18n.revision, Forecast.temp(dayRow.modelData.low_c, root.units))
+                        text: I18n.observe(Forecast.temp(dayRow.modelData.low_c, root.units))
                         font.pixelSize: Tokens.fontSize(15)
                     }
                     Rectangle {
@@ -125,7 +125,7 @@ GlassPanel {
                     PlainLabel {
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: (I18n.revision, Forecast.temp(dayRow.modelData.high_c, root.units))
+                        text: I18n.observe(Forecast.temp(dayRow.modelData.high_c, root.units))
                         font.pixelSize: Tokens.fontSize(15)
                     }
                 }

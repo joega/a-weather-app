@@ -8,8 +8,8 @@ import "Forecast.js" as Forecast
 ColumnLayout {
     id: root
     spacing: 14
-    property var notifications: (I18n.revision, Forecast.notifications())
-    property var officialWarnings: (I18n.revision, Forecast.warningNotifications())
+    property var notifications: I18n.observe(Forecast.notifications())
+    property var officialWarnings: I18n.observe(Forecast.warningNotifications())
     property string primaryName: I18n.t("Primary place")
     property bool settingsVisible: true
     property string timezone: "UTC"

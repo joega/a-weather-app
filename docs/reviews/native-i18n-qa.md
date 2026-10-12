@@ -1,82 +1,75 @@
-# Native internationalization candidate — work in progress
+# Native internationalization implementation and QA
 
-Objective: `.codex/attachments/5501fe9b-17b1-4f6e-95f0-78dd90500b24/goal-objective.md`.
-The initial checkout was clean and no applicable AGENTS.md was present. Website
-sources in `/home/joeg/Projects/a-weather-site` are read-only references. Its
-contracts, language implementation, i18n and SEO QA were read before editing.
+## Scope
 
-This is not yet a completed release candidate. Missing catalog entries remain
-explicitly unfinished and fall back to usable English. Coverage completion and
-all-language rendered acceptance remain required.
+The native app now supports English, Spanish, French, German, Portuguese,
+Japanese, Simplified Chinese, Traditional Chinese, Ukrainian, Hindi, Italian,
+Korean, Indonesian and Polish. Automatic selection follows ordered system
+preferences; Russian silently aliases Ukrainian. Right-to-left layout is outside
+this milestone. Catalogs and the Quickshell widget dictionary are bundled
+offline. No translator service, font download, installed app or desktop setting
+is used.
 
-## Architecture and boundaries
+The catalog generator currently finds 1,025 App-context messages. Every locale
+passes the complete coverage gate, including placeholders, plural-form shape,
+and protected product, provider and legal text. Regional number/date formatting
+remains tied to the system locale, while translated weekday names follow the
+interface language and forecast instants use the selected city's timezone.
+Language changes preserve canonical weather data, selected city, units, viewed
+hour and open panels. Localized geocoding and metadata work uses bounded requests
+with cancellation and identity/generation checks; metadata-only updates do not
+refresh forecast age or reset presentation state.
 
-QML/JS use App-context English source keys and Qt translation interpolation.
-`I18n.qml` exposes revision-driven rendering, language choice and regional display
-helpers. `NativeI18n` installs a native QTranslator subclass and calls engine
-retranslate without recreating the engine or canonical weather objects. Qt
-Linguist tools are unavailable on this host; the translator reads bundled TS
-resources using QXmlStreamReader, with explicit Qt numerus form selection.
-Resources live inside the native executable RCC; no network or translation
-service is involved. English is bundled and is the fallback.
+## Verification
 
-Choice persists in existing controls state. `auto` uses ordered system preference
-matching. Russian matches Ukrainian without an explanatory UI. Chinese script
-precedes region; unsupported scripts must not select Simplified Chinese.
-QLocale regional formatting remains independent of translated interface language;
-canonical instants convert using QTimeZone, retaining city DST and date identity.
-Native font selection uses installed Noto script families when available and
-falls back to system sans; no font downloads or desktop changes are involved.
+- `bash scripts/i18n_catalogs.sh --check --complete`: all 14 locales report
+  1,025/1,025 messages.
+- `make lint`, `make check-native-qml`, and `go vet ./...`: passed. Native
+  analysis retained its two existing filtered warnings; QML analysis reports
+  six exact upstream Quickshell QProcess enum metadata diagnostics and no
+  project findings.
+- `go test -race ./...`: passed when run with the repository's private socket
+  fixtures outside the sandbox's socket restriction.
+- `make -C native/qt test`: passed, including the new eight-case i18n test,
+  protocol, full frontend/state-preservation, radar-service and warning
+  journeys. Existing opt-in hardware-pixel and capture probes were skipped.
+- The Qt i18n test binary passed again from `/tmp`, with no checkout-relative
+  catalog files available. It covers locale matching and aliases, bundled
+  catalogs and plural categories, shared JS formatting, Indian number grouping,
+  six-script font shaping, and repeated New York 01:30 times across the DST
+  transition.
+- Captured and reviewed all 14 Settings views at narrow (700 px) and wide
+  (1,180 px) sizes in `build/i18n-evidence-final/`. The interaction test also
+  changes all 14 languages while a refresh is pending and verifies that stale
+  snapshots cannot revert the latest choice or reset selected forecast state.
+- Built a package-shaped runtime tree under `build/i18n-package-root/` from the
+  current Go, Qt, shader, widget and native helper outputs. From that copied
+  tree, `a-weather-app --version` returned 0.70.2; the offscreen Qt launch
+  loaded one frontend root without QML errors. The copied Qt executable's
+  notification formatter produced `01.11.26 01:30 EDT` and `01.11.26 01:30
+  EST` for the two repeated New York times with `LC_TIME=de_DE.UTF-8`. This
+  verifies the shipped Qt catalogs and widget files are available offline; it
+  is not a signed or published release archive.
 
-The service injects validated effective language into geocoding requests. Search
-cancellation and generations reject obsolete results; one running and one pending
-request remain bounded. Selection resolves with a captured language context rather
-than reading GUI language from a worker goroutine. Provider text and notices are
-not treated as app-authored translation sources. Forecast age, country codes,
-units, coordinates and weather calculation inputs remain canonical.
+The pinned reproducible release-container build and its complete runtime source
+manifest were not run: Docker access is denied to this account and noninteractive
+sudo requires a password. A host-side Hyprland plugin rebuild also could not
+complete its symbol check because the installed compositor binary is owned by
+`nobody`, which the repository's immutable-asset reader correctly refuses. The
+plugin source was not changed for this check. These host packaging limits do not
+affect the Qt catalog smoke test or the Go race suite.
 
-Go desktop notifications use embedded catalogs, and the standalone Quickshell
-widget uses generated offline dictionaries. Packaging includes the widget helper
-and resource sources in provenance; native/Qt embeds its own catalogs.
+## Linguistic and visual limits
 
-## Observed evidence so far
+Catalogs were agent-authored and reviewed for source coverage, interpolation,
+plural structure, protected identifiers and visible layout. This is not
+native-speaker certification. Spanish and Portuguese use broadly neutral
+dictionaries; regional vocabulary preferences need fluent-speaker review. The
+screenshots cover Settings and the app behind it at two widths, while automated
+frontend tests cover language-switch state retention. A separate visual review
+of every forecast panel and every error/notification in all 14 languages was
+not performed. Provider names and external diagnostics remain provider text or
+are labeled as original technical details.
 
-- `make qt`: native executable compiled after core integration.
-- `make -C native/qt test-i18n`: six test functions passed, including hi-IN,
-  en-IN, Chinese script/region variants, Russian alias, supported preference
-  ordering and unsupported fallback. en-IN retains `12,34,567` after a Hindi
-  choice. New York repeated 01:30 across November 1, 2026 DST transition renders
-  the same wall time from distinct UTC timestamps.
-- QTextLayout script coverage: Japanese, both Chinese scripts, Ukrainian, Hindi
-  and Korean produce valid nonzero glyphs. Hindi uses Noto Sans Devanagari and
-  produces shaped glyph runs. This is not a visual/native-speaker certification.
-  Initial generic CJK fallback selected KR; language-specific family selection
-  was added and needs the final rendered verification.
-- Focused Go application/weather/locale/notification regression tests passed
-  in agent runs; final lint/race/full package evidence is still pending.
-- Initial full Qt regression encountered local socket-listen restrictions in
-  the sandbox. These checks require the isolated fixture run outside that
-  restriction; failed sandbox runs are not passing evidence.
-- Root review found missing set_language serialization and repeated-choice
-  queue risks. UI owner added explicit serialization, latest-wins language
-  coalescing, old-snapshot sync protection, and immediate search token
-  invalidation. Focused native regression is being added.
-
-## Linguistic and verification limits
-
-Translations reuse website terminology only where English meaning matches.
-They receive agent review, not native-speaker verification. App-specific long
-sentences, grammatical interpolation, plurals, script fonts and narrow/scaled
-layouts require per-language checks before completion. External provider place
-names may use English or native-name fallback. Existing place labels currently
-retain last-known metadata on switches; independent localized metadata refresh
-must be resolved or explicitly recorded as a gap.
-
-All agents inherit this Codex session's model; no explicit model override was
-used. The tools do not expose a verified serving-model identifier, so none is
-invented here. UI work used one bounded JS child with separate file ownership;
-service and catalog work have separate ownership. Independent review evidence
-will be retained here when available.
-
-No push, tag, publication, installed-runtime replacement, or live desktop or
-compositor configuration change has been performed.
+No push, tag, publication, installation, or live desktop/compositor
+configuration change was performed.

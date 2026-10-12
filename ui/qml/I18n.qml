@@ -3,11 +3,16 @@ import QtQuick
 
 QtObject {
     id: root
-    property bool nativeAvailable: typeof nativeI18n !== "undefined" && nativeI18n !== null
+    // The application injects this QObject through QQmlContext. Standalone
+    // component fixtures deliberately omit it and retain usable English.
+    // qmllint disable unqualified
+    property var nativeController: typeof nativeI18n !== "undefined" ? nativeI18n : null
+    // qmllint enable unqualified
+    property bool nativeAvailable: root.nativeController !== null
     property int revision: 0
-    property string language: nativeAvailable ? nativeI18n.language : "en"
-    property string fontFamily: nativeAvailable ? nativeI18n.fontFamily : "sans-serif"
-    property string preference: nativeAvailable ? nativeI18n.preference : "auto"
+    property string language: nativeAvailable ? root.nativeController.language : "en"
+    property string fontFamily: nativeAvailable ? root.nativeController.fontFamily : "sans-serif"
+    property string preference: nativeAvailable ? root.nativeController.preference : "auto"
     property var languages: [
         {
             code: "auto",
@@ -72,10 +77,14 @@ QtObject {
     ]
     signal preferenceRequested(string code)
     property var nativeConnection: Connections {
-        target: root.nativeAvailable ? nativeI18n : null
+        target: root.nativeAvailable ? root.nativeController : null
         function onChanged() {
             root.revision++;
         }
+    }
+    function observe(value) {
+        const generation = root.revision;
+        return value;
     }
     function source(text) {
         return text;
@@ -86,7 +95,7 @@ QtObject {
     }
     function setPreference(code) {
         if (nativeAvailable)
-            nativeI18n.setPreference(code);
+            root.nativeController.setPreference(code);
         else {
             preference = code;
             language = code === "auto" ? "en" : code;
@@ -96,7 +105,7 @@ QtObject {
     }
     function sync(choice, effective) {
         if (nativeAvailable)
-            nativeI18n.sync(choice, effective);
+            root.nativeController.sync(choice, effective);
         else if (preference !== choice || language !== effective) {
             preference = choice;
             language = effective;
@@ -105,10 +114,10 @@ QtObject {
     }
     function number(value, decimals) {
         const generation = revision;
-        return nativeAvailable ? nativeI18n.number(value, decimals || 0) : Number(value).toLocaleString(Qt.locale(), "f", decimals || 0);
+        return nativeAvailable ? root.nativeController.number(value, decimals || 0) : Number(value).toLocaleString(Qt.locale(), "f", decimals || 0);
     }
     function date(stamp, zone, kind) {
         const generation = revision;
-        return nativeAvailable ? nativeI18n.date(stamp, zone, kind || "time") : "";
+        return nativeAvailable ? root.nativeController.date(stamp, zone, kind || "time") : "";
     }
 }

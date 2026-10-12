@@ -5,7 +5,7 @@ import "Forecast.js" as Forecast
 GlassPanel {
     id: root
     objectName: "updatePanel"
-    property var status: (I18n.revision, Forecast.updateStatus(null))
+    property var status: I18n.observe(Forecast.updateStatus(null))
     readonly property bool updating: ["downloading", "verifying", "restarting"].indexOf(status.state) >= 0
     readonly property bool canUpdate: status.available !== "" && ["available", "failed", "rolled_back"].indexOf(status.state) >= 0
     readonly property bool canCheck: !updating && ["checking", "development", "unsupported"].indexOf(status.state) < 0
@@ -36,7 +36,7 @@ GlassPanel {
         PlainLabel {
             objectName: "updateMessage"
             Layout.fillWidth: true
-            text: I18n.t(root.status.message) || (root.status.state === "current" ? I18n.t("You’re up to date. Updates are checked daily.") : I18n.t("Updates are checked daily."))
+            text: I18n.observe(Forecast.updateMessage(root.status))
             wrapMode: Text.Wrap
             elide: Text.ElideNone
             font.pixelSize: Tokens.fontSize(14)

@@ -12,16 +12,16 @@ GlassPanel {
     property string timezone: "America/New_York"
     property string windUnits: "auto"
     property bool compact: false
-    property var values: (I18n.revision, Dashboard.defaults()).hourly
+    property var values: I18n.observe(Dashboard.defaults()).hourly
     readonly property bool hasExtraValues: values.some(key => key !== "temperature_c" && key !== "precipitation_probability")
     function valueText(hour, key) {
         if (key === "temperature_c" || key === "apparent_temperature_c")
-            return (I18n.revision, Forecast.temp(hour[key], units));
+            return I18n.observe(Forecast.temp(hour[key], units));
         if (key === "wind_speed_m_s" || key === "wind_gust_m_s")
-            return (I18n.revision, Forecast.wind(hour[key], units, windUnits));
+            return I18n.observe(Forecast.wind(hour[key], units, windUnits));
         if (key === "uv_index")
-            return (I18n.revision, Forecast.uv(hour[key]));
-        return (I18n.revision, Forecast.percent(hour[key]));
+            return I18n.observe(Forecast.uv(hour[key]));
+        return I18n.observe(Forecast.percent(hour[key]));
     }
     signal hourSelected(var hour)
     implicitHeight: root.hours.length === 0 ? 124 * Tokens.textScale : rail.y + rail.height + 36 * Tokens.textScale
@@ -64,7 +64,7 @@ GlassPanel {
                     width: root.hasExtraValues ? Math.max(132 * Tokens.textScale, rail.width / 10) : Math.max(86 * Tokens.textScale, rail.width / 12)
                     height: implicitContentHeight + topPadding + bottomPadding
                     padding: root.compact ? 4 : 8
-                    Accessible.name: I18n.t("%1, %2, %3. Open details").arg((I18n.date(modelData.time, root.timezone, "hour") || modelData.local_hour)).arg((I18n.revision, Forecast.title(modelData.condition))).arg(root.values.map(key => (I18n.revision, Dashboard.title(key)) + " " + root.valueText(modelData, key)).join(", "))
+                    Accessible.name: I18n.t("%1, %2, %3. Open details").arg((I18n.date(modelData.time, root.timezone, "hour") || modelData.local_hour)).arg(I18n.observe(Forecast.title(modelData.condition))).arg(root.values.map(key => I18n.observe(Dashboard.title(key)) + " " + root.valueText(modelData, key)).join(", "))
                     onActiveFocusChanged: if (activeFocus) {
                         if (x < rail.contentX)
                             rail.contentX = x;
@@ -104,7 +104,7 @@ GlassPanel {
                                     visible: valueRow.modelData !== "temperature_c" && !valueRow.probability
                                     width: parent.width
                                     horizontalAlignment: Text.AlignHCenter
-                                    text: (I18n.revision, Dashboard.title(valueRow.modelData))
+                                    text: I18n.observe(Dashboard.title(valueRow.modelData))
                                     font.pixelSize: Tokens.fontSize(11)
                                     color: Tokens.secondary
                                 }

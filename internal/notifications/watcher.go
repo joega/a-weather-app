@@ -187,6 +187,7 @@ type Watcher struct {
 	send           Sender
 	supported      bool
 	language       string
+	formatDate     locale.DateFormatter
 	cancel         context.CancelFunc
 	done           chan error
 	zoneName       string
@@ -269,6 +270,8 @@ func (w *Watcher) save(v M) error {
 	w.document = v
 	return nil
 }
+func (w *Watcher) SetDateFormatter(format locale.DateFormatter) { w.formatDate = format }
+
 func (w *Watcher) SetLanguage(code string) {
 	if locale.Valid(code) {
 		w.language = code
@@ -497,9 +500,20 @@ func (w *Watcher) Tick(forecast, location M, now time.Time, dataOK bool) {
 	w.done = done
 	w.delivery = "pending"
 	title := locale.T(w.language, str(event["title"]))
-	body := locale.T(w.language, "%1: %2% chance of precipitation for %3. Open-Meteo hourly forecast; timing may change.", event["place"], event["probability"], event["window"])
+	language, formatDate := w.language, w.formatDate
 	go func() {
-		err := w.send(ctx, title, Text(body, 640))
+		window := str(event["window"])
+		if formatDate != nil {
+			start, end := time.Unix(int64(event["window_start"].(float64)), 0), time.Unix(int64(event["window_end"].(float64)), 0)
+			window = formatDate(ctx, start, zone) + "–" + formatDate(ctx, end, zone)
+		}
+		body := locale.T(language, "%1: %2% chance of precipitation for %3. Open-Meteo hourly forecast; timing may change.", event["place"], event["probability"], window)
+		var err error
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		} else {
+			err = w.send(ctx, title, Text(body, 640))
+		}
 		if err == nil && ctx.Err() != nil {
 			err = ctx.Err()
 		}

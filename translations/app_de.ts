@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <TS version="2.1" language="de" sourcelanguage="en">
   <context>
     <name>App</name>
@@ -196,6 +196,12 @@ Schweregrad %3 · %4 · %5</translation>
       </translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>%1 failed</source>
+      <translation>%1 fehlgeschlagen</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/ForecastChart.qml" />
       <source>%1 forecast chart</source>
       <translation>Vorhersagediagramm für %1</translation>
@@ -219,7 +225,7 @@ Schweregrad %3 · %4 · %5</translation>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>%1 longer than the previous day</source>
-      <translation type="unfinished" />
+      <translation>%1 länger als am Vortag</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
@@ -242,12 +248,12 @@ Schweregrad %3 · %4 · %5</translation>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>%1 remaining today</source>
-      <translation type="unfinished" />
+      <translation>Heute noch %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>%1 shorter than the previous day</source>
-      <translation type="unfinished" />
+      <translation>%1 kürzer als am Vortag</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
@@ -280,7 +286,9 @@ Wind bis %7 · Böen bis %8</translation>
       <source>%1 · %2% illuminated
 At %3 on this date
 %4</source>
-      <translation type="unfinished" />
+      <translation>%1 · %2% beleuchtet
+Um %3 an diesem Datum
+%4</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastDetails.qml" />
@@ -403,7 +411,10 @@ Bis %3 · %4</translation>
     <message numerus="yes">
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>%n modeled hour(s) with at least 0.1 mm</source>
-      <translation type="unfinished" />
+      <translation>
+        <numerusform>%n modellierte Stunde mit mindestens 0,1 mm</numerusform>
+        <numerusform>%n modellierte Stunden mit mindestens 0,1 mm</numerusform>
+      </translation>
     </message>
     <message numerus="yes">
       <location filename="../ui/qml/Changes.js" />
@@ -485,11 +496,13 @@ Bis %3 · %4</translation>
       <translation>&lt;0.01 in</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>A Weather App forecast unavailable</source>
       <translation>A Weather App: Vorhersage nicht verfügbar</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>A Weather App updates</source>
       <translation>Updates für A Weather App</translation>
@@ -508,6 +521,18 @@ Bis %3 · %4</translation>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>A control action is already pending. Try again.</source>
       <translation>Es wartet bereits eine Bedienaktion. Versuchen Sie es erneut.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>A new release is being prepared. It will be offered when its verified release pin is ready.</source>
+      <translation>Eine neue Version wird vorbereitet. Sie wird angeboten, sobald ihre verifizierte Versionsfestlegung bereit ist.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>A new version is ready to install</source>
+      <translation>Eine neue Version ist zur Installation bereit</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
@@ -745,7 +770,7 @@ Bis %3 · %4</translation>
     <message>
       <location filename="../ui/qml/UnitsChoice.qml" />
       <source>Automatic (°%1)</source>
-      <translation type="unfinished" />
+      <translation>Automatisch (°%1)</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -753,6 +778,7 @@ Bis %3 · %4</translation>
       <translation>Automatisch · Monitor der App</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Available %1</source>
       <translation>Verfügbar: %1</translation>
@@ -897,6 +923,7 @@ Bis %3 · %4</translation>
       <translation>Kompatibilität prüfen</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/UpdatePanel.qml" />
       <source>Check for updates</source>
@@ -908,7 +935,10 @@ Bis %3 · %4</translation>
       <translation>Prüfen Sie diesen Desktop, bevor Sie Effekte einschalten.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Checking for updates…</source>
       <translation>Suche nach Updates…</translation>
     </message>
@@ -1013,9 +1043,9 @@ Bis %3 · %4</translation>
       <source>Civil (−6°): %1
 Nautical (−12°): %2
 Astronomical (−18°): %3</source>
-      <translation>Bürgerlich (−6°): %1
-Nautisch (−12°): %2
-Astronomisch (−18°): %3</translation>
+      <translation>Bürgerliche Dämmerung (−6°): %1
+Nautische Dämmerung (−12°): %2
+Astronomische Dämmerung (−18°): %3</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
@@ -1030,6 +1060,7 @@ Astronomisch (−18°): %3</translation>
       <translation>Klar</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Close</source>
       <translation>Schließen</translation>
@@ -1142,6 +1173,12 @@ Astronomisch (−18°): %3</translation>
       <translation>Die Kompatibilitätsprüfungen für diesen Desktop waren erfolgreich.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Completing the update…</source>
+      <translation>Update wird abgeschlossen…</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Connect and load a forecast to find outdoor times.</source>
       <translation>Stellen Sie eine Verbindung her und laden Sie eine Vorhersage, um Zeiten für Aktivitäten im Freien zu finden.</translation>
@@ -1162,9 +1199,17 @@ Astronomisch (−18°): %3</translation>
       <translation>Text kopieren</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
       <location filename="../translations/extra-sources.json" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Could not check for updates. Check your connection and try again.</source>
-      <translation type="unfinished" />
+      <translation>Die Suche nach Updates ist fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Could not check for updates. Try again.</source>
+      <translation>Die Suche nach Updates ist fehlgeschlagen. Versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastShare.qml" />
@@ -1180,6 +1225,14 @@ Astronomisch (−18°): %3</translation>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Could not load this radar image. Choose Latest to try again.</source>
       <translation>Dieses Radarbild konnte nicht geladen werden. Wählen Sie Aktuell für einen neuen Versuch.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Could not restore the previous version.
+%1</source>
+      <translation>Die vorherige Version konnte nicht wiederhergestellt werden.
+%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastShare.qml" />
@@ -1363,6 +1416,12 @@ Astronomisch (−18°): %3</translation>
       <translation>Desktop-Renderer · %1</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Development checkout · build updates locally</source>
+      <translation>Entwicklungs-Checkout · Updates lokal bauen</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Forecast.js" />
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>Dew point</source>
@@ -1371,7 +1430,7 @@ Astronomisch (−18°): %3</translation>
     <message>
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>Dew point %1</source>
-      <translation type="unfinished" />
+      <translation>Taupunkt %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
@@ -1399,9 +1458,16 @@ Astronomisch (−18°): %3</translation>
       <translation>Ortsbearbeitung abschließen</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Downloading and verifying the update…</source>
       <translation>Update wird heruntergeladen und geprüft…</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Downloading the new version…</source>
+      <translation>Neue Version wird heruntergeladen…</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
@@ -1504,6 +1570,11 @@ Astronomisch (−18°): %3</translation>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Expand radar map</source>
       <translation>Radarkarte ausklappen</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Expected</source>
+      <translation>Erwartet</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -1736,6 +1807,11 @@ Astronomisch (−18°): %3</translation>
       </translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Future</source>
+      <translation>Zukünftig</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Gap</source>
       <translation>Lücke</translation>
@@ -1773,7 +1849,7 @@ Astronomisch (−18°): %3</translation>
     <message>
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>Gusts %1</source>
-      <translation type="unfinished" />
+      <translation>Böen %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
@@ -1953,6 +2029,11 @@ Fehlende Stunden werden ausgeschlossen; teilweise vergangene Niederschlags- und 
       <translation>Luftfeuchtigkeit</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Immediate</source>
+      <translation>Unmittelbar</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Immersive</source>
       <translation>Intensiv</translation>
@@ -1973,6 +2054,7 @@ Fehlende Stunden werden ausgeschlossen; teilweise vergangene Niederschlags- und 
       <translation>Anwendungsstarter installieren</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Installed %1</source>
       <translation>Installiert: %1</translation>
@@ -2119,6 +2201,11 @@ Fehlende Stunden werden ausgeschlossen; teilweise vergangene Niederschlags- und 
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Lightning flashes</source>
       <translation>Blitze</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Likely</source>
+      <translation>Wahrscheinlich</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
@@ -2803,12 +2890,17 @@ Wahrscheinlichkeit %4 · %5</translation>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Notify when hourly chance reaches</source>
-      <translation>Benachrichtigen, wenn die stündliche Wahrscheinlichkeit erreicht</translation>
+      <translation>Benachrichtigen ab folgender stündlicher Wahrscheinlichkeit</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Nov</source>
       <translation>Nov</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Observed</source>
+      <translation>Beobachtet</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
@@ -2922,11 +3014,13 @@ Wahrscheinlichkeit %4 · %5</translation>
       <translation>48-Stunden-Luftqualitätsausblick öffnen</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Open A Weather App to choose a location</source>
       <translation>A Weather App öffnen, um einen Ort zu wählen</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Open forecast</source>
       <translation>Vorhersage öffnen</translation>
@@ -2947,6 +3041,7 @@ Wahrscheinlichkeit %4 · %5</translation>
       <translation>Sonnen- und Mondplanung öffnen</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Open the app for version information</source>
       <translation>App für Versionsinformationen öffnen</translation>
@@ -2974,84 +3069,90 @@ Aktuell: %1%2
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Optional country code, such as DE or BR. Choose a city to save and view it.</source>
-      <translation type="unfinished" />
+      <translation>Optionaler Ländercode, etwa DE oder BR. Wählen Sie eine Stadt aus, um sie zu speichern und anzuzeigen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Optional country code, such as DE or BR. Choose a result to change location.</source>
-      <translation type="unfinished" />
+      <translation>Optionaler Ländercode, etwa DE oder BR. Wählen Sie ein Ergebnis aus, um den Ort zu ändern.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Optional two-letter country code</source>
-      <translation type="unfinished" />
+      <translation>Optionaler zweistelliger Ländercode</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Or use a 5-digit US ZIP code</source>
-      <translation type="unfinished" />
+      <translation>Oder verwenden Sie eine 5-stellige US-Postleitzahl</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningDetails.qml" />
       <source>Original notice from this session. Its status may have changed; check the current alert feed for later updates.</source>
-      <translation type="unfinished" />
+      <translation>Originalmitteilung aus dieser Sitzung. Ihr Status kann sich geändert haben; prüfen Sie den aktuellen Warnungsfeed auf spätere Aktualisierungen.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Original technical details: %1</source>
+      <translation>Technische Originaldetails: %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>Outdoor planner</source>
-      <translation type="unfinished" />
+      <translation>Outdoor-Planer</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Outdoor times are unavailable for this forecast.</source>
-      <translation type="unfinished" />
+      <translation>Für diese Vorhersage sind keine Zeiten für Aktivitäten im Freien verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQualityPanel.qml" />
       <source>Outlook</source>
-      <translation type="unfinished" />
+      <translation>Ausblick</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>Outside your preferences: %1</source>
-      <translation type="unfinished" />
+      <translation>Außerhalb Ihrer Präferenzen: %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlook.js" />
       <source>Ozone</source>
-      <translation type="unfinished" />
+      <translation>Ozon</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlook.js" />
       <source>PM10</source>
-      <translation type="unfinished" />
+      <translation>PM10</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlook.js" />
       <source>PM2.5</source>
-      <translation type="unfinished" />
+      <translation>PM2.5</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQualityPanel.qml" />
       <source>PM2.5 · µg/m³</source>
-      <translation type="unfinished" />
+      <translation>PM2.5 · µg/m³</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastSaveDialog.qml" />
       <source>PNG image (*.png)</source>
-      <translation type="unfinished" />
+      <translation>PNG-Bild (*.png)</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Partial</source>
-      <translation type="unfinished" />
+      <translation>Teilweise</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Partial hourly forecast.</source>
-      <translation type="unfinished" />
+      <translation>Teilweise stündliche Vorhersage.</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
@@ -3061,83 +3162,99 @@ Aktuell: %1%2
       <translation>Teilweise bewölkt</translation>
     </message>
     <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Past</source>
+      <translation>Vergangen</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Past observations</source>
-      <translation type="unfinished" />
+      <translation>Frühere Beobachtungen</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Past radar echoes, not a rain forecast. Blank areas may lack coverage; reflectivity does not identify rain or snow.</source>
-      <translation type="unfinished" />
+      <translation>Frühere Radarechos, keine Regenvorhersage. Leere Bereiche können ohne Abdeckung sein; die Reflektivität unterscheidet Regen und Schnee nicht.</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Pause</source>
-      <translation type="unfinished" />
+      <translation>Pause</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Pause for 1 hour</source>
-      <translation type="unfinished" />
+      <translation>1 Stunde pausieren</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Pause in fullscreen</source>
-      <translation type="unfinished" />
+      <translation>Im Vollbild pausieren</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Peak chance %1</source>
-      <translation type="unfinished" />
+      <translation>Höchste Wahrscheinlichkeit %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Pending effects start cancelled by Stop</source>
-      <translation type="unfinished" />
+      <translation>Wartender Effektstart durch Stoppen abgebrochen</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Pin 1–3 values per hour. Use the arrows to choose their order. Open any hour for all details.</source>
-      <translation type="unfinished" />
+      <translation>Heften Sie 1–3 Werte pro Stunde an. Ändern Sie die Reihenfolge mit den Pfeilen. Öffnen Sie eine Stunde für alle Details.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Place data: GeoNames via Open-Meteo (CC BY 4.0).</source>
-      <translation type="unfinished" />
+      <translation>Place data: GeoNames via Open-Meteo (CC BY 4.0).</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Place search failed. Edit the query to retry.</source>
-      <translation type="unfinished" />
+      <translation>Die Ortssuche ist fehlgeschlagen. Ändern Sie die Suchanfrage für einen neuen Versuch.</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Play</source>
-      <translation type="unfinished" />
+      <translation>Abspielen</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Play the map forecast timeline</source>
-      <translation type="unfinished" />
+      <translation>Zeitleiste der Kartenvorhersage abspielen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Plugin changes were preserved. Review them before trying another update.</source>
+      <translation>Plugin-Änderungen wurden erhalten. Prüfen Sie sie vor einem erneuten Update.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQuality.js" />
       <source>Poor</source>
-      <translation type="unfinished" />
+      <translation>Schlecht</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Possible</source>
+      <translation>Möglich</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMap.qml" />
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Precipitation</source>
-      <translation type="unfinished" />
+      <translation>Niederschlag</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>Precipitation amount</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagsmenge</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
@@ -3145,104 +3262,110 @@ Aktuell: %1%2
       <location filename="../ui/qml/Forecast.js" />
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>Precipitation chance</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagswahrscheinlichkeit</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Precipitation chance %1</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagswahrscheinlichkeit %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Precipitation chance %1 points higher</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagswahrscheinlichkeit um %1 Punkte höher</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Precipitation chance %1 points lower</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagswahrscheinlichkeit um %1 Punkte niedriger</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Precipitation chance peaks at %1 (%2).</source>
-      <translation type="unfinished" />
+      <translation>Die Niederschlagswahrscheinlichkeit erreicht ihr Maximum bei %1 (%2).</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Precipitation chance peaks at %1 around %2.</source>
-      <translation type="unfinished" />
+      <translation>Die Niederschlagswahrscheinlichkeit erreicht um %2 ihr Maximum von %1.</translation>
     </message>
     <message>
       <location filename="../ui/qml/HourlyPanel.qml" />
       <source>Precipitation chance · Select an hour for details</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagswahrscheinlichkeit · Stunde für Details auswählen</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Precipitation collides with window edges.</source>
-      <translation type="unfinished" />
+      <translation>Niederschlag trifft auf Fensterkanten.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Precipitation forecast map</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagsvorhersagekarte</translation>
     </message>
     <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Precipitation indicated</source>
-      <translation type="unfinished" />
+      <translation>Niederschlag angezeigt</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>Precipitation interval: %1. Times are local to the forecast location.</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagsintervall: %1. Zeiten gelten lokal für den Vorhersageort.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Precipitation outlook is incomplete.</source>
-      <translation type="unfinished" />
+      <translation>Der Niederschlagsausblick ist unvollständig.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Precipitation total for the hour ending at each time. Missing values do not mean dry weather.</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagssumme für die Stunde, die zum jeweiligen Zeitpunkt endet. Fehlende Werte bedeuten kein trockenes Wetter.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Precipitation type unavailable</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagsart nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Precipitation watching</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagsüberwachung</translation>
     </message>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>Preferences changed. Find times to update the suggestions.</source>
-      <translation type="unfinished" />
+      <translation>Präferenzen geändert. Verwenden Sie Zeiten finden, um die Vorschläge zu aktualisieren.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Preparing the update…</source>
+      <translation>Update wird vorbereitet…</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
       <location filename="../ui/qml/Forecast.js" />
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>Pressure</source>
-      <translation type="unfinished" />
+      <translation>Luftdruck</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Preview</source>
-      <translation type="unfinished" />
+      <translation>Vorschau</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Preview condition</source>
-      <translation type="unfinished" />
+      <translation>Vorschaubedingung</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Previews stop after five minutes. Live desktop in the header keeps live weather on until you stop it.</source>
-      <translation type="unfinished" />
+      <translation>Vorschauen enden nach fünf Minuten. Live-Desktop in der Kopfzeile zeigt das aktuelle Wetter, bis Sie es stoppen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
@@ -3252,90 +3375,92 @@ Aktuell: %1%2
       <location filename="../ui/qml/RadarMap.qml" />
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Previous</source>
-      <translation type="unfinished" />
+      <translation>Zurück</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Previously: %1
 Now: %2
 Modeled hours with at least 50% precipitation chance.</source>
-      <translation type="unfinished" />
+      <translation>Zuvor: %1
+Jetzt: %2
+Modellierte Stunden mit mindestens 50% Niederschlagswahrscheinlichkeit.</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Primary place</source>
-      <translation type="unfinished" />
+      <translation>Hauptort</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Quiet hours</source>
-      <translation type="unfinished" />
+      <translation>Ruhezeiten</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Quiet hours end</source>
-      <translation type="unfinished" />
+      <translation>Ende der Ruhezeit</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Quiet hours for warnings</source>
-      <translation type="unfinished" />
+      <translation>Ruhezeiten für Warnungen</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Quiet hours start</source>
-      <translation type="unfinished" />
+      <translation>Beginn der Ruhezeit</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Quiet hours · notifications paused</source>
-      <translation type="unfinished" />
+      <translation>Ruhezeiten · Benachrichtigungen pausiert</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Quiet hours · urgent overrides are enabled</source>
-      <translation type="unfinished" />
+      <translation>Ruhezeiten · Dringende Ausnahmen aktiviert</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Quiet hours · warning delivery is paused</source>
-      <translation type="unfinished" />
+      <translation>Ruhezeiten · Warnungszustellung pausiert</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Quiet precipitation outlooks for the current hour and next three hours. Uses fresh hourly probabilities, not minute-by-minute onset predictions. Desktop effects can stay off.</source>
-      <translation type="unfinished" />
+      <translation>Unaufdringliche Niederschlagsausblicke für die aktuelle Stunde und die nächsten drei Stunden. Verwendet aktuelle stündliche Wahrscheinlichkeiten, keine minutengenauen Beginnvorhersagen. Desktop-Effekte können ausgeschaltet bleiben.</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Quit app</source>
-      <translation type="unfinished" />
+      <translation>App beenden</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Radar</source>
-      <translation type="unfinished" />
+      <translation>Radar</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Radar at </source>
-      <translation type="unfinished" />
+      <translation>Radar um </translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Radar is temporarily unavailable. Forecast maps are still available.</source>
-      <translation type="unfinished" />
+      <translation>Radar ist vorübergehend nicht verfügbar. Vorhersagekarten bleiben verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Radar is unavailable offline.</source>
-      <translation type="unfinished" />
+      <translation>Radar ist offline nicht verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Radar observation time</source>
-      <translation type="unfinished" />
+      <translation>Radar-Beobachtungszeit</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
@@ -3347,73 +3472,73 @@ Modeled hours with at least 50% precipitation chance.</source>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Rain &amp; showers</source>
-      <translation type="unfinished" />
+      <translation>Regen &amp; Schauer</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastDetails.qml" />
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Rain &amp; snow totals</source>
-      <translation type="unfinished" />
+      <translation>Regen- &amp; Schneesummen</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Rain and snow details are open in another window.</source>
-      <translation type="unfinished" />
+      <translation>Regen- und Schneedetails sind in einem anderen Fenster geöffnet.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Rain and snow details are unavailable.</source>
-      <translation type="unfinished" />
+      <translation>Regen- und Schneedetails sind nicht verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Rain and snow forecast date</source>
-      <translation type="unfinished" />
+      <translation>Datum der Regen- und Schneevorhersage</translation>
     </message>
     <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Rain and snow indicated</source>
-      <translation type="unfinished" />
+      <translation>Regen und Schnee angezeigt</translation>
     </message>
     <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Rain indicated</source>
-      <translation type="unfinished" />
+      <translation>Regen angezeigt</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Readability changed, but saving was not confirmed. Choose the setting again to retry.</source>
-      <translation type="unfinished" />
+      <translation>Die Lesbarkeit wurde geändert, aber das Speichern nicht bestätigt. Wählen Sie die Einstellung erneut für einen neuen Versuch.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Readability preferences could not be saved. Try again.</source>
-      <translation type="unfinished" />
+      <translation>Die Lesbarkeitseinstellungen konnten nicht gespeichert werden. Versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Ready</source>
-      <translation type="unfinished" />
+      <translation>Bereit</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Ready. Reopen your application menu and search for A Weather App.</source>
-      <translation type="unfinished" />
+      <translation>Bereit. Öffnen Sie das Anwendungsmenü erneut und suchen Sie nach A Weather App.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Recent notices</source>
-      <translation type="unfinished" />
+      <translation>Letzte Mitteilungen</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Recenter</source>
-      <translation type="unfinished" />
+      <translation>Neu zentrieren</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Reduced motion</source>
-      <translation type="unfinished" />
+      <translation>Reduzierte Bewegung</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
@@ -3423,269 +3548,285 @@ Modeled hours with at least 50% precipitation chance.</source>
     <message>
       <location filename="../ui/qml/ForecastShareCard.qml" />
       <source>Refresh the forecast to share it.</source>
-      <translation type="unfinished" />
+      <translation>Aktualisieren Sie die Vorhersage, um sie zu teilen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Refreshing live forecast…</source>
-      <translation type="unfinished" />
+      <translation>Live-Vorhersage wird aktualisiert…</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Relative humidity describes how close the air is to saturation at its temperature.</source>
-      <translation type="unfinished" />
+      <translation>Die relative Luftfeuchtigkeit beschreibt, wie nahe die Luft bei ihrer Temperatur an der Sättigung liegt.</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Reload saved</source>
-      <translation type="unfinished" />
+      <translation>Gespeichertes neu laden</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Remove %1</source>
-      <translation type="unfinished" />
+      <translation>%1 entfernen</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Rename </source>
-      <translation type="unfinished" />
+      <translation>Umbenennen </translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Restore defaults</source>
-      <translation type="unfinished" />
+      <translation>Standardwerte wiederherstellen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Restored the previous version.
+%1</source>
+      <translation>Die vorherige Version wurde wiederhergestellt.
+%1</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Restored the previous version. You can retry the update.
+%1</source>
+      <translation>Die vorherige Version wurde wiederhergestellt. Sie können das Update erneut versuchen.
+%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Resume delivery</source>
-      <translation type="unfinished" />
+      <translation>Zustellung fortsetzen</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Resume watching</source>
-      <translation type="unfinished" />
+      <translation>Überwachung fortsetzen</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Retrieved %1</source>
-      <translation type="unfinished" />
+      <translation>Abgerufen %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastChanges.qml" />
       <source>Retry comparison</source>
-      <translation type="unfinished" />
+      <translation>Vergleich erneut versuchen</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Rise</source>
-      <translation type="unfinished" />
+      <translation>Aufgang</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Running · </source>
-      <translation type="unfinished" />
+      <translation>Läuft · </translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>S</source>
-      <translation type="unfinished" />
+      <translation>S</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>SE</source>
-      <translation type="unfinished" />
+      <translation>SO</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>SW</source>
-      <translation type="unfinished" />
+      <translation>SW</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Safety pause is always enabled for fullscreen applications.</source>
-      <translation type="unfinished" />
+      <translation>Die Sicherheitspause ist für Vollbildanwendungen immer aktiv.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Sat</source>
-      <translation type="unfinished" />
+      <translation>Sa</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastSaveDialog.qml" />
       <source>Save forecast image</source>
-      <translation type="unfinished" />
+      <translation>Vorhersagebild speichern</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastShare.qml" />
       <source>Save image…</source>
-      <translation type="unfinished" />
+      <translation>Bild speichern…</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Save name</source>
-      <translation type="unfinished" />
+      <translation>Namen speichern</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Saved layout could not be read. Defaults are shown; Apply saves a new layout.</source>
-      <translation type="unfinished" />
+      <translation>Das gespeicherte Layout konnte nicht gelesen werden. Standardwerte werden angezeigt; Übernehmen speichert ein neues Layout.</translation>
     </message>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>Saved preferences could not be read. Default preferences are shown.</source>
-      <translation type="unfinished" />
+      <translation>Gespeicherte Präferenzen konnten nicht gelesen werden. Standardpräferenzen werden angezeigt.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Saved readability preferences could not be read. Defaults are shown; choosing a setting saves them again.</source>
-      <translation type="unfinished" />
+      <translation>Gespeicherte Lesbarkeitseinstellungen konnten nicht gelesen werden. Standardwerte werden angezeigt; das Wählen einer Einstellung speichert sie erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <location filename="../ui/qml/ForecastShare.qml" />
       <source>Saving…</source>
-      <translation type="unfinished" />
+      <translation>Wird gespeichert…</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Search below to add and view a city. Choose Home in the locations list.</source>
-      <translation type="unfinished" />
+      <translation>Suchen Sie unten, um eine Stadt hinzuzufügen und anzuzeigen. Wählen Sie den Heimatort in der Ortsliste.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/Forecast.js" />
       <source>Search result expired. Search again.</source>
-      <translation type="unfinished" />
+      <translation>Suchergebnis abgelaufen. Suchen Sie erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Search timed out. Edit the query to retry.</source>
-      <translation type="unfinished" />
+      <translation>Zeitüberschreitung bei der Suche. Ändern Sie die Suchanfrage für einen neuen Versuch.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Search unavailable offline.</source>
-      <translation type="unfinished" />
+      <translation>Suche offline nicht verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Search unavailable while disconnected.</source>
-      <translation type="unfinished" />
+      <translation>Suche ohne Verbindung nicht verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Search worldwide cities</source>
-      <translation type="unfinished" />
+      <translation>Weltweit nach Städten suchen</translation>
     </message>
     <message>
       <location filename="../ui/qml/PlaceSearch.qml" />
       <source>Searching places…</source>
-      <translation type="unfinished" />
+      <translation>Orte werden gesucht…</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Sections</source>
-      <translation type="unfinished" />
+      <translation>Abschnitte</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Select a name to rename. Home opens by default.</source>
-      <translation type="unfinished" />
+      <translation>Wählen Sie einen Namen zum Umbenennen. Der Heimatort wird standardmäßig geöffnet.</translation>
     </message>
     <message>
       <location filename="../ui/qml/HourlyPanel.qml" />
       <source>Select an hour for details</source>
-      <translation>Wähle eine Stunde für Details</translation>
+      <translation>Stunde für Details auswählen</translation>
     </message>
     <message>
       <location filename="../ui/qml/AlertsPanel.qml" />
       <source>Select to read the full alert details below the alert list.</source>
-      <translation type="unfinished" />
+      <translation>Auswählen, um die vollständigen Warnungsdetails unter der Warnungsliste zu lesen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/Forecast.js" />
       <source>Selected city is no longer available. Search again.</source>
-      <translation type="unfinished" />
+      <translation>Die gewählte Stadt ist nicht mehr verfügbar. Suchen Sie erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Selected city · %1</source>
-      <translation type="unfinished" />
+      <translation>Gewählte Stadt · %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastChart.qml" />
       <source>Selected hour</source>
-      <translation type="unfinished" />
+      <translation>Gewählte Stunde</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Selected point · </source>
-      <translation type="unfinished" />
+      <translation>Gewählter Punkt · </translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Sending…</source>
-      <translation type="unfinished" />
+      <translation>Wird gesendet…</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Sep</source>
-      <translation type="unfinished" />
+      <translation>Sep</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Set</source>
-      <translation type="unfinished" />
+      <translation>Untergang</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Set %1 as Home</source>
-      <translation type="unfinished" />
+      <translation>%1 als Heimatort festlegen</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/shell.qml" />
       <source>Settings</source>
-      <translation type="unfinished" />
+      <translation>Einstellungen</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
       <source>Severe</source>
-      <translation type="unfinished" />
+      <translation>Schwer</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Severe and extreme</source>
-      <translation type="unfinished" />
+      <translation>Schwer und extrem</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/ForecastShare.qml" />
       <source>Share forecast</source>
-      <translation type="unfinished" />
+      <translation>Vorhersage teilen</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Shared from A Weather App</source>
-      <translation type="unfinished" />
+      <translation>Geteilt aus A Weather App</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardOrder.qml" />
       <source>Shown</source>
-      <translation type="unfinished" />
+      <translation>Angezeigt</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Sky follows the current forecast. Effects use the selected weather source.</source>
-      <translation type="unfinished" />
+      <translation>Der Himmel folgt der aktuellen Vorhersage. Effekte verwenden die ausgewählte Wetterquelle.</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/Forecast.js" />
       <source>Sleet</source>
-      <translation type="unfinished" />
+      <translation>Schneeregen</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
@@ -3697,207 +3838,215 @@ Modeled hours with at least 50% precipitation chance.</source>
     <message>
       <location filename="../ui/qml/Precipitation.js" />
       <source>Snow indicated</source>
-      <translation type="unfinished" />
+      <translation>Schnee angezeigt</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Snow on the ground: %1
 Freezing level: %2 above sea level</source>
-      <translation type="unfinished" />
+      <translation>Schneehöhe: %1
+Nullgradgrenze: %2 über dem Meeresspiegel</translation>
     </message>
     <message>
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>Solar times unavailable</source>
-      <translation type="unfinished" />
+      <translation>Sonnenzeiten nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Solid panels and stronger text and borders.</source>
-      <translation type="unfinished" />
+      <translation>Deckende Bereiche sowie kräftigere Texte und Rahmen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Source: Open-Meteo best match · Modeled forecast%1</source>
-      <translation type="unfinished" />
+      <translation>Quelle: Open-Meteo Best Match · Modellierte Vorhersage%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Spacing</source>
-      <translation type="unfinished" />
+      <translation>Abstände</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>Spacious</source>
-      <translation type="unfinished" />
+      <translation>Geräumig</translation>
     </message>
     <message>
       <location filename="../internal/app/bar.go" />
       <source>Stale</source>
-      <translation type="unfinished" />
+      <translation>Veraltet</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQualityPanel.qml" />
       <source>Stale air quality model data</source>
-      <translation type="unfinished" />
+      <translation>Veraltete Luftqualitätsmodelldaten</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Stale forecast</source>
-      <translation type="unfinished" />
+      <translation>Veraltete Vorhersage</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Stale forecast · </source>
-      <translation type="unfinished" />
+      <translation>Veraltete Vorhersage · </translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Stale forecast · check for updates</source>
-      <translation type="unfinished" />
+      <translation>Veraltete Vorhersage · Auf Aktualisierungen prüfen</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Stale radar · </source>
-      <translation type="unfinished" />
+      <translation>Veraltetes Radar · </translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Standard · 100%</source>
-      <translation type="unfinished" />
+      <translation>Standard · 100%</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Start 5-minute preview</source>
-      <translation type="unfinished" />
+      <translation>5-Minuten-Vorschau starten</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Starting the update…</source>
-      <translation type="unfinished" />
+      <translation>Update wird gestartet…</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Starting…</source>
-      <translation type="unfinished" />
+      <translation>Wird gestartet…</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Static</source>
-      <translation type="unfinished" />
+      <translation>Statisch</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Static trails</source>
-      <translation type="unfinished" />
+      <translation>Statische Spuren</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Status unknown · cleanup pending</source>
-      <translation type="unfinished" />
+      <translation>Status unbekannt · Bereinigung ausstehend</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Stop</source>
-      <translation type="unfinished" />
+      <translation>Stoppen</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Stop desktop effects before changing setup.</source>
-      <translation type="unfinished" />
+      <translation>Stoppen Sie Desktop-Effekte, bevor Sie die Einrichtung ändern.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMap.qml" />
       <source>Stop map playback and return to the current hour</source>
-      <translation type="unfinished" />
+      <translation>Kartenwiedergabe stoppen und zur aktuellen Stunde zurückkehren</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Stop watching</source>
-      <translation type="unfinished" />
+      <translation>Überwachung stoppen</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/shell.qml" />
       <source>Stopped</source>
-      <translation type="unfinished" />
+      <translation>Gestoppt</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Stopping watching keeps the forecast open. Quit app stops all background watching and desktop effects for this session.</source>
-      <translation type="unfinished" />
+      <translation>Beim Stoppen der Überwachung bleibt die Vorhersage geöffnet. App beenden stoppt alle Hintergrundüberwachungen und Desktop-Effekte für diese Sitzung.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Stopping weather effects and preparing to restart…</source>
+      <translation>Wettereffekte werden gestoppt und der Neustart vorbereitet…</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Stops precipitation and freezes the sky.</source>
-      <translation type="unfinished" />
+      <translation>Stoppt Niederschlag und hält den Himmel an.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Stronger gusts expected</source>
-      <translation type="unfinished" />
+      <translation>Stärkere Böen erwartet</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Subtle</source>
-      <translation type="unfinished" />
+      <translation>Dezent</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Subtle wetness and buildup on surfaces.</source>
-      <translation type="unfinished" />
+      <translation>Dezente Nässe und Ansammlung auf Oberflächen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlook.js" />
       <source>Sulphur dioxide</source>
-      <translation type="unfinished" />
+      <translation>Schwefeldioxid</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Sun</source>
-      <translation type="unfinished" />
+      <translation>So</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>Sun &amp; moon</source>
-      <translation type="unfinished" />
+      <translation>Sonne &amp; Mond</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>Sun &amp; moon unavailable</source>
-      <translation type="unfinished" />
+      <translation>Sonne &amp; Mond nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Sun stays above the horizon all day</source>
-      <translation type="unfinished" />
+      <translation>Die Sonne bleibt den ganzen Tag über dem Horizont</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Sun stays below the horizon all day</source>
-      <translation type="unfinished" />
+      <translation>Die Sonne bleibt den ganzen Tag unter dem Horizont</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>Sunrise %1 · Sunset %2</source>
-      <translation type="unfinished" />
+      <translation>Sonnenaufgang %1 · Sonnenuntergang %2</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
       <source>Sunrise &amp; sunset</source>
-      <translation type="unfinished" />
+      <translation>Sonnenaufgang &amp; Sonnenuntergang</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/I18n.qml" />
       <source>System / Automatic</source>
-      <translation type="unfinished" />
+      <translation>System / Automatisch</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>System / Automatic follows your system language preferences.</source>
-      <translation type="unfinished" />
+      <translation>System / Automatisch folgt Ihren Systemsprachpräferenzen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
@@ -3906,215 +4055,246 @@ Freezing level: %2 above sea level</source>
       <location filename="../ui/qml/WeatherMap.qml" />
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Temperature</source>
-      <translation type="unfinished" />
+      <translation>Temperatur</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Temperature forecast map</source>
-      <translation type="unfinished" />
+      <translation>Temperaturvorhersagekarte</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Text size</source>
-      <translation type="unfinished" />
+      <translation>Textgröße</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The bar could not refresh. Reopen it after reviewing the plugin.</source>
+      <translation>Die Leiste konnte nicht aktualisiert werden. Öffnen Sie sie nach der Prüfung des Plugins erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>The change is visible, but saving could not be confirmed.</source>
-      <translation type="unfinished" />
+      <translation>Die Änderung ist sichtbar, aber das Speichern konnte nicht bestätigt werden.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>The current Hyprland session could not be verified. Reopen the app from your desktop and check again.</source>
-      <translation type="unfinished" />
+      <translation>Die aktuelle Hyprland-Sitzung konnte nicht verifiziert werden. Öffnen Sie die App erneut vom Desktop und prüfen Sie noch einmal.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>The desktop changed or effects could not start. Check compatibility again before retrying.</source>
-      <translation type="unfinished" />
+      <translation>Der Desktop hat sich geändert oder Effekte konnten nicht gestartet werden. Prüfen Sie die Kompatibilität vor einem neuen Versuch erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>The file picker is unavailable. You can still copy the forecast text.</source>
-      <translation type="unfinished" />
+      <translation>Die Dateiauswahl ist nicht verfügbar. Sie können den Vorhersagetext weiterhin kopieren.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>The forecast is still loading. Try again in a moment.</source>
-      <translation type="unfinished" />
+      <translation>Die Vorhersage wird noch geladen. Versuchen Sie es gleich erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>The last delivery could not be confirmed. It will not be retried for the same forecast event, to avoid duplicates.</source>
-      <translation type="unfinished" />
+      <translation>Die letzte Zustellung konnte nicht bestätigt werden. Um Duplikate zu vermeiden, wird sie für dasselbe Vorhersageereignis nicht erneut versucht.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>The last notice was not confirmed as delivered. It will not be retried automatically, to avoid duplicates.</source>
-      <translation type="unfinished" />
+      <translation>Die Zustellung der letzten Mitteilung wurde nicht bestätigt. Um Duplikate zu vermeiden, wird sie nicht automatisch erneut gesendet.</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>The layout could not be saved. Your edits are still here. Try Apply again when connected.</source>
-      <translation type="unfinished" />
+      <translation>Das Layout konnte nicht gespeichert werden. Ihre Änderungen sind noch vorhanden. Versuchen Sie bei bestehender Verbindung erneut Übernehmen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>The layout is visible, but saving could not be confirmed. Apply to retry.</source>
-      <translation type="unfinished" />
+      <translation>Das Layout ist sichtbar, aber das Speichern konnte nicht bestätigt werden. Wählen Sie Übernehmen für einen neuen Versuch.</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>The layout is visible, but saving was not confirmed. Apply to try again.</source>
-      <translation type="unfinished" />
+      <translation>Das Layout ist sichtbar, aber das Speichern wurde nicht bestätigt. Wählen Sie Übernehmen für einen neuen Versuch.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>The location changed. Reopen Sun &amp; moon for the current location.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort wurde geändert. Öffnen Sie Sonne &amp; Mond für den aktuellen Ort erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>The location is changing. Try today when it is ready.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort wird geändert. Versuchen Sie Heute erneut, sobald er bereit ist.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>The location is still loading. Try again when it is ready.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort wird noch geladen. Versuchen Sie es erneut, sobald er bereit ist.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>The location is still loading. Try today again in a moment.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort wird noch geladen. Versuchen Sie Heute gleich noch einmal.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <source>The place changed. Open its outlook again.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort wurde geändert. Öffnen Sie seinen Ausblick erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>The place changed. Open its rain and snow details again.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort wurde geändert. Öffnen Sie seine Regen- und Schneedetails erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>The place or forecast changed. Find times again using the latest forecast.</source>
-      <translation type="unfinished" />
+      <translation>Der Ort oder die Vorhersage wurde geändert. Suchen Sie mit der aktuellen Vorhersage erneut nach Zeiten.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The previous update stopped. Open the app to recover, or retry the update.</source>
+      <translation>Das vorherige Update wurde gestoppt. Öffnen Sie die App zur Wiederherstellung oder versuchen Sie das Update erneut.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The runtime was restored, but the plugin could not be restored. Review the plugin before trying another update.</source>
+      <translation>Die Laufzeit wurde wiederhergestellt, aber das Plugin konnte nicht wiederhergestellt werden. Prüfen Sie das Plugin vor einem erneuten Update.</translation>
     </message>
     <message>
       <location filename="../ui/qml/DashboardEditor.qml" />
       <source>The saved layout changed. Reload it before applying edits.</source>
-      <translation type="unfinished" />
+      <translation>Das gespeicherte Layout wurde geändert. Laden Sie es neu, bevor Sie Änderungen übernehmen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>The saved place could not be changed. Try again.</source>
-      <translation type="unfinished" />
+      <translation>Der gespeicherte Ort konnte nicht geändert werden. Versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>The selected monitor is no longer available. Check again to refresh the monitor list.</source>
-      <translation type="unfinished" />
+      <translation>Der ausgewählte Monitor ist nicht mehr verfügbar. Prüfen Sie erneut, um die Monitorliste zu aktualisieren.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningDetails.qml" />
       <source>The stated validity period has ended.
 </source>
-      <translation type="unfinished" />
+      <translation>Der angegebene Gültigkeitszeitraum ist abgelaufen.
+</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>The temperature at which the air would become saturated if cooled.</source>
-      <translation type="unfinished" />
+      <translation>Die Temperatur, bei der die Luft durch Abkühlung gesättigt wäre.</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastShare.qml" />
       <source>The timezone stays visible. Coordinates are never included.</source>
-      <translation type="unfinished" />
+      <translation>Die Zeitzone bleibt sichtbar. Koordinaten werden niemals einbezogen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQualityPanel.qml" />
       <source>The two indices use different scales. Lower values indicate cleaner air.</source>
-      <translation type="unfinished" />
+      <translation>Die beiden Indizes verwenden unterschiedliche Skalen. Niedrigere Werte bedeuten sauberere Luft.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The update was rolled back.</source>
+      <translation>Das Update wurde zurückgesetzt.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>The updater did not start. Check for updates and try again.</source>
+      <translation>Der Updater wurde nicht gestartet. Suchen Sie nach Updates und versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
       <source>The updater did not start. Check your connection and try again.</source>
-      <translation type="unfinished" />
+      <translation>Der Updater wurde nicht gestartet. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>The weather service is disconnected. Reopen the app to reconnect.</source>
-      <translation type="unfinished" />
+      <translation>Die Verbindung zum Wetterdienst ist getrennt. Öffnen Sie die App erneut, um die Verbindung wiederherzustellen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>There are not enough consecutive forecast hours for this duration.</source>
-      <translation type="unfinished" />
+      <translation>Für diese Dauer sind nicht genügend aufeinanderfolgende Vorhersagestunden verfügbar.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>These forecasts have no matching future hours.</source>
-      <translation type="unfinished" />
+      <translation>Diese Vorhersagen haben keine übereinstimmenden zukünftigen Stunden.</translation>
     </message>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>These preferences apply here, but saving could not be confirmed.</source>
-      <translation type="unfinished" />
+      <translation>Diese Präferenzen gelten hier, aber das Speichern konnte nicht bestätigt werden.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/Forecast.js" />
       <source>This ZIP code matches more than one location. Try another code.</source>
-      <translation type="unfinished" />
+      <translation>Diese US-Postleitzahl entspricht mehreren Orten. Versuchen Sie eine andere.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AlertsPanel.qml" />
       <source>This alert text has been shortened. Check the official alert source for complete details.</source>
-      <translation type="unfinished" />
+      <translation>Dieser Warnungstext wurde gekürzt. Vollständige Details erhalten Sie bei der amtlichen Warnungsquelle.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AlertsPanel.qml" />
       <source>This alert text has been shortened. Read the complete warning and instructions from the National Weather Service.</source>
-      <translation type="unfinished" />
+      <translation>Dieser Warnungstext wurde gekürzt. Lesen Sie die vollständige Warnung und die Anweisungen des National Weather Service.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>This desktop does not offer notification buttons. Open recent notices below.</source>
-      <translation type="unfinished" />
+      <translation>Dieser Desktop bietet keine Benachrichtigungsschaltflächen. Öffnen Sie unten die letzten Mitteilungen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>This forecast is too old or unavailable for planning. Refresh the forecast and try again.</source>
-      <translation type="unfinished" />
+      <translation>Diese Vorhersage ist für die Planung zu alt oder nicht verfügbar. Aktualisieren Sie sie und versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningDetails.qml" />
       <source>This notice cancels an earlier warning.</source>
-      <translation type="unfinished" />
+      <translation>Diese Mitteilung hebt eine frühere Warnung auf.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>This notice is no longer available in this session. It may have expired from the recent list, or monitoring was turned off. Check the current alert feed.</source>
-      <translation type="unfinished" />
+      <translation>Diese Mitteilung ist in dieser Sitzung nicht mehr verfügbar. Sie kann aus der Liste der letzten Mitteilungen abgelaufen sein oder die Überwachung wurde ausgeschaltet. Prüfen Sie den aktuellen Warnungsfeed.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>This original notice exceeds the detail size limit. Its instructions have not been shortened.</source>
-      <translation type="unfinished" />
+      <translation>Diese Originalmitteilung überschreitet das Größenlimit der Details. Ihre Anweisungen wurden nicht gekürzt.</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>This running weather service does not support Sun &amp; moon. Quit and reopen the updated app.</source>
-      <translation type="unfinished" />
+      <translation>Dieser laufende Wetterdienst unterstützt Sonne &amp; Mond nicht. Beenden Sie die App und öffnen Sie die aktualisierte App erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Thu</source>
-      <translation type="unfinished" />
+      <translation>Do</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
@@ -4126,13 +4306,13 @@ Freezing level: %2 above sea level</source>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>Time outside</source>
-      <translation type="unfinished" />
+      <translation>Zeit im Freien</translation>
     </message>
     <message>
       <location filename="../native/qt/i18n.cpp" />
       <location filename="../ui/qml/Forecast.js" />
       <source>Time unavailable</source>
-      <translation type="unfinished" />
+      <translation>Zeit nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
@@ -4144,98 +4324,99 @@ Freezing level: %2 above sea level</source>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>Today · </source>
-      <translation type="unfinished" />
+      <translation>Heute · </translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>Toggle A Weather App window</source>
-      <translation type="unfinished" />
+      <translation>A Weather App-Fenster ein- oder ausblenden</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Tomorrow</source>
-      <translation type="unfinished" />
+      <translation>Morgen</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Tonight</source>
-      <translation type="unfinished" />
+      <translation>Heute Nacht</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Too little shared hourly data to compare.</source>
-      <translation type="unfinished" />
+      <translation>Zu wenige gemeinsame stündliche Daten für einen Vergleich.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Trails flow downwind</source>
-      <translation type="unfinished" />
+      <translation>Spuren verlaufen in Windrichtung</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastChart.qml" />
       <source>Trend unavailable</source>
-      <translation type="unfinished" />
+      <translation>Trend nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Try again</source>
-      <translation type="unfinished" />
+      <translation>Erneut versuchen</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>Try today</source>
-      <translation type="unfinished" />
+      <translation>Heute versuchen</translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Tue</source>
-      <translation type="unfinished" />
+      <translation>Di</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Turn off warnings</source>
-      <translation type="unfinished" />
+      <translation>Warnungen ausschalten</translation>
     </message>
     <message>
       <location filename="../ui/qml/AstronomyDetails.qml" />
       <source>Twilight &amp; light</source>
-      <translation type="unfinished" />
+      <translation>Dämmerung &amp; Licht</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlook.js" />
       <source>US AQI</source>
-      <translation type="unfinished" />
+      <translation>US-AQI</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <source>US AQI guide</source>
-      <translation type="unfinished" />
+      <translation>Leitfaden zum US-AQI</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <source>US AQI guide, opens browser</source>
-      <translation type="unfinished" />
+      <translation>Leitfaden zum US-AQI, öffnet den Browser</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQualityPanel.qml" />
       <source>US AQI scale</source>
-      <translation type="unfinished" />
+      <translation>US-AQI-Skala</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>US ZIP code</source>
-      <translation type="unfinished" />
+      <translation>US-Postleitzahl</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>US ZIP code to add</source>
-      <translation type="unfinished" />
+      <translation>Hinzuzufügende US-Postleitzahl</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlook.js" />
       <source>US index calculated by Open-Meteo. Its pollutant indices use different averaging periods; the overall index is the highest of them.</source>
-      <translation type="unfinished" />
+      <translation>Von Open-Meteo berechneter US-Index. Die Schadstoffindizes verwenden unterschiedliche Mittelungszeiträume; der Gesamtindex ist ihr höchster Wert.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
@@ -4243,10 +4424,11 @@ Freezing level: %2 above sea level</source>
       <location filename="../ui/qml/ForecastDetails.qml" />
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>UV index</source>
-      <translation type="unfinished" />
+      <translation>UV-Index</translation>
     </message>
     <message>
       <location filename="../internal/app/bar.go" />
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/AirQuality.js" />
       <location filename="../ui/qml/EffectsDrawer.qml" />
@@ -4261,387 +4443,437 @@ Freezing level: %2 above sea level</source>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Unavailable · close and reopen</source>
-      <translation type="unfinished" />
+      <translation>Nicht verfügbar · Schließen und erneut öffnen</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQuality.js" />
       <source>Unhealthy</source>
-      <translation type="unfinished" />
+      <translation>Ungesund</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQuality.js" />
       <source>Unhealthy for sensitive groups</source>
-      <translation type="unfinished" />
+      <translation>Ungesund für empfindliche Gruppen</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Unknown</source>
+      <translation>Unbekannt</translation>
+    </message>
+    <message>
+      <location filename="../translations/extra-sources.json" />
+      <source>Unlikely</source>
+      <translation>Unwahrscheinlich</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Until</source>
-      <translation type="unfinished" />
+      <translation>Bis</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Up to 16 recent notices remain available for 24 hours in this session. Desktop acceptance does not confirm that a notice was read.</source>
-      <translation type="unfinished" />
+      <translation>Bis zu 16 letzte Mitteilungen bleiben in dieser Sitzung 24 Stunden verfügbar. Die Annahme durch den Desktop bestätigt nicht, dass eine Mitteilung gelesen wurde.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <location filename="../ui/qml/UpdatePanel.qml" />
       <source>Update and restart</source>
-      <translation type="unfinished" />
+      <translation>Aktualisieren und neu starten</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Update could not finish.
+%1
+Try again.</source>
+      <translation>Das Update konnte nicht abgeschlossen werden.
+%1
+Versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
       <source>Update could not start. Check your connection and ensure the plugin has no local changes, then try again.</source>
-      <translation type="unfinished" />
+      <translation>Das Update konnte nicht gestartet werden. Prüfen Sie Ihre Verbindung und stellen Sie sicher, dass das Plugin keine lokalen Änderungen enthält. Versuchen Sie es dann erneut.</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
       <location filename="../ui/qml/AirQualityPanel.qml" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Update failed</source>
-      <translation type="unfinished" />
+      <translation>Update fehlgeschlagen</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQualityPanel.qml" />
       <source>Update timed out</source>
-      <translation type="unfinished" />
+      <translation>Zeitüberschreitung beim Update</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Update was not installed.
+%1</source>
+      <translation>Das Update wurde nicht installiert.
+%1</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Updated </source>
-      <translation type="unfinished" />
+      <translation>Aktualisiert </translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Updated successfully</source>
+      <translation>Erfolgreich aktualisiert</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Updated to %1.</source>
-      <translation type="unfinished" />
+      <translation>Auf %1 aktualisiert.</translation>
     </message>
     <message>
       <location filename="../internal/notifications/warning_policy.go" />
       <location filename="../translations/extra-sources.json" />
       <source>Updated: %1</source>
-      <translation type="unfinished" />
+      <translation>Aktualisiert: %1</translation>
     </message>
     <message>
-      <location filename="../ui/qml/UpdatePanel.qml" />
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>Updates are checked daily.</source>
-      <translation type="unfinished" />
+      <translation>Updates werden täglich geprüft.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Updates are unavailable for this installation</source>
+      <translation>Updates sind für diese Installation nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/UpdatePanel.qml" />
       <source>Updating…</source>
-      <translation type="unfinished" />
+      <translation>Wird aktualisiert…</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Use current location</source>
-      <translation type="unfinished" />
+      <translation>Aktuellen Standort verwenden</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Use local location</source>
-      <translation type="unfinished" />
+      <translation>Lokalen Standort verwenden</translation>
     </message>
     <message>
       <location filename="../ui/qml/OutdoorPlanner.qml" />
       <source>Use sunrise and sunset</source>
-      <translation type="unfinished" />
+      <translation>Sonnenaufgang und Sonnenuntergang verwenden</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Uses ipwho.is to estimate your city from your public IP. VPNs can affect accuracy.</source>
-      <translation type="unfinished" />
+      <translation>Verwendet ipwho.is, um Ihre Stadt anhand Ihrer öffentlichen IP-Adresse zu schätzen. VPNs können die Genauigkeit beeinflussen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Uses the forecast location’s local time.</source>
-      <translation type="unfinished" />
+      <translation>Verwendet die Ortszeit des Vorhersageortes.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Uses the primary place’s local time.</source>
-      <translation type="unfinished" />
+      <translation>Verwendet die Ortszeit des Hauptortes.</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>Verifying the downloaded release…</source>
+      <translation>Heruntergeladene Version wird geprüft…</translation>
     </message>
     <message>
       <location filename="../ui/qml/UpdatePanel.qml" />
       <source>Version %1 available</source>
-      <translation type="unfinished" />
+      <translation>Version %1 verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQuality.js" />
       <source>Very poor</source>
-      <translation type="unfinished" />
+      <translation>Sehr schlecht</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirQuality.js" />
       <source>Very unhealthy</source>
-      <translation type="unfinished" />
+      <translation>Sehr ungesund</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>View </source>
-      <translation type="unfinished" />
+      <translation>Anzeigen </translation>
     </message>
     <message>
       <location filename="../native/qt/desktopwarnings.cpp" />
       <location filename="../translations/extra-sources.json" />
       <source>View details</source>
-      <translation type="unfinished" />
+      <translation>Details anzeigen</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Viewing</source>
-      <translation type="unfinished" />
+      <translation>Angezeigt</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Viewing · %1</source>
-      <translation type="unfinished" />
+      <translation>Angezeigt · %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
       <location filename="../ui/qml/Forecast.js" />
       <location filename="../ui/qml/MetricsPanel.qml" />
       <source>Visibility</source>
-      <translation type="unfinished" />
+      <translation>Sichtweite</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>W</source>
-      <translation type="unfinished" />
+      <translation>W</translation>
     </message>
     <message>
       <location filename="../ui/qml/AirOutlookDetails.qml" />
       <location filename="../ui/qml/PrecipitationDetails.qml" />
       <source>Waiting before the next update…</source>
-      <translation type="unfinished" />
+      <translation>Warten vor der nächsten Aktualisierung…</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Waiting for a complete, fresh warning check</source>
-      <translation type="unfinished" />
+      <translation>Warten auf eine vollständige aktuelle Warnungsprüfung</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Waiting for a fresh forecast</source>
-      <translation type="unfinished" />
+      <translation>Warten auf eine aktuelle Vorhersage</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Waiting for a newer forecast to compare.</source>
-      <translation type="unfinished" />
+      <translation>Warten auf eine neuere Vorhersage zum Vergleichen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Waning crescent</source>
-      <translation type="unfinished" />
+      <translation>Abnehmende Sichel</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Waning gibbous</source>
-      <translation type="unfinished" />
+      <translation>Abnehmender Dreiviertelmond</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningDetails.qml" />
       <source>Warning cancellation</source>
-      <translation type="unfinished" />
+      <translation>Aufhebung einer Warnung</translation>
     </message>
     <message>
       <location filename="../ui/qml/Forecast.js" />
       <source>Warning delivery paused · monitoring continues</source>
-      <translation type="unfinished" />
+      <translation>Warnungszustellung pausiert · Überwachung läuft weiter</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Warning details are unavailable while the weather service is disconnected.</source>
-      <translation type="unfinished" />
+      <translation>Warnungsdetails sind nicht verfügbar, solange der Wetterdienst getrennt ist.</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Warning monitoring was turned off. Recent notices have been cleared.</source>
-      <translation type="unfinished" />
+      <translation>Die Warnungsüberwachung wurde ausgeschaltet. Die letzten Mitteilungen wurden gelöscht.</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Warning quiet hours end</source>
-      <translation type="unfinished" />
+      <translation>Ende der Ruhezeit für Warnungen</translation>
     </message>
     <message>
       <location filename="../ui/qml/WarningNotificationsPanel.qml" />
       <source>Warning quiet hours start</source>
-      <translation type="unfinished" />
+      <translation>Beginn der Ruhezeit für Warnungen</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Watching hourly precipitation outlooks</source>
-      <translation type="unfinished" />
+      <translation>Stündliche Niederschlagsausblicke werden überwacht</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Watching is off</source>
-      <translation type="unfinished" />
+      <translation>Überwachung ausgeschaltet</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Watching is paused</source>
-      <translation type="unfinished" />
+      <translation>Überwachung pausiert</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Watching unavailable · check the forecast directly</source>
-      <translation type="unfinished" />
+      <translation>Überwachung nicht verfügbar · Vorhersage direkt prüfen</translation>
     </message>
     <message>
       <location filename="../ui/qml/NotificationsPanel.qml" />
       <source>Watching unavailable · weather service disconnected</source>
-      <translation type="unfinished" />
+      <translation>Überwachung nicht verfügbar · Wetterdienst getrennt</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Waxing crescent</source>
-      <translation type="unfinished" />
+      <translation>Zunehmende Sichel</translation>
     </message>
     <message>
       <location filename="../ui/qml/Astronomy.js" />
       <source>Waxing gibbous</source>
-      <translation type="unfinished" />
+      <translation>Zunehmender Dreiviertelmond</translation>
     </message>
     <message>
       <location filename="../internal/app/bar.go" />
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Weather alert</source>
-      <translation type="unfinished" />
+      <translation>Wetterwarnung</translation>
     </message>
     <message>
       <location filename="../ui/qml/AlertsPanel.qml" />
       <source>Weather alerts</source>
-      <translation type="unfinished" />
+      <translation>Wetterwarnungen</translation>
     </message>
     <message>
       <location filename="../internal/app/bar.go" />
       <source>Weather and alerts unavailable</source>
-      <translation type="unfinished" />
+      <translation>Wetter und Warnungen nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
       <source>Weather data from </source>
-      <translation type="unfinished" />
+      <translation>Wetterdaten von </translation>
     </message>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Weather forecast</source>
-      <translation type="unfinished" />
+      <translation>Wettervorhersage</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
       <source>Weather maps</source>
-      <translation type="unfinished" />
+      <translation>Wetterkarten</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Weather not loaded</source>
-      <translation type="unfinished" />
+      <translation>Wetter nicht geladen</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Weather not loaded or expired</source>
-      <translation type="unfinished" />
+      <translation>Wetter nicht geladen oder abgelaufen</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather request timed out</source>
-      <translation type="unfinished" />
+      <translation>Zeitüberschreitung bei der Wetteranfrage</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service connection closed</source>
-      <translation type="unfinished" />
+      <translation>Verbindung zum Wetterdienst geschlossen</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service connection timed out</source>
-      <translation type="unfinished" />
+      <translation>Zeitüberschreitung bei der Verbindung zum Wetterdienst</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather service could not accept the action</source>
-      <translation type="unfinished" />
+      <translation>Der Wetterdienst konnte die Aktion nicht annehmen</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather service disconnected. Reopen the app to find outdoor times.</source>
-      <translation type="unfinished" />
+      <translation>Wetterdienst getrennt. Öffnen Sie die App erneut, um Zeiten für Aktivitäten im Freien zu finden.</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service identity could not be verified</source>
-      <translation type="unfinished" />
+      <translation>Die Identität des Wetterdienstes konnte nicht verifiziert werden</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather service is unavailable for this action</source>
-      <translation type="unfinished" />
+      <translation>Der Wetterdienst ist für diese Aktion nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service is unavailable. Close and reopen to reconnect.</source>
-      <translation type="unfinished" />
+      <translation>Der Wetterdienst ist nicht verfügbar. Schließen und öffnen Sie die App erneut, um die Verbindung wiederherzustellen.</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service notification channel is unavailable</source>
-      <translation type="unfinished" />
+      <translation>Der Benachrichtigungskanal des Wetterdienstes ist nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather service rejected the request</source>
-      <translation type="unfinished" />
+      <translation>Der Wetterdienst hat die Anfrage abgelehnt</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service response exceeded its limit</source>
-      <translation type="unfinished" />
+      <translation>Die Antwort des Wetterdienstes hat ihr Limit überschritten</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather service returned invalid data</source>
-      <translation type="unfinished" />
+      <translation>Der Wetterdienst hat ungültige Daten zurückgegeben</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>Weather service shutdown timed out</source>
-      <translation type="unfinished" />
+      <translation>Zeitüberschreitung beim Beenden des Wetterdienstes</translation>
     </message>
     <message>
       <location filename="../native/qt/transport.cpp" />
       <source>Weather service stopped. Close and reopen to reconnect.</source>
-      <translation type="unfinished" />
+      <translation>Der Wetterdienst wurde gestoppt. Schließen und öffnen Sie die App erneut, um die Verbindung wiederherzustellen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Weather service unavailable. Close and reopen to reconnect.</source>
-      <translation type="unfinished" />
+      <translation>Wetterdienst nicht verfügbar. Schließen und öffnen Sie die App erneut, um die Verbindung wiederherzustellen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Weather service · %1</source>
-      <translation type="unfinished" />
+      <translation>Wetterdienst · %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Weather source</source>
-      <translation type="unfinished" />
+      <translation>Wetterquelle</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Weather time unavailable</source>
-      <translation type="unfinished" />
+      <translation>Wetterzeit nicht verfügbar</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>Weather times use your desktop timezone.</source>
-      <translation type="unfinished" />
+      <translation>Wetterzeiten verwenden die Zeitzone Ihres Desktops.</translation>
     </message>
     <message>
       <location filename="../internal/app/bar.go" />
@@ -4652,7 +4884,7 @@ Freezing level: %2 above sea level</source>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Wed</source>
-      <translation type="unfinished" />
+      <translation>Mi</translation>
     </message>
     <message>
       <location filename="../ui/qml/Dashboard.js" />
@@ -4667,88 +4899,293 @@ Freezing level: %2 above sea level</source>
     <message>
       <location filename="../ui/qml/Share.js" />
       <source>Wind %1</source>
-      <translation type="unfinished" />
+      <translation>Wind %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/WeatherMapCard.qml" />
       <source>Wind map. %1</source>
-      <translation type="unfinished" />
+      <translation>Windkarte. %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Wind speed units</source>
-      <translation type="unfinished" />
+      <translation>Einheiten der Windgeschwindigkeit</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Window physics</source>
-      <translation type="unfinished" />
+      <translation>Fensterphysik</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>Window visual quality</source>
-      <translation type="unfinished" />
+      <translation>Darstellungsqualität im Fenster</translation>
     </message>
     <message>
       <location filename="../ui/qml/backend/Bridge.qml" />
       <source>You can save up to 20 places. Remove one before adding another.</source>
-      <translation type="unfinished" />
+      <translation>Sie können bis zu 20 Orte speichern. Entfernen Sie einen, bevor Sie einen weiteren hinzufügen.</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>You have 20 saved locations. Remove one to add another.</source>
-      <translation type="unfinished" />
+      <translation>Sie haben 20 gespeicherte Orte. Entfernen Sie einen, um einen weiteren hinzuzufügen.</translation>
     </message>
     <message>
       <location filename="../translations/extra-sources.json" />
       <source>You have the latest supported release</source>
-      <translation type="unfinished" />
+      <translation>Sie haben die neueste unterstützte Version</translation>
     </message>
     <message>
       <location filename="../ui/qml/Changes.js" />
       <source>Your previous forecast is too old to compare.</source>
-      <translation type="unfinished" />
+      <translation>Ihre vorherige Vorhersage ist für einen Vergleich zu alt.</translation>
     </message>
     <message>
-      <location filename="../ui/qml/UpdatePanel.qml" />
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
       <source>You’re up to date. Updates are checked daily.</source>
-      <translation type="unfinished" />
+      <translation>Sie sind auf dem neuesten Stand. Updates werden täglich geprüft.</translation>
     </message>
     <message>
       <location filename="../ui/qml/LocationPicker.qml" />
       <source>ZIP code</source>
-      <translation type="unfinished" />
+      <translation>US-Postleitzahl</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <location filename="../ui/qml/Forecast.js" />
       <source>ZIP code not found. Check the code and try again.</source>
-      <translation type="unfinished" />
+      <translation>US-Postleitzahl nicht gefunden. Prüfen Sie sie und versuchen Sie es erneut.</translation>
     </message>
     <message>
       <location filename="../ui/qml/EffectsDrawer.qml" />
       <source>ZIP code · %1</source>
-      <translation type="unfinished" />
+      <translation>US-Postleitzahl · %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Zoom radar in</source>
-      <translation type="unfinished" />
+      <translation>Radar vergrößern</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>Zoom radar out</source>
-      <translation type="unfinished" />
+      <translation>Radar verkleinern</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>an update is already in progress</source>
+      <translation>ein Update läuft bereits</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>another runtime installer is running</source>
+      <translation>ein anderes Laufzeit-Installationsprogramm läuft</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive entry limit</source>
+      <translation>Limit der Archiveinträge</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive exceeds download bound</source>
+      <translation>das Archiv überschreitet das Download-Limit</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive file exceeds bound</source>
+      <translation>eine Archivdatei überschreitet das Limit</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive links and special files are unsupported</source>
+      <translation>Archivverknüpfungen und spezielle Dateien werden nicht unterstützt</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive metadata differs from release metadata</source>
+      <translation>die Archivmetadaten weichen von den Versionsmetadaten ab</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>archive version differs from selected release</source>
+      <translation>die Archivversion weicht von der ausgewählten Version ab</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>cannot identify system directory ownership</source>
+      <translation>der Eigentümer des Systemverzeichnisses kann nicht ermittelt werden</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>cannot identify the installed plugin revision</source>
+      <translation>die installierte Plugin-Revision kann nicht ermittelt werden</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>check for updates before installing</source>
+      <translation>vor der Installation nach Updates suchen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>could not refresh the Omarchy bar</source>
+      <translation>die Omarchy-Leiste konnte nicht aktualisiert werden</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>daylight</source>
-      <translation type="unfinished" />
+      <translation>Tageslicht</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>development builds must be updated locally</source>
+      <translation>Entwicklungs-Builds müssen lokal aktualisiert werden</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>development checkouts are built locally</source>
+      <translation>Entwicklungs-Checkouts werden lokal gebaut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>development or linked plugins must be updated locally</source>
+      <translation>Entwicklungs-Plugins oder verknüpfte Plugins müssen lokal aktualisiert werden</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>download checksum verification failed</source>
+      <translation>die Prüfung der Download-Prüfsumme ist fehlgeschlagen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>download: HTTP %1</source>
+      <translation>Download: HTTP %1</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>existing managed release differs from the running bundle</source>
+      <translation>die vorhandene verwaltete Version weicht vom laufenden Paket ab</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>existing release differs from verified download</source>
+      <translation>die vorhandene Version weicht vom verifizierten Download ab</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>existing release directory failed verification</source>
+      <translation>die Prüfung des vorhandenen Versionsverzeichnisses ist fehlgeschlagen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>expanded archive exceeds bound</source>
+      <translation>das entpackte Archiv überschreitet das Limit</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>gusts</source>
-      <translation type="unfinished" />
+      <translation>Böen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installation is not owned by this user</source>
+      <translation>die Installation gehört nicht diesem Benutzer</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installation lock is not held</source>
+      <translation>die Installationssperre ist nicht gesetzt</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installed runtime version does not match its selector</source>
+      <translation>die installierte Laufzeitversion stimmt nicht mit ihrer Auswahl überein</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>installer unavailable</source>
+      <translation>Installationsprogramm nicht verfügbar</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid archive root</source>
+      <translation>ungültiges Archiv-Wurzelverzeichnis</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid installation path</source>
+      <translation>ungültiger Installationspfad</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid original runtime path</source>
+      <translation>ungültiger ursprünglicher Laufzeitpfad</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid plugin revision in transaction</source>
+      <translation>ungültige Plugin-Revision in der Transaktion</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid previous runtime version</source>
+      <translation>ungültige vorherige Laufzeitversion</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid published release pin</source>
+      <translation>ungültige veröffentlichte Versionsfestlegung</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid release pin</source>
+      <translation>ungültige Versionsfestlegung</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid release version</source>
+      <translation>ungültige Versionsnummer</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>invalid update journal phase</source>
+      <translation>ungültige Phase im Update-Journal</translation>
     </message>
     <message>
       <location filename="../ui/qml/shell.qml" />
@@ -4756,49 +5193,296 @@ Freezing level: %2 above sea level</source>
       <translation>gerade eben</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>launcher changed during update</source>
+      <translation>der Starter wurde während des Updates geändert</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>launcher was edited during update</source>
+      <translation>der Starter wurde während des Updates bearbeitet</translation>
+    </message>
+    <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>less than a minute ago</source>
-      <translation type="unfinished" />
+      <translation>vor weniger als einer Minute</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>no newer supported release is available</source>
+      <translation>keine neuere unterstützte Version verfügbar</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>not a stable release</source>
+      <translation>keine stabile Version</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>plugin changed while preparing the update</source>
+      <translation>das Plugin wurde während der Update-Vorbereitung geändert</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>plugin update cannot fast-forward; local history was preserved</source>
+      <translation>das Plugin-Update kann nicht per Fast-Forward erfolgen; der lokale Verlauf wurde erhalten</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>precipitation amount</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagsmenge</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>precipitation chance</source>
-      <translation type="unfinished" />
+      <translation>Niederschlagswahrscheinlichkeit</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release checksum differs from published pin</source>
+      <translation>die Prüfsumme der Version weicht von der veröffentlichten Festlegung ab</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release metadata differs from published pin</source>
+      <translation>die Versionsmetadaten weichen von der veröffentlichten Festlegung ab</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release pin changed during preparation; check for updates again</source>
+      <translation>die Versionsfestlegung wurde während der Vorbereitung geändert; suchen Sie erneut nach Updates</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release publication is not consistent yet</source>
+      <translation>die Veröffentlichung der Version ist noch nicht konsistent</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release request: HTTP %1</source>
+      <translation>Versionsanfrage: HTTP %1</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release response exceeds bound</source>
+      <translation>die Versionsantwort überschreitet das Limit</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release version exceeds bound</source>
+      <translation>die Versionsnummer überschreitet das Limit</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>release was built from modified sources</source>
+      <translation>die Version wurde aus geänderten Quellen gebaut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>reopen the installed version before updating</source>
+      <translation>öffnen Sie die installierte Version vor dem Update erneut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>running runtime version does not match its manifest</source>
+      <translation>die laufende Laufzeitversion stimmt nicht mit ihrem Manifest überein</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>runtime selection changed while preparing the update</source>
+      <translation>die Laufzeitauswahl wurde während der Update-Vorbereitung geändert</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>runtime verification: %1</source>
+      <translation>Laufzeitprüfung: %1</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>temperature</source>
-      <translation type="unfinished" />
+      <translation>Temperatur</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the new weather app did not start successfully</source>
+      <translation>die neue Wetter-App wurde nicht erfolgreich gestartet</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin checkout is missing; reinstall it before updating</source>
+      <translation>der Plugin-Checkout fehlt; installieren Sie ihn vor dem Update erneut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin checkout is on a custom branch; update it locally</source>
+      <translation>der Plugin-Checkout verwendet einen eigenen Branch; aktualisieren Sie ihn lokal</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin has local changes; no files were changed</source>
+      <translation>das Plugin enthält lokale Änderungen; keine Dateien wurden geändert</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the plugin's origin is not the official repository</source>
+      <translation>der origin des Plugins ist nicht das offizielle Repository</translation>
     </message>
     <message>
       <location filename="../ui/qml/ForecastDetails.qml" />
       <source>the preceding hour</source>
-      <translation type="unfinished" />
+      <translation>die vorhergehende Stunde</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the previous update was interrupted</source>
+      <translation>das vorherige Update wurde unterbrochen</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the previous update was interrupted; try the update again</source>
+      <translation>das vorherige Update wurde unterbrochen; versuchen Sie es erneut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>the runtime selector changed outside this update; reopen your selected version</source>
+      <translation>die Laufzeitauswahl wurde außerhalb dieses Updates geändert; öffnen Sie die ausgewählte Version erneut</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>this installation does not use the managed release launcher</source>
+      <translation>diese Installation verwendet nicht den verwalteten Versionsstarter</translation>
     </message>
     <message>
       <location filename="../ui/qml/AlertsPanel.qml" />
       <source>time unavailable</source>
-      <translation type="unfinished" />
+      <translation>Zeit nicht verfügbar</translation>
     </message>
     <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>transaction does not belong to this installation</source>
+      <translation>die Transaktion gehört nicht zu dieser Installation</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unexpected weather service owns the socket</source>
+      <translation>ein unerwarteter Wetterdienst besitzt den Socket</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/WeatherWidget.qml" />
       <location filename="../translations/extra-sources.json" />
       <source>unknown</source>
-      <translation type="unfinished" />
+      <translation>unbekannt</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unrecognized runtime selection</source>
+      <translation>unbekannte Laufzeitauswahl</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe download redirect</source>
+      <translation>unsichere Download-Weiterleitung</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe installation directory</source>
+      <translation>unsicheres Installationsverzeichnis</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe or duplicate archive path</source>
+      <translation>unsicherer oder doppelter Archivpfad</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsafe redirect</source>
+      <translation>unsichere Weiterleitung</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsupported launcher path</source>
+      <translation>nicht unterstützter Starterpfad</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>unsupported plugin checkout</source>
+      <translation>nicht unterstützter Plugin-Checkout</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>update notice does not match the installed update</source>
+      <translation>die Update-Mitteilung stimmt nicht mit dem installierten Update überein</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>updated plugin failed Omarchy validation</source>
+      <translation>das aktualisierte Plugin hat die Omarchy-Prüfung nicht bestanden</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>weather effects did not stop cleanly</source>
+      <translation>die Wettereffekte wurden nicht ordnungsgemäß gestoppt</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>weather service did not exit</source>
+      <translation>der Wetterdienst wurde nicht beendet</translation>
     </message>
     <message>
       <location filename="../ui/qml/Outdoor.js" />
       <source>wind</source>
-      <translation type="unfinished" />
+      <translation>Wind</translation>
+    </message>
+    <message>
+      <location filename="../quickshell/a-weather-app.weather/Translations.js" />
+      <location filename="../ui/qml/Forecast.js" />
+      <source>wrong runtime answered after restart</source>
+      <translation>nach dem Neustart hat die falsche Laufzeit geantwortet</translation>
     </message>
     <message>
       <location filename="../ui/qml/RadarMap.qml" />
       <source>© OpenStreetMap contributors (ODbL)</source>
-      <translation type="unfinished" />
+      <translation>© OpenStreetMap contributors (ODbL)</translation>
     </message>
   </context>
 </TS>

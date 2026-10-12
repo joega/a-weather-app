@@ -17,8 +17,8 @@ Popup {
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     property var snapshot: null
     property bool includePlace: true
-    readonly property var preview: (I18n.revision, Share.summary(snapshot, includePlace))
-    readonly property string plainText: (I18n.revision, Share.text(preview))
+    readonly property var preview: I18n.observe(Share.summary(snapshot, includePlace))
+    readonly property string plainText: I18n.observe(Share.text(preview))
     property var frozenPreview: null
     property var pendingCapture: null
     property string notice: ""

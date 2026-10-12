@@ -32,7 +32,7 @@ const Snapshot = "2026/09/26"
 const manifestPath = "packaging/runtime.json"
 
 var artifacts = []string{"a-weather-app", "native/qt/a-weather-app-qt", "ui/shaders/atmosphere.frag.qsb", "native/frame-alignment/a-weather-app-frame-alignment.so", "native/atmosphere/a-weather-app-atmosphere"}
-var omit = words(".git .agents .codex .idea .vscode .build .test-build .frontend-test-build .service-test-build build dist artifacts node_modules")
+var omit = words(".git .agents .codex .idea .vscode .build .test-build .frontend-test-build .service-test-build .i18n-test-build build dist artifacts node_modules")
 var suffixes = words(".go .mod .sum .pro .qrc .ts .qml .js .c .cpp .h .hpp .gdshader .frag .sh .md .txt .json .toml .yml .yaml .svg .desktop .png")
 var sourceNames = words("Makefile qmldir a-weather-app LICENSE .gitignore")
 var pythonSuffixes = words(".py .pyc .pyo .pyi .pyw")

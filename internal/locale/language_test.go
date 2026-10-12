@@ -3,7 +3,7 @@ package locale
 import "testing"
 
 func TestMatching(t *testing.T) {
-	for tag, want := range map[string]string{"hi-IN": "hi", "zh-Latn-TW": "", "en-IN": "en", "zh-Hant": "zh-Hant", "zh_TW.UTF-8": "zh-Hant", "zh-HK": "zh-Hant", "zh-MO": "zh-Hant", "zh-Hant-CN": "zh-Hant", "zh-Hans-TW": "zh-Hans", "zh-CN": "zh-Hans", "ru-RU": "uk", "ar-SA": "", "pl_PL.UTF-8": "pl"} {
+	for tag, want := range map[string]string{"hi-IN": "hi", "zh-Hant-u-nu-latn": "zh-Hant", "zh-TW-u-nu-latn": "zh-Hant", "zh-u-nu-latn": "zh-Hans", "zh_TW@stroke": "zh-Hant", "zh-TW-x-Hans": "zh-Hant", "zh-Latn-TW": "", "en-IN": "en", "zh-Hant": "zh-Hant", "zh_TW.UTF-8": "zh-Hant", "zh-HK": "zh-Hant", "zh-MO": "zh-Hant", "zh-Hant-CN": "zh-Hant", "zh-Hans-TW": "zh-Hans", "zh-CN": "zh-Hans", "ru-RU": "uk", "ar-SA": "", "pl_PL.UTF-8": "pl"} {
 		if got := Match(tag); got != want {
 			t.Errorf("%s: %s want %s", tag, got, want)
 		}

@@ -23,7 +23,7 @@ Popup {
     property string units: "F"
     property int selectedIndex: 0
     readonly property var day: result ? result.days.find(d => d.date === result.date) || null : null
-    readonly property var chartHours: result ? (I18n.revision, Precipitation.chartHours(result.hours)) : []
+    readonly property var chartHours: result ? I18n.observe(Precipitation.chartHours(result.hours)) : []
     readonly property var hour: result && selectedIndex < chartHours.length ? result.hours.find(h => Date.parse(h.start) === Date.parse(chartHours[selectedIndex].time)) || null : null
     signal requested(string date)
     function revealFocus(item) {
@@ -142,7 +142,7 @@ Popup {
                 spacing: 16
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: root.day ? (I18n.revision, Precipitation.indicated(root.day.kind)) : ""
+                    text: root.day ? I18n.observe(Precipitation.indicated(root.day.kind)) : ""
                     font.pixelSize: Tokens.fontSize(20)
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
@@ -183,14 +183,14 @@ Popup {
                             PlainLabel {
                                 objectName: "precipitationDaily_" + amount.modelData.key
                                 Layout.fillWidth: true
-                                text: (I18n.revision, Precipitation.accumulation(root.day, amount.modelData.key, root.units))
+                                text: I18n.observe(Precipitation.accumulation(root.day, amount.modelData.key, root.units))
                                 font.pixelSize: Tokens.fontSize(26)
                                 wrapMode: Text.Wrap
                                 elide: Text.ElideNone
                             }
                             PlainLabel {
                                 Layout.fillWidth: true
-                                text: (I18n.revision, Precipitation.coverage(root.day, amount.modelData.key))
+                                text: I18n.observe(Precipitation.coverage(root.day, amount.modelData.key))
                                 color: Tokens.secondary
                                 font.pixelSize: Tokens.fontSize(12)
                                 wrapMode: Text.Wrap
@@ -210,7 +210,7 @@ Popup {
                 PlainLabel {
                     objectName: "precipitationWetHours"
                     Layout.fillWidth: true
-                    text: !root.day ? "" : I18n.t("Highest available hourly chance: %1\n%2. This is not continuous rain or snow duration.").arg((I18n.revision, Forecast.percent(root.day.chance_max))).arg((root.day.wet_hours_subtotal === null ? I18n.t("Modeled wet hours unavailable") : I18n.t("%n modeled hour(s) with at least 0.1 mm", root.day.wet_hours_subtotal) + (root.units === "F" ? I18n.t(" (0.004 in)") : "") + (root.day.wet_hours === null ? I18n.t(" · Partial coverage") : "")))
+                    text: !root.day ? "" : I18n.t("Highest available hourly chance: %1\n%2. This is not continuous rain or snow duration.").arg(I18n.observe(Forecast.percent(root.day.chance_max))).arg((root.day.wet_hours_subtotal === null ? I18n.t("Modeled wet hours unavailable") : I18n.t("%n modeled hour(s) with at least 0.1 mm", root.day.wet_hours_subtotal) + (root.units === "F" ? I18n.t(" (0.004 in)") : "") + (root.day.wet_hours === null ? I18n.t(" · Partial coverage") : "")))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
@@ -256,13 +256,13 @@ Popup {
                 PlainLabel {
                     objectName: "precipitationHourAmounts"
                     Layout.fillWidth: true
-                    text: root.hour ? I18n.t("Liquid %1 · Rain %2 · New snow %3\nChance %4 · %5").arg((I18n.revision, Precipitation.liquid(root.hour.total_mm, root.units))).arg((I18n.revision, Precipitation.liquid(root.hour.rain_mm, root.units))).arg((I18n.revision, Precipitation.snow(root.hour.snow_cm, root.units))).arg((I18n.revision, Forecast.percent(root.hour.chance))).arg((I18n.revision, Precipitation.indicated(root.hour.kind))) : I18n.t("No amount is available for this interval.")
+                    text: root.hour ? I18n.t("Liquid %1 · Rain %2 · New snow %3\nChance %4 · %5").arg(I18n.observe(Precipitation.liquid(root.hour.total_mm, root.units))).arg(I18n.observe(Precipitation.liquid(root.hour.rain_mm, root.units))).arg(I18n.observe(Precipitation.snow(root.hour.snow_cm, root.units))).arg(I18n.observe(Forecast.percent(root.hour.chance))).arg(I18n.observe(Precipitation.indicated(root.hour.kind))) : I18n.t("No amount is available for this interval.")
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
                 PlainLabel {
                     Layout.fillWidth: true
-                    text: root.hour ? I18n.t("At the interval's end: ground snow %1 · Freezing level %2 above sea level.").arg((I18n.revision, Precipitation.snow(root.hour.depth_m === null ? null : root.hour.depth_m * 100, root.units))).arg((I18n.revision, Precipitation.height(root.hour.freezing_m, root.units))) : ""
+                    text: root.hour ? I18n.t("At the interval's end: ground snow %1 · Freezing level %2 above sea level.").arg(I18n.observe(Precipitation.snow(root.hour.depth_m === null ? null : root.hour.depth_m * 100, root.units))).arg(I18n.observe(Precipitation.height(root.hour.freezing_m, root.units))) : ""
                     color: Tokens.secondary
                     font.pixelSize: Tokens.fontSize(13)
                     wrapMode: Text.Wrap
@@ -271,7 +271,7 @@ Popup {
                 PlainLabel {
                     objectName: "precipitationSnowDepth"
                     Layout.fillWidth: true
-                    text: I18n.t("Snow on the ground: %1\nFreezing level: %2 above sea level").arg((I18n.revision, Precipitation.range(root.day, "depth", root.units))).arg((I18n.revision, Precipitation.range(root.day, "freezing", root.units)))
+                    text: I18n.t("Snow on the ground: %1\nFreezing level: %2 above sea level").arg(I18n.observe(Precipitation.range(root.day, "depth", root.units))).arg(I18n.observe(Precipitation.range(root.day, "freezing", root.units)))
                     wrapMode: Text.Wrap
                     elide: Text.ElideNone
                 }
