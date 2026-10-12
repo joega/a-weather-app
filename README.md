@@ -41,14 +41,17 @@ alerts reflect those captures, not current weather.
 | --- | --- |
 | [![San Diego observed radar and playback timeline](media/radar-san-diego.png)](media/radar-san-diego.png) | [![Mumbai air-quality information](media/air-quality-mumbai.png)](media/air-quality-mumbai.png) |
 
-**Shanghai · Simplified Chinese and language settings**
-
-[![Shanghai forecast in Simplified Chinese with Settings open and the language menu expanded](media/language-settings-shanghai.png)](media/language-settings-shanghai.png)
-
-- Available in **14 languages**: English, Español, Français, Deutsch, Português,
-  日本語, 简体中文, 繁體中文, Українська, हिन्दी, Italiano, 한국어, Bahasa Indonesia
-  and Polski. Follows your system language automatically, or switch instantly in
-  **Settings → Application → Language**. Translations are included for offline use.
+<table width="100%">
+  <thead>
+    <tr><th width="50%">Shanghai · language settings</th><th width="50%"></th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td width="50%"><a href="media/language-settings-shanghai.png"><img src="media/language-settings-shanghai.png" alt="Shanghai forecast in Simplified Chinese with Settings open and the language menu expanded" width="100%"></a></td>
+      <td width="50%"></td>
+    </tr>
+  </tbody>
+</table>
 
 Select an image for full size. Use the **Locations** sidebar button in the toolbar,
 or **Ctrl+L**, to switch places. Home is the startup location and
@@ -89,6 +92,11 @@ date changes and fresh reopenings, with an optional cache for offline use.
 Closing or hiding the window stops its requests and removes the detail view.
 The source is Open-Meteo best match; retrieval time is shown separately from the
 ordinary forecast. Minute-by-minute rain timing is not provided by this view.
+
+Available in **14 languages**: English, Español, Français, Deutsch, Português,
+日本語, 简体中文, 繁體中文, Українська, हिन्दी, Italiano, 한국어, Bahasa Indonesia
+and Polski. Follows your system language automatically, or switch instantly in
+**Settings → Application → Language**. Translations are included for offline use.
 
 ## Install on Omarchy
 
