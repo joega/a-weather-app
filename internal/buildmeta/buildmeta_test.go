@@ -19,7 +19,7 @@ func fixture(t *testing.T) (string, string, Metadata) {
 	root, source := t.TempDir(), t.TempDir()
 	os.Chmod(root, 0700)
 	os.Chmod(source, 0700)
-	names := append(append([]string{}, artifacts...), "LICENSE", "THIRD_PARTY_NOTICES.md", "manifest.json", "README.md", "packaging/a-weather-app.desktop", "packaging/icons/a-weather-app.svg", "packaging/go-README.md", "quickshell/a-weather-app.weather/WeatherWidget.qml", "quickshell/a-weather-app.weather/Translations.js", "licenses/hyprland-dependencies.txt", "licenses/go.txt")
+	names := append(append([]string{}, artifacts...), "LICENSE", "THIRD_PARTY_NOTICES.md", "manifest.json", "README.md", "packaging/a-weather-app.desktop", "packaging/icons/a-weather-app.svg", "packaging/go-README.md", "quickshell/a-weather-app.weather/WeatherWidget.qml", "licenses/hyprland-dependencies.txt", "licenses/go.txt")
 	for _, name := range names {
 		p := filepath.Join(root, name)
 		if e := os.MkdirAll(filepath.Dir(p), 0755); e != nil {
@@ -61,7 +61,7 @@ func TestCreateInventoryAndDeterminism(t *testing.T) {
 	if len(sources) != 7 || sources["a-weather-app"] == nil {
 		t.Fatal("private/generated sources leaked", sources)
 	}
-	if len(value["artifacts"].(map[string]any)) != 5 || len(value["runtime_files"].(map[string]any)) != 11 {
+	if len(value["artifacts"].(map[string]any)) != 5 || len(value["runtime_files"].(map[string]any)) != 10 {
 		t.Fatal("runtime inventory does not match verifier")
 	}
 	if e := CreateWithMetadata(root, source, metadata); e != nil {

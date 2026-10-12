@@ -46,7 +46,19 @@ func TestNormalLaunchRecoversInterruptedUpdate(t *testing.T) {
 	testDesktopUpdate(t, false, "interrupted")
 }
 
+func TestLegacy0702UpdaterRestartsAndRollsBack(t *testing.T) {
+	for _, failure := range []string{"", "startup"} {
+		t.Run("failure="+failure, func(t *testing.T) {
+			testDesktopUpdateFromSource(t, false, failure, true)
+		})
+	}
+}
+
 func testDesktopUpdate(t *testing.T, standalone bool, failure string) {
+	testDesktopUpdateFromSource(t, standalone, failure, false)
+}
+
+func testDesktopUpdateFromSource(t *testing.T, standalone bool, failure string, legacy bool) {
 	qt, err := os.ReadFile(filepath.Join("..", "..", "native", "qt", "a-weather-app-qt"))
 	if err != nil {
 		t.Skip("build the native Qt frontend with make qt for the isolated restart test")
@@ -87,11 +99,11 @@ func testDesktopUpdate(t *testing.T, standalone bool, failure string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	build := func(version string) []byte {
+	build := func(version, sourceRoot string) []byte {
 		t.Helper()
 		file := filepath.Join(root, "app-"+version)
 		cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-ldflags", "-s -w -X main.buildMode=package -X main.appVersion="+version, "-o", file, "./cmd/a-weather-app")
-		cmd.Dir = module
+		cmd.Dir = sourceRoot
 		if output, e := cmd.CombinedOutput(); e != nil {
 			t.Fatalf("build fixture: %v\n%s", e, output)
 		}
@@ -101,8 +113,26 @@ func testDesktopUpdate(t *testing.T, standalone bool, failure string) {
 		}
 		return raw
 	}
-	oldBinary := build("0.51.5")
-	newBinary := build("0.51.9")
+	oldSource := module
+	if legacy {
+		oldSource = filepath.Join(root, "legacy-source")
+		if err = os.Mkdir(oldSource, 0700); err != nil {
+			t.Fatal(err)
+		}
+		archive := exec.Command("git", "archive", "v0.70.2", "go.mod", "cmd", "internal")
+		archive.Dir = module
+		raw, err := archive.Output()
+		if err != nil {
+			t.Fatal("read shipped updater source", err)
+		}
+		extract := exec.Command("tar", "-x", "-C", oldSource)
+		extract.Stdin = bytes.NewReader(raw)
+		if output, err := extract.CombinedOutput(); err != nil {
+			t.Fatal(err, string(output))
+		}
+	}
+	oldBinary := build("0.51.5", oldSource)
+	newBinary := build("0.51.9", module)
 	bundleFixture(t, oldRoot, "0.51.5", map[string][]byte{"a-weather-app": oldBinary, "native/qt/a-weather-app-qt": qt})
 	if !standalone {
 		if err = os.Symlink("releases/v0.51.5", filepath.Join(data, "current")); err != nil {
