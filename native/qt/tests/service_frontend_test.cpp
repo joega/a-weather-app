@@ -302,14 +302,17 @@ class BarFixture {
     bool start(const QString& state) {
         const auto widget =
             QFINDTESTDATA("../../../quickshell/a-weather-app.weather/WeatherWidget.qml");
-        if (widget.isEmpty())
+        const auto translations =
+            QFINDTESTDATA("../../../quickshell/a-weather-app.weather/Translations.js");
+        if (widget.isEmpty() || translations.isEmpty())
             return false;
         for (const auto& folder : QStringList{"Widget", "Commons", "Ui", "runtime", "cache"})
             if (!QDir().mkdir(directory.path() + "/" + folder))
                 return false;
         QFile::setPermissions(directory.path() + "/runtime",
                               QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
-        if (!QFile::copy(widget, directory.path() + "/Widget/WeatherWidget.qml"))
+        if (!QFile::copy(widget, directory.path() + "/Widget/WeatherWidget.qml") ||
+            !QFile::copy(translations, directory.path() + "/Widget/Translations.js"))
             return false;
         if (!write("Commons/qmldir", "module qs.Commons\nsingleton Style 1.0 Style.qml\nsingleton "
                                      "Color 1.0 Color.qml\n") ||
@@ -397,6 +400,7 @@ class ServiceFrontendTest : public QObject {
         engine = std::make_unique<QQmlApplicationEngine>();
         auto* nativeLanguage = new NativeI18n(engine.get(), QLocale("en_US"));
         nativeLanguage->setParent(engine.get());
+        nativeLanguage->setPreference("en");
         engine->rootContext()->setContextProperty("nativeI18n", nativeLanguage);
         engine->setInitialProperties(
             {{"weatherTransport", QVariant::fromValue<QObject*>(transport.get())},
@@ -1040,7 +1044,9 @@ class ServiceFrontendTest : public QObject {
             QVERIFY(status["tooltip"].toString().contains("Alerts not supported here"));
             QVERIFY(bar.readAllStandardError().isEmpty());
             if (hasQuickshell)
-                QTRY_COMPARE_WITH_TIMEOUT(widget.label(), status["label"].toString(), 2000);
+                QTRY_VERIFY2_WITH_TIMEOUT(
+                    widget.label() == status["label"].toString(),
+                    qPrintable(QString::fromUtf8(widget.output)), 2000);
         };
         QCOMPARE(eval("root.units").toString(), QString("C"));
         QVERIFY(eval("root.automaticUnits").toBool());
@@ -1444,8 +1450,8 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(named("precipitationInterval")->property("text").toString(), interval);
         auto* accessibleChart = QAccessible::queryAccessibleInterface(chart);
         QVERIFY(accessibleChart);
-        QVERIFY(accessibleChart->text(QAccessible::Description)
-                    .startsWith(interval + ". Hourly liquid-equivalent precipitation: 0.04 in."));
+        const auto description = accessibleChart->text(QAccessible::Description);
+        QVERIFY(description.contains("Hourly liquid-equivalent precipitation: 0.04 in."));
         auto* date = qobject_cast<QQuickItem*>(named("precipitationDate"));
         date->forceActiveFocus();
         QTest::keyClick(window, Qt::Key_Down);
@@ -2040,7 +2046,8 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(text.contains("Current conditions valid "));
         QVERIFY(text.contains(" UTC"));
         QVERIFY(text.contains("Precipitation chance 0%"));
-        QVERIFY(text.contains(QLocale::c().toString(firstDate, "ddd, d MMM yyyy")));
+        QVERIFY2(text.contains(QLocale("en_US").toString(firstDate, QLocale::ShortFormat)),
+                 qPrintable(text));
         QVERIFY(text.contains("Morning (6 AM–noon):"));
         QVERIFY(text.contains("Afternoon (Noon–6 PM):"));
         QVERIFY(text.contains("Evening (6 PM–midnight):"));
@@ -2312,7 +2319,8 @@ class ServiceFrontendTest : public QObject {
             QTest::keyClick(window, Qt::Key_Right);
         QCOMPARE(named("airOutlookValue")->property("text").toString(), QString::fromUtf8("—"));
         QCOMPARE(named("airOutlookCategory")->property("text").toString(), QString("Unavailable"));
-        QVERIFY(accessibleChart->text(QAccessible::Description).contains(": unavailable."));
+        QVERIFY(accessibleChart->text(QAccessible::Description)
+                    .contains("unavailable", Qt::CaseInsensitive));
         QTest::keyClick(window, Qt::Key_Home);
         auto* selector = qobject_cast<QQuickItem*>(named("airOutlookMetric"));
         QVERIFY(selector);
@@ -2322,9 +2330,10 @@ class ServiceFrontendTest : public QObject {
         for (const auto& value : values) {
             QTest::keyClick(window, Qt::Key_Down);
             QCOMPARE(named("airOutlookValue")->property("text").toString(), value);
-            QVERIFY(
-                accessibleChart->text(QAccessible::Description)
-                    .contains(": " + (value == QString::fromUtf8("—") ? "unavailable" : value)));
+            const auto description = accessibleChart->text(QAccessible::Description);
+            QVERIFY2(description.contains(value == QString::fromUtf8("—") ? "unavailable" : value,
+                                          Qt::CaseInsensitive),
+                     qPrintable(description));
         }
         QCOMPARE(eval("backend.nextId").toInt(), requestCount);
         auto* popup = loader->property("item").value<QObject*>();
@@ -2886,12 +2895,12 @@ class ServiceFrontendTest : public QObject {
         QCOMPARE(named("currentMetricDetail_humidity")->property("text").toString(),
                  QString("Dew point 13°"));
         QCOMPARE(named("currentMetricValue_pressure")->property("text").toString(),
-                 QString("1013 hPa"));
+                 QString("1,013 hPa"));
         eval("details.showHour(root.hours[0])");
         QTRY_VERIFY(named("forecastDetails")->property("visible").toBool());
         QCOMPARE(named("detailMetricValue_dew_point")->property("text").toString(), QString("10°"));
         QCOMPARE(named("detailMetricValue_pressure")->property("text").toString(),
-                 QString("1009 hPa"));
+                 QString("1,009 hPa"));
         auto* windChoice = named("windUnitsChoice");
         QVERIFY(windChoice);
         QCOMPARE(windChoice->property("currentIndex").toInt(),

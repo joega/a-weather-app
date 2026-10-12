@@ -31,7 +31,7 @@ test-e2e:
 	test -x "$(GO_APP)"
 	qmake6 tests/service-frontend-test.pro -o .service-test.mk
 	$(MAKE) -f .service-test.mk
-	env GO_APP="$(GO_APP)" QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software ./service-frontend-test
+	env LANGUAGE=en GO_APP="$(GO_APP)" QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic QT_QUICK_CONTROLS_STYLE=Basic QT_IM_MODULE=none QT_QUICK_BACKEND=software ./service-frontend-test
 test-wayland-activation:
 	mkdir -p .wayland-test-build
 	wayland-scanner server-header "$$(pkg-config --variable=pkgdatadir wayland-protocols)/staging/xdg-activation/xdg-activation-v1.xml" .wayland-test-build/xdg-activation-server.h
