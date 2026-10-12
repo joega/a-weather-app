@@ -22,7 +22,7 @@ export WEATHER_BUILD_JOBS=${WEATHER_BUILD_JOBS:-2}
 [[ $WEATHER_BUILD_JOBS =~ ^[12]$ ]] || { printf 'Build jobs must be 1 or 2.\n' >&2; exit 2; }
 # Configuration below belongs exclusively to this disposable container.
 printf 'Server = https://archive.archlinux.org/repos/2026/09/26/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
-run_phase dependency-setup pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl
+run_phase dependency-setup pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl noto-fonts noto-fonts-cjk
 # Keep the reviewed native snapshot while fixing October's Go advisories. Both
 # the archive checksum and Arch signature are required; installation stays in
 # this disposable container, and pacman records the actual compiler version.
