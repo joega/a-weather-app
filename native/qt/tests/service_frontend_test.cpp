@@ -1044,9 +1044,8 @@ class ServiceFrontendTest : public QObject {
             QVERIFY(status["tooltip"].toString().contains("Alerts not supported here"));
             QVERIFY(bar.readAllStandardError().isEmpty());
             if (hasQuickshell)
-                QTRY_VERIFY2_WITH_TIMEOUT(
-                    widget.label() == status["label"].toString(),
-                    qPrintable(QString::fromUtf8(widget.output)), 2000);
+                QTRY_VERIFY2_WITH_TIMEOUT(widget.label() == status["label"].toString(),
+                                          qPrintable(QString::fromUtf8(widget.output)), 2000);
         };
         QCOMPARE(eval("root.units").toString(), QString("C"));
         QVERIFY(eval("root.automaticUnits").toBool());
