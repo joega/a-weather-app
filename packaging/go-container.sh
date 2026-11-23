@@ -22,7 +22,22 @@ export WEATHER_BUILD_JOBS=${WEATHER_BUILD_JOBS:-2}
 [[ $WEATHER_BUILD_JOBS =~ ^[12]$ ]] || { printf 'Build jobs must be 1 or 2.\n' >&2; exit 2; }
 # Configuration below belongs exclusively to this disposable container.
 printf 'Server = https://archive.archlinux.org/repos/2026/10/22/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
-run_phase dependency-setup pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl noto-fonts noto-fonts-cjk
+install_dependencies() {
+  local attempt
+  # Archive downloads can stall briefly. Retry the verified transaction using
+  # pacman's retained download cache, with a deadline on each attempt.
+  for attempt in 1 2 3; do
+    if timeout --kill-after=10s 600 pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl noto-fonts noto-fonts-cjk; then
+      return 0
+    fi
+    if (( attempt < 3 )); then
+      printf 'Dependency download/transaction failed; retrying (%s/3).\n' "$attempt" >&2
+      sleep "$((attempt * 5))"
+    fi
+  done
+  return 1
+}
+run_phase dependency-setup install_dependencies
 # Match Omarchy 4.5's native ABI, rather than a newer Arch compositor release.
 [[ $(pacman -Q hyprland) == 'hyprland 0.56.2-4' ]]
 [[ $(pacman -Q qt6-base) == 'qt6-base 6.12.0-3' ]]
