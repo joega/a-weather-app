@@ -16,7 +16,7 @@
     "displayName": "A Weather App",
     "description": "Saved-location conditions; click to toggle the native forecast window",
     "category": "Info",
-    "defaultSection": "center",
+    "defaultSection": "centerEnd",
     "allowMultiple": false
   }
 }
