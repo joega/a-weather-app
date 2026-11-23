@@ -131,8 +131,8 @@ Popup {
                     }
                 }
             }
-            onCurrentIndexChanged: if (scroll.contentItem)
-                scroll.contentItem.contentY = 0
+            onCurrentIndexChanged: if (scroll.contentItem instanceof Flickable)
+                (scroll.contentItem as Flickable).contentY = 0
         }
         ScrollView {
             id: scroll

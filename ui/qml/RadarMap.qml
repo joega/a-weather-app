@@ -120,10 +120,14 @@ GlassPanel {
             desiredTime = frames[frames.length - 1].time;
         loadDesired();
     }
+    // Preserve the custom frame property when selecting between Image instances.
+    function imageSlot(index: int): var {
+        return index === 0 ? first : second;
+    }
     function loadDesired() {
         if (!active || desiredID === "" || displayedFrame && displayedFrame.id === desiredID)
             return;
-        const back = frontSlot === 0 ? second : first;
+        const back = imageSlot(1 - frontSlot);
         if (back.status === Image.Loading)
             return; // At most one replacement request; scrubbing coalesces to the last choice.
         const frame = frames.find(f => f.id === desiredID);
@@ -153,7 +157,7 @@ GlassPanel {
             frameSync.restart();
             return;
         }
-        const old = which === 0 ? second : first;
+        const old = imageSlot(1 - which);
         displayedFrame = slot.frame;
         frontSlot = which;
         old.source = "";

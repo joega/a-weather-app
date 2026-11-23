@@ -2,7 +2,7 @@ import "Translations.js" as Translations
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import qs.Commons
+import qs.Commons as Commons
 import qs.Ui as OmarchyUi
 
 OmarchyUi.BarWidget {
@@ -10,7 +10,8 @@ OmarchyUi.BarWidget {
     moduleName: "a-weather-app.weather"
     // Omarchy injects a host with colors/font/tooltip methods; its base API is QtObject.
     readonly property var barHost: root.bar
-    readonly property var fontTokens: Style.font
+    readonly property var fontTokens: Commons.Style.font
+    readonly property var popupColors: Commons.Color.popups
     // Resolve from this entry point, never the shared shell's working directory.
     // Explicit settings remain supported for earlier development installations.
     readonly property string projectPath: safePath(setting("projectPath", sourceRoot()))
@@ -41,7 +42,7 @@ OmarchyUi.BarWidget {
     property string updateError: ""
     readonly property bool updateBusy: updateInstaller.running || waitingForUpdater || ["downloading", "verifying", "restarting"].indexOf(update.state) >= 0
     readonly property bool updateNotice: ["available", "failed", "rolled_back", "downloading", "verifying", "restarting"].indexOf(update.state) >= 0
-    implicitWidth: textItem.implicitWidth + Style.space(14)
+    implicitWidth: textItem.implicitWidth + Commons.Style.space(14)
     implicitHeight: barSize
     activeFocusOnTab: configured
     Accessible.role: Accessible.Button
@@ -427,17 +428,17 @@ OmarchyUi.BarWidget {
         id: updatePopup
         anchorItem: root
         bar: root.bar
-        contentWidth: fittedContentWidth(Style.space(400))
+        contentWidth: fittedContentWidth(Commons.Style.space(400))
         contentHeight: fittedContentHeight(updateColumn.implicitHeight)
         Column {
             id: updateColumn
             width: parent.width
-            spacing: Style.space(10)
+            spacing: Commons.Style.space(10)
             Text {
                 width: parent.width
                 text: root.tr("A Weather App updates")
                 textFormat: Text.PlainText
-                color: Color.foreground
+                color: root.popupColors.text
                 font.pixelSize: root.fontTokens.body
                 font.bold: true
             }
@@ -446,7 +447,7 @@ OmarchyUi.BarWidget {
                 text: root.tr("Installed %1", [root.update.installed || root.tr("unknown")]) + (root.update.available ? " · " + root.tr("Available %1", [root.update.available]) : "")
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
-                color: Color.foreground
+                color: root.popupColors.text
                 font.pixelSize: root.fontTokens.body
             }
             Text {
@@ -454,7 +455,7 @@ OmarchyUi.BarWidget {
                 text: root.tr(root.updateError) || (updateInstaller.running ? root.tr("Downloading and verifying the update…") : root.waitingForUpdater ? root.tr("Starting the update…") : updateChecker.running ? root.tr("Checking for updates…") : Translations.updateMessage(root.language, root.update))
                 textFormat: Text.PlainText
                 wrapMode: Text.Wrap
-                color: Color.foreground
+                color: root.popupColors.text
                 font.pixelSize: root.fontTokens.body
             }
             OmarchyUi.Button {

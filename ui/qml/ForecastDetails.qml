@@ -64,8 +64,8 @@ Popup {
     }
     onOpened: {
         closeButton.forceActiveFocus();
-        if (scroll.contentItem)
-            scroll.contentItem.contentY = 0;
+        if (scroll.contentItem instanceof Flickable)
+            (scroll.contentItem as Flickable).contentY = 0;
     }
     background: Rectangle {
         color: "#2c455a"
