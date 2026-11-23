@@ -25,9 +25,10 @@ printf 'Server = https://archive.archlinux.org/repos/2026/10/22/$repo/os/$arch\n
 install_dependencies() {
   local attempt
   # Archive downloads can stall briefly. Retry the verified transaction using
-  # pacman's retained download cache, with a deadline on each attempt.
+  # pacman's retained download cache. Replace its short per-transfer timeout
+  # with the explicit overall deadline, so slow archive connections can finish.
   for attempt in 1 2 3; do
-    if timeout --kill-after=10s 600 pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl noto-fonts noto-fonts-cjk; then
+    if timeout --kill-after=10s 600 pacman -Syyuu --noconfirm --needed --disable-download-timeout base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl noto-fonts noto-fonts-cjk; then
       return 0
     fi
     if (( attempt < 3 )); then
