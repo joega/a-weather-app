@@ -252,6 +252,18 @@ owned directory and run its compiled `./a-weather-app`. Keep the existing
 installation and a backup of saved data for rollback; do not replace artifacts
 while native effects are loaded. Local builds are not published or installed automatically.
 
+Routine releases assume local tests have passed. They build each artifact once
+and check packaging, updater compatibility, startup, native hardening, checksums
+and current Go/native vulnerability evidence. GitHub Actions caches downloaded
+packages; package checksums and signatures are still verified on installation.
+Phase start/end markers stream to the job log, with full diagnostics and timings
+retained as build evidence.
+
+For the full test, lint, sanitizer and two-build reproducibility audit, run
+`WEATHER_VALIDATION_MODE=full bash scripts/run_go_migration_build.sh`, or select
+the **Audit validation (no publishing)** workflow in GitHub Actions. Full audits
+also exercise source and packaged widgets against pinned Omarchy modules.
+
 On first launch, open Locations and search for a city, choose a five-digit US ZIP, or explicitly
 choose approximate local detection. New York is the fallback location. Refresh
 failures retain cached weather with freshness indicators; unavailable alerts

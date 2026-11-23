@@ -53,6 +53,7 @@ jobs:
         shell: bash
         env:
           WEATHER_BUILD_JOBS: ${{ matrix.jobs }}
+          WEATHER_VALIDATION_MODE: full
         run: bash scripts/run_go_migration_build.sh
       - name: Retain results even when a gate blocks acceptance
         if: always()

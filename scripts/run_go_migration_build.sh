@@ -3,6 +3,17 @@
 set -euo pipefail
 umask 077
 source_root=$(cd -- "$(dirname -- "$0")/.." && pwd -P) || exit 1
+source "$source_root/packaging/release-profile.sh"
+select_release_profile
+cache_mount=()
+package_cache=""
+if [[ ${WEATHER_CACHE_PACKAGES:-0} == 1 ]]; then
+  package_cache="$source_root/build/package-cache"
+  [[ ! -L "$source_root/build" && ! -L $package_cache ]] || { printf 'Refusing a linked package cache.\n' >&2; exit 2; }
+  mkdir -p -- "$package_cache"
+  [[ $(stat --printf='%u' -- "$package_cache") == "$(id -u)" ]] || { printf 'Package cache must be owned by the build user.\n' >&2; exit 2; }
+  cache_mount=(--mount "type=bind,src=$package_cache,dst=/package-cache,readonly")
+fi
 image='archlinux@sha256:917e543c9d0f1f495d70907bdf05bf53607e791b351e1b01ccd3aec2442303ed'
 build_jobs=${WEATHER_BUILD_JOBS:-2}
 if [[ ! $build_jobs =~ ^[12]$ ]]; then
@@ -60,20 +71,46 @@ fi
 mkdir -p "$source_root/dist" || exit 1
 output_root=$(mktemp -d "$source_root/dist/go-migration.XXXXXXXX") || exit 1
 printf 'Running pinned Docker Go/Qt build from frozen source.\nFrozen source: %s\nArtifacts: %s\nPrivate full log: %s\n' "$snapshot_root" "$output_root" "$build_log"
+printf 'Validation profile: %s\n' "$release_validation_mode"
 build_start=$(date +%s%N)
 if (ulimit -f 65536; "${runner[@]}" run --rm \
+  "${cache_mount[@]}" \
   --mount "type=bind,src=$snapshot_root,dst=/source,readonly" \
   --mount "type=bind,src=$output_root,dst=/output" \
   --env "OUTPUT_UID=$(id -u)" --env "OUTPUT_GID=$(id -g)" \
   --env "WEATHER_RELEASE_VERSION=${WEATHER_RELEASE_VERSION:-}" \
   --env "WEATHER_BUILD_JOBS=$build_jobs" \
-  "$image" bash /source/packaging/go-container.sh) >> "$build_log" 2>&1; then
+  --env "WEATHER_VALIDATION_MODE=$release_validation_mode" \
+  "$image" bash /source/packaging/go-container.sh 2>&1 \
+  | tee -a "$build_log" \
+  | awk '
+      length($0) <= 200 && $1 == "PHASE" && length($3) <= 120 && $3 ~ /^[A-Za-z0-9_.\/-]+$/ &&
+      (($2 == "START" && NF == 3) ||
+       ($2 == "END" && NF == 5 && $4 ~ /^elapsed_ms=[0-9]+$/ && $5 ~ /^status=[0-9]+$/)) {
+        print; fflush()
+      }'
+  # Stream only bounded phase markers to CI; preserve every diagnostic in the
+  # private log. A failure in Docker, log retention or reporting blocks the run.
+  pipeline_status=("${PIPESTATUS[@]}")
+  for status in "${pipeline_status[@]}"; do
+    (( status == 0 )) || exit "$status"
+  done
+) ; then
   build_status=0
 else
   build_status=$?
 fi
 mkdir -p "$output_root/evidence"
-printf 'build_jobs\t%s\n' "$build_jobs" > "$output_root/evidence/build-settings.tsv"
+if [[ -n $package_cache && -d $output_root/package-cache ]]; then
+  shopt -s nullglob
+  for archive in "$output_root/package-cache/"*.pkg.tar.zst "$output_root/package-cache/"*.pkg.tar.zst.sig; do
+    if [[ -f $archive && ! -L $archive ]]; then
+      cp --remove-destination -- "$archive" "$package_cache/"
+    fi
+  done
+  find "$output_root/package-cache" -depth -delete
+fi
+printf 'build_jobs\t%s\nvalidation_profile\t%s\n' "$build_jobs" "$release_validation_mode" > "$output_root/evidence/build-settings.tsv"
 printf 'runner-total\t%s\t%s\n' "$((($(date +%s%N)-build_start)/1000000))" "$build_status" >> "$output_root/evidence/phase-timings.tsv"
 gzip -c "$build_log" > "$output_root/evidence/build.log.gz"
 printf 'Build exit status: %s\nArtifacts: %s\nPrivate full log: %s\n' "$build_status" "$output_root" "$build_log"

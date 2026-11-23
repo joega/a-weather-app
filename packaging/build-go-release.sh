@@ -8,6 +8,8 @@ if [[ ! -f /.dockerenv ]] || ! awk '$5 == "/source" && $6 ~ /(^|,)ro(,|$)/ { fou
 fi
 source_root=/source
 source /source/packaging/release-phases.sh
+source /source/packaging/release-profile.sh
+select_release_profile
 export MAKEFLAGS="-j${WEATHER_BUILD_JOBS:-2}"
 output_root=${GO_RELEASE_OUTPUT:-/output}
 if [[ "$output_root" != /output || ! -d "$output_root" ]]; then
@@ -27,7 +29,7 @@ export GOTOOLCHAIN=local
 build_root=$(mktemp -d /tmp/weather-go-release.XXXXXXXX)
 trap 'rm -rf -- "$build_root"' EXIT
 artifacts=(a-weather-app native/qt/a-weather-app-qt ui/shaders/atmosphere.frag.qsb native/frame-alignment/a-weather-app-frame-alignment.so native/atmosphere/a-weather-app-atmosphere)
-for copy in first second; do
+for copy in "${release_copies[@]}"; do
   checkout="$build_root/$copy"
   mkdir "$checkout"
   cp -a --no-preserve=ownership "$source_root/." "$checkout/"
@@ -46,13 +48,15 @@ for copy in first second; do
     run_phase "$copy-native-tools" go build -o build/weather-native-check ./cmd/weather-native-check
     run_phase "$copy-package-tools" go build -o build/weather-package ./cmd/weather-package
     if [[ "$copy" == first ]]; then
+      run_phase vulnerability-source bash packaging/check_release_vulnerabilities.sh source "$output_root/evidence"
+    fi
+    if [[ "$copy" == first && "$release_validation_mode" == full ]]; then
       run_phase release-log-tests bash packaging/test_release_log_retention.sh
       run_phase release-phase-tests bash packaging/test_release_phases.sh
       run_phase vulnerability-policy-tests bash packaging/vulnerability_policy.sh test
       run_phase vulnerability-adapter-tests bash packaging/test_govulncheck_adapter.sh
       run_phase advisory-fetch-tests bash packaging/test_arch_advisory_fetch.sh
       run_phase native-linkage-tests bash packaging/test_native_linkage.sh
-      run_phase vulnerability-source bash packaging/check_release_vulnerabilities.sh source "$output_root/evidence"
       run_phase vulnerability-known-fixture bash packaging/test_govulncheck_fixture.sh /tmp/weather-release-scanner/govulncheck "$output_root/evidence/known-fixture"
       run_phase png-memory-budget bash packaging/test_map_png_budget.sh
       run_phase go-lint make lint
@@ -104,12 +108,14 @@ for copy in first second; do
     fi
   )
 done
-for artifact in "${artifacts[@]}"; do
-  relative=$artifact
-  [[ "$relative" == a-weather-app ]] && relative=build/a-weather-app
-  run_phase "compare-$artifact" cmp "$build_root/first/$relative" "$build_root/second/$relative"
-done
-printf 'PASS: five artifacts byte-identical across independent build paths.\n'
+if [[ $release_validation_mode == full ]]; then
+  for artifact in "${artifacts[@]}"; do
+    relative=$artifact
+    [[ "$relative" == a-weather-app ]] && relative=build/a-weather-app
+    run_phase "compare-$artifact" cmp "$build_root/first/$relative" "$build_root/second/$relative"
+  done
+  printf 'PASS: five artifacts byte-identical across independent build paths.\n'
+fi
 runtime_root="$build_root/runtime"
 mkdir "$runtime_root"
 for artifact in "${artifacts[@]}"; do
@@ -129,7 +135,9 @@ git -c safe.directory=/source -C /source status --porcelain --untracked-files=al
 run_phase package-manifest "$build_root/first/build/weather-package" create --root "$runtime_root" --source /source
 run_phase updater-compatibility bash "$build_root/first/scripts/test_update_compatibility.sh" "$runtime_root"
 run_phase native-linkage bash "$build_root/first/packaging/collect_native_linkage.sh" "$runtime_root" "$output_root/evidence/native-linkage"
-run_phase packaged-integration make -C "$build_root/first/native/qt" test-e2e GO_APP="$runtime_root/a-weather-app"
+if [[ $release_validation_mode == full ]]; then
+  run_phase packaged-integration make -C "$build_root/first/native/qt" test-e2e GO_APP="$runtime_root/a-weather-app"
+fi
 run_phase runtime-verification bash "$build_root/first/scripts/verify_go_runtime.sh" "$runtime_root" /source "$build_root/first/build/weather-package"
 # Complete runtime validation before the reviewed native-coverage gate. A
 # confirmed finding or assessment failure still prevents release archive creation.

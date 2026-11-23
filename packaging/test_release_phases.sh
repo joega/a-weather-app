@@ -5,6 +5,11 @@ evidence=$(mktemp -d)
 trap 'rm -rf -- "$evidence"' EXIT
 export PHASE_TIMINGS="$evidence/timings.tsv"
 source "$root/packaging/release-phases.sh"
+source "$root/packaging/release-profile.sh"
+WEATHER_VALIDATION_MODE=release select_release_profile
+[[ ${release_copies[*]} == first ]]
+WEATHER_VALIDATION_MODE=full select_release_profile
+[[ ${release_copies[*]} == 'first second' ]]
 run_phase clean true
 if run_phase failure bash -c 'exit 17'; then exit 1; fi
 awk -F '\t' '$1=="failure" && $3==17 {found=1} END {exit !found}' "$PHASE_TIMINGS"

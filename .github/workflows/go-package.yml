@@ -39,12 +39,30 @@ jobs:
           else
             printf 'published=false\n' >> "$GITHUB_OUTPUT"
           fi
+      - name: Restore verified dependency downloads
+        if: steps.version.outputs.published != 'true'
+        id: packages
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: build/package-cache
+          key: weather-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/go-container.sh') }}
+          restore-keys: weather-packages-${{ runner.os }}-${{ runner.arch }}-
       - name: Freeze source and build inside pinned container
         if: steps.version.outputs.published != 'true'
         shell: bash
         env:
           WEATHER_RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          WEATHER_VALIDATION_MODE: release
+          WEATHER_CACHE_PACKAGES: '1'
         run: bash scripts/run_go_migration_build.sh
+      - name: Cache dependency downloads for subsequent releases
+        if: always() && steps.version.outputs.published != 'true' && steps.packages.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: build/package-cache
+          key: weather-packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/go-container.sh') }}
       - name: Retain build and assessment evidence
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always() && steps.version.outputs.published != 'true'
