@@ -38,10 +38,7 @@ case "$mode" in
   native)
     inventory=${3:?runtime manifest}
     install -m 644 "$inventory" "$evidence/assessed-runtime.json"
-    curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --location \
-      --max-time 60 --max-filesize 16777216 --silent --show-error \
-      -D "$evidence/arch-advisories.headers" https://security.archlinux.org/issues/all.json \
-      -o "$evidence/arch-advisories.json"
+    bash "$root/packaging/fetch_arch_advisories.sh" "$evidence"
     bash "$root/packaging/vulnerability_policy.sh" native "$inventory" \
       "$evidence/arch-advisories.json" "$evidence/native-assessment.json" \
       "$root/packaging/native-advisory-notes.json"

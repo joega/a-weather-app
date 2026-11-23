@@ -50,6 +50,7 @@ for copy in first second; do
       run_phase release-phase-tests bash packaging/test_release_phases.sh
       run_phase vulnerability-policy-tests bash packaging/vulnerability_policy.sh test
       run_phase vulnerability-adapter-tests bash packaging/test_govulncheck_adapter.sh
+      run_phase advisory-fetch-tests bash packaging/test_arch_advisory_fetch.sh
       run_phase native-linkage-tests bash packaging/test_native_linkage.sh
       run_phase vulnerability-source bash packaging/check_release_vulnerabilities.sh source "$output_root/evidence"
       run_phase vulnerability-known-fixture bash packaging/test_govulncheck_fixture.sh /tmp/weather-release-scanner/govulncheck "$output_root/evidence/known-fixture"
