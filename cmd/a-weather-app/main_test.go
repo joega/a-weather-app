@@ -152,6 +152,17 @@ func TestFrontendRetainsDesktopInputMethod(t *testing.T) {
 	}
 }
 
+func TestChildrenRetainDisplayLanguage(t *testing.T) {
+	for _, name := range []string{"LANGUAGE", "LC_MESSAGES"} {
+		t.Setenv(name, "es_ES.UTF-8")
+		for _, env := range [][]string{childEnvironment(), serviceEnvironment()} {
+			if !slices.Contains(env, name+"=es_ES.UTF-8") {
+				t.Fatal("child lost display language", name)
+			}
+		}
+	}
+}
+
 func TestIPCRecoveryRefusesUntrustedOrAmbiguousFailure(t *testing.T) {
 	root := t.TempDir()
 	os.Chmod(root, 0700)

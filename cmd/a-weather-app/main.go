@@ -90,7 +90,7 @@ func childEnvironment() []string {
 	// Go runtime's scheduler sized to their actual workload instead of allowing
 	// host CPU count to create unnecessary runnable Ps and scheduler work.
 	env := []string{"PATH=/usr/bin:/bin", "GOMAXPROCS=1"}
-	for _, k := range []string{"HOME", "LANG", "LC_ALL", "LC_CTYPE", "TZ", "WAYLAND_DISPLAY", "DISPLAY", "XDG_RUNTIME_DIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "DBUS_SESSION_BUS_ADDRESS", "HYPRLAND_INSTANCE_SIGNATURE", "QT_QPA_PLATFORM", "QT_QPA_PLATFORMTHEME", "QT_QUICK_BACKEND", "QT_QUICK_CONTROLS_STYLE", "QT_IM_MODULE", "A_WEATHER_APP_QML_DIAGNOSTIC"} {
+	for _, k := range []string{"HOME", "LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES", "LC_CTYPE", "TZ", "WAYLAND_DISPLAY", "DISPLAY", "XDG_RUNTIME_DIR", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "DBUS_SESSION_BUS_ADDRESS", "HYPRLAND_INSTANCE_SIGNATURE", "QT_QPA_PLATFORM", "QT_QPA_PLATFORMTHEME", "QT_QUICK_BACKEND", "QT_QUICK_CONTROLS_STYLE", "QT_IM_MODULE", "A_WEATHER_APP_QML_DIAGNOSTIC"} {
 		if v, ok := os.LookupEnv(k); ok {
 			env = append(env, k+"="+v)
 		}

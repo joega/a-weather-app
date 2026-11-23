@@ -20,10 +20,19 @@ func TestQuickshellWidgetUpdateActions(t *testing.T) {
 func testQuickshellWidgetUpdateActions(t *testing.T, packaged bool) {
 	qs, e := exec.LookPath("quickshell")
 	if e != nil {
+		if os.Getenv("WEATHER_REQUIRE_BAR_TEST") == "1" {
+			t.Fatal("Quickshell is required for release widget checks")
+		}
 		t.Skip("Quickshell is needed for the isolated bar interaction test")
 	}
-	shell := "/usr/share/omarchy/shell"
+	shell := os.Getenv("OMARCHY_SHELL_ROOT")
+	if shell == "" {
+		shell = "/usr/share/omarchy/shell"
+	}
 	if _, e = os.Stat(filepath.Join(shell, "Ui/PopupCard.qml")); e != nil {
+		if os.Getenv("WEATHER_REQUIRE_BAR_TEST") == "1" {
+			t.Fatal("Omarchy modules are required for release widget checks", e)
+		}
 		t.Skip("Omarchy UI components are needed for the bar interaction test")
 	}
 	dir, e := os.MkdirTemp("/tmp", "awu-bar-")
@@ -57,7 +66,7 @@ func testQuickshellWidgetUpdateActions(t *testing.T, packaged bool) {
 	}
 	helper := `#!/usr/bin/bash
 set -euo pipefail
-printf '%s\n' "$*" >> "$HOME/actions"
+printf '%s %s\n' "$LANGUAGE" "$*" >> "$HOME/actions"
 if [[ " $* " == *' --bar '* ]]; then
 printf '%s\n' '{"schema_version":1,"label":"20°C","tooltip":"Saved weather","freshness":"fresh","update":{"state":"available","installed":"0.51.5","available":"0.51.9","message":"A new version is ready","checked_at":1}}'
 fi
@@ -65,6 +74,7 @@ fi
 	writeRuntimeFixture(t, filepath.Join(dir, "helper/a-weather-app"), []byte(helper), 0700)
 	qml := `import QtQuick
 import Quickshell
+import qs.Commons as Commons
 ShellRoot {
     FloatingWindow {
         implicitWidth: 500; implicitHeight: 50
@@ -75,12 +85,18 @@ ShellRoot {
         }
         Timer { interval: 800; running: true; onTriggered: {
             if (widget.update.installed !== "0.51.5" || widget.update.available !== "0.51.9" || !widget.updateNotice) throw "missing update notice";
-            widget.language = "es";
+            if (widget.shellLanguage !== "es") throw "missing Omarchy language";
             if (widget.tr("Check for updates") === "Check for updates") throw "missing bundled translations";
+            Commons.I18n.languageFile.setText("fr\n");
+            Commons.I18n.languageFile.reload();
             widget.activateWidget();
             widget.checkUpdates(true);
         } }
-        Timer { interval: 1400; running: true; onTriggered: widget.installUpdate() }
+        Timer { interval: 1400; running: true; onTriggered: {
+            if (widget.shellLanguage !== "fr" || widget.language !== "fr") throw "missing live Omarchy language switch";
+            if (widget.tr("Check for updates") !== "Rechercher des mises à jour") throw "missing live translation";
+            widget.installUpdate();
+        } }
         Timer { interval: 2000; running: true; onTriggered: { console.log("WEATHER_BAR_UPDATE_ACTIONS_OK"); Qt.quit(); } }
     }
 }
@@ -91,6 +107,7 @@ ShellRoot {
 			t.Fatal(e)
 		}
 	}
+	writeRuntimeFixture(t, filepath.Join(dir, "config/omarchy/language"), []byte("es\n"), 0600)
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, qs, "--path", filepath.Join(dir, "shell.qml"), "--no-color")
@@ -105,7 +122,7 @@ ShellRoot {
 		}
 	}
 	actions, e := os.ReadFile(filepath.Join(dir, "actions"))
-	if e != nil || !strings.Contains(string(actions), "--force-update-check") || !strings.Contains(string(actions), "--install-update") {
+	if e != nil || !strings.Contains(string(actions), "--force-update-check") || !strings.Contains(string(actions), "fr --state-dir") || !strings.Contains(string(actions), "--install-update") {
 		t.Fatal("widget actions did not invoke update helpers", e, string(actions), string(output))
 	}
 }

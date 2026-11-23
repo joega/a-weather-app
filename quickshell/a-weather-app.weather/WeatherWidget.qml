@@ -20,7 +20,18 @@ OmarchyUi.BarWidget {
     readonly property string output: safeSelector(setting("output", ""), /^[A-Za-z0-9_.:-]{1,128}$/)
     readonly property bool configured: projectPath !== "" && statePath !== ""
     readonly property bool opened: app.running
-    property string language: Translations.detect((Quickshell.env("LANGUAGE") || "").split(":").concat([Quickshell.env("LC_ALL") || Quickshell.env("LC_MESSAGES"), Quickshell.env("LANG")]))
+    readonly property string shellLanguage: Commons.I18n.language
+    readonly property var languageEnvironment: ({
+            LANGUAGE: root.shellLanguage
+        })
+    // Keep translations inline-compatible with older verified runtime bundles.
+    // Omarchy owns the live language selection; a saved app preference still
+    // takes precedence when the bounded bar helper returns its snapshot.
+    property string language: Translations.detect([root.shellLanguage])
+    onShellLanguageChanged: {
+        language = Translations.detect([shellLanguage]);
+        refresh();
+    }
     function tr(source, args) {
         return Translations.text(language, source, args);
     }
@@ -304,12 +315,14 @@ OmarchyUi.BarWidget {
     }
     Process {
         id: windowToggle
+        environment: root.languageEnvironment
         // Let the launcher resolve symlinks just as it does when starting Qt.
         command: [root.projectPath + "/a-weather-app", "--toggle-window", "--state-dir", root.statePath]
         onExited: code => toggleDeadline.stop()
     }
     Process {
         id: reader
+        environment: root.languageEnvironment
         command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--bar"]
         stdout: SplitParser {
             splitMarker: ""
@@ -343,6 +356,7 @@ OmarchyUi.BarWidget {
     }
     Process {
         id: updateChecker
+        environment: root.languageEnvironment
         command: {
             let args = [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--check-updates"];
             if (root.manualUpdateCheck)
@@ -359,6 +373,7 @@ OmarchyUi.BarWidget {
     }
     Process {
         id: updateInstaller
+        environment: root.languageEnvironment
         command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--install-update"]
         onExited: code => {
             if (code === 0) {
@@ -371,6 +386,7 @@ OmarchyUi.BarWidget {
     }
     Process {
         id: backgroundRefresh
+        environment: root.languageEnvironment
         command: [root.projectPath + "/a-weather-app", "--state-dir", root.statePath, "--refresh-bar"]
         onExited: code => {
             refreshDeadline.stop();
@@ -384,6 +400,7 @@ OmarchyUi.BarWidget {
     }
     Process {
         id: app
+        environment: root.languageEnvironment
         command: {
             let args = [root.projectPath + "/a-weather-app", "--state-dir", root.statePath];
             if (root.instance !== "")
