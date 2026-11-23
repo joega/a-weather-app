@@ -100,6 +100,11 @@ and Polski. Follows your system language automatically, or switch instantly in
 
 ## Install on Omarchy
 
+The current compatibility target is Omarchy 4.5 with Qt 6.12 and Hyprland 0.56.2.
+The bar follows Omarchy's live display-language selection; an explicit language
+chosen in the app takes precedence. Native desktop effects require a build
+matching the running compositor and are checked before activation.
+
 Omarchy clones this repository to install the bar widget; it does not run an
 installer or build the native app. Install the compiled runtime explicitly after
 adding the plugin:

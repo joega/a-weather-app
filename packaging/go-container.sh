@@ -21,27 +21,31 @@ export PHASE_TIMINGS
 export WEATHER_BUILD_JOBS=${WEATHER_BUILD_JOBS:-2}
 [[ $WEATHER_BUILD_JOBS =~ ^[12]$ ]] || { printf 'Build jobs must be 1 or 2.\n' >&2; exit 2; }
 # Configuration below belongs exclusively to this disposable container.
-printf 'Server = https://archive.archlinux.org/repos/2026/09/26/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
+printf 'Server = https://archive.archlinux.org/repos/2026/10/22/$repo/os/$arch\n' > /etc/pacman.d/mirrorlist
 run_phase dependency-setup pacman -Syyuu --noconfirm --needed base-devel git go jq hyprland qt6-base qt6-declarative qt6-tools qt6-shadertools quickshell gtk4 gtk4-layer-shell json-glib libepoxy libnotify strace clang python curl noto-fonts noto-fonts-cjk
-# Keep the reviewed native snapshot while fixing October's Go advisories. Both
+# Match Omarchy 4.5's native ABI, rather than a newer Arch compositor release.
+[[ $(pacman -Q hyprland) == 'hyprland 0.56.2-4' ]]
+[[ $(pacman -Q qt6-base) == 'qt6-base 6.12.0-3' ]]
+[[ $(pacman -Q qt6-declarative) == 'qt6-declarative 6.12.0-2' ]]
+# Keep the native snapshot while advancing the security-patched compiler. Both
 # the archive checksum and Arch signature are required; installation stays in
 # this disposable container, and pacman records the actual compiler version.
 compiler_start=$(date +%s%N)
 compiler_package=$(mktemp /tmp/weather-go-compiler.XXXXXXXX.pkg.tar.zst)
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --location \
   --max-time 120 --max-filesize 67108864 --silent --show-error \
-  https://archive.archlinux.org/repos/2026/10/10/extra/os/x86_64/go-2%3A1.27.2-1-x86_64.pkg.tar.zst \
+  https://archive.archlinux.org/repos/2026/11/22/extra/os/x86_64/go-2%3A1.27.4-1-x86_64.pkg.tar.zst \
   -o "$compiler_package"
-printf '7b9d6eab0e71261e7b1935eaafec326f0845eebb59a80684021f775864da7750  %s\n' \
+printf '80efa5d5375cdfc3ed5748fc1d9ba074190233c8250c08d58e206ca3869c60ed  %s\n' \
   "$compiler_package" | sha256sum --check --strict
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --location \
   --max-time 60 --max-filesize 65536 --silent --show-error \
-  https://archive.archlinux.org/repos/2026/10/10/extra/os/x86_64/go-2%3A1.27.2-1-x86_64.pkg.tar.zst.sig \
+  https://archive.archlinux.org/repos/2026/11/22/extra/os/x86_64/go-2%3A1.27.4-1-x86_64.pkg.tar.zst.sig \
   -o "$compiler_package.sig"
 run_phase compiler-signature pacman-key --verify "$compiler_package.sig" "$compiler_package"
 run_phase compiler-security-update pacman -U --noconfirm "$compiler_package"
-[[ $(pacman -Q go) == 'go 2:1.27.2-1' ]]
-[[ $(go env GOVERSION) == 'go1.27.2-X:nodwarf5' ]]
+[[ $(pacman -Q go) == 'go 2:1.27.4-1' ]]
+[[ $(go env GOVERSION) == 'go1.27.4-X:nodwarf5' ]]
 rm -f -- "$compiler_package" "$compiler_package.sig"
 printf 'compiler-pin\t%s\t0\n' "$((($(date +%s%N)-compiler_start)/1000000))" >> "$PHASE_TIMINGS"
 # Analyze the widget against real, pinned Omarchy modules without installing
@@ -49,9 +53,10 @@ printf 'compiler-pin\t%s\t0\n' "$((($(date +%s%N)-compiler_start)/1000000))" >> 
 omarchy_start=$(date +%s%N)
 omarchy_imports=$(mktemp -d /tmp/weather-omarchy-imports.XXXXXXXX)
 curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --location --silent --show-error \
-  https://pkgs.omarchy.org/stable/x86_64/omarchy-4.0.4-1-x86_64.pkg.tar.zst \
+  --max-time 180 --max-filesize 134217728 \
+  https://pkgs.omarchy.org/stable/x86_64/omarchy-4.5.0-3-x86_64.pkg.tar.zst \
   -o "$omarchy_imports/omarchy.pkg.tar.zst"
-printf '78fa778d48180aaf776b44f89ae86780f78e7b47440aa20faeb4a1be9240339c  %s\n' \
+printf 'bfe75d086c8b5c919280372afdd72e8cc7b0f66745f052d826b5a588fdad33eb  %s\n' \
   "$omarchy_imports/omarchy.pkg.tar.zst" | sha256sum --check --strict
 tar --extract --file "$omarchy_imports/omarchy.pkg.tar.zst" --directory "$omarchy_imports" \
   usr/share/omarchy/shell

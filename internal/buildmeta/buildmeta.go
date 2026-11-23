@@ -28,7 +28,7 @@ import (
 )
 
 const Image = "archlinux@sha256:917e543c9d0f1f495d70907bdf05bf53607e791b351e1b01ccd3aec2442303ed"
-const Snapshot = "2026/09/26"
+const Snapshot = "2026/10/22"
 const manifestPath = "packaging/runtime.json"
 
 var artifacts = []string{"a-weather-app", "native/qt/a-weather-app-qt", "ui/shaders/atmosphere.frag.qsb", "native/frame-alignment/a-weather-app-frame-alignment.so", "native/atmosphere/a-weather-app-atmosphere"}
