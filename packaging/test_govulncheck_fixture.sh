@@ -36,7 +36,10 @@ for mode in source binary; do
     > "$evidence/known-vulnerable-$mode.json" 2> "$evidence/known-vulnerable-$mode.stderr" || status=$?
   # Ensure this is a real finding, not merely an advisory record or a failure.
   jq -se 'any(.[]; .finding.osv == "GO-2021-0113")' "$evidence/known-vulnerable-$mode.json"
-  if bash "$root/packaging/vulnerability_policy.sh" go "$evidence/known-vulnerable-$mode.json" "$status"; then
+  database="$evidence/known-vulnerable-$mode-database.json"
+  bash "$root/packaging/vulnerability_policy.sh" refresh-go-database "$database"
+  canonical=$(bash "$root/packaging/vulnerability_policy.sh" normalize-go "$(go env GOVERSION)")
+  if bash "$root/packaging/vulnerability_policy.sh" go "$evidence/known-vulnerable-$mode.json" "$status" "$canonical" "$database"; then
     printf 'Known vulnerable fixture incorrectly accepted.\n' >&2; exit 1
   fi
 done

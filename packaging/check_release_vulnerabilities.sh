@@ -33,7 +33,8 @@ case "$mode" in
     scan_go_advisories "$scanner_root/govulncheck" "$mode" "$evidence" "go-$mode" "$(go env GOVERSION)" "${args[@]}" > "$evidence/go-$mode.json" \
       2> "$evidence/go-$mode.stderr" || status=$?
     printf '%s\n' "$status" > "$evidence/go-$mode.exit"
-    bash "$root/packaging/vulnerability_policy.sh" go "$evidence/go-$mode.json" "$status" "$(bash "$root/packaging/vulnerability_policy.sh" normalize-go "$(go env GOVERSION)")"
+    bash "$root/packaging/vulnerability_policy.sh" refresh-go-database "$evidence/go-$mode-database.json"
+    bash "$root/packaging/vulnerability_policy.sh" go "$evidence/go-$mode.json" "$status" "$(bash "$root/packaging/vulnerability_policy.sh" normalize-go "$(go env GOVERSION)")" "$evidence/go-$mode-database.json"
     ;;
   native)
     inventory=${3:?runtime manifest}
