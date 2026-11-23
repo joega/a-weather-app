@@ -7,6 +7,12 @@ on:
   push:
     branches: [codex/audit-061-validation]
   workflow_dispatch:
+    inputs:
+      compiler_jobs:
+        description: Compiler jobs for manual validation (each run builds twice)
+        type: choice
+        options: ['2', '1']
+        default: '2'
 
 permissions:
   contents: read
@@ -18,7 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jobs: [1, 2]
+        # The comparison branch checks both resource profiles. A manual release
+        # validation needs one profile, with both independent builds and gates.
+        jobs: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('[{0}]', inputs.compiler_jobs || '2') || '[1,2]') }}
     name: Build with ${{ matrix.jobs }} compiler jobs
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
