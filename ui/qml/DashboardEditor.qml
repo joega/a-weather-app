@@ -162,7 +162,10 @@ Popup {
                     visible: tabs.currentIndex === 0
                     rows: root.draft.sections
                     group: "sections"
-                    onChanged: rows => root.update("sections", rows)
+                    // Qt signals can expose a QVariantList sequence rather
+                    // than a JS Array. Normalize only at this UI boundary;
+                    // Dashboard.preferences keeps its strict JSON validation.
+                    onChanged: rows => root.update("sections", Array.from(rows))
                 }
                 ColumnLayout {
                     visible: tabs.currentIndex === 0
@@ -194,7 +197,7 @@ Popup {
                     rows: root.draft.metrics
                     group: "metrics"
                     minimum: 1
-                    onChanged: rows => root.update("metrics", rows)
+                    onChanged: rows => root.update("metrics", Array.from(rows))
                 }
                 DashboardOrder {
                     Layout.fillWidth: true
@@ -207,7 +210,7 @@ Popup {
                     minimum: 1
                     maximum: 3
                     selectedOnlyMoves: true
-                    onChanged: rows => root.update("hourly", rows.filter(row => row.enabled).map(row => row.id))
+                    onChanged: rows => root.update("hourly", Array.from(rows).filter(row => row.enabled).map(row => row.id))
                 }
             }
         }

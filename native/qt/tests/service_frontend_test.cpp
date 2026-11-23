@@ -1263,7 +1263,12 @@ class ServiceFrontendTest : public QObject {
         QVERIFY(!named("forecastAtmosphere")->property("presentationActive").toBool());
         QVERIFY(!eval("root.mapActive").toBool());
         activate("dashboard_sections_maps");
+        QTRY_VERIFY(
+            !eval("dashboardLoader.item.draft.sections.find(r=>r.id==='maps').enabled").toBool());
         activate("dashboard_sections_air_quality");
+        QTRY_VERIFY(
+            !eval("dashboardLoader.item.draft.sections.find(r=>r.id==='air_quality').enabled")
+                 .toBool());
         activate("dashboard_sections_daily_down");
         QTRY_COMPARE(eval("dashboardLoader.item.draft.sections[1].id").toString(),
                      QString("metrics"));
